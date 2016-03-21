@@ -2,33 +2,11 @@
 % Please edit documentation in R/yingtools2.R
 \name{\%!in\%}
 \alias{\%!in\%}
-\title{...Title...}
+\title{Not In}
 \usage{
-...usage.code...
-
-...details...
-}
-\arguments{
-\item{.param1.}{...param1.description...}
-
-\item{.param2.}{...param2.description...}
-}
-\value{
-...description.of.data.returned...
+x \%!in\% y
 }
 \description{
-...Description...
+Convenience function. \code{a \%!in\% b} is equivalent to \code{!(a \%in\% b)}
 }
-\examples{
-...examples.here....
-}
-\author{
-Ying Taur
-}
-\seealso{
-\code{\link{cdiff.method}}
-}
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}
 

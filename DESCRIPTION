@@ -8,7 +8,7 @@ Maintainer: Ying Taur <taury@mskcc.org>
 Description: Useful R Functions by Ying
 License: GPL-2
 LazyData: TRUE
-Imports: stringr,dplyr,tidyr,ape
+Imports: stringr,reshape2,dplyr,tidyr,readxl,ape,phyloseq
 
 
 

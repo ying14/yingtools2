@@ -1,29 +1,51 @@
 ## git remote add origin git@github.com:ying14/yingtools2.git
 ## git push -u origin master
-##' ...Title...
-##'
-##' ...Description...
-##'
-##' @usage ...usage.code...
-##'
-##' ...details...
-##'
-##' @param .param1. ...param1.description...
-##' @param .param2. ...param2.description...
-##' @return ...description.of.data.returned...
-##' @examples
-##' ...examples.here....
-##' @keywords keyword1 keyword2 ...
-##' @seealso \code{\link{cdiff.method}}
-##' @author Ying Taur
-##' @export
+
+#" ...Title...
+#"
+#" ...Description...
+#"
+#" @usage ...usage.code...
+#"
+#" ...details...
+#"
+#" @param .param1. ...param1.description...
+#" @param .param2. ...param2.description...
+#" @return ...description.of.data.returned...
+#" @examples
+#" ...examples.here....
+#" @keywords keyword1 keyword2 ...
+#" @seealso \code{\link{cdiff.method}}
+#" @author Ying Taur
+#" @export
 
 
+#' Not In
+#'
+#' Convenience function. \code{a \%!in\% b} is equivalent to \code{!(a \%in\% b)}
 #' @export
 "%!in%" = function(x,y) {
   !(x %in% y)
 }
 
+
+#' Subtract Dates
+#' @export
+"%-%" = function(x,y) {
+  #if subtracting dates, will make the output numeric (instead of time-difference)
+  #   x <- ISOdatetime(2015,6,20,20,31,04,"GMT")
+  #   y <- ISOdatetime(1975,2,21,17,00,00,"EDT")
+  #   x <- ISOdatetime(2015,6,20,00,00,00,"GMT")
+  #   y <- ISOdatetime(1975,2,21,00,00,00,"EDT")
+  if (is.POSIXct(x) & is.POSIXct(y)) {
+    x.timezone <- format(x,format="%Z")
+    y.timezone <- format(y,format="%Z")
+    if (any(x.timezone!=y.timezone,na.rm=TRUE)) {
+      warning("YT: timezones are different! ")
+    }
+  }
+  as.numeric(as.POSIXct(x) - as.POSIXct(y), units="days")
+}
 
 #' Ying's Paste
 #'
@@ -46,18 +68,18 @@
 #' c <- c(NA,NA,NA)
 #'
 #' # Produces same output
-#' paste(a,collapse=",")
-#' paste2(a,collapse=",")
+#' paste(a,collapse=",") #produces "1,2,3"
+#' paste2(a,collapse=",") #produces "1,2,3"
 #'
 #' # Output is different for these
-#' paste(b,collapse=",")
-#' paste2(b,collapse=",")
+#' paste(b,collapse=",") #produces "4,5,NA"
+#' paste2(b,collapse=",") #produces "4,5"
 #'
-#' paste(c,collapse=",")
-#' paste2(c,collapse=",")
+#' paste(c,collapse=",") #produces "NA,NA,NA"
+#' paste2(c,collapse=",") #produces NA
 #'
-#' paste(a,b,collapse=",")
-#' paste2(a,b,collapse=",")
+#' paste(a,b,collapse=",") #produces "1 4,2 5,3 NA"
+#' paste2(a,b,collapse=",") #produces "1 4,2 5,3"
 #' @author Ying Taur
 #' @export
 paste2 <- function(...,sep=" ",collapse=NULL) {
@@ -140,6 +162,7 @@ min2 <- function(...,na.rm=FALSE) {
 
 
 #' Ying's Cut 2
+#'
 #' @export
 cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
   if (!missing(lower)) {
@@ -198,6 +221,8 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
 #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
 #'
 #' If \code{obj} is a data frame, it will look for carriage returns within the data, and replace with ";"
+#' Note that if this is accomplished differently depending on operating system.
+#' If Linux, xclip is used, so you may need to install this from terminal first: 'sudo apt-get install xclip'
 #'
 #' @param obj object to by copied. Can be data frame, matrix, table, vector.
 #' @author Ying Taur
@@ -208,7 +233,7 @@ copy.to.clipboard <- function(obj) {
     col.names <- !is.vector(obj)
     write.table(obj, con, sep="\t",quote=FALSE, row.names=FALSE, col.names=col.names)
     close(con)
-  } else { #windows
+  } else if (Sys.info()["sysname"]=="Windows") { #windows
     if (is.data.frame(obj)) {
       #obj=cod.summary
       if (any((grepl("\n",c(as.character(unlist(obj)),names(obj)),fixed=TRUE)))) {
@@ -226,6 +251,8 @@ copy.to.clipboard <- function(obj) {
     } else {
       writeClipboard(obj)
     }
+  } else {
+    stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
   }
   print("Copied to clipboard")
 }
@@ -235,7 +262,8 @@ copy.to.clipboard <- function(obj) {
 #'
 #' Opens the specified file using the application specified.
 #'
-#' Linux R doesn't have this function, but Windows R does. So this emulates on Linux using the 'xdg-open' terminal command..
+#' Note that this does different things depending on operating system. Windows R already has a \code{shell.exec} function, so it just uses that.
+#' Linux R doesn't have this function, so this emulates on Linux using the 'xdg-open' terminal command..
 #' @param file file to be opened
 #' @return No value.
 #' @author Ying Taur
@@ -247,7 +275,7 @@ shell.exec <- function(file) {
   } else if (Sys.info()['sysname']=="Windows") {
     base::shell.exec(file)
   } else {
-    stop("YTError, I don't know how to run shell.exec on ",Sys.info()['sysname']," OS")
+    stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
   }
 }
 
@@ -256,6 +284,7 @@ shell.exec <- function(file) {
 #' Read clipboard into vector or data frame.
 #'
 #' @param sep separator between lines
+#' @return Contents of clipboard
 #' @author Ying Taur
 #' @export
 read.clipboard <- function(sep="\n") {
@@ -505,7 +534,9 @@ date.regex <- function(format) {
 #' @param vec The vector to be converted.
 #' @return Returns vector converted to Date. If date+time, convert to POSIXct.
 #' @examples
-#' asdf
+#' #Access dates read by RODBC:
+#' access.dates <- c("2009-012-03 00:00:00","2010-08-21 00:00:00","2013-07-01 00:00:00","2014-10-31 00:00:00")
+#' as.Date2(access.dates)
 #' @export
 as.Date2 <- function(vec) {
   #vec=data$Entered.Date.and.Time
@@ -523,7 +554,7 @@ as.Date2 <- function(vec) {
                     "%d-%b-%Y", #"21-Jan-2014","04-Feb-2014"
                     "%m-%d-%y", #"01-14-14","01-21-14"
                     "%m/%d/%y", #"01/14/14","01/21/14"
-                    "%Y-%m-%d 00:00:00", #"2004-02-21 00:00:00","1999-07-20 00:00:00"
+                    "%Y-%m-%d 00:00:00", #"2004-02-21 00:00:00","1999-07-20 00:00:00" Access dates, read in by RODBC
                     "%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29","1999-07-20 14:25:29"
                     "%Y-%m-%d-%H.%M.%S") #"1999-07-27-10.55.27","1999-07-27-10.55.27"
 
@@ -531,14 +562,13 @@ as.Date2 <- function(vec) {
   for (df in date.formats) {
     #if (all.grepl(date.regex(df),vec2)) {
     #use of useBytes is to avoid warnings about locale
-    df="%Y-%m-%d 00:00:00"
     if (all.grepl(date.regex(df),vec2,useBytes=TRUE)) {
-      print("hit")
       return(as.POSIXct(vec,format=df,tz="UTC"))
     }
   }
   return(vec)
 }
+
 
 
 #' All Grepl
@@ -584,9 +614,6 @@ convert.dates <- function(data) {
   return(newdata)
 }
 
-##################
-##### is.mrn #####
-##################
 
 #' Determine if variable is a properly formatted MSKCC MRN
 #'
@@ -620,10 +647,6 @@ is.mrn <- function(mrn,like=FALSE) {
 }
 
 
-
-##################
-##### as.mrn #####
-##################
 #' Convert to MRN format
 #'
 #' Formats data containing MRNs
@@ -843,6 +866,75 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
 }
 
 
+#' Read Excel File 2
+#'
+#' Same as \code{readxl::read_excel} function, but col_types can be named vector
+#'
+#' @param path Path to the xls/xlsx file
+#' @param sheet Sheet to read. Either a string (the name of a sheet), or an integer (the position of the sheet). Defaults to the first sheet.
+#' @param col_names Either TRUE to use the first row as column names, FALSE to number columns sequentially from X1 to Xn, or a character vector giving a name for each column.
+#' @param col_types Either NULL to guess from the spreadsheet or a character vector containing "blank", "numeric", "date" or "text". (YTmod: can be named vector listing only variables you want to change)
+#' @param na Missing value. By default readxl converts blank cells to missing data. Set this value if you have used a sentinel value for missing values.
+#' @param skip Number of rows to skip before reading any data.
+#' @return A data frame consisting of Excel data.
+#' @export
+read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na = "",skip = 0) {
+  #path="Allo Patients 2015Apr15.xlsx";col_types=c("ANC 500"="date","POD Date"="date","Last Contact"="date","Relapse Date"="date","Onset"="date");sheet=1;col_names=TRUE;na="";skip=0
+  if (!is.null(col_types)) {
+    data <- readxl::read_excel(path=path,sheet=sheet,col_names=col_names,na=na,skip=skip)
+    dtypes <- structure(recode2(sapply(data,function(x) first(class(x))),c("character"="text","POSIXct"="date")),names=names(data))
+    if (any(names(col_types) %!in% names(dtypes))) {
+      stop("YTError, variable names in col_types not all found in excel sheet names!")
+    }
+    dtypes[match(names(col_types),names(dtypes))] <- col_types
+    col_types <- dtypes
+  }
+  xl <- read_excel(path=path,sheet=sheet,col_names=col_names,col_types=col_types,na=na,skip=skip)
+  return(xl)
+}
+
+#' Send a Text Message
+#'
+#' Send a text message to your phone!
+#'
+#' @param message A string containing the message you want to send.
+#' @param number The phone number you want to send the message to. Default is Ying's cell number.
+#' @return No value.
+#' @examples
+#' send.text.message("Hello, this is a text message")
+#' @author Ying Taur
+#' @export
+send.text.message <- function(message,number="9149802489") {
+  if (Sys.info()["sysname"]=="Linux") {
+    system(paste0("curl http://textbelt.com/text -d number=",number," -d \"message=",message,"\""))
+  } else {
+    stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
+  }
+}
+
+
+#' Middle Pattern
+#'
+#' Creates a regular expression to extract text in between two patterns. This utilizes Perl-style lookahead and lookbehind assertions.
+#'
+#' @param start Expression prior to middle expression.
+#' @param middle Middle expression to be found.
+#' @param end Expression after middle expression.
+#' @return A regular expression (Perl-style).
+#' @examples
+#' text <- c("start[target]end","start[target 2]end","start[target 3]")
+#' str_extract(text,middle.pattern("start",".+","end"))
+#' str_extract(text,middle.pattern("start",".+"))
+#' @export
+middle.pattern <- function(start="",middle=".+",end="") {
+  if (start!="") {
+    start <- paste0("(?<=",start,")")
+  }
+  if (end!="") {
+    end <- paste0("(?=",end,")")
+  }
+  paste0(start,middle,end)
+}
 
 
 # #' CID Data
@@ -903,45 +995,7 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
 # }
 #
 #
-# #' Read Excel File 2
-# #'
-# #' Same as readxl::read_excel function, but col_types can be named vector
-# #'
-# #' @param path Path to the xls/xlsx file
-# #' @param sheet Sheet to read. Either a string (the name of a sheet), or an integer (the position of the sheet). Defaults to the first sheet.
-# #' @param col_names Either TRUE to use the first row as column names, FALSE to number columns sequentially from X1 to Xn, or a character vector giving a name for each column.
-# #' @param col_types Either NULL to guess from the spreadsheet or a character vector containing "blank", "numeric", "date" or "text". (YTmod: can be named vector listing only variables you want to change)
-# #' @param na Missing value. By default readxl converts blank cells to missing data. Set this value if you have used a sentinel value for missing values.
-# #' @param skip Number of rows to skip before reading any data.
-# #' @export
-# read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na = "",skip = 0) {
-#   #path="Allo Patients 2015Apr15.xlsx";col_types=c("ANC 500"="date","POD Date"="date","Last Contact"="date","Relapse Date"="date","Onset"="date");sheet=1;col_names=TRUE;na="";skip=0
-#   if (!is.null(col_types)) {
-#     data <- read_excel(path=path,sheet=sheet,col_names=col_names,na=na,skip=skip)
-#     dtypes <- structure(recode2(sapply(data,function(x) first(class(x))),c("character"="text","POSIXct"="date")),names=names(data))
-#     if (any(names(col_types) %!in% names(dtypes))) {
-#       stop("YTError, variable names in col_types not all found in excel sheet names!")
-#     }
-#     dtypes[match(names(col_types),names(dtypes))] <- col_types
-#     col_types <- dtypes
-#   }
-#   xl <- read_excel(path=path,sheet=sheet,col_names=col_names,col_types=col_types,na=na,skip=skip)
-#   return(xl)
-# }
-#
-# #' Send a Text Message
-# #'
-# #' Send a text message to your phone!
-# #'
-# #' @param message A string containing the message you want to send.
-# #' @param number The phone number you want to send the message to. Default is Ying's cell number.
-# #' @examples
-# #' send.text.message("Hello, this is a text message")
-# #' @author Ying Taur
-# #' @export
-# send.text.message <- function(message,number="9149802489") {
-#   system(paste0("curl http://textbelt.com/text -d number=",number," -d \"message=",message,"\""))
-# }
+
 #
 #
 # #' Run commands while away
@@ -1251,16 +1305,7 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
 # }
 #
 #
-# #' @export
-# middle.pattern <- function(start="",middle=".+",end="") {
-#   if (start!="") {
-#     start <- paste0("(?<=",start,")")
-#   }
-#   if (end!="") {
-#     end <- paste0("(?=",end,")")
-#   }
-#   paste0(start,middle,end)
-# }
+
 #
 #
 #
@@ -1747,22 +1792,7 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
 # }
 #
 #
-# #' @export
-# "%-%" = function(x,y) {
-#   #if subtracting dates, will make the output numeric (instead of time-difference)
-#   #   x <- ISOdatetime(2015,6,20,20,31,04,"GMT")
-#   #   y <- ISOdatetime(1975,2,21,17,00,00,"EDT")
-#   #   x <- ISOdatetime(2015,6,20,00,00,00,"GMT")
-#   #   y <- ISOdatetime(1975,2,21,00,00,00,"EDT")
-#   if (is.POSIXct(x) & is.POSIXct(y)) {
-#     x.timezone <- format(x,format="%Z")
-#     y.timezone <- format(y,format="%Z")
-#     if (any(x.timezone!=y.timezone,na.rm=TRUE)) {
-#       warning("YT: timezones are different! ")
-#     }
-#   }
-#   as.numeric(as.POSIXct(x) - as.POSIXct(y), units="days")
-# }
+
 #
 #
 #

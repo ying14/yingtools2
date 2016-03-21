@@ -14,6 +14,8 @@ Copies object to the clipboard, which can be used to paste into other programs s
 }
 \details{
 If \code{obj} is a data frame, it will look for carriage returns within the data, and replace with ";"
+Note that if this is accomplished differently depending on operating system.
+If Linux, xclip is used, so you may need to install this from terminal first: 'sudo apt-get install xclip'
 }
 \author{
 Ying Taur
