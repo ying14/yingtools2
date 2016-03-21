@@ -1,10 +1,14 @@
 Package: yingtools2
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1
+Title: Ying's R Tools
+Version: 0.0.0.1
 Date: 2016-03-19
 Author: Ying Taur
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: yingtools2
-License: What license is it under?
+Maintainer: Ying Taur <taury@mskcc.org>
+Description: Useful R Functions by Ying
+License: GPL-2
 LazyData: TRUE
+Imports: ape
+
+
+
