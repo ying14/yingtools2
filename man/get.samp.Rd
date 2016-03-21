@@ -10,14 +10,22 @@ get.samp(phy, stats = FALSE, measures = c("Observed", "InvSimpson",
 \arguments{
 \item{phy}{phyloseq object containing sample_data}
 
-\item{stats}{logical, whether or not to include summary statistics of samples. Stores nseqs, and diversity metrics.}
+\item{stats}{logical, whether or not to include summary statistics of samples. Stores \code{nseqs}, and diversity metrics.}
 
 \item{measures}{diversity measures to calculate, if stats is TRUE. Default: c("Observed","InvSimpson","Shannon")}
 }
 \value{
-Dataframe containing sample_data data
+Data frame containing \code{sample_data} data.
 }
 \description{
-Creates data.frame from sample_data, storing the rownames as variable "sample. The opposite of function set.samp.
+Returns \code{sample_data} component from phyloseq object, as a data frame.
+}
+\details{
+This basically is similar to the function \code{phyloseq::sample_data}, but does a few extra things.
+(1) Converts to a data frame
+(2) The sample name is stored in a column called \code{sample}. (\code{phyloseq} normally stores as a row name)
+(3) Calculates number of sequences and alpha diversity metrics, if desired.
+This function is the opposite of \code{set.samp}, which converts the data frame back into a \code{sample_data}.
+Note that if the \code{phyloseq} object does not contain \code{sample_data}, a data frame containing a single column, \code{sample}, is returned.
 }
 

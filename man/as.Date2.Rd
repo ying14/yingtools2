@@ -16,6 +16,8 @@ Returns vector converted to Date. If date+time, convert to POSIXct.
 Examines strings and convert to Date format if necessary.
 }
 \examples{
-asdf
+#Access dates read by RODBC:
+access.dates <- c("2009-012-03 00:00:00","2010-08-21 00:00:00","2013-07-01 00:00:00","2014-10-31 00:00:00")
+as.Date2(access.dates)
 }
 

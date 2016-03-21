@@ -27,16 +27,26 @@ read.tree.uparse <- function(tree.file) {
 
 #' Extract Phyloseq sample_data
 #'
-#' Creates data.frame from sample_data, storing the rownames as variable "sample. The opposite of function set.samp.
+#' Returns \code{sample_data} component from phyloseq object, as a data frame.
+#'
+#' This basically is similar to the function \code{phyloseq::sample_data}, but does a few extra things.
+#' (1) Converts to a data frame
+#' (2) The sample name is stored in a column called \code{sample}. (\code{phyloseq} normally stores as a row name)
+#' (3) Calculates number of sequences and alpha diversity metrics, if desired.
+#' This function is the opposite of \code{set.samp}, which converts the data frame back into a \code{sample_data}.
+#' Note that if the \code{phyloseq} object does not contain \code{sample_data}, a data frame containing a single column, \code{sample}, is returned.
 #' @param phy phyloseq object containing sample_data
-#' @param stats logical, whether or not to include summary statistics of samples. Stores nseqs, and diversity metrics.
+#' @param stats logical, whether or not to include summary statistics of samples. Stores \code{nseqs}, and diversity metrics.
 #' @param measures diversity measures to calculate, if stats is TRUE. Default: c("Observed","InvSimpson","Shannon")
-#' @return Dataframe containing sample_data data
+#' @return Data frame containing \code{sample_data} data.
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
+
   if (is.null(sample_data(phy,FALSE))) {
+    #if no sample_data, return single data frame with sample column
     sdata <- data.frame(sample=sample_names(phy))
   } else {
+    if ("sample" %in% sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
     sdata <- sample_data(phy) %>% data.frame() %>% add_rownames("sample")
   }
   if (stats) {
@@ -51,6 +61,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
   return(sdata)
 }
 
+
 #' Convert data frame to phyloseq sample_data
 #'
 #' Use this on data with sample info. The opposite of function get.samp. Make sure it contains variable "sample"
@@ -58,7 +69,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @return formatted sample_data.
 #' @export
 set.samp <- function(sdata) {
-  ss <- sdata %>% select(-sample)
+  ss <- sdata %>% dplyr::select(-sample)
   row.names(ss) <- sdata[["sample"]]
   ss <- ss %>% sample_data()
   return(ss)
@@ -82,7 +93,7 @@ get.tax <- function(phy) {
 #' @return formatted tax_table.
 #' @export
 set.tax <- function(tdata) {
-  tt <- tdata %>% select(-otu)
+  tt <- tdata %>% dplyr::select(-otu)
   row.names(tt) <- tdata[["otu"]]
   tt <- tt %>% as.matrix() %>% tax_table()
   return(tt)
@@ -107,18 +118,19 @@ set.tax <- function(tdata) {
 #' @export
 get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
-  otu0 <- otu_table(phy) %>% as.matrix() %>% melt(varnames=c("otu","sample"),value.name="numseqs") %>% as_data_frame() %>% mutate(otu=as.character(otu),sample=as.character(sample))
+  otu0 <- otu_table(phy) %>% as.matrix() %>% reshape2::melt(varnames=c("otu","sample"),value.name="numseqs") %>%
+    dplyr::as_data_frame() %>% mutate(otu=as.character(otu),sample=as.character(sample))
   tax0 <- get.tax(phy)
-  tax0.match <- select(tax0,-otu)[match(otu0$otu,tax0$otu),]
+  tax0.match <- dplyr::select(tax0,-otu)[match(otu0$otu,tax0$otu),]
   otu <- cbind(otu0,tax0.match) %>%
-    group_by(sample) %>% mutate(pctseqs=prop.table(numseqs)) %>% ungroup() %>% tbl_df()
+    group_by(sample) %>% mutate(pctseqs=prop.table(numseqs)) %>% ungroup() %>% dplyr::tbl_df()
   if (filter.zero) {
     otu <- otu %>% filter(numseqs>0)
   }
   #add sample data
-  if (sample_data & !is.null(sample_data(phy,FALSE))) {
+  if (sample_data & !is.null(phyloseq::sample_data(phy,FALSE))) {
     samp0 <- get.samp(phy,stats=FALSE)
-    otu <- otu %>% left_join(samp0,by="sample")
+    otu <- otu %>% dplyr::left_join(samp0,by="sample")
   }
   return(otu)
 }
@@ -187,7 +199,7 @@ read.oligos <- function(oligo.file) {
     if (length(oligo.files)==0) {
       stop("YTError: no oligo files found in dir: ",oligo.file)
     }
-    out <- rbind_all(lapply(oligo.files,read.oligos))
+    out <- dplyr::rbind_all(lapply(oligo.files,read.oligos))
     return(out)
   }
 
@@ -224,11 +236,150 @@ read.oligos <- function(oligo.file) {
     stop("YTError: Not sure what platform!")
   }
   out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
-    select(pool,group,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
+    dplyr::select(pool,group,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
   return(out)
 }
 
 
+#' Right Angle for Text on circular ggtree
+#'
+#' @param angle
+#' @param hjust logical indicating whether to output the corresponding hjsut parameter.
+#' @return angle, turned 90 degrees.
+#' @export
+right.angle <- function(angle,hjust=FALSE) {
+  #ranges 0 to 360 no matter what
+  angle <- angle %% 360
+  right.side <- angle>=0 & angle<180
+  if (hjust) {
+    ifelse(right.side,1,0)
+  } else {
+    ifelse(right.side,angle-90,angle+90)
+  }
+}
+
+
+
+#' Get YT Palette
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
+#' ...examples.here....
+#' @author Ying Taur
+#' @export
+get.yt.palette <- function(tax,use.cid.colors=TRUE) {
+  if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
+    tax <- get.tax(tax.obj)
+  }
+  ranks <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  if (!all(ranks %in% names(tax))) {
+    stop("YTError: need to have taxon levels: Kingdom, Phylum, Class, Order, Family, Genus, Species")
+  }
+  tax.dict <- tax[,ranks] %>% distinct()
+  #bacteria are shades of gray by default
+  tax.dict$color <- rep(shades("gray"),length.out=nrow(tax.dict))
+  #proteobacteria: red
+  proteo <- tax.dict$Phylum=="Proteobacteria"
+  tax.dict$color[proteo] <- rep(shades("red",variation=0.4),length.out=sum(proteo))
+  #bacteroidetes: cyan
+  bacteroidetes <- tax.dict$Phylum=="Bacteroidetes"
+  tax.dict$color[bacteroidetes] <- rep(shades("#2dbfc2",variation=0.4),length.out=sum(bacteroidetes))
+  #actinobacteria: purple
+  actino <- tax.dict$Phylum=="Actinobacteria"
+  tax.dict$color[actino] <- rep(shades("purple",variation=0.4),length.out=sum(actino))
+  #firmicutes:
+  firm <- tax.dict$Phylum=="Firmicutes"
+  tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
+  #cid
+  if (use.cid.colors) {
+    cid <- cid.colors[match(tax.dict$Genus,names(cid.colors))]
+    tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
+  }
+  tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$Species))
+  tax.palette
+}
+
+
+
+#' Plot tax
+#'
+#' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
+#' @param xvar xvar by which to plot data
+#' @param data whether to return data frame
+#' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
+#' @param cid.colors whether to use conventional cid colors.
+#' @return either ggplot2 object, or data frame.
+#' @examples
+#' ...examples.here....
+#' @author Ying Taur
+#' @export
+plot.tax <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
+  #t=get.otu.melt(phy.species)
+  vars <- c("sample","pctseqs","Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  if (!all(vars %in% names(t))) {
+    stop("YTError: need to have these vars: sample, pctseqs, Kingdom, Phylum, Class, Order, Family, Genus, Species")
+  }
+  t <- t %>% arrange(Kingdom,Phylum,Class,Order,Family,Genus,Species) %>%
+    mutate(Species=factor(Species,levels=unique(Species))) %>%
+    group_by(sample) %>% arrange(Species) %>%
+    mutate(cum.pct=cumsum(pctseqs),
+           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2) %>% ungroup() %>% dplyr::select(-cum.pct) %>%
+    mutate(tax.label=ifelse(pctseqs>=label.pct.cutoff,as.character(Species),""))
+  pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
+  attr(t,"pal") <- pal
+  if (data) {
+    return(t)
+  } else {
+    g <- ggplot() +
+      geom_bar(data=t,aes_string(x=xvar,y="pctseqs",fill="Species"),stat="identity",position="fill") +
+      geom_text(data=t,aes_string(x=xvar,y="y.text",label="tax.label"),angle=-90,lineheight=0.9) +
+      scale_fill_manual(values=attr(t,"pal")) +
+      theme(legend.position="none")
+    return(g)
+  }
+}
+
+
+
+
+
+
+
+#' Plot Principal Components Analysis
+#'
+#' Plots PCA from distance matrix data.
+#'
+#' @param dist distance matrix to be plotted.
+#' @param data logical, if \code{TRUE}, returns a data frame of PCA axes instead of the plot. Default is \code{FALSE}.
+#' @param prefix character, an optional prefix text for PCA variable names. E.g. if \code{"unifrac"} is used, \code{"PCA1"} becomes \code{"unifrac.PCA1"}.
+#' @return Returns a \code{ggplot2} graph of PCA1 and PCA2.
+#' @examples
+#' xxx
+#' @keywords keyword1 keyword2 ...
+#' @author Ying Taur
+#' @export
+plot.pca <- function(dist,data=FALSE,prefix=NA) {
+  pca <- prcomp(dist)
+  pca.axes <- data.frame(pca$x)
+  pca.loadings <- summary(pca)$importance["Proportion of Variance",]
+  pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",percent(pca.loadings)," variation explained)")
+  for (i in 1:length(pca.labels)) {
+    label(pca.axes[,i]) <- pca.labels[i]
+  }
+  pca.axes$group <- row.names(pca.axes)
+
+  if (data) {
+    names(pca.axes) <- sub("^PC",paste2(prefix,"PCA",sep="."),names(pca.axes))
+    return(pca.axes)
+  } else {
+    g <- ggplot(pca.axes) +
+      geom_point(aes(x=PC1,y=PC2,color=group,size=3)) +
+      geom_text(aes(x=PC1,y=PC2,label=group),size=3,vjust=1.4) +
+      theme(aspect.ratio=1)
+    return(g)
+  }
+}
 
 # #' Simpson's diversity
 # #' @export
@@ -285,152 +436,7 @@ read.oligos <- function(oligo.file) {
 #
 
 #
-# #' Right Angle for Text on circular ggtree
-# #'
-# #' @param angle
-# #' @param hjust logical indicating whether to output the corresponding hjsut parameter.
-# #' @return angle, turned 90 degrees.
-# #' @export
-# right.angle <- function(angle,hjust=FALSE) {
-#   #ranges 0 to 360 no matter what
-#   angle <- angle %% 360
-#   right.side <- angle>=0 & angle<180
-#   if (hjust) {
-#     ifelse(right.side,1,0)
-#   } else {
-#     ifelse(right.side,angle-90,angle+90)
-#   }
-# }
-#
-#
-#
-# #' Get YT Palette
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param tax either a data.frame, phyloseq, or tax_table
-# #' @param use.cid.colors whether to use classic CID colors
-# #' @return a color palette that can be used in ggplot2
-# #' @examples
-# #' ...examples.here....
-# #' @author Ying Taur
-# #' @export
-# get.yt.palette <- function(tax,use.cid.colors=TRUE) {
-#   if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
-#     tax <- get.tax(tax.obj)
-#   }
-#   ranks <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-#   if (!all(ranks %in% names(tax))) {
-#     stop("YTError: need to have taxon levels: Kingdom, Phylum, Class, Order, Family, Genus, Species")
-#   }
-#   tax.dict <- tax[,ranks] %>% distinct()
-#   #bacteria are shades of gray by default
-#   tax.dict$color <- rep(shades("gray"),length.out=nrow(tax.dict))
-#   #proteobacteria: red
-#   proteo <- tax.dict$Phylum=="Proteobacteria"
-#   tax.dict$color[proteo] <- rep(shades("red",variation=0.4),length.out=sum(proteo))
-#   #bacteroidetes: cyan
-#   bacteroidetes <- tax.dict$Phylum=="Bacteroidetes"
-#   tax.dict$color[bacteroidetes] <- rep(shades("#2dbfc2",variation=0.4),length.out=sum(bacteroidetes))
-#   #actinobacteria: purple
-#   actino <- tax.dict$Phylum=="Actinobacteria"
-#   tax.dict$color[actino] <- rep(shades("purple",variation=0.4),length.out=sum(actino))
-#   #firmicutes:
-#   firm <- tax.dict$Phylum=="Firmicutes"
-#   tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
-#   #cid
-#   if (use.cid.colors) {
-#     cid <- cid.colors[match(tax.dict$Genus,names(cid.colors))]
-#     tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
-#   }
-#   tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$Species))
-#   tax.palette
-# }
-#
-#
-#
-# #' Plot tax
-# #'
-# #' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
-# #' @param xvar xvar by which to plot data
-# #' @param data whether to return data frame
-# #' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
-# #' @param cid.colors whether to use conventional cid colors.
-# #' @return either ggplot2 object, or data frame.
-# #' @examples
-# #' ...examples.here....
-# #' @author Ying Taur
-# #' @export
-# plot.tax <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
-#   #t=get.otu.melt(phy.species)
-#   vars <- c("sample","pctseqs","Kingdom","Phylum","Class","Order","Family","Genus","Species")
-#   if (!all(vars %in% names(t))) {
-#     stop("YTError: need to have these vars: sample, pctseqs, Kingdom, Phylum, Class, Order, Family, Genus, Species")
-#   }
-#   t <- t %>% arrange(Kingdom,Phylum,Class,Order,Family,Genus,Species) %>%
-#     mutate(Species=factor(Species,levels=unique(Species))) %>%
-#     group_by(sample) %>% arrange(Species) %>%
-#     mutate(cum.pct=cumsum(pctseqs),
-#            y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2) %>% ungroup() %>% select(-cum.pct) %>%
-#     mutate(tax.label=ifelse(pctseqs>=label.pct.cutoff,as.character(Species),""))
-#   pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
-#   attr(t,"pal") <- pal
-#   if (data) {
-#     return(t)
-#   } else {
-#     g <- ggplot() +
-#       geom_bar(data=t,aes_string(x=xvar,y="pctseqs",fill="Species"),stat="identity",position="fill") +
-#       geom_text(data=t,aes_string(x=xvar,y="y.text",label="tax.label"),angle=-90,lineheight=0.9) +
-#       scale_fill_manual(values=attr(t,"pal")) +
-#       theme(legend.position="none")
-#     return(g)
-#   }
-# }
-#
-#
-#
 
-#
-#
-#
-# #' Plot Principal Components Analysis
-# #'
-# #' Plots PCA from distance matrix data.
-# #'
-# #' @param dist distance matrix to be plotted.
-# #' @param data logical, if \code{TRUE}, returns a data frame of PCA axes instead of the plot. Default is \code{FALSE}.
-# #' @param prefix character, an optional prefix text for PCA variable names. E.g. if \code{"unifrac"} is used, \code{"PCA1"} becomes \code{"unifrac.PCA1"}.
-# #' @return Returns a \code{ggplot2} graph of PCA1 and PCA2.
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @author Ying Taur
-# #' @export
-# plot.pca <- function(dist,data=FALSE,prefix=NA) {
-#   pca <- prcomp(dist)
-#   pca.axes <- data.frame(pca$x)
-#   pca.loadings <- summary(pca)$importance["Proportion of Variance",]
-#   pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",percent(pca.loadings)," variation explained)")
-#   for (i in 1:length(pca.labels)) {
-#     label(pca.axes[,i]) <- pca.labels[i]
-#   }
-#   pca.axes$group <- row.names(pca.axes)
-#
-#   if (data) {
-#     names(pca.axes) <- sub("^PC",paste2(prefix,"PCA",sep="."),names(pca.axes))
-#     return(pca.axes)
-#   } else {
-#     g <- ggplot(pca.axes) +
-#       geom_point(aes(x=PC1,y=PC2,color=group,size=3)) +
-#       geom_text(aes(x=PC1,y=PC2,label=group),size=3,vjust=1.4) +
-#       theme(aspect.ratio=1)
-#     return(g)
-#   }
-# }
 #
 #
 # #' Filter Distance Matrix

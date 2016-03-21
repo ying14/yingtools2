@@ -16,7 +16,8 @@ No value.
 Opens the specified file using the application specified.
 }
 \details{
-Linux R doesn't have this function, but Windows R does. So this emulates on Linux using the 'xdg-open' terminal command..
+Note that this does different things depending on operating system. Windows R already has a \code{shell.exec} function, so it just uses that.
+Linux R doesn't have this function, so this emulates on Linux using the 'xdg-open' terminal command..
 }
 \author{
 Ying Taur

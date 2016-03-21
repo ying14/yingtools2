@@ -9,6 +9,9 @@ read.clipboard(sep = "\\n")
 \arguments{
 \item{sep}{separator between lines}
 }
+\value{
+Contents of clipboard
+}
 \description{
 Read clipboard into vector or data frame.
 }
