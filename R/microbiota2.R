@@ -21,7 +21,7 @@ read.tree.uparse <- function(tree.file) {
   tree.text <- scan(tree.file,what=character(),quiet=TRUE)
   #replace ; with __
   new.tree.text <- gsub("(OTU_[0-9]+);(size=[0-9]+);","\\1__\\2__",tree.text)
-  tr <- read.tree(text=new.tree.text)
+  tr <- ape::read.tree(text=new.tree.text)
   tr$tip.label <- gsub("'(OTU_[0-9]+)__(size=[0-9]+)__'","\\1;\\2;",tr$tip.label)
   tr$node.label <- gsub("'(OTU_[0-9]+)__(size=[0-9]+)__'","\\1;\\2;",tr$node.label)
   return(tr)

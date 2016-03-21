@@ -19,9 +19,6 @@
 ##' @export
 
 
-
-
-
 #' @export
 "%!in%" = function(x,y) {
   !(x %in% y)
@@ -62,11 +59,6 @@ pretty_scientific <- function(l,parse=TRUE) {
     return(l)
   }
 }
-
-
-
-
-
 
 
 #' Log Epsilon Tranformation
