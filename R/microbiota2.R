@@ -314,7 +314,7 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
 #' ...examples.here....
 #' @author Ying Taur
 #' @export
-plot.tax <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
+tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
   #t=get.otu.melt(phy.species)
   vars <- c("sample","pctseqs","Kingdom","Phylum","Class","Order","Family","Genus","Species")
   if (!all(vars %in% names(t))) {
@@ -359,7 +359,7 @@ plot.tax <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.col
 #' @keywords keyword1 keyword2 ...
 #' @author Ying Taur
 #' @export
-plot.pca <- function(dist,data=FALSE,prefix=NA) {
+pca.plot <- function(dist,data=FALSE,prefix=NA) {
   pca <- prcomp(dist)
   pca.axes <- data.frame(pca$x)
   pca.loadings <- summary(pca)$importance["Proportion of Variance",]
