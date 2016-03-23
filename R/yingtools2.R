@@ -1,6 +1,21 @@
+
+#' Useful R Functions by Ying
+#'
+#' Ying's assorted collection of R functions. Primarily useful for manipulation, analysis, and plotting of data, particularly microbiome data.
+#'
+#' To install/update this package, run: \code{devtools::install_github("ying14/yingtools2")}
+#'
+#' @author
+#' Ying Taur
+#'
+#' Maintainer: Ying Taur
+#' @name yingtools2
+#' @docType package
+NULL
+
+
 ## git remote add origin git@github.com:ying14/yingtools2.git
 ## git push -u origin master
-
 #" ...Title...
 #"
 #" ...Description...
@@ -18,6 +33,8 @@
 #" @seealso \code{\link{cdiff.method}}
 #" @author Ying Taur
 #" @export
+
+
 
 
 #' Not In
@@ -215,6 +232,37 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
   return(new.x)
 }
 
+#' Color Shades
+#'
+#' Creates different shades of the specified color.
+#'
+#' Use this as a convenience function when creating your plots.
+#' @param color character, specifying the color you want to build shades around. (e.g. \code{"red"} or \code{"#1460fa"})
+#' @param ncolor number specifying the length of the vector, i.e. how many different shades should be returned (default 3 shades).
+#' @param variation a number from 0-1, which determines how different the shades will be. Smaller numbers will be more similar.
+#' @return Produces a character vector of colors, corresponding to shades of the specified color.
+#' @examples
+#' sh1 <- shades("red",5)
+#' show_col(sh1)
+#'
+#' sh2 <- shades("red",20)
+#' show_col(sh2)
+#'
+#' sh3 <- shades("red",20,variation=0.5)
+#' show_col(sh3)
+#' @author Ying Taur
+#' @export
+shades <- function(color,ncolor=3,variation=1) {
+  #shades("red",3) will give 3 shades of red.
+  #pct.variation should be 0-1, and determines variance. lower values will be more similar.
+  total.colors <- 100
+  end.index <- total.colors * variation
+  white.end <- colorRampPalette(c(color,"white"),space="rgb")(total.colors)[end.index]
+  black.end <- colorRampPalette(c(color,"black"),space="rgb")(total.colors)[end.index]
+  pal <- colorRampPalette(c(white.end,color,black.end),space="rgb")(ncolor+2)
+  pal <- pal[c(-1,-length(pal))]
+  return(pal)
+}
 
 #' Copy to Clipboard
 #'
@@ -2833,37 +2881,7 @@ middle.pattern <- function(start="",middle=".+",end="") {
 # }
 #
 #
-# #' Color Shades
-# #'
-# #' Creates different shades of the specified color.
-# #'
-# #' Use this as a convenience function when creating your plots.
-# #' @param color character, specifying the color you want to build shades around. (e.g. \code{"red"} or \code{"#1460fa"})
-# #' @param ncolor number specifying the length of the vector, i.e. how many different shades should be returned (default 3 shades).
-# #' @param variation a number from 0-1, which determines how different the shades will be. Smaller numbers will be more similar.
-# #' @return Produces a character vector of colors, corresponding to shades of the specified color.
-# #' @examples
-# #' sh1 <- shades("red",5)
-# #' show_col(sh1)
-# #'
-# #' sh2 <- shades("red",20)
-# #' show_col(sh2)
-# #'
-# #' sh3 <- shades("red",20,variation=0.5)
-# #' show_col(sh3)
-# #' @author Ying Taur
-# #' @export
-# shades <- function(color,ncolor=3,variation=1) {
-#   #shades("red",3) will give 3 shades of red.
-#   #pct.variation should be 0-1, and determines variance. lower values will be more similar.
-#   total.colors <- 100
-#   end.index <- total.colors * variation
-#   white.end <- colorRampPalette(c(color,"white"),space="rgb")(total.colors)[end.index]
-#   black.end <- colorRampPalette(c(color,"black"),space="rgb")(total.colors)[end.index]
-#   pal <- colorRampPalette(c(white.end,color,black.end),space="rgb")(ncolor+2)
-#   pal <- pal[c(-1,-length(pal))]
-#   return(pal)
-# }
+
 #
 # #' Body Mass Index
 # #'
