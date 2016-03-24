@@ -57,10 +57,10 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
-    sdata <- data.frame(sample=sample_names(phy))
+    sdata <- data.frame(sample=sample_names(phy),stringsAsFactors=FALSE)
   } else {
     if ("sample" %in% sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
-    sdata <- sample_data(phy) %>% data.frame() %>% add_rownames("sample")
+    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% add_rownames("sample")
   }
   if (stats) {
     dup.names <- intersect(c("nseqs",measures),names(sdata))
@@ -96,7 +96,7 @@ set.samp <- function(sdata) {
 #' @return Dataframe containing tax data
 #' @export
 get.tax <- function(phy) {
-  tax_table(phy) %>% data.frame() %>% add_rownames("otu")
+  tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% add_rownames("otu")
 }
 
 #' Convert data frame to phyloseq tax_table
@@ -374,7 +374,7 @@ tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.col
 #' @export
 pca.plot <- function(dist,data=FALSE,prefix=NA) {
   pca <- prcomp(dist)
-  pca.axes <- data.frame(pca$x)
+  pca.axes <- data.frame(pca$x,stringsAsFactors=FALSE)
   pca.loadings <- summary(pca)$importance["Proportion of Variance",]
   pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",percent(pca.loadings)," variation explained)")
   for (i in 1:length(pca.labels)) {
