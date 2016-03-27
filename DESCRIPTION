@@ -1,13 +1,13 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.0.3
+Version: 0.0.0.4
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
 Description: Useful R Functions by Ying
 License: GPL-2
 LazyData: TRUE
-Imports: stringr,reshape2,dplyr,tidyr,readxl,ape,ggplot2,phyloseq
-
-
+Imports:
+    stringr,reshape2,dplyr,tidyr,readxl,ape,ggplot2,phyloseq
+RoxygenNote: 5.0.1

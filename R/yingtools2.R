@@ -64,6 +64,42 @@ NULL
   as.numeric(as.POSIXct(x) - as.POSIXct(y), units="days")
 }
 
+
+
+#' Tabulate
+#'
+#' Tabulates frequencies of vectors. By default, sorts by frequency.
+#'
+#' @param var the vector to be tabulated
+#' @param sortby.freq if \code{TRUE}, sorts by order
+#' @param useNA character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}
+#' @param as.char logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}
+#' @return Returns a data frame with tabulations.
+#' @examples
+#' ...examples.here....
+#' @author Ying Taur
+#' @export
+tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
+  tbl <- data.frame(var=var) %>% count(var)
+  if (pct) {
+    tbl <- tbl %>% mutate(pct=percent(prop.table(n)))
+  }
+  if (sort) {
+    tbl <- tbl %>% arrange(desc(n))
+  }
+  if (as.char) {
+
+    if (pct) {
+      char <- paste0(tbl$var," (n=",tbl$n,",",tbl$pct,")",collapse=collapse)
+    } else {
+      char <- paste0(tbl$var," (n=",tbl$n,")",collapse=collapse)
+    }
+    return(char)
+  } else {
+    return(tbl)
+  }
+}
+
 #' Ying's Paste
 #'
 #' Similar to \code{paste} command, except that \code{NA}s are not converted to text.
@@ -534,6 +570,80 @@ age.years <- function(bdate,now) {
   age <- as.numeric(format(now,format="%Y")) - as.numeric(format(bdate,format="%Y"))
   age[which(this.years.bday>now)] <- age[which(this.years.bday>now)] - 1
   return(age)
+}
+
+
+#' Make Table
+#'
+#' Creates a summary table (data frame) variables from the data.
+#'
+#' This was written to create a "Table 1" of a manuscript.
+#' @param data Data frame containing data to be described.
+#' @param vars character vector of variables within \code{data} to be summarized.
+#' @param by Optional, variable name (character) by which to summarize the data. Each separate value will be a column of data in the table.
+#' @param showdenom logical, whether to show denominator in the cells.
+#' @param fisher.test fisher logical, whether or not to calculate Fisher exact tests. Only performed if \code{by} is also specified.
+#' @return Returns a data frame formatted to be summary table.
+#' @examples
+#' make.table(mtcars,c("cyl","gear"))
+#' make.table(mtcars,c("cyl","gear"),by="vs",showdenom=TRUE)
+#' @author Ying Taur
+#' @export
+make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
+  #data=pt2;vars=c("agecat","Sex","dx","priorabx14","conditioning","tcd","cord");by="vanco";pt2$Sex[3]=NA;showdenom=FALSE;fisher.test=TRUE
+  #data=pt2;vars=c("agecat","Sex","dx","priorabx14","conditioning","tcd","cord");by=NULL
+  #first convert everything to factor (including NAs). This was modified function I found called AddNA2.
+  if (any(c(vars,by) %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
+  if (!is.null(by)) {
+    if (by %in% vars) {stop("YTError, by-variable cannot be in vars list!")}
+  }
+  factorize <- function(x,ifany=TRUE,as.string=TRUE) {
+    if (!is.factor(x)) {x <- factor(x)}
+    if (ifany & !any(is.na(x))) {return(x)}
+    ll <- levels(x)
+    if (!any(is.na(ll))) {ll <- c(ll, NA)}
+    x <- factor(x, levels = ll, exclude = NULL)
+    if(as.string) {levels(x)[is.na(levels(x))] <- "NA"}
+    return(x)
+  }
+  data <- data %>% mutate_each_(funs(factorize),c(vars,by))
+  get.column <- function(subdata) {
+    #subdata=data
+    denom <- nrow(subdata)
+    subtbl <- adply(vars,1,function(var) {
+      subdata %>% group_by_(value=var) %>% tally() %>% complete(value,fill=list(n=0)) %>%
+        mutate(var=var,value=ifelse(!is.na(value),as.character(value),"NA"),denom=denom,pct=n/denom)
+    },.id=NULL)
+    if (showdenom) {
+      subtbl <- subtbl %>% mutate(lbl=paste0(n,"/",denom," (",percent(pct),")"))
+    } else {
+      subtbl <- subtbl %>% mutate(lbl=paste0(n," (",percent(pct),")"))
+    }
+    #combine var and value pairs. the combined variable is saved as factor to preserve the order during spread
+    subtbl <- subtbl %>% unite(var_value,var,value,sep="=") %>% mutate(var_value=factor(var_value,levels=var_value))
+    return(subtbl)
+  }
+  tbl <- get.column(data) %>% mutate(column="total")
+  if (!is.null(by)) {
+    #run get.column function for each subgroup
+    sub.tbl <- data %>% group_by_(column=by) %>% do(get.column(.)) %>% ungroup()
+    #recode subgroup values to include variable name
+    levels(sub.tbl$column) <- paste0(by,"=",levels(sub.tbl$column))
+    #combines total and subgroups. use factor levels to preserve subgroup order when spread is performed.
+    tbl <- tbl %>% bind_rows(sub.tbl) %>%
+      mutate(column=factor(column,levels=c("var","value",levels(sub.tbl$column),"total")))
+  }
+  #reshape into final columns using spread command. then re-separate the var_value into separate variables
+  tbl.all <- tbl %>% select(var_value,column,lbl) %>% spread(column,lbl) %>% separate(var_value,c("var","value"),sep="=")
+  if (fisher.test & !is.null(by)) {
+    fisher.pval <- sapply(vars,function(var) {
+      ftest <- fisher.test(data[,var],data[,by])
+      ftest$p.value
+    })
+    tbl.all$fisher <- ""
+    tbl.all$fisher[match(names(fisher.pval),tbl.all$var)] <- formatC(fisher.pval,format="f",digits=3)
+  }
+  return(tbl.all)
 }
 
 
@@ -2945,39 +3055,7 @@ middle.pattern <- function(start="",middle=".+",end="") {
 # }
 #
 #
-# #' Tabulate
-# #'
-# #' Tabulates frequencies of vectors. By default, sorts by frequency.
-# #'
-# #' @param var the vector to be tabulated
-# #' @param sortby.freq if \code{TRUE}, sorts by order
-# #' @param useNA character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}
-# #' @param as.char logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}
-# #' @return Returns a data frame with tabulations.
-# #' @examples
-# #' ...examples.here....
-# #' @author Ying Taur
-# #' @export
-# tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
-#   tbl <- data.frame(var=var) %>% count(var)
-#   if (pct) {
-#     tbl <- tbl %>% mutate(pct=percent(prop.table(n)))
-#   }
-#   if (sort) {
-#     tbl <- tbl %>% arrange(desc(n))
-#   }
-#   if (as.char) {
-#
-#     if (pct) {
-#       char <- paste0(tbl$var," (n=",tbl$n,",",tbl$pct,")",collapse=collapse)
-#     } else {
-#       char <- paste0(tbl$var," (n=",tbl$n,")",collapse=collapse)
-#     }
-#     return(char)
-#   } else {
-#     return(tbl)
-#   }
-# }
+
 #
 # #' Translate antibiotic code
 # #'
