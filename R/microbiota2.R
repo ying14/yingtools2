@@ -6,10 +6,10 @@
 cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f69ea0",
                 "Bacteroides"="#2dbfc2","Lactobacillus"="#3b51a3","Dorea"="#a9853e",
                 "Staphylococcus"="#f1eb25","Coprobacillus"="#b53572",
-                "unclassified_Firmicutes"="#79449a","Lachnospiraceae"="#afd7db",
+                "unclassified_Firmicutes"="#79449a","unclassified_Lachnospiraceae"="#afd7db",
                 "Roseburia"="#9ba744","Parabacteroides"="#329982","Coprococcus"="#663939",
                 "Spracetigenium"="#72b443","Veillonella"="#653f99","Lactococcus"="#51a546",
-                "Granulicatella"="#a5a7aa","Proteobacteria"="#ed2024","Other Bacteroides"="#963695",
+                "Granulicatella"="#a5a7aa","Proteobacteria"="#ed2024","Other Bacteroidetes"="#963695",
                 "Other Firmicutes"="#929497","Other Bacteria"="#6d6e70")
 
 #' Read Tree File (Label-Fix)
@@ -84,7 +84,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 set.samp <- function(sdata) {
   ss <- sdata %>% dplyr::select(-sample)
   row.names(ss) <- sdata[["sample"]]
-  ss <- ss %>% sample_data()
+  ss <- ss %>% data.frame(stringsAsFactors=FALSE) %>% sample_data()
   return(ss)
 }
 

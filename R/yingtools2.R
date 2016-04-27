@@ -593,7 +593,10 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   #data=pt2;vars=c("agecat","Sex","dx","priorabx14","conditioning","tcd","cord");by="vanco";pt2$Sex[3]=NA;showdenom=FALSE;fisher.test=TRUE
   #data=pt2;vars=c("agecat","Sex","dx","priorabx14","conditioning","tcd","cord");by=NULL
   #first convert everything to factor (including NAs). This was modified function I found called AddNA2.
-  if (any(c(vars,by) %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
+
+  all.vars <- c(vars,by)
+  if (any(all.vars %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
+  data <- data[,all.vars]
   if (!is.null(by)) {
     if (by %in% vars) {stop("YTError, by-variable cannot be in vars list!")}
   }
@@ -1095,6 +1098,211 @@ middle.pattern <- function(start="",middle=".+",end="") {
 }
 
 
+
+#' Fill in Blanks
+#'
+#' For a given vector,  in blanks with previous value.
+#' @param vec the vector to be ed in.
+#' @param blank vector of values that denote a blank. By default, \code{""} is used.
+#' @param include.na vector of values that denote a blank. By default, \code{""} is used.
+#' @return Returns \code{vec}, with blanks filled in.
+#' @examples
+#' fill.in.blanks(c("1",NA,"2","","3","","","4",NA,NA))
+#' @author Ying Taur
+#' @export
+fill.in.blanks <- function(vec,blank="",include.na=TRUE) {
+  if (include.na) {
+    non.blanks <- !is.na(vec) & !(vec %in% blank)
+  } else {
+    non.blanks <- !(vec %in% blank)
+  }
+  c(vec[non.blanks][1], vec[non.blanks])[cumsum(non.blanks)+1]
+}
+
+
+
+
+
+#' Cox Proportional Hazards Regression
+#'
+#' Analyzes survival data by Cox regression.
+#'
+#' Convenience function for survival analysis. Typically uses the \code{coxphf} function.
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE) {
+  y <- c(...)[1]
+  xvars <- c(...)[-1]
+  y.day <- paste0(y,"_day")
+  #define y, s.start and s.stop
+  data$y <- data[,y]
+  data$s.start <- data[,starttime]
+  data$s.stop <- data[,y.day]
+  data <- subset(data,s.start<s.stop)
+  #xvars that are time-dependent
+  td.xvars <- xvars[paste(xvars,"_day",sep="") %in% names(data)]
+  td.xvars.day <- paste(td.xvars,"_day",sep="")
+  #### check for missing x values.
+  for (x in xvars) {
+    missing.x <- is.na(data[,x])
+    if (any(missing.x)) {
+      print(paste0("  NOTE - missing values in ",x,", removing ",length(sum(missing.x))," values."))
+      data <- data[!is.na(data[,x]),]
+    }
+  }
+  splitline <- function(x) {
+    #time dep xvars where x=1 (xvar.split are vars from td.xvars where splitting needs to be done)
+    xvar.split <- td.xvars[c(x[,td.xvars]==1)]
+    xvarday.split <- td.xvars.day[c(x[,td.xvars]==1)]
+    if (length(xvar.split)==0) {
+      return(x)
+    } else {
+      #cutpoints=time dep where xvars=1, and are between s.start and s.stop
+      cutpoints <- unlist(c(x[,xvarday.split])) #days at which an xvar==1
+      cutpoints <- cutpoints[x$s.start<cutpoints & cutpoints<x$s.stop] #eliminate days on s.start or s.stop
+      cutpoints <- unique(cutpoints)
+      #sort cutpoints and add s.start and s.stop at ends.
+      cutpoints <- c(x$s.start,cutpoints[order(cutpoints)],x$s.stop)
+      #set up new.x, with s.start and s.stop, y=0 by default
+      new.x <- data.frame(s.start=cutpoints[-length(cutpoints)],s.stop=cutpoints[-1],y=0)
+      #the last row of new.x takes value of y, the rest are y=0
+      new.x[nrow(new.x),"y"] <- x$y
+      #determine values of time dep x's (td.xvars) for each time interval. first, x=0 by default
+      new.x[,td.xvars] <- 0
+      for (i in 1:length(xvar.split)) {
+        xvar <- xvar.split[i]
+        xvarday <- xvarday.split[i]
+        new.x[new.x$s.start>=x[,xvarday.split[i]],xvar.split[i]] <- 1
+      }
+      remaining.vars <- setdiff(names(x),names(new.x))
+      new.x[,remaining.vars] <- x[,remaining.vars]
+      return(new.x)
+    }
+  }
+  if (length(td.xvars)>0) {
+    data <- adply(data,1,splitline)
+  }
+  #calculate model
+  leftside <- "Surv(s.start,s.stop,y)"
+  rightside <- paste(xvars,collapse=" + ")
+  model <- paste(leftside,rightside,sep=" ~ ")
+  formula <- as.formula(model)
+  if (as.survfit) {
+    #return a survfit object
+    return(survfit(formula,data=data))
+  } else if (logrank) {
+    #output logrank test
+    results <- summary(coxph(formula,data=data))
+    return(results$logtest[3])
+  } else {
+    results <- coxphf(formula,data=data,firth=firth)
+    if (coxphf.obj) {
+      return(results)
+    }
+    results.table <- data.frame(
+      model=model,
+      yvar=y,
+      xvar=names(results$coefficients),
+      haz.ratio=exp(results$coefficients),
+      lower.ci=results$ci.lower,
+      upper.ci=results$ci.upper,
+      p.value=results$prob,
+      row.names=NULL,stringsAsFactors=FALSE)
+    #mark time-dependent xvars with "(td)". note that this just looks for var in td.xvars;
+    #if variable has level specifications, then it won't work. (could fix this with reg expr instead)
+    if (length(td.xvars)>0) {
+      results.table$xvar[results.table$xvar %in% td.xvars] <- sapply(results.table$xvar[results.table$xvar %in% td.xvars],function(x) paste0(x,"(td)"))
+    }
+    if (formatted) {
+      results.table$signif <- as.character(cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-")))
+      results.table$haz.ratio <- format(round(results.table$haz.ratio,2),nsmall=2)
+      results.table$lower.ci <- format(round(results.table$lower.ci,2),nsmall=2)
+      results.table$upper.ci <- format(round(results.table$upper.ci,2),nsmall=2)
+      results.table$p.value <- format(round(results.table$p.value,3),nsmall=3)
+      results.table <- adply(results.table,1,function(x) {
+        x$haz.ratio <- paste0(x$haz.ratio," (",x$lower.ci," - ",x$upper.ci,")")
+        return(x)
+      })
+      results.table <- subset(results.table,select=c(model,yvar,xvar,haz.ratio,p.value,signif))
+    }
+    if (missing(addto)) {
+      return(results.table)
+    } else {
+      return(rbind(addto,results.table))
+    }
+  }
+}
+
+#' ...Title...
+#'
+#' ...Description...
+#'
+#' @usage ...usage.code...
+#'
+#' ...details...
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi=FALSE,multi.cutoff=0.2,referrent=FALSE) {
+  results.table <- data.frame()
+  for (xvar in xvars) {
+    print(xvar)
+    results.table <- stcox(yvar,xvar,starttime=starttime,data=data,addto=results.table,firth=firth)
+  }
+  if (multi) {
+    multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
+    multivars <- unique(sub("\\(td\\)$","",multivars))
+    multivars <- sapply(multivars,function(x) {
+      xvars[sapply(xvars,function(y) {
+        y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
+      })]
+    })
+    print("Multivariate model:")
+    if (length(multivars)>0) {
+      print(paste0(multivars))
+      multi.table <- stcox(yvar,multivars,starttime=starttime,data=data,firth=firth)
+      #names(multi.table) <- car::recode(names(multi.table),"'haz.ratio'='multi.haz.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
+      names(multi.table) <- recode2(names(multi.table),c("haz.ratio"="multi.haz.ratio","p.value"="multi.p.value","signif"="multi.signif"))
+      multi.table <- subset(multi.table,select=-model)
+      results.table <- subset(results.table,select=-model)
+      #combined.table <- merge(results.table,multi.table,all.x=TRUE)
+      combined.table <- results.table %>% left_join(multi.table,by=c("yvar","xvar"))
+      #sort by original order
+      results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
+      for (v in c("multi.haz.ratio","multi.p.value","multi.signif")) {
+        results.table[is.na(results.table[,v]),v] <- ""
+      }
+      n.events <- sum(data[,yvar])
+      n.multivars <- length(unique(multivars))
+      print(paste0(n.events/n.multivars," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
+      #results.table <- data.frame(lapply(results.table,function(x) recode(x,"NA=''")))
+    } else {
+      print("No variables in multivariate!")
+      results.table <- subset(results.table,select=-model)
+      results.table$multi.haz.ratio <- ""
+      results.table$multi.p.value <- ""
+      results.table$multi.signif <- ""
+    }
+  }
+  return(results.table)
+}
+
+
 # #' CID Data
 # #'
 # #' A dataset containing clinical and microbiota data on the 94 patients from CID 2012.
@@ -1266,25 +1474,7 @@ middle.pattern <- function(start="",middle=".+",end="") {
 # }
 #
 #
-# #' Fill in Blanks
-# #'
-# #' For a given vector,  in blanks with previous value.
-# #' @param vec the vector to be ed in.
-# #' @param blank vector of values that denote a blank. By default, \code{""} is used.
-# #' @param include.na vector of values that denote a blank. By default, \code{""} is used.
-# #' @return Returns \code{vec}, with blanks filled in.
-# #' @examples
-# #' fill.in.blanks(c("1",NA,"2","","3","","","4",NA,NA))
-# #' @author Ying Taur
-# #' @export
-# fill.in.blanks <- function(vec,blank="",include.na=TRUE) {
-#   if (include.na) {
-#     non.blanks <- !is.na(vec) & !(vec %in% blank)
-#   } else {
-#     non.blanks <- !(vec %in% blank)
-#   }
-#   c(vec[non.blanks][1], vec[non.blanks])[cumsum(non.blanks)+1]
-# }
+
 #
 #
 #
@@ -2251,182 +2441,7 @@ middle.pattern <- function(start="",middle=".+",end="") {
 #
 #
 #
-# #' Cox Proportional Hazards Regression
-# #'
-# #' Analyzes survival data by Cox regression.
-# #'
-# #' Convenience function for survival analysis. Typically uses the \code{coxphf} function.
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE) {
-#   y <- c(...)[1]
-#   xvars <- c(...)[-1]
-#   y.day <- paste0(y,"_day")
-#   #define y, s.start and s.stop
-#   data$y <- data[,y]
-#   data$s.start <- data[,starttime]
-#   data$s.stop <- data[,y.day]
-#   data <- subset(data,s.start<s.stop)
-#   #xvars that are time-dependent
-#   td.xvars <- xvars[paste(xvars,"_day",sep="") %in% names(data)]
-#   td.xvars.day <- paste(td.xvars,"_day",sep="")
-#   #### check for missing x values.
-#   for (x in xvars) {
-#     missing.x <- is.na(data[,x])
-#     if (any(missing.x)) {
-#       print(paste0("  NOTE - missing values in ",x,", removing ",length(sum(missing.x))," values."))
-#       data <- data[!is.na(data[,x]),]
-#     }
-#   }
-#   splitline <- function(x) {
-#     #time dep xvars where x=1 (xvar.split are vars from td.xvars where splitting needs to be done)
-#     xvar.split <- td.xvars[c(x[,td.xvars]==1)]
-#     xvarday.split <- td.xvars.day[c(x[,td.xvars]==1)]
-#     if (length(xvar.split)==0) {
-#       return(x)
-#     } else {
-#       #cutpoints=time dep where xvars=1, and are between s.start and s.stop
-#       cutpoints <- unlist(c(x[,xvarday.split])) #days at which an xvar==1
-#       cutpoints <- cutpoints[x$s.start<cutpoints & cutpoints<x$s.stop] #eliminate days on s.start or s.stop
-#       cutpoints <- unique(cutpoints)
-#       #sort cutpoints and add s.start and s.stop at ends.
-#       cutpoints <- c(x$s.start,cutpoints[order(cutpoints)],x$s.stop)
-#       #set up new.x, with s.start and s.stop, y=0 by default
-#       new.x <- data.frame(s.start=cutpoints[-length(cutpoints)],s.stop=cutpoints[-1],y=0)
-#       #the last row of new.x takes value of y, the rest are y=0
-#       new.x[nrow(new.x),"y"] <- x$y
-#       #determine values of time dep x's (td.xvars) for each time interval. first, x=0 by default
-#       new.x[,td.xvars] <- 0
-#       for (i in 1:length(xvar.split)) {
-#         xvar <- xvar.split[i]
-#         xvarday <- xvarday.split[i]
-#         new.x[new.x$s.start>=x[,xvarday.split[i]],xvar.split[i]] <- 1
-#       }
-#       remaining.vars <- setdiff(names(x),names(new.x))
-#       new.x[,remaining.vars] <- x[,remaining.vars]
-#       return(new.x)
-#     }
-#   }
-#   if (length(td.xvars)>0) {
-#     data <- adply(data,1,splitline)
-#   }
-#   #calculate model
-#   leftside <- "Surv(s.start,s.stop,y)"
-#   rightside <- paste(xvars,collapse=" + ")
-#   model <- paste(leftside,rightside,sep=" ~ ")
-#   formula <- as.formula(model)
-#   if (as.survfit) {
-#     #return a survfit object
-#     return(survfit(formula,data=data))
-#   } else if (logrank) {
-#     #output logrank test
-#     results <- summary(coxph(formula,data=data))
-#     return(results$logtest[3])
-#   } else {
-#     results <- coxphf(formula,data=data,firth=firth)
-#     if (coxphf.obj) {
-#       return(results)
-#     }
-#     results.table <- data.frame(
-#       model=model,
-#       yvar=y,
-#       xvar=names(results$coefficients),
-#       haz.ratio=exp(results$coefficients),
-#       lower.ci=results$ci.lower,
-#       upper.ci=results$ci.upper,
-#       p.value=results$prob,
-#       row.names=NULL,stringsAsFactors=FALSE)
-#     #mark time-dependent xvars with "(td)". note that this just looks for var in td.xvars;
-#     #if variable has level specifications, then it won't work. (could fix this with reg expr instead)
-#     if (length(td.xvars)>0) {
-#       results.table$xvar[results.table$xvar %in% td.xvars] <- sapply(results.table$xvar[results.table$xvar %in% td.xvars],function(x) paste0(x,"(td)"))
-#     }
-#     if (formatted) {
-#       results.table$signif <- as.character(cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-")))
-#       results.table$haz.ratio <- format(round(results.table$haz.ratio,2),nsmall=2)
-#       results.table$lower.ci <- format(round(results.table$lower.ci,2),nsmall=2)
-#       results.table$upper.ci <- format(round(results.table$upper.ci,2),nsmall=2)
-#       results.table$p.value <- format(round(results.table$p.value,3),nsmall=3)
-#       results.table <- adply(results.table,1,function(x) {
-#         x$haz.ratio <- paste0(x$haz.ratio," (",x$lower.ci," - ",x$upper.ci,")")
-#         return(x)
-#       })
-#       results.table <- subset(results.table,select=c(model,yvar,xvar,haz.ratio,p.value,signif))
-#     }
-#     if (missing(addto)) {
-#       return(results.table)
-#     } else {
-#       return(rbind(addto,results.table))
-#     }
-#   }
-# }
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi=FALSE,multi.cutoff=0.2,referrent=FALSE) {
-#   results.table <- data.frame()
-#   for (xvar in xvars) {
-#     print(xvar)
-#     results.table <- stcox(yvar,xvar,starttime=starttime,data=data,addto=results.table,firth=firth)
-#   }
-#   if (multi) {
-#     multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
-#     multivars <- unique(sub("\\(td\\)$","",multivars))
-#     multivars <- sapply(multivars,function(x) {
-#       xvars[sapply(xvars,function(y) {
-#         y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
-#       })]
-#     })
-#     print("Multivariate model:")
-#     if (length(multivars)>0) {
-#       print(paste0(multivars))
-#       multi.table <- stcox(yvar,multivars,starttime=starttime,data=data,firth=firth)
-#       names(multi.table) <- car::recode(names(multi.table),"'haz.ratio'='multi.haz.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
-#       multi.table <- subset(multi.table,select=-model)
-#       results.table <- subset(results.table,select=-model)
-#       combined.table <- merge(results.table,multi.table,all.x=TRUE)
-#       #sort by original order
-#       results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
-#       for (v in c("multi.haz.ratio","multi.p.value","multi.signif")) {
-#         results.table[is.na(results.table[,v]),v] <- ""
-#       }
-#       n.events <- sum(data[,yvar])
-#       n.multivars <- length(unique(multivars))
-#       print(paste0(n.events/n.multivars," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
-#       #results.table <- data.frame(lapply(results.table,function(x) recode(x,"NA=''")))
-#     } else {
-#       print("No variables in multivariate!")
-#       results.table <- subset(results.table,select=-model)
-#       results.table$multi.haz.ratio <- ""
-#       results.table$multi.p.value <- ""
-#       results.table$multi.signif <- ""
-#     }
-#   }
-#   return(results.table)
-# }
+
 #
 # #' ...Title...
 # #'
