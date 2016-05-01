@@ -45,6 +45,16 @@ NULL
   !(x %in% y)
 }
 
+#' All In
+#'
+#' Convenience function. \code{a \%allin\% b} is equivalent to \code{all(a \%in\% b, na.rm=FALSE)}
+#' @export
+"%allin%" = function(x,y) {
+  all(x %in% y)
+}
+
+
+
 
 #' Subtract Dates
 #' @export
@@ -590,9 +600,7 @@ age.years <- function(bdate,now) {
 #' @author Ying Taur
 #' @export
 make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
-  #data=pt2;vars=c("agecat","Sex","dx","priorabx14","conditioning","tcd","cord");by="vanco";pt2$Sex[3]=NA;showdenom=FALSE;fisher.test=TRUE
-  #data=pt2;vars=c("agecat","Sex","dx","priorabx14","conditioning","tcd","cord");by=NULL
-  #first convert everything to factor (including NAs). This was modified function I found called AddNA2.
+  #data=pt80;vars=xvars;by="invsimpson.group";showdenom=F;fisher.test=T
 
   all.vars <- c(vars,by)
   if (any(all.vars %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
@@ -623,7 +631,7 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
       subtbl <- subtbl %>% mutate(lbl=paste0(n," (",percent(pct),")"))
     }
     #combine var and value pairs. the combined variable is saved as factor to preserve the order during spread
-    subtbl <- subtbl %>% unite(var_value,var,value,sep="=") %>% mutate(var_value=factor(var_value,levels=var_value))
+    subtbl <- subtbl %>% unite(var_value,var,value,sep="==") %>% mutate(var_value=factor(var_value,levels=var_value))
     return(subtbl)
   }
   tbl <- get.column(data) %>% mutate(column="total")
@@ -637,7 +645,9 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
       mutate(column=factor(column,levels=c("var","value",levels(sub.tbl$column),"total")))
   }
   #reshape into final columns using spread command. then re-separate the var_value into separate variables
-  tbl.all <- tbl %>% select(var_value,column,lbl) %>% spread(column,lbl) %>% separate(var_value,c("var","value"),sep="=")
+  tbl.all <- tbl %>% dplyr::select(var_value,column,lbl) %>% spread(column,lbl) %>% separate(var_value,c("var","value"),sep="==")
+  tbl$var_value
+
   if (fisher.test & !is.null(by)) {
     fisher.pval <- sapply(vars,function(var) {
       ftest <- fisher.test(data[,var],data[,by])
@@ -1119,7 +1129,31 @@ fill.in.blanks <- function(vec,blank="",include.na=TRUE) {
   c(vec[non.blanks][1], vec[non.blanks])[cumsum(non.blanks)+1]
 }
 
+#Imports: ape,phytools,dplyr,ggtree,phyloseq,ggplot2,scales,colorspace,stringr,logistf,coxphf,reshape2,lubridate,plyr,tidyr,data.table,Hmisc,readxl
 
+#' Determines if tstart-tstop occurs anywhere within interval.
+#' @export
+occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
+  tstop>=start.interval & stop.interval>=tstart
+}
+
+
+#' @export
+chop.endpoint <- function(data,newvar,oldvar, ...) {
+  #create a new endpoint where multiple timepoints of censoring can be specified.
+  listargs <- lapply(list(...),function(x) {
+    if (is.character(x)) {
+      x <- data[,x]
+    }
+    return(x)
+  })
+  chop.time <- do.call(min,listargs)
+  newvar_day <- paste0(newvar,"_day")
+  oldvar_day <- paste0(oldvar,"_day")
+  data[,newvar] <- ifelse(chop.time<data[,oldvar_day],FALSE,data[,oldvar])
+  data[,newvar_day] <- ifelse(chop.time<data[,oldvar_day],chop.time,data[,oldvar_day])
+  return(data)
+}
 
 
 
@@ -1142,14 +1176,21 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
   y <- c(...)[1]
   xvars <- c(...)[-1]
   y.day <- paste0(y,"_day")
+  #xvars that are time-dependent
+  td.xvars <- xvars[paste(xvars,"_day",sep="") %in% names(data)]
+  if (length(td.xvars)>0) {
+    td.xvars.day <- paste(td.xvars,"_day",sep="")
+  } else {
+    td.xvars.day <- NULL
+  }
+  all.vars <- unique(c(y,y.day,xvars,td.xvars.day,starttime))
+  #if data is large, this speeds up a lot
+  data <- data[,all.vars]
   #define y, s.start and s.stop
   data$y <- data[,y]
   data$s.start <- data[,starttime]
   data$s.stop <- data[,y.day]
   data <- subset(data,s.start<s.stop)
-  #xvars that are time-dependent
-  td.xvars <- xvars[paste(xvars,"_day",sep="") %in% names(data)]
-  td.xvars.day <- paste(td.xvars,"_day",sep="")
   #### check for missing x values.
   for (x in xvars) {
     missing.x <- is.na(data[,x])
@@ -1241,6 +1282,17 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
 #' ...Title...
 #'
 #' ...Description...
@@ -1302,6 +1354,220 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
   return(results.table)
 }
 
+
+#' Create Survival Data Frame
+#'
+#' @param f.survfit the survival data
+#' @param time0 time0 can be specified. It must be <= first event
+#' @return Returns survival data frame
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @author Ying Taur
+#' @export
+createSurvivalFrame <- function(f.survfit,time0=0) {
+  # define custom function to create a survival data.frame
+  #YT edit: time0 can be specified. it must be <= first event. if it isn't use first event as time0
+  time0 <- min(time0,f.survfit$time[1])
+  # initialise frame variable
+  f.frame <- NULL
+  # check if more then one strata
+  if (length(names(f.survfit$strata))==0) {
+    f.frame <- data.frame(time=f.survfit$time, n.risk=f.survfit$n.risk, n.event=f.survfit$n.event, n.censor = f.survfit$n.censor, surv=f.survfit$surv, upper=f.survfit$upper, lower=f.survfit$lower)
+    # create first two rows (start at 1)
+    f.start <- data.frame(time=c(time0, f.frame$time[1]), n.risk=c(f.survfit$n, f.survfit$n), n.event=c(0,0), n.censor=c(0,0), surv=c(1,1), upper=c(1,1), lower=c(1,1))
+    # add first row to dataset
+    f.frame <- rbind(f.start, f.frame)
+    # remove temporary data
+    rm(f.start)
+    # create data.frame with data from survfit
+  } else { #multiple strata
+    # create vector for strata identification
+    f.strata <- NULL
+    for(f.i in 1:length(f.survfit$strata)){
+      # add vector for one strata according to number of rows of strata
+      f.strata <- c(f.strata, rep(names(f.survfit$strata)[f.i], f.survfit$strata[f.i]))
+    }
+    # create data.frame with data from survfit (create column for strata)
+    f.frame <- data.frame(time=f.survfit$time, n.risk=f.survfit$n.risk, n.event=f.survfit$n.event, n.censor = f.survfit
+                          $n.censor, surv=f.survfit$surv, upper=f.survfit$upper, lower=f.survfit$lower, strata=factor(f.strata))
+    # remove temporary data
+    rm(f.strata)
+    # create first two rows (start at 1) for each strata
+    for(f.i in 1:length(f.survfit$strata)){
+      # take only subset for this strata from data
+      f.subset <- subset(f.frame, strata==names(f.survfit$strata)[f.i])
+      # create first two rows (time: time0, time of first event) YT edit, not time 0 but
+      f.start <- data.frame(time=c(time0, f.subset$time[1]), n.risk=rep(f.survfit[f.i]$n, 2), n.event=c(0,0), n.censor=c(0,0), surv=c(1,1), upper=c(1,1), lower=c(1,1), strata=rep(names(f.survfit$strata)[f.i],2))
+      # add first two rows to dataset
+      f.frame <- rbind(f.start, f.frame)
+      # remove temporary data
+      rm(f.start, f.subset)
+    }
+    # reorder data
+    f.frame <- f.frame[order(f.frame$strata, f.frame$time), ]
+    # rename row.names
+    rownames(f.frame) <- NULL
+  }
+  # return frame
+  return(f.frame)
+}
+
+
+
+
+#' At-Risk Table from Survival Data Frame
+#'
+#' @param t.breaks vector of times to calculate at-risk
+#' @param sf survival frame
+#' @param minus.epsilon.last.t means we substract a small amt from last timepoint, because otherwise it's all NA.
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+survival.frame.atrisk.table <- function(t.breaks,sf,minus.epsilon.last.t=TRUE,melt=FALSE,row.name.xloc) {
+  #t.breaks=0:3*365;minus.epsilon.last.t=TRUE;melt=TRUE;row.name.xloc=-200
+  epsilon <- (max(t.breaks) - min(t.breaks)) / 1000000
+  t.breaks2 <- ifelse(t.breaks==max(t.breaks),t.breaks-epsilon,t.breaks)
+  tbl <- data.frame(lapply(t.breaks2,function(t) {
+    survival.frame.info(t,sf,"n.risk")
+  }))
+  names(tbl) <- paste0("time.",t.breaks)
+  #the factor is to keep factor order same as order of table
+  tbl <- data.frame(strata=factor(row.names(tbl),levels=row.names(tbl)),tbl,row.names=NULL)
+  if (melt) {
+    #default for xlocation
+    if (missing(row.name.xloc)) {
+      row.name.xloc <- -200
+    }
+    tbl[,paste0("time.",row.name.xloc)] <- tbl$strata
+    measure.vars <- grep("time\\.",names(tbl),value=TRUE)
+    atrisk.melt <- melt(tbl,measure.vars=measure.vars)
+    atrisk.melt$x <- as.numeric(sub("^time\\.","",atrisk.melt$variable))
+    atrisk.melt$y <- as.numeric(atrisk.melt$strata)
+    atrisk.melt$label <- atrisk.melt$value
+    return(atrisk.melt)
+  } else {
+    return(tbl)
+  }
+}
+
+#' Survival Frame Info
+#'
+#' Given survival.frame, and time, provide info in the survivalframe.
+#' @param t time
+#' @param sf survival frame
+#' @param infotype type of info needed. Needs to be a variable in survival frame.
+#' @return info needed from survival frame
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+survival.frame.info <- function(t,sf,infotype) {
+  #given survival.frame, and time, provide info in the survivalframe.
+  #infotype is the name of variable: "n.risk","surv",etc.
+  if (!(infotype %in% names(sf))) {
+    print("Error, infotype needs to be a variable in survival.frame")
+    return(NULL)
+  }
+  if (!("strata" %in% names(sf))) {
+    sf$strata <- "num.at.risk"
+  }
+  sf <- sf[order(sf$strata),]
+  daply(sf,"strata",function(x) {
+    before.times <- x$time<=t
+    if (all(before.times)) {
+      return(NA)
+    } else {
+      sub.x <- x[before.times,]
+      return(sub.x[order(sub.x$time,decreasing=TRUE)[1],infotype])
+    }
+  })
+}
+
+
+#' Generate Kaplan-Meier curve in ggplot2
+#'
+#' Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
+#'
+#' Use this to make Kaplan-Meier curves in ggplot2. Utilizes the \code{geom_step} function to draw.
+#' \code{yingtools::stcox} function is used to generate data from a survival frame.
+#'
+#' @param yvar character, used to indicate the variable set to be used as survival endpoint of interest.
+#' For example, if \code{yvar="var1"} is specified, then \code{data} should have \code{"var1"} will represent
+#' whether the endpoint occurred (logical or 0-1), and \code{"var1_day"} will represent the time at which
+#' the event occurred (or didn't occur).
+#' @param xvar character, indicating the variable within \code{data} that will contain the groups by which curves will be generated.
+#' @param data data frame containing the survival data.
+#' @param starttime character, specifying the column within \code{data} that indicates the survival start time.
+#' If there is no left censoring, then this would refer to a vector of 0's. Default is \code{"tstart"}
+#' @param flip.y logical, indicating whether or not to flip the y-axis. \code{flip.y = FALSE} by default (curve is downwards).
+#' @param size line thickness for the survival curve.
+#' @return A ggplot2 geom object with Kaplan-Meier curve.
+#' @examples
+#' ggplot() + geom_kaplanmeier("dead","Intensity",data)
+#' @seealso \code{\link{xxxxx}}
+#' @author Ying Taur
+#' @export
+geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE,size=NULL,logrank=FALSE,logrank.xpos,logrank.ypos,logrank.fontsize=5) {
+  if (is.null(xvar)) {
+    data$one <- 1
+    sf <- createSurvivalFrame(stcox(yvar,"one",starttime=starttime,data=data,as.survfit=TRUE))
+  } else {
+    sf <- createSurvivalFrame(stcox(yvar,xvar,starttime=starttime,data=data,as.survfit=TRUE))
+    sf[,xvar] <- sub("^.+=","",sf$strata)
+    if (is.factor(data[,xvar])) {
+      sf[,xvar] <- factor(sf[,xvar],levels=levels(data[,xvar]))
+    }
+  }
+  if (flip.y) {
+    sf$surv <- 1 - sf$surv
+  }
+  if (is.null(xvar)) {
+    if (is.null(size)) {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv"))
+    } else {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv"),size=size)
+    }
+  } else {
+    if (is.null(size)) {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar))
+    } else {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar),size=size)
+    }
+    if (logrank) {
+      g <- list(g,geom_logrank(yvar=yvar,xvar=xvar,data=data,starttime=starttime,x.pos=logrank.xpos,y.pos=logrank.ypos,logrank.fontsize=logrank.fontsize))
+    }
+  }
+  return(g)
+}
+
+
+#' Generate label for Log-rank test results in ggplot2
+#'
+#' Adds the p-value for a log-rank test to a ggplot2 graph.
+#'
+#' ...details...
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.fontsize=5) {
+  logrank <- stcox(yvar=yvar,yvar=xvar,data=data,starttime=starttime,logrank=TRUE)
+  logrank <- paste0("Log-rank\nP = ",formatC(logrank,format="f",digits=3))
+  annotate("text",x=x.pos,y=y.pos,label=logrank,size=logrank.fontsize)
+}
 
 # #' CID Data
 # #'
@@ -2113,33 +2379,7 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
 # # }
 #
 #
-# #Imports: ape,phytools,dplyr,ggtree,phyloseq,ggplot2,scales,colorspace,stringr,logistf,coxphf,reshape2,lubridate,plyr,tidyr,data.table,Hmisc,readxl
-#
-# #' Determines if tstart-tstop occurs anywhere within interval.
-# #' @export
-# occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
-#   tstop>=start.interval & stop.interval>=tstart
-# }
-#
-#
-# #' @export
-# chop.endpoint <- function(data,newvar,oldvar, ...) {
-#   #create a new endpoint where multiple timepoints of censoring can be specified.
-#   listargs <- lapply(list(...),function(x) {
-#     if (is.character(x)) {
-#       x <- data[,x]
-#     }
-#     return(x)
-#   })
-#   chop.time <- do.call(min,listargs)
-#   newvar_day <- paste0(newvar,"_day")
-#   oldvar_day <- paste0(oldvar,"_day")
-#   data[,newvar] <- ifelse(chop.time<data[,oldvar_day],FALSE,data[,oldvar])
-#   data[,newvar_day] <- ifelse(chop.time<data[,oldvar_day],chop.time,data[,oldvar_day])
-#   return(data)
-# }
-#
-#
+
 
 #
 #
@@ -2585,236 +2825,13 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
 # }
 #
 #
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @author Ying Taur
-# #' @export
-# createSurvivalFrame <- function(f.survfit,time0=0) {
-#   # define custom function to create a survival data.frame
-#   #YT edit: time0 can be specified. it must be <= first event. if it isn't use first event as time0
-#   time0 <- min(time0,f.survfit$time[1])
-#   # initialise frame variable
-#   f.frame <- NULL
-#   # check if more then one strata
-#   if (length(names(f.survfit$strata))==0) {
-#     f.frame <- data.frame(time=f.survfit$time, n.risk=f.survfit$n.risk, n.event=f.survfit$n.event, n.censor = f.survfit$n.censor, surv=f.survfit$surv, upper=f.survfit$upper, lower=f.survfit$lower)
-#     # create first two rows (start at 1)
-#     f.start <- data.frame(time=c(time0, f.frame$time[1]), n.risk=c(f.survfit$n, f.survfit$n), n.event=c(0,0), n.censor=c(0,0), surv=c(1,1), upper=c(1,1), lower=c(1,1))
-#     # add first row to dataset
-#     f.frame <- rbind(f.start, f.frame)
-#     # remove temporary data
-#     rm(f.start)
-#     # create data.frame with data from survfit
-#   } else { #multiple strata
-#     # create vector for strata identification
-#     f.strata <- NULL
-#     for(f.i in 1:length(f.survfit$strata)){
-#       # add vector for one strata according to number of rows of strata
-#       f.strata <- c(f.strata, rep(names(f.survfit$strata)[f.i], f.survfit$strata[f.i]))
-#     }
-#     # create data.frame with data from survfit (create column for strata)
-#     f.frame <- data.frame(time=f.survfit$time, n.risk=f.survfit$n.risk, n.event=f.survfit$n.event, n.censor = f.survfit
-#                           $n.censor, surv=f.survfit$surv, upper=f.survfit$upper, lower=f.survfit$lower, strata=factor(f.strata))
-#     # remove temporary data
-#     rm(f.strata)
-#     # create first two rows (start at 1) for each strata
-#     for(f.i in 1:length(f.survfit$strata)){
-#       # take only subset for this strata from data
-#       f.subset <- subset(f.frame, strata==names(f.survfit$strata)[f.i])
-#       # create first two rows (time: time0, time of first event) YT edit, not time 0 but
-#       f.start <- data.frame(time=c(time0, f.subset$time[1]), n.risk=rep(f.survfit[f.i]$n, 2), n.event=c(0,0), n.censor=c(0,0), surv=c(1,1), upper=c(1,1), lower=c(1,1), strata=rep(names(f.survfit$strata)[f.i],2))
-#       # add first two rows to dataset
-#       f.frame <- rbind(f.start, f.frame)
-#       # remove temporary data
-#       rm(f.start, f.subset)
-#     }
-#     # reorder data
-#     f.frame <- f.frame[order(f.frame$strata, f.frame$time), ]
-#     # rename row.names
-#     rownames(f.frame) <- NULL
-#   }
-#   # return frame
-#   return(f.frame)
-# }
+
 #
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# survival.frame.info <- function(t,sf,infotype) {
-#   #given survival.frame, and time, provide info in the survivalframe.
-#   #infotype is the name of variable: "n.risk","surv",etc.
-#   if (!(infotype %in% names(sf))) {
-#     print("Error, infotype needs to be a variable in survival.frame")
-#     return(NULL)
-#   }
-#   if (!("strata" %in% names(sf))) {
-#     sf$strata <- "num.at.risk"
-#   }
-#   sf <- sf[order(sf$strata),]
-#   daply(sf,"strata",function(x) {
-#     before.times <- x$time<=t
-#     if (all(before.times)) {
-#       return(NA)
-#     } else {
-#       sub.x <- x[before.times,]
-#       return(sub.x[order(sub.x$time,decreasing=TRUE)[1],infotype])
-#     }
-#   })
-# }
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# survival.frame.atrisk.table <- function(t.breaks,sf,minus.epsilon.last.t=TRUE,melt=FALSE,row.name.xloc) {
-#   #given vector of times, create table of number at risk,
-#   #where number of rows is equal to number of levels in strata
-#   #minus.epsilon.last.t means we substract a small amt from last timepoint, because otherwise it's all NA.
-#   #t.breaks=(0:3)*365
-#
-#   #t.breaks=0:3*365;minus.epsilon.last.t=TRUE;melt=TRUE;row.name.xloc=-200
-#   epsilon <- (max(t.breaks) - min(t.breaks)) / 1000000
-#   t.breaks2 <- ifelse(t.breaks==max(t.breaks),t.breaks-epsilon,t.breaks)
-#   tbl <- data.frame(lapply(t.breaks2,function(t) {
-#     survival.frame.info(t,sf,"n.risk")
-#   }))
-#   names(tbl) <- paste0("time.",t.breaks)
-#   #the factor is to keep factor order same as order of table
-#   tbl <- data.frame(strata=factor(row.names(tbl),levels=row.names(tbl)),tbl,row.names=NULL)
-#   if (melt) {
-#     #default for xlocation
-#     if (missing(row.name.xloc)) {
-#       row.name.xloc <- -200
-#     }
-#     tbl[,paste0("time.",row.name.xloc)] <- tbl$strata
-#     measure.vars <- grep("time\\.",names(tbl),value=TRUE)
-#     atrisk.melt <- melt(tbl,measure.vars=measure.vars)
-#     atrisk.melt$x <- as.numeric(sub("^time\\.","",atrisk.melt$variable))
-#     atrisk.melt$y <- as.numeric(atrisk.melt$strata)
-#     atrisk.melt$label <- atrisk.melt$value
-#     return(atrisk.melt)
-#   } else {
-#     return(tbl)
-#   }
-# }
+
+
 #
 #
-# #' Generate Kaplan-Meier curve in ggplot2
-# #'
-# #' Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
-# #'
-# #' Use this to make Kaplan-Meier curves in ggplot2. Utilizes the \code{geom_step} function to draw.
-# #' \code{yingtools::stcox} function is used to generate data from a survival frame.
-# #'
-# #' @param yvar character, used to indicate the variable set to be used as survival endpoint of interest.
-# #' For example, if \code{yvar="var1"} is specified, then \code{data} should have \code{"var1"} will represent
-# #' whether the endpoint occurred (logical or 0-1), and \code{"var1_day"} will represent the time at which
-# #' the event occurred (or didn't occur).
-# #' @param xvar character, indicating the variable within \code{data} that will contain the groups by which curves will be generated.
-# #' @param data data frame containing the survival data.
-# #' @param starttime character, specifying the column within \code{data} that indicates the survival start time.
-# #' If there is no left censoring, then this would refer to a vector of 0's. Default is \code{"tstart"}
-# #' @param flip.y logical, indicating whether or not to flip the y-axis. \code{flip.y = FALSE} by default (curve is downwards).
-# #' @param size line thickness for the survival curve.
-# #' @return A ggplot2 geom object with Kaplan-Meier curve.
-# #' @examples
-# #' ggplot() + geom_kaplanmeier("dead","Intensity",data)
-# #' @seealso \code{\link{xxxxx}}
-# #' @author Ying Taur
-# #' @export
-# geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE,size=NULL,logrank=FALSE,logrank.xpos,logrank.ypos,logrank.fontsize=5) {
-#   if (is.null(xvar)) {
-#     data$one <- 1
-#     sf <- createSurvivalFrame(stcox(yvar,"one",starttime=starttime,data=data,as.survfit=TRUE))
-#   } else {
-#     sf <- createSurvivalFrame(stcox(yvar,xvar,starttime=starttime,data=data,as.survfit=TRUE))
-#     sf[,xvar] <- sub("^.+=","",sf$strata)
-#     if (is.factor(data[,xvar])) {
-#       sf[,xvar] <- factor(sf[,xvar],levels=levels(data[,xvar]))
-#     }
-#   }
-#   if (flip.y) {
-#     sf$surv <- 1 - sf$surv
-#   }
-#   if (is.null(xvar)) {
-#     if (is.null(size)) {
-#       g <- geom_step(data=sf,aes_string(x="time",y="surv"))
-#     } else {
-#       g <- geom_step(data=sf,aes_string(x="time",y="surv"),size=size)
-#     }
-#   } else {
-#     if (is.null(size)) {
-#       g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar))
-#     } else {
-#       g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar),size=size)
-#     }
-#     if (logrank) {
-#       g <- list(g,geom_logrank(yvar=yvar,xvar=xvar,data=data,starttime=starttime,x.pos=logrank.xpos,y.pos=logrank.ypos,logrank.fontsize=logrank.fontsize))
-#     }
-#   }
-#   return(g)
-# }
-#
-#
-# #' Generate label for Log-rank test results in ggplot2
-# #'
-# #' Adds the p-value for a log-rank test to a ggplot2 graph.
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.fontsize=5) {
-#   logrank <- stcox(yvar=yvar,yvar=xvar,data=data,starttime=starttime,logrank=TRUE)
-#   logrank <- paste0("Log-rank\nP = ",formatC(logrank,format="f",digits=3))
-#   annotate("text",x=x.pos,y=y.pos,label=logrank,size=logrank.fontsize)
-# }
+
 #
 #
 #

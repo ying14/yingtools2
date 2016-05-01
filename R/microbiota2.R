@@ -60,7 +60,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
     sdata <- data.frame(sample=sample_names(phy),stringsAsFactors=FALSE)
   } else {
     if ("sample" %in% sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
-    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% add_rownames("sample")
+    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample")
   }
   if (stats) {
     dup.names <- intersect(c("nseqs",measures),names(sdata))
@@ -82,9 +82,8 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @return formatted sample_data.
 #' @export
 set.samp <- function(sdata) {
-  ss <- sdata %>% dplyr::select(-sample)
-  row.names(ss) <- sdata[["sample"]]
-  ss <- ss %>% data.frame(stringsAsFactors=FALSE) %>% sample_data()
+  ss <- sdata %>% column_to_rownames("sample") %>%
+    data.frame(stringsAsFactors=FALSE) %>% sample_data()
   return(ss)
 }
 
@@ -196,7 +195,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE,blastn.data=FALSE) {
 #'
 #' Reads in oligos file, listing pertinent information
 #'
-#' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files will be read in.
+#' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
 #' @return Returns a data frame containing oligo information
 #' @examples
 #' ...examples.here....
@@ -204,6 +203,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE,blastn.data=FALSE) {
 #' @author Ying Taur
 #' @export
 read.oligos <- function(oligo.file) {
+
   if (!file.exists(oligo.file)) {
     stop("YTError: file/directory not found: ",oligo.file)
   }
@@ -212,7 +212,7 @@ read.oligos <- function(oligo.file) {
     if (length(oligo.files)==0) {
       stop("YTError: no oligo files found in dir: ",oligo.file)
     }
-    out <- dplyr::rbind_all(lapply(oligo.files,read.oligos))
+    out <- bind_rows(lapply(oligo.files,read.oligos))
     return(out)
   }
 
@@ -226,14 +226,14 @@ read.oligos <- function(oligo.file) {
   if (any(d$info=="error")) {
     stop("YTError: Did not understand one of the lines in the oligos file!\nFile: ",oligo.file,"\nLine: ",d$line[d$info=="error"][1])
   }
-  p <- d %>% filter(info=="primer") %>%
+  p <- d %>% dplyr::filter(info=="primer") %>%
     mutate(primer=sub("^(primer|forward)\t","",line))
   primer <- p$primer[1]
-  b <- d %>% filter(info=="barcode") %>%
+  b <- d %>% dplyr::filter(info=="barcode") %>%
     mutate(group=sapply(strsplit(line,split="\t"),last),
-           barcode.commented=substr(line,1,1)=="#",
-           barcode=sapply(strsplit(line,split="\t"),function(x) paste(x[c(-1,-length(x))],collapse="\t")))
-  cmt <- d %>% filter(info=="comment")
+                  barcode.commented=substr(line,1,1)=="#",
+                  barcode=sapply(strsplit(line,split="\t"),function(x) paste(x[c(-1,-length(x))],collapse="\t")))
+  cmt <- d %>% dplyr::filter(info=="comment")
   pool <- str_extract(oligo.file,"pool[^/]+(?=\\.oligos)")
   if (is.na(pool)) {
     stop("YTError: Could not extract pool number from file!")

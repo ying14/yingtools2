@@ -7,7 +7,7 @@
 read.oligos(oligo.file)
 }
 \arguments{
-\item{oligo.file}{oligo file to be read. If oligo.file is a directory, all oligo files will be read in.}
+\item{oligo.file}{oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.}
 }
 \value{
 Returns a data frame containing oligo information
