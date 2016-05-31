@@ -95,7 +95,7 @@ set.samp <- function(sdata) {
 #' @return Dataframe containing tax data
 #' @export
 get.tax <- function(phy) {
-  tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% add_rownames("otu")
+  tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu")
 }
 
 #' Convert data frame to phyloseq tax_table
@@ -105,9 +105,11 @@ get.tax <- function(phy) {
 #' @return formatted tax_table.
 #' @export
 set.tax <- function(tdata) {
-  tt <- tdata %>% dplyr::select(-otu)
-  row.names(tt) <- tdata[["otu"]]
-  tt <- tt %>% as.matrix() %>% tax_table()
+  tt <- tdata %>% column_to_rownames("otu") %>%
+    as.matrix() %>% tax_table()
+#   tt <- tdata %>% dplyr::select(-otu)
+#   row.names(tt) <- tdata[["otu"]]
+#   tt <- tt %>% as.matrix() %>% tax_table()
   return(tt)
 }
 
