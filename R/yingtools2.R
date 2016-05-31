@@ -398,7 +398,6 @@ read.clipboard <- function(sep="\n") {
 }
 
 
-
 #' Convert object to R-code.
 #'
 #' Produces R-code that would create the object inputted. I use this if I have some data object that I obtained
@@ -419,25 +418,34 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
     rcode <- paste(x.cols,collapse=",\n")
     rcode <- paste0("data.frame(",rcode,")")
+  } else if (is.Date(x)) {
+    x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+    rcode <- paste0("as.Date(",x.char,")")
+  } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
+    x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+    rcode <- paste0("as.POSIXlt(",x.char,")")
+  } else if (is.POSIXct(x)) {
+    x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+    rcode <- paste0("as.POSIXct(",x.char,")")
+  } else if (is.factor(x)) {
+    x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+    x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
+    rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
   } else if (is.list(x)) {
     x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
     rcode <- paste(x.cols,collapse=",\n")
     rcode <- paste0("list(",rcode,")")
-  } else if (is.factor(x)) {
-    x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-    x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
-    rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
-  } else if (class(x)=="Date") {
-    x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-    rcode <- paste0("as.Date(",x.char,")")
   } else {
     if (is.character(x)) {
+      x <- gsub("\\\\","\\\\\\\\",x) #\\
+      x <- gsub("\t","\\\\t",x) #\t
+      x <- gsub("\n","\\\\n",x) #\n
+      x <- gsub("\"","\\\\\"",x) #\"
       rcode <- ifelse(is.na(x),x,paste0("\"",x,"\""))
     } else {
       rcode <- x #e.g. numeric or logical
     }
-
     if (!is.null(names(x))) {
       x.names <- names(x)
       x.names <- paste0("\"",x.names,"\"")
@@ -449,29 +457,91 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
       rcode <- paste0("c(",rcode,")")
     }
   }
-
-  if (is.vector(x) & fit) {
-    add.returns <- function(text,width) {
-      longlines <- data_frame(line.end=as.vector(gregexpr("\n|$",text)[[1]])) %>%
-        mutate(line.start=c(1,line.end[-length(line.end)]),diff=line.end-line.start) %>%
-        filter(diff>width)
-      if (nrow(longlines)==0) {
-        return(text)
-      } else {
-        first.longline <- longlines %>% head(1)
-        sub.text <- substr(text,first.longline$line.start,first.longline$line.end)
-        comma.pos <- last(gregexpr(",",substr(sub.text,0,width))[[1]]) + first.longline$line.start - 1
-        new.text <- paste0(substr(text,1,comma.pos),"\n",substr(text,comma.pos+1,nchar(text)))
-        return(add.returns(new.text,width))
-      }
-    }
-    rcode <- add.returns(rcode,width)
+  if (fit) {
+    rcode <- fit(rcode,width=width,copy.clipboard=FALSE)
   }
-
   if (copy.clipboard) {
     copy.to.clipboard(rcode)
   }
   return(rcode)
+}
+
+
+fit <- function(x,width=100,copy.clipboard=TRUE) {
+  #width=100;copy.clipboard=TRUE
+  cr.pattern <- "(?<!\\\\)\\n"
+  multi.line <- grepl(cr.pattern,x,perl=TRUE)
+  if (multi.line) {
+    lines <- str_split(x,cr.pattern)[[1]]
+    out <- paste(sapply(lines,function(x) fit(x,width=width,copy.clipboard=FALSE)),collapse="\n")
+  } else {
+    #find quotes (cannot be preceded by backslash)
+    if (nchar(x)<=width) {
+      out <- x
+    } else {
+      quote.pos <- gregexpr("(?<!\\\\)\\\"",x,perl=TRUE)[[1]]
+      if (quote.pos[1]==-1) {
+        within.quotes <- NULL
+      } else {
+        if (length(quote.pos) %% 2!=0) stop("YTError: Found an odd number of quotes in this character string:\n",x)
+        quote.pairs <- split(quote.pos,cumsum(rep(1:0,length.out=length(quote.pos))))
+        #mark characters that are within quotes.
+        within.quotes <- lapply(quote.pairs,function(x) x[1]:x[2])
+        within.quotes <- stack(within.quotes)$values
+      }
+      comma.pos <- gregexpr(",",x)[[1]]
+      if (comma.pos[1]==-1) {
+        out <- x
+      } else {
+        valid.cr.pos <- setdiff(comma.pos,within.quotes)
+        min.valid.cr.pos <- min(valid.cr.pos)
+        if (min.valid.cr.pos>=width) {
+          new.cr <- min.valid.cr.pos
+        } else {
+          chars <- strsplit(x,"")[[1]]
+          cumsum.chars <- cumsum(chars!="\\")
+          valid.crs.length <- cumsum.chars[valid.cr.pos]
+          new.cr <- max(valid.cr.pos[valid.crs.length<=width])
+        }
+        first.half <- substr(x,1,new.cr)
+        second.half <- substr(x,new.cr+1,nchar(x))
+        out <- paste(first.half,fit(second.half,width=width,copy.clipboard=FALSE),sep="\n")
+      }
+    }
+  }
+  if (copy.clipboard) {
+    copy.to.clipboard(out)
+  }
+  return(out)
+}
+
+
+#' Convert vector to SQL code.
+#'
+#' Produces SQL code for a vector of values.
+#'
+#' @param x vector to be converted to SQL code.
+#' @param copy.clipboard logical, if \code{TRUE}, will copy the SQL code to the Clipboard.
+#' @return Returns the SQL code.
+#' @examples
+#' values <- c("35171234",""35507574)
+#' copy.as.sql(values)
+#' @author Ying Taur
+#' @export
+copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
+  #converts x to R-code.
+  if (!is.vector(x)) {
+    stop("YTError: not a vector!")
+  }
+  x <- as.character(x)
+  sql <- paste0("(",paste0("'",x,"'",collapse=","),")")
+  if (fit) {
+    sql <- fit(sql,width=width,copy.clipboard=FALSE)
+  }
+  if (copy.clipboard) {
+    copy.to.clipboard(sql)
+  }
+  return(sql)
 }
 
 
@@ -601,10 +671,11 @@ age.years <- function(bdate,now) {
 #' @export
 make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   #data=pt80;vars=xvars;by="invsimpson.group";showdenom=F;fisher.test=T
-
+  #data=p;vars=c("cdi.1y","cdi.ever");by=NULL;showdenom=FALSE;fisher.test=TRUE
+  #data=cdi.all;vars="multi.cdi";by="first.cdi.pre";showdenom=FALSE;fisher.test=TRUE
   all.vars <- c(vars,by)
   if (any(all.vars %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
-  data <- data[,all.vars]
+  data <- data[,all.vars,drop=FALSE]
   if (!is.null(by)) {
     if (by %in% vars) {stop("YTError, by-variable cannot be in vars list!")}
   }
@@ -646,11 +717,10 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   }
   #reshape into final columns using spread command. then re-separate the var_value into separate variables
   tbl.all <- tbl %>% dplyr::select(var_value,column,lbl) %>% spread(column,lbl) %>% separate(var_value,c("var","value"),sep="==")
-  tbl$var_value
 
   if (fisher.test & !is.null(by)) {
     fisher.pval <- sapply(vars,function(var) {
-      ftest <- fisher.test(data[,var],data[,by])
+      ftest <- fisher.test(data[[var]],data[[by]])
       ftest$p.value
     })
     tbl.all$fisher <- ""
@@ -658,7 +728,6 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   }
   return(tbl.all)
 }
-
 
 
 #' @export
@@ -734,7 +803,7 @@ as.Date2 <- function(vec) {
     #if (all.grepl(date.regex(df),vec2)) {
     #use of useBytes is to avoid warnings about locale
     if (all.grepl(date.regex(df),vec2,useBytes=TRUE)) {
-      return(as.POSIXct(vec,format=df,tz="UTC"))
+      return(as.POSIXct(vec,format=df))
     }
   }
   return(vec)
