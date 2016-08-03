@@ -7,6 +7,6 @@
 x \%-\% y
 }
 \description{
-Subtract Dates
+Returns number of days.
 }
 

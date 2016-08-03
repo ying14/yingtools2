@@ -256,6 +256,89 @@ read.oligos <- function(oligo.file) {
 }
 
 
+
+#' Hilight a set of ggtree tips.
+#'
+#' geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"))
+#' geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"),xend=2)
+#' geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"),xadd=1.5)
+#' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
+#' @return Returns a data frame containing oligo information
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @author Ying Taur
+#' @export
+geom_hilight <- function(mapping = NULL, data = NULL,
+                         stat = "identity", position = "identity", ...,
+                         na.rm = FALSE, show.legend = NA, inherit.aes = TRUE) {
+
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomHilight,
+        position = position, show.legend = show.legend, inherit.aes = inherit.aes,
+        params = list( na.rm = na.rm, ...)
+  )
+}
+
+
+#' @export
+GeomHilight <- ggplot2::ggproto("GeomHilight", ggplot2::Geom,
+                       default_aes = ggplot2::aes(label = NA,
+                                         colour = "black",
+                                         fill = "light blue",
+                                         xend = NA,
+                                         xadd = NA,
+                                         linesize = 0.5,
+                                         linetype = 1, lineheight = 1.2,
+                                         alpha = NA,
+                                         size = 3.88,
+                                         angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1),
+                       required_aes = c("x","y"),
+                       setup_data = function(data, params) {
+                         data %>% filter(isTip,var==value)
+                       },
+                       draw_group = function(data, panel_scales, coord) {
+                         linesize <- data$linesize[1]
+                         topdata <- data[which.max(data$y),,drop=FALSE]
+                         bottomdata <- data[which.min(data$y),,drop=FALSE]
+                         xend <- data$xend[1]
+                         xadd <- data$xadd[1]
+                         label <- data$label[1]
+                         if (is.na(label)) {
+                           label <- data$value[1]
+                         }
+                         if (is.na(xend) & is.na(xadd)) {
+                           xend <- max(data$x,na.rm=TRUE)
+                           xadd <- 0.5
+                         } else if (is.na(xend) & !is.na(xadd)) {
+                           xend <- max(data$x)
+                         } else if (!is.na(xend) & is.na(xadd)) {
+                           xadd <- 0
+                         } else if (!is.na(xend) & !is.na(xadd)) {
+                           warning("YTWarning: both xend and xadd were specified, only one should be specified")
+                         } else stop("YTError: should not happen, look for code issues")
+                         xend <- xend + xadd
+                         xtop <- topdata$x
+                         ytop <- topdata$y+0.5
+                         xbottom <- bottomdata$x
+                         ybottom <- bottomdata$y-0.5
+                         rect_data <- data.frame(xmin=data$x,
+                                                 xmax=xend,
+                                                 ymin=data$y-0.5,
+                                                 ymax=data$y+0.5,
+                                                 colour=NA,data[1,,drop=FALSE],row.names=NULL)
+                         text_data <- data.frame(x=xend,y=(ytop+ybottom)/2,label=label,
+                                                 data[1,,drop=FALSE],row.names=NULL)
+                         line_data <- data.frame(x=c(xend,xtop,xbottom),y=c(ytop,ytop,ybottom),
+                                                 xend=c(xend,xend,xend),yend=c(ybottom,ytop,ybottom),
+                                                 size=linesize,
+                                                 data[1,,drop=FALSE],row.names=NULL)
+                         gList(GeomRect$draw_panel(rect_data, panel_scales, coord),
+                               GeomText$draw_panel(text_data, panel_scales, coord),
+                               GeomSegment$draw_panel(line_data, panel_scales, coord))}
+                       #draw_key = GeomRect$draw_key
+)
+
+
 #' Right Angle for Text on circular ggtree
 #'
 #' @param angle
@@ -396,6 +479,233 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
   }
 }
 
+
+
+
+#' LEfSe
+#'
+#' Run LEfSe (LDA Effect Size) analysis using a phyloseq object.
+#'
+#' This function performs the analysis using the following steps.
+#' (1) Creates lefse.txt from phyloseq data, a tab-delimited file in the format input required by LEfSe.
+#' (2) Executes format_input.py to further format lefse.txt into lefse.in
+#' (3) Executes run_lefse.py, which does the actual analysis and produces lefse.res.
+#' (4) Executes plot_res.py and plot_cladogram.py, which create the graphics for LEfSe.
+#' Note that
+#' @param phy the phyloseq object containing data
+#' @param class variable to be tested by LEfSe. This must be a variable in sample_data(phy)
+#' @param subclass variable to perform subclass testing. This step is skipped if it is not specified.
+#' @param subject variable referring to the subject level designation. This is only necessary if multiple samples per subject.
+#' @param anova.alpha alpha level of the kruskal-wallis testing. Default is 0.05
+#' @param wilcoxon.alpha alpha level at which to perform wilcoxon testing of subclass testing. Default is 0.05.
+#' @param lda.cutoff Cutoff LDA to be reported. Default is 2.0.
+#' @param wilcoxon.within.subclass Set whether to perform Wilcox test only among subclasses with the same name (Default FALSE)
+#' @param mult.test.correction Can be {0,1,2}. Set the multiple testing correction options. 0 no correction (more strict, default), 1 correction for independent comparisons, 2 correction for independent comparison
+#' @param one.against.one for multiclass tasks, sets whether testing is performed one-against-one (TRUE - more strict) or one-against-all (FALSE - less strict)
+#' @param levels Taxonomic levels to be tested. Default is to test all levels: rank_names(phy)
+#' @return Returns data
+#' @examples
+#' lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")
+#' @author Ying Taur
+#' @export
+lefse <- function(phy,class,subclass=NA,subject=NA,
+                  anova.alpha=0.05,wilcoxon.alpha=0.05,lda.cutoff=2.0,
+                  wilcoxon.within.subclass=FALSE,one.against.one=FALSE,
+                  mult.test.correction=0,
+                  make.lefse.plots=FALSE,by_otus=FALSE,
+                  levels=rank_names(phy)) {
+  #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
+  #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
+  #phy=ph.lefse;class="CDI";subclass="SampleType";subject="MRN";anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
+
+  keepvars <- c(class,subclass,subject,"sample")
+  keepvars <- unique(keepvars[!is.na(keepvars)])
+  samp <- get.samp(phy)[,keepvars]
+  # note that lefse taxa names cannot have spaces, will replace ; and = with _
+  # gsub("[;=]","_",xx$otu)
+  if (by_otus) { #perform by otu only
+
+    otu <- get.otu.melt(phy,sample_data=FALSE)
+    otu.levels <- otu %>% mutate(taxon=otu) %>%
+      group_by(sample,taxon) %>% summarize(pctseqs=sum(pctseqs)) %>%
+      mutate(taxon=gsub(" ","_",taxon))
+  } else { #divide by taxonomy
+    otu <- get.otu.melt(phy,sample_data=FALSE)
+    otu.list <- lapply(1:length(levels),function(i) {
+      lvls <- levels[1:i]
+      lvl <- levels[i]
+      otu.level <- otu
+      otu.level$taxon <- do.call(paste,c(lapply(lvls,function(l) otu[[l]]),sep="|"))
+      otu.level$rank <- lvl
+      otu.level2 <- otu.level %>% group_by(sample,taxon,rank) %>% summarize(pctseqs=sum(pctseqs)) %>% ungroup()
+      return(otu.level2)
+    })
+    otu.levels <- bind_rows(otu.list) %>%
+      mutate(taxon=gsub(" ","_",taxon))
+  }
+
+  otu.tbl <- otu.levels %>%
+    dcast(sample~taxon,value.var="pctseqs",fill=0) %>%
+    left_join(samp,by="sample") %>%
+    select_(.dots=c(keepvars,lazyeval::interp(~everything())))
+  if (is.na(subject) | subject!="sample") {
+    otu.tbl <- otu.tbl %>% select(-sample)
+  }
+  tbl <- otu.tbl %>% t()
+  write.table(tbl,"lefse.txt",quote=FALSE,sep="\t",col.names=FALSE)
+
+  opt.class <- paste("-c",which(keepvars %in% class))
+  opt.subclass <- ifelse(is.na(subclass),"",paste("-s",which(keepvars %in% subclass)))
+  opt.subject <-ifelse(is.na(subject),"",paste("-u",which(keepvars %in% subject)))
+  format.command <- paste("format_input.py lefse.txt lefse.in",opt.class,opt.subclass,opt.subject,"-o 1000000")
+  system(format.command)
+  #   -m {f,s}              set the policy to adopt with missin values: f removes
+  #   the features with missing values, s removes samples
+  #   with missing values (default f)
+  #   -n int                set the minimum cardinality of each subclass
+  #   (subclasses with low cardinalities will be grouped
+  #   together, if the cardinality is still low, no pairwise
+  #   comparison will be performed with them)
+
+  lefse.command <- paste("run_lefse.py lefse.in lefse.res",
+                         "-a",anova.alpha,
+                         "-w",wilcoxon.alpha,
+                         "-l",lda.cutoff,
+                         "-e",as.numeric(wilcoxon.within.subclass),
+                         "-y",as.numeric(one.against.one),
+                         "-s",mult.test.correction)
+  system(lefse.command)
+  print("Wrote lefse.res")
+  lefse.out <- read.table("lefse.res",header=FALSE,sep="\t") %>% rename(taxon=V1,log.max.pct=V2,direction=V3,lda=V4,p.value=V5)
+  #   -a float        set the alpha value for the Anova test (default 0.05)
+  #   -w float        set the alpha value for the Wilcoxon test (default 0.05)
+  #   -l float        set the threshold on the absolute value of the logarithmic
+  #   LDA score (default 2.0)
+  #   --nlogs int     max log ingluence of LDA coeff
+  #   --verbose int   verbose execution (default 0)
+  #   --wilc int      wheter to perform the Wicoxon step (default 1)
+  #   -r str          select LDA or SVM for effect size (default LDA)
+  #   --svm_norm int  whether to normalize the data in [0,1] for SVM feature
+  #   waiting (default 1 strongly suggested)
+  #   -b int          set the number of bootstrap iteration for LDA (default 30)
+  #   -e int          set whether perform the wilcoxon test only among the
+  #   subclasses with the same name (default 0)
+  #   -c int          set whether perform the wilcoxon test ing the Curtis's
+  #                   approach [BETA VERSION] (default 0)
+  #   -f float        set the subsampling fraction value for each bootstrap
+  #                   iteration (default 0.66666)
+  #   -s {0,1,2}      set the multiple testing correction options. 0 no correction
+  #                   (more strict, default), 1 correction for independent
+  #                   comparisons, 2 correction for independent comparison
+  #   --min_c int     minimum number of samples per subclass for performing
+  #                   wilcoxon test (default 10)
+  #   -t str          set the title of the analysis (default input file without
+  #                   extension)
+  #   -y {0,1}        (for multiclass tasks) set whether the test is performed in
+  #                   a one-against-one ( 1 - more strict!) or in a one-against-
+  #                   all setting ( 0 - less strict) (default 0)
+
+  if (make.lefse.plots) {
+    system("plot_res.py lefse.res lefse_lda.png")
+    print("Wrote lefse_lda.png")
+    system("plot_cladogram.py lefse.res lefse_clado.pdf --format pdf")
+    print("Wrote lefse_clado.pdf")
+  }
+  return(lefse.out)
+}
+
+#' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
+#'
+#' Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
+#' Modified from a version from Liam J. Revell, University of Massachusetts, \link{https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html}
+#'
+#' Here are the changes:
+#' (1) Corrected branch lengths. The original ape::as.phylo.formula does not work well because it uses ape::read.tree to read in data,
+#' which can only read Newick trees without singleton branches. This uses read.newick instead, which can handle the singleton branches.
+#' (2) Single branches are not automatically collapsed. This is so you can plot all levels of taxonomy.
+#' (3) All nodes are labeled.
+#' @param x a right-side formula describing the taxonomic relationship: ~C1/C2/.../Cn.
+#' @param data the data.frame where to look for the variables (default to environment).
+#' @param collapse.singles whether or not to collapse singleton nodes. Default is FALSE.
+#' @param ... further arguments to be passed from other methods.
+#' @return An object of class phylo.
+#' @examples
+#' #levels are not same level.
+#' data(carnivora)
+#' t1 <- ape::as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
+#' par(lend=2)
+#' plot(t1,edge.width=2,cex=0.6,no.margin=TRUE)
+#' #this is correct.
+#' t2 <- as.phylo.formula2(~SuperFamily/Family/Genus/Species, data=carnivora)
+#' par(lend=2)
+#' plot(t2,edge.width=2,cex=0.6,no.margin=TRUE)
+#' @author Ying Taur
+#' @export
+as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=TRUE, ...){
+  #data=lefse.results;x=~Kingdom/Phylum/Class/Order/Family/Genus/Species  ;collapse.singles=FALSE; distinct.tree=TRUE; full.taxonomy.only=TRUE
+  err <- "Formula must be of the kind \"~A1/A2/.../An\"."
+  if (length(x) != 2)
+    stop(err)
+  if (x[[1]] != "~")
+    stop(err)
+  f <- x[[2]]
+  taxo <- list() #list of vectors, from species->phylum
+  while (length(f) == 3) {
+    if (f[[1]] != "/")
+      stop(err)
+    #if (!is.factor(data[[deparse(f[[3]])]]))
+    #  stop(paste("Variable", deparse(f[[3]]), "must be a factor."))
+    taxo[[deparse(f[[3]])]] <- data[[deparse(f[[3]])]]
+    if (length(f) > 1)
+      f <- f[[2]]
+  }
+  #if (!is.factor(data[[deparse(f)]]))
+  #  stop(paste("Variable", deparse(f), "must be a factor."))
+  #f=Kingdom
+  taxo[[deparse(f)]] <- data[[deparse(f)]]
+  taxo.data <- as.data.frame(taxo) #tax data from species>kingdom
+  if (distinct.tree) {
+    taxo.data <- taxo.data %>% distinct()
+  }
+  if (full.taxonomy.only) {
+    taxo.data <- taxo.data[!is.na(taxo.data[,1]),]
+  }
+  leaves.names <- as.character(taxo.data[, 1]) #species
+  taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
+  f.rec <- function(subtaxo) {
+    #subtaxo=taxo.data
+    u <- ncol(subtaxo) #number of ranks
+    levels <- unique(subtaxo[, u]) #last column (bacteria,...,genus)
+    if (u == 1) {
+      if (length(levels) != nrow(subtaxo))
+        warning("Error, leaves names are not unique.")
+      return(as.character(subtaxo[, 1]))
+    }
+    t <- character(length(levels))
+    for (l in 1:length(levels)) { #for each taxon of the level
+      #l=1
+      x <- f.rec(subtaxo[subtaxo[, u] == levels[l], ][1:(u - 1)]) #subset of taxo.data for that level.
+      #modified this so that node labels are written.
+      #t[l] <- paste("(", paste(x, collapse = ","), ")", sep = "")
+      t[l] <- paste("(", paste(x, collapse = ","), ")",levels[l], sep = "")
+    }
+    return(t)
+  }
+  string <- paste("(", paste(f.rec(taxo.data), collapse = ","),");", sep = "")
+  phy <- read.newick(text = string) ## so that singles will be read without error
+  phy$edge.length <- rep(1,nrow(phy$edge))
+  if (collapse.singles) {
+    phy <- collapse.singles(phy)
+  }
+  phy$tip.label <- leaves.names[as.numeric(phy$tip.label)]
+  return(phy)
+}
+
+
+
+
+
+
 # #' Simpson's diversity
 # #' @export
 # simpson.diversity <- function(pcts) {
@@ -490,238 +800,7 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 #                       "Lactobacillus"="#3b51a3","Staphylococcus"="#f1eb25")
 #
 #
-# #' LEfSe
-# #'
-# #' Run LEfSe (LDA Effect Size) analysis using a phyloseq object.
-# #'
-# #' This function performs the analysis using the following steps.
-# #' (1) Creates lefse.txt from phyloseq data, a tab-delimited file in the format input required by LEfSe.
-# #' (2) Executes format_input.py to further format lefse.txt into lefse.in
-# #' (3) Executes run_lefse.py, which does the actual analysis and produces lefse.res.
-# #' (4) Executes plot_res.py and plot_cladogram.py, which create the graphics for LEfSe.
-# #' Note that
-# #' @param phy the phyloseq object containing data
-# #' @param class variable to be tested by LEfSe. This must be a variable in sample_data(phy)
-# #' @param subclass variable to perform subclass testing. This step is skipped if it is not specified.
-# #' @param subject variable referring to the subject level designation. This is only necessary if multiple samples per subject.
-# #' @param anova.alpha alpha level of the kruskal-wallis testing. Default is 0.05
-# #' @param wilcoxon.alpha alpha level at which to perform wilcoxon testing of subclass testing. Default is 0.05.
-# #' @param lda.cutoff Cutoff LDA to be reported. Default is 2.0.
-# #' @param wilcoxon.within.subclass Set whether to perform Wilcox test only among subclasses with the same name (Default FALSE)
-# #' @param one.against.one for multiclass tasks, sets whether testing is performed one-against-one (TRUE - more strict) or one-against-all (FALSE - less strict)
-# #' @param levels Taxonomic levels to be tested. Default is to test all levels: rank_names(phy)
-# #' @return Returns data
-# #' @examples
-# #' lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")
-# #' @author Ying Taur
-# #' @export
-# lefse <- function(phy,class,subclass=NA,subject=NA,
-#                   anova.alpha=0.05,wilcoxon.alpha=0.05,lda.cutoff=2.0,
-#                   wilcoxon.within.subclass=FALSE,one.against.one=FALSE,
-#                   make.lefse.plots=FALSE,
-#                   levels=rank_names(phy)) {
-#   #phy=ph.engraft;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
-#   keepvars <- unique(c(class,subclass,subject,"sample"))
-#   keepvars <- keepvars[!is.na(keepvars)]
-#   samp <- get.samp(phy)[,keepvars]
-#
-#   tt <- get.tax(phy)
-#   tt.prelefse <- tt
-#   tt.dict <- data.frame()
-#   for (lvl in 1:length(levels)) {
-#     #lvl=3
-#     ranks <- levels[1:lvl]
-#     rank <- levels[lvl]
-#     tt.prelefse[,rank] <- apply(data.frame(tt[,ranks]),1,function(row) {
-#       row <- gsub("[|.]","",row) #remove separators . or |
-#       row <- gsub(" ","_",row) #spaces are deleted, so instead change to _ (this is optional)
-#       paste(row,collapse="|")
-#     })
-#     tt.dict <- bind_rows(tt.dict,data.frame(rank,taxon=tt[,rank],prelefse.fulltaxon=tt.prelefse[,rank]))
-#   }
-#
-#   tax_table(phy) <- tt.prelefse %>% set.tax()
-#   tt.dict <- tt.dict %>% distinct() %>%
-#     mutate(postlefse.fulltaxon=gsub("\\|",".",prelefse.fulltaxon),
-#            postlefse.fulltaxon=gsub("(\\[|\\]|-)","_",postlefse.fulltaxon), #these are changes lefse makes to the names
-#            postlefse.fulltaxon=gsub(" ","",postlefse.fulltaxon)) %>%
-#     separate(prelefse.fulltaxon,into=levels,sep="\\|",remove=FALSE,extra="drop")
-#   for (i in 1:length(levels)) {
-#     lvls <- levels[1:i]
-#     lvl <- levels[i]
-#     lvl0 <- paste0(levels[i],"0")
-#     tt.dict[,lvl0] <- apply(tt.dict[,lvls],1,function(row) {
-#       paste2(row,collapse="|")
-#     })
-#     tt.dict[is.na(tt.dict[,lvl]),lvl0] <- NA
-#   }
-#   tax <- get.otu.melt(phy,sample_data=FALSE)
-#   tax.tbl <- tax %>% melt(measure.vars=levels,value.name="taxon",variable.name="level") %>%
-#     dcast(sample~taxon,value.var="pctseqs",fill=0,fun.aggregate=sum)
-#   tbl <- samp %>% left_join(tax.tbl,by="sample")
-#   if (is.na(subject) | subject!="sample") {
-#     tbl <- tbl %>% select(-sample)
-#   }
-#   tbl <- tbl %>% t()
-#   write.table(tbl,"lefse.txt",quote=FALSE,sep="\t",col.names=FALSE)
-#   opt.class <- paste("-c",which(keepvars %in% class))
-#   opt.subclass <- ifelse(is.na(subclass),"",paste("-s",which(keepvars %in% subclass)))
-#   opt.subject <-ifelse(is.na(subject),"",paste("-u",which(keepvars %in% subject)))
-#   format.command <- paste("format_input.py lefse.txt lefse.in",opt.class,opt.subclass,opt.subject,"-o 1000000")
-#   system(format.command)
-#   #   -m {f,s}              set the policy to adopt with missin values: f removes
-#   #   the features with missing values, s removes samples
-#   #   with missing values (default f)
-#   #   -n int                set the minimum cardinality of each subclass
-#   #   (subclasses with low cardinalities will be grouped
-#   #   together, if the cardinality is still low, no pairwise
-#   #   comparison will be performed with them)
-#   lefse.command <- paste("run_lefse.py lefse.in lefse.res","-a",anova.alpha,"-w",wilcoxon.alpha,"-l",lda.cutoff,"-e",as.numeric(wilcoxon.within.subclass),"-y",as.numeric(one.against.one))
-#   system(lefse.command)
-#   print("Wrote lefse.res")
-#   lefse.out <- read.table("lefse.res",header=FALSE,sep="\t") %>% rename(postlefse.fulltaxon=V1,log.max.pct=V2,direction=V3,lda=V4,p.value=V5)
-#   #   -a float        set the alpha value for the Anova test (default 0.05)
-#   #   -w float        set the alpha value for the Wilcoxon test (default 0.05)
-#   #   -l float        set the threshold on the absolute value of the logarithmic
-#   #   LDA score (default 2.0)
-#   #   --nlogs int     max log ingluence of LDA coeff
-#   #   --verbose int   verbose execution (default 0)
-#   #   --wilc int      wheter to perform the Wicoxon step (default 1)
-#   #   -r str          select LDA or SVM for effect size (default LDA)
-#   #   --svm_norm int  whether to normalize the data in [0,1] for SVM feature
-#   #   waiting (default 1 strongly suggested)
-#   #   -b int          set the number of bootstrap iteration for LDA (default 30)
-#   #   -e int          set whether perform the wilcoxon test only among the
-#   #   subclasses with the same name (default 0)
-#   #   -c int          set whether perform the wilcoxon test ing the Curtis's
-#   #                   approach [BETA VERSION] (default 0)
-#   #   -f float        set the subsampling fraction value for each bootstrap
-#   #                   iteration (default 0.66666)
-#   #   -s {0,1,2}      set the multiple testing correction options. 0 no correction
-#   #                   (more strict, default), 1 correction for independent
-#   #                   comparisons, 2 correction for independent comparison
-#   #   --min_c int     minimum number of samples per subclass for performing
-#   #                   wilcoxon test (default 10)
-#   #   -t str          set the title of the analysis (default input file without
-#   #                   extension)
-#   #   -y {0,1}        (for multiclass tasks) set whether the test is performed in
-#   #                   a one-against-one ( 1 - more strict!) or in a one-against-
-#   #                   all setting ( 0 - less strict) (default 0)
-#
-#   if (make.lefse.plots) {
-#     system("plot_res.py lefse.res lefse_lda.png")
-#     print("Wrote lefse_lda.png")
-#     system("plot_cladogram.py lefse.res lefse_clado.pdf --format pdf")
-#     print("Wrote lefse_clado.pdf")
-#   }
-#
-#   lefse.mismatches <- setdiff(lefse.out$full.taxon,tt.dict$postlefse)
-#   if (length(lefse.mismatches)>0) {
-#     stop("YTError: items from LEfSE output don't match! Check the function.")
-#   }
-#   lefse.fulltable <- tt.dict %>% left_join(lefse.out,by="postlefse.fulltaxon") %>% mutate(lefse=!is.na(log.max.pct)) %>% rename(label=prelefse.fulltaxon)
-#   #return(lefse.fulltable)
-#   #phy.formula <- as.formula(paste0("~",paste(levels,collapse="/")))
-#   #tt.phylo.df <- tt.prelefse %>% select(-otu) %>% distinct()
-#   #tt.phylo <- as.phylo.formula2(phy.formula,data=tt.phylo.df)
-#   #if (anyDuplicated(c(tt.phylo$tip.label,tt.phylo$node.label))) {
-#   #  stop("YTError: Duplicate labels in phylo tree!")
-#   #}
-#   #return(list(tbl=lefse.fulltable,phylo=tt.phylo))
-#   return(lefse.fulltable)
-# }
-#
-# #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
-# #'
-# #' Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
-# #' Modified from a version from Liam J. Revell, University of Massachusetts, \link{https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html}
-# #'
-# #' Here are the changes:
-# #' (1) Corrected branch lengths. The original ape::as.phylo.formula does not work well because it uses ape::read.tree to read in data,
-# #' which can only read Newick trees without singleton branches. This uses read.newick instead, which can handle the singleton branches.
-# #' (2) Single branches are not automatically collapsed. This is so you can plot all levels of taxonomy.
-# #' (3) All nodes are labeled.
-# #' @param x a right-side formula describing the taxonomic relationship: ~C1/C2/.../Cn.
-# #' @param data the data.frame where to look for the variables (default to environment).
-# #' @param collapse.singles whether or not to collapse singleton nodes. Default is FALSE.
-# #' @param ... further arguments to be passed from other methods.
-# #' @return An object of class phylo.
-# #' @examples
-# #' #levels are not same level.
-# #' data(carnivora)
-# #' t1 <- ape::as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
-# #' par(lend=2)
-# #' plot(t1,edge.width=2,cex=0.6,no.margin=TRUE)
-# #' #this is correct.
-# #' t2 <- as.phylo.formula2(~SuperFamily/Family/Genus/Species, data=carnivora)
-# #' par(lend=2)
-# #' plot(t2,edge.width=2,cex=0.6,no.margin=TRUE)
-# #' @author Ying Taur
-# #' @export
-# as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=TRUE, ...){
-#   #data=lefse.results;x=~Kingdom/Phylum/Class/Order/Family/Genus/Species  ;collapse.singles=FALSE; distinct.tree=TRUE; full.taxonomy.only=TRUE
-#   err <- "Formula must be of the kind \"~A1/A2/.../An\"."
-#   if (length(x) != 2)
-#     stop(err)
-#   if (x[[1]] != "~")
-#     stop(err)
-#   f <- x[[2]]
-#   taxo <- list() #list of vectors, from species->phylum
-#   while (length(f) == 3) {
-#     if (f[[1]] != "/")
-#       stop(err)
-#     #if (!is.factor(data[[deparse(f[[3]])]]))
-#     #  stop(paste("Variable", deparse(f[[3]]), "must be a factor."))
-#     taxo[[deparse(f[[3]])]] <- data[[deparse(f[[3]])]]
-#     if (length(f) > 1)
-#       f <- f[[2]]
-#   }
-#   #if (!is.factor(data[[deparse(f)]]))
-#   #  stop(paste("Variable", deparse(f), "must be a factor."))
-#   #f=Kingdom
-#   taxo[[deparse(f)]] <- data[[deparse(f)]]
-#   taxo.data <- as.data.frame(taxo) #tax data from species>kingdom
-#   if (distinct.tree) {
-#     taxo.data <- taxo.data %>% distinct()
-#   }
-#   if (full.taxonomy.only) {
-#     taxo.data <- taxo.data[!is.na(taxo.data[,1]),]
-#   }
-#   leaves.names <- as.character(taxo.data[, 1]) #species
-#   taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
-#   f.rec <- function(subtaxo) {
-#     #subtaxo=taxo.data
-#     u <- ncol(subtaxo) #number of ranks
-#     levels <- unique(subtaxo[, u]) #last column (bacteria,...,genus)
-#     if (u == 1) {
-#       if (length(levels) != nrow(subtaxo))
-#         warning("Error, leaves names are not unique.")
-#       return(as.character(subtaxo[, 1]))
-#     }
-#     t <- character(length(levels))
-#     for (l in 1:length(levels)) { #for each taxon of the level
-#       #l=1
-#       x <- f.rec(subtaxo[subtaxo[, u] == levels[l], ][1:(u - 1)]) #subset of taxo.data for that level.
-#       #modified this so that node labels are written.
-#       #t[l] <- paste("(", paste(x, collapse = ","), ")", sep = "")
-#       t[l] <- paste("(", paste(x, collapse = ","), ")",levels[l], sep = "")
-#     }
-#     return(t)
-#   }
-#   string <- paste("(", paste(f.rec(taxo.data), collapse = ","),");", sep = "")
-#   phy <- read.newick(text = string) ## so that singles will be read without error
-#   phy$edge.length <- rep(1,nrow(phy$edge))
-#   if (collapse.singles) {
-#     phy <- collapse.singles(phy)
-#   }
-#   phy$tip.label <- leaves.names[as.numeric(phy$tip.label)]
-#   return(phy)
-# }
-#
-#
-#
-#
-#
+
 
 #
 #

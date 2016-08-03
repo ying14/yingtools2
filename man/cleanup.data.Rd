@@ -4,10 +4,15 @@
 \alias{cleanup.data}
 \title{Cleanup data}
 \usage{
-cleanup.data(data, make.names = TRUE, trim = TRUE, convert.dates = TRUE,
-  as.mrn = TRUE, remove.na.cols.rows = FALSE)
+cleanup.data(data, remove.na.cols = FALSE, remove.na.rows = TRUE,
+  make.names = TRUE, trim = TRUE, convert.dates = TRUE, as.mrn = TRUE,
+  verbose = TRUE)
 }
 \arguments{
+\item{remove.na.cols}{If \code{TRUE}, will remove any column consisting entirely of \code{NA}'s. Default=\code{FALSE}}
+
+\item{remove.na.rows}{If \code{TRUE}, will remove any row consisting entirely of \code{NA}'s. Default=\code{TRUE}}
+
 \item{make.names}{If \code{TRUE}, will fix variable names. Default=\code{TRUE}}
 
 \item{trim}{If \code{TRUE}, will remove whitespace from all character variables. Default=\code{TRUE}}
@@ -16,17 +21,18 @@ cleanup.data(data, make.names = TRUE, trim = TRUE, convert.dates = TRUE,
 
 \item{as.mrn}{If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}}
 
-\item{remove.na.cols.rows}{If \code{TRUE}, will remove any column or row consisting entirely of \code{NA}'s. Default=\code{FALSE}}
+\item{verbose}{logical indicating whether or not to display info on data cleaning. Default is \code{TRUE}.}
 }
 \value{
 Returns a clean version of \code{data}.
 }
 \description{
-Cleans up a data frame by performing 4 tasks:
-(1) \code{trim}: for all character variables, remove whitespace
-(2) \code{convert.dates}: for all character variables, remove whitespace
-(3) \code{as.mrn}: will properly format any MRN variable.
-(4) Remove any column or row that is all \code{NA} values.
+Cleans up a data frame by performing 5 tasks:
+(1) Remove any column or row that is all \code{NA} values (\code{remove.na.rows},\code{remove.na.cols})
+(2) Make column names well-formatted (\code{make.names})
+(3) Remove any leading or trailing whitespace from character variables (\code{trim})
+(4) Look for variables that look like date/time variables, and convert them to Date or POSIXct format (\code{convert.dates})
+(5) Look for variables that look like MRNs and format them properly (\code{as.mrn})
 }
 \examples{
 #####

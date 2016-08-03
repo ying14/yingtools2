@@ -57,23 +57,12 @@ NULL
 
 
 #' Subtract Dates
+#'
+#' Returns number of days.
 #' @export
 "%-%" = function(x,y) {
-  #if subtracting dates, will make the output numeric (instead of time-difference)
-  #   x <- ISOdatetime(2015,6,20,20,31,04,"GMT")
-  #   y <- ISOdatetime(1975,2,21,17,00,00,"EDT")
-  #   x <- ISOdatetime(2015,6,20,00,00,00,"GMT")
-  #   y <- ISOdatetime(1975,2,21,00,00,00,"EDT")
-  if (is.POSIXct(x) & is.POSIXct(y)) {
-    x.timezone <- format(x,format="%Z")
-    y.timezone <- format(y,format="%Z")
-    if (any(x.timezone!=y.timezone,na.rm=TRUE)) {
-      warning("YT: timezones are different! ")
-    }
-  }
-  as.numeric(as.POSIXct(x) - as.POSIXct(y), units="days")
+  as.numeric(difftime(x,y,units="days"))
 }
-
 
 
 #' Tabulate
@@ -222,6 +211,27 @@ min2 <- function(...,na.rm=FALSE) {
     min(...,na.rm=na.rm)
   }
 }
+
+
+#' Coalesce
+#'
+#' Similar to SQL, use vectors in order until not NA.
+#' @param ... vectors, all the same size, listed in order of priority
+#' @return A single vector of values
+#' @examples
+#' a <- c(1,  2,  NA, 4, NA)
+#' b <- c(NA, NA, NA, 5, 6)
+#' c <- c(7,  8,  NA, 9, 10)
+#' coalesce(a,b,c)
+#' @export
+coalesce <- function(...) {
+  Reduce(function(x, y) {
+    i <- which(is.na(x))
+    x[i] <- y[i]
+    x},
+    list(...))
+}
+
 
 
 #' Ying's Cut 2
@@ -625,6 +635,62 @@ log_epsilon_trans_breaks <- function(epsilon) {
 }
 
 
+
+#' Stack and line up ggplot objects in a column
+#'
+#' Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
+#'
+#' Performs these steps:
+#' (1) change margins so that plots are closer together
+#' (2) alters widths of each component so that the plots will line up nicely
+#' (3) calls \code{grid.arrange(...,ncol=1)}
+#' @param ...
+#' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
+#' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
+#' @param gap size of gap between stacked plots. Default is 0
+#' @param margin size of the margin around the plots. Default is 1.
+#' @param units specifies units used for gap and margin.
+#'
+#' @return break function returning break values.
+#' @export
+gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inches") {
+  grobs <- list(...)
+  length.grobs <- length(grobs)
+  if (length.grobs<=1) {
+    stop("YTError: should have at least 2 grobs")
+  }
+  top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
+                     axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+  middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
+                        axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+  bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
+  g.top <- grobs[[1]] + top.theme + gg.extras
+  g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
+    g + middle.theme + gg.extras
+  })
+  g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
+  grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
+  grobs2 <- lapply(grobs1,function(g) {
+    #gr <- ggplotGrob(g1)
+    gr <- ggplotGrob(g)
+  })
+  nwidths <- max(sapply(grobs2,function(g) length(g$width)))
+  grobs3 <- lapply(grobs2,function(g) {
+    if (length(g$widths)<nwidths) {
+      g <- gtable_add_cols(g,unit(1,"null"))
+    }
+    return(g)
+  })
+  max.widths <- do.call(unit.pmax,lapply(grobs3,function(x) x$width))
+  grobs4 <- lapply(grobs3,function(g) {
+    g$widths <- max.widths
+    return(g)
+  })
+  args <- c(grobs4,list(ncol=1,heights=heights))
+  do.call(grid.arrange,args)
+}
+
+
 #' Age in years
 #'
 #' Calculates REAL age.
@@ -739,10 +805,13 @@ trim.default <- function(string) {
   #str_trim(string)
 }
 #' @export
-trim.data.frame <- function(data) {
+trim.data.frame <- function(data,verbose=TRUE) {
   strvars <- sapply(data,is.character)
-
   data[,strvars] <- sapply(data[,strvars],trim)
+  if (verbose) {
+    msg <- paste0("trim: looked through ",sum(strvars)," character variables to trim.")
+    message(msg)
+  }
   return(data)
 }
 
@@ -794,18 +863,24 @@ as.Date2 <- function(vec) {
                     "%d-%b-%Y", #"21-Jan-2014","04-Feb-2014"
                     "%m-%d-%y", #"01-14-14","01-21-14"
                     "%m/%d/%y", #"01/14/14","01/21/14"
-                    "%Y-%m-%d 00:00:00", #"2004-02-21 00:00:00","1999-07-20 00:00:00" Access dates, read in by RODBC
-                    "%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29","1999-07-20 14:25:29"
-                    "%Y-%m-%d-%H.%M.%S") #"1999-07-27-10.55.27","1999-07-27-10.55.27"
+                    "%Y-%m-%d 00:00:00") #"2004-02-21 00:00:00","1999-07-20 00:00:00") Access dates, read in by RODBC
+  datetime.formats <- c("%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29","1999-07-20 14:25:29"
+                        "%Y-%m-%d-%H.%M.%S") #"1999-07-27-10.55.27","1999-07-27-10.55.27"
 
   vec2 <- vec[!is.na(vec) & vec!=""]
   for (df in date.formats) {
-    #if (all.grepl(date.regex(df),vec2)) {
+    #use of useBytes is to avoid warnings about locale
+    if (all.grepl(date.regex(df),vec2,useBytes=TRUE)) {
+      return(as.Date(vec,format=df))
+    }
+  }
+  for (dtf in datetime.formats) {
     #use of useBytes is to avoid warnings about locale
     if (all.grepl(date.regex(df),vec2,useBytes=TRUE)) {
       return(as.POSIXct(vec,format=df))
     }
   }
+
   return(vec)
 }
 
@@ -834,8 +909,9 @@ all.grepl <- function(pattern, x, n.screen=10000, ... ) {
 #'
 #' Basically applies \code{as.Date2} to all variables.
 #' @param data The data frame to be converted.
+#' @param verbose logical indicating whether or not to display info on date conversions. Default is \code{TRUE}.
 #' @export
-convert.dates <- function(data) {
+convert.dates <- function(data,verbose=TRUE) {
   #data=xx
   newdata <- data
   for (var in names(newdata)) {
@@ -844,16 +920,17 @@ convert.dates <- function(data) {
   oldclass <- sapply(data,function(x) class(x)[1])
   newclass <- sapply(newdata,function(x) class(x)[1])
   changes <- data_frame(var=names(data),oldclass,newclass) %>% filter(oldclass!=newclass)
-  cat("Looking for date variables to convert...  ")
+  # cat("Looking for date variables to convert...  ")
   if (nrow(changes)==0) {
-    cat("None found.\n")
+    msg <- "convert.dates: no date vars"
   } else {
-    changes.summary <- with(changes,paste0("  ",var," (",oldclass,"->",newclass,")",collapse="\n"))
-    cat("\n",changes.summary,"\n")
+    msg <- with(changes,paste0("convert.dates: dates converted: ",paste0(var,collapse=",")))
+  }
+  if (verbose) {
+    message(msg)
   }
   return(newdata)
 }
-
 
 #' Determine if variable is a properly formatted MSKCC MRN
 #'
@@ -928,39 +1005,155 @@ as.mrn.default <- function(mrn) {
 
 #' @rdname as.mrn
 #' @export
-as.mrn.data.frame <- function(data) {
-  #converts variable to mrn if it has name with mrn in it, and conforms to mrn format
-  cat("Looking for MRN variables... ")
+as.mrn.data.frame <- function(data,verbose=TRUE) {
   mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=TRUE)
-  if (length(mrn.form)==0) {
-    cat("None found.")
-    return(data)
-  }
+  #looks like mrn
   mrn.vars <- mrn.form[sapply(mrn.form,function(x) is.mrn(data[[x]],like=TRUE))]
-  if (length(mrn.vars)==0) {
-    cat("None found.")
-  } else {
-    cat("\n  Found vars: ",paste(mrn.vars,collapse=","))
+  if (length(mrn.vars)>0) {
     for (mv in mrn.vars) {
       data[[mv]] <- as.mrn(data[[mv]])
     }
+    mrn.vars.summary <- mrn.vars
+    if ("MRN" %!in% names(data)) {
+      data <- rename_(data,MRN=mrn.vars[1])
+      mrn.vars.summary[1] <- paste0("MRN=",mrn.vars.summary[1])
+    }
+    msg <- paste0("as.mrn: ",paste(mrn.vars.summary,collapse=", "))
+  } else {
+    msg <- "as.mrn: none"
+  }
+  if (verbose) {
+    message(msg)
   }
   return(data)
 }
 
 
-#' Remove NA rows or columns
+#' Remove NA columns
+#'
+#' @param data data frame to be filtered.
+#' @param verbose logical indicating whether or not to display info on columns removed. Default is \code{TRUE}.
+#' @return The original data frame, with blank columns removed.
 #' @export
-remove.na.cols.rows <- function(data) {
-  data[apply(data,1,function(row) !all(is.na(row))),sapply(data,function(col) !all(is.na(col)))]
+remove.na.cols <- function(data,verbose=TRUE) {
+  keepcols <- sapply(data,function(col) !all(is.na(col)))
+  if (verbose) {
+    n.col.discard <- sum(!keepcols)
+    if (n.col.discard==0) {
+      msg <- "remove.na.cols: no blank columns found."
+    } else {
+      msg <- paste0("remove.na.cols: removing ",n.col.discard," blank columns.")
+    }
+    message(msg)
+  }
+  return(data[,keepcols])
+}
+
+
+#' Remove NA rows
+#'
+#' @param data data frame to be filtered.
+#' @param verbose logical indicating whether or not to display info on rows removed. Default is \code{TRUE}.
+#' @return The original data frame, with blank rows removed.
+#' @export
+remove.na.rows <- function(data,verbose=TRUE) {
+  keeprows <- apply(data,1,function(row) !all(is.na(row)))
+  if (verbose) {
+    n.row.discard <- sum(!keeprows)
+    if (n.row.discard==0) {
+      msg <- "remove.na.rows: no blank rows found."
+    } else {
+      msg <- paste0("remove.na.rows: removing ",n.row.discard," blank rows")
+    }
+    message(msg)
+  }
+  return(data[keeprows,])
+}
+
+#' Make Syntactically Valid Names (Ying's version)
+#'
+#' Make syntactically valid names out of character vectors.
+#'
+#' Like original \code{make.names}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
+#' @param names character vector to be coerced to syntactically valid names. This is coerced to character if necessary.
+#' @param verbose logical indicating whether or not to display info name cleanup. Default is \code{TRUE}. Dataframe only
+#' @return Data frame with corrected names
+#' @export
+make.names <- function(x,...) UseMethod("make.names")
+
+#' @export
+make.names.default <- base::make.names
+
+#' @export
+make.names.data.frame <- function(data,verbose=TRUE) {
+  oldnames <- names(data)
+  names(data) <- make.names(names(data),unique=TRUE)
+  newnames <- names(data)
+  if (verbose) {
+    changes <- oldnames!=newnames
+
+    if (any(changes)) {
+      renamed.vars <- paste0(oldnames[changes],"->",newnames[changes],collapse=";")
+      msg <- paste0("make.names: renamed variables: ",renamed.vars)
+    } else {
+      msg <- "make.names: none to correct"
+    }
+    message(msg)
+  }
+  return(data)
 }
 
 
 
-
-
-
 #' Cleanup data
+#'
+#' Cleans up a data frame by performing 5 tasks:
+#' (1) Remove any column or row that is all \code{NA} values (\code{remove.na.rows},\code{remove.na.cols})
+#' (2) Make column names well-formatted (\code{make.names})
+#' (3) Remove any leading or trailing whitespace from character variables (\code{trim})
+#' (4) Look for variables that look like date/time variables, and convert them to Date or POSIXct format (\code{convert.dates})
+#' (5) Look for variables that look like MRNs and format them properly (\code{as.mrn})
+#'
+#' @param remove.na.cols If \code{TRUE}, will remove any column consisting entirely of \code{NA}'s. Default=\code{FALSE}
+#' @param remove.na.rows If \code{TRUE}, will remove any row consisting entirely of \code{NA}'s. Default=\code{TRUE}
+#' @param make.names If \code{TRUE}, will fix variable names. Default=\code{TRUE}
+#' @param trim If \code{TRUE}, will remove whitespace from all character variables. Default=\code{TRUE}
+#' @param convert.dates If \code{TRUE}, will convert variables that look like dates to Date format. Default=\code{TRUE}
+#' @param as.mrn If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}
+#' @param verbose logical indicating whether or not to display info on data cleaning. Default is \code{TRUE}.
+#' @return Returns a clean version of \code{data}.
+#' @examples
+#' #####
+#' @author Ying Taur
+#' @export
+cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,verbose=TRUE) {
+  #data=d;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
+  #data=diet;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
+  if (remove.na.cols) {
+    data <- remove.na.cols(data,verbose=verbose)
+  }
+  if (remove.na.rows) {
+    data <- remove.na.rows(data,verbose=verbose)
+  }
+  if (make.names) {
+    data <- make.names(data,verbose=verbose)
+    #names(data) <- make.names(names(data),unique=TRUE)
+    # setnames(data,names(data),make.names(names(data),unique=TRUE))
+  }
+  if (trim) {
+    data <- trim(data,verbose=verbose) #gets rid of whitespace
+  }
+  if (convert.dates) {
+    data <- convert.dates(data,verbose=verbose)
+  }
+  if (as.mrn) {
+    data <- as.mrn(data,verbose=verbose)
+  }
+  return(data)
+}
+
+
+#' Cleanup data (OLD)
 #'
 #' Cleans up a data frame by performing 4 tasks:
 #' (1) \code{trim}: for all character variables, remove whitespace
@@ -978,7 +1171,7 @@ remove.na.cols.rows <- function(data) {
 #' #####
 #' @author Ying Taur
 #' @export
-cleanup.data <- function(data,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,remove.na.cols.rows=FALSE) {
+cleanup.data.old <- function(data,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,remove.na.cols.rows=FALSE) {
   #data=d;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
   #data=diet;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
   if (remove.na.cols.rows) {
@@ -999,6 +1192,7 @@ cleanup.data <- function(data,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mr
   }
   return(data)
 }
+
 
 
 
@@ -1560,6 +1754,7 @@ survival.frame.info <- function(t,sf,infotype) {
 }
 
 
+
 #' Generate Kaplan-Meier curve in ggplot2
 #'
 #' Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
@@ -1637,6 +1832,59 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.f
   logrank <- paste0("Log-rank\nP = ",formatC(logrank,format="f",digits=3))
   annotate("text",x=x.pos,y=y.pos,label=logrank,size=logrank.fontsize)
 }
+
+
+#' Extract legend from a ggplot2 object
+#' @export
+gg.legend <- function(a.gplot) {
+  #extract legend, so it can be used with grid.arrange or whatever
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+
+#' Default color palette of ggplot2
+#'
+#' The color palette that ggplot2 uses by default.
+#'
+#' @param n number of colors to display
+#' @param h The hue of the color specified as an angle in the range [0,360]. 0 yields red, 120 yields green 240 yields blue, etc.
+#' @return A color palette that would have been used by ggplot2 by default
+#' @examples
+#' gg.colors(6)
+#' @author Ying Taur
+#' @export
+gg.colors <- function(n=6, h=c(0,360)+15) {
+  #emulates ggplot's default discrete color palette
+  if ((diff(h)%%360) < 1) h[2] <- h[2] - 360/n
+  hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
+}
+
+#' Determines if a numeric is all whole numbers
+#'
+#' Uses machine precision to determine if a numeric vector is all whole numbers.
+#'
+#' @param x numeric vector to be analyzed.
+#' @param tol tolerance for whole number calling. Usually no need to change this.
+#' @return Returnes logical value of whether or not all values are whole numbers.
+#' @examples
+#' a <- c(1,2,3)
+#' b <- c(1,2,3.00001)
+#' c <- c(1,2,3.00000000001)
+#' is.wholenumber(a)
+#' is.wholenumber(b)
+#' is.wholenumber(c)
+#' @author Ying Taur
+#' @export
+is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
+  all(abs(x-round(x))<tol | is.na(x))
+}
+
+
+
+
 
 # #' CID Data
 # #'
@@ -1886,26 +2134,6 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.f
 # #
 #
 #
-#
-# #' Determines if a numeric is all whole numbers
-# #'
-# #' Uses machine precision to determine if a numeric vector is all whole numbers.
-# #'
-# #' @param x numeric vector to be analyzed.
-# #' @param tol tolerance for whole number calling. Usually no need to change this.
-# #' @return Returnes logical value of whether or not all values are whole numbers.
-# #' @examples
-# #' a <- c(1,2,3)
-# #' b <- c(1,2,3.00001)
-# #' c <- c(1,2,3.00000000001)
-# #' is.wholenumber(a)
-# #' is.wholenumber(b)
-# #' is.wholenumber(c)
-# #' @author Ying Taur
-# #' @export
-# is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
-#   all(abs(x-round(x))<tol | is.na(x))
-# }
 #
 
 #
@@ -2453,34 +2681,7 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.f
 #
 #
 #
-# #' Make Syntactically Valid Names (Ying's version)
-# #'
-# #' Make syntactically valid names out of character vectors.
-# #'
-# #' Like original \code{make.names}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
-# #' @param names character vector to be coerced to syntactically valid names. This is coerced to character if necessary.
-# #' @param remove.dots logical; if TRUE, will remove repeating dots and dots at the end (YT mod).
-# #' @param unique logical; if TRUE, the resulting elements are unique. This may be desired for, e.g., column names.
-# #' @return Returns logical stating whether or not this variable is an MRN.
-# #' @examples
-# #' asdf
-# #' @export
-# make.names <- function(x,...) UseMethod("make.names")
-# #' @export
-# make.names.default <- function(x,remove.dots=TRUE,...) {
-#   newnames <- base::make.names(x,...)
-#   if (remove.dots) {
-#     newnames <- gsub("\\.{2,}",".",newnames)
-#     newnames <- gsub("\\.$","",newnames)
-#   }
-#   return(newnames)
-# }
-# #' @export
-# make.names.data.frame <- function(d,remove.dots=TRUE) {
-#   names(d) <- make.names(names(d),remove.dots=remove.dots,unique=TRUE)
-#   return(d)
-# }
-#
+
 #
 
 #
@@ -3007,33 +3208,7 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.f
 # }
 #
 #
-# #' Extract legend from a ggplot2 object
-# #' @export
-# gg.legend <- function(a.gplot) {
-#   #extract legend, so it can be used with grid.arrange or whatever
-#   tmp <- ggplot_gtable(ggplot_build(a.gplot))
-#   leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
-#   legend <- tmp$grobs[[leg]]
-#   return(legend)
-# }
-#
-#
-# #' Default color palette of ggplot2
-# #'
-# #' The color palette that ggplot2 uses by default.
-# #'
-# #' @param n number of colors to display
-# #' @param h The hue of the color specified as an angle in the range [0,360]. 0 yields red, 120 yields green 240 yields blue, etc.
-# #' @return A color palette that would have been used by ggplot2 by default
-# #' @examples
-# #' gg.colors(6)
-# #' @author Ying Taur
-# #' @export
-# gg.colors <- function(n=6, h=c(0,360)+15) {
-#   #emulates ggplot's default discrete color palette
-#   if ((diff(h)%%360) < 1) h[2] <- h[2] - 360/n
-#   hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
-# }
+
 #
 # #' @export
 # align_plots <- function(..., xlim,all.x=FALSE,width=unit(3, "cm")){

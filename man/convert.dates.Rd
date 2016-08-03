@@ -4,10 +4,12 @@
 \alias{convert.dates}
 \title{Search and Convert Date variables}
 \usage{
-convert.dates(data)
+convert.dates(data, verbose = TRUE)
 }
 \arguments{
 \item{data}{The data frame to be converted.}
+
+\item{verbose}{logical indicating whether or not to display info on date conversions. Default is \code{TRUE}.}
 }
 \description{
 In a given data frame, look for variables resembling dates and convert them to Dates.
