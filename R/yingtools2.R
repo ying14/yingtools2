@@ -832,10 +832,15 @@ date.regex <- function(format) {
 #' @export
 as.Date2 <- function(vec) {
   #vec=data$Entered.Date.and.Time
-  if (!is.character(vec) & !is.factor(vec)) {
+  if (is.POSIXt(vec)) {
+    if (all(format(vec,"%H:%M:%S")=="00:00:00")) {
+      return(as.Date(vec))
+    } else {
+      return(vec)
+    }
+  } else if (!is.character(vec) & !is.factor(vec)) {
     return(vec)
-  }
-  if (all(is.na(vec) | vec=="")) {
+  } else if (all(is.na(vec) | vec=="")) {
     return(vec)
   }
   date.formats <- c("%m-%d-%Y", #"12-23-2013","2-4-2014"
