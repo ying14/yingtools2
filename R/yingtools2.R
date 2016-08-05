@@ -1880,7 +1880,7 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 #' @return Returnes \code{data}, but grouped by times and other variables.
 #' @author Ying Taur
 #' @export
-group_by_times <- function(data,start,stop, ... ,gap=1,add=FALSE) {
+group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
   mutate_call <- lazyeval::interp(~lag(cumsum(lead(x)-cummax(y)>gap),default=0),
                                   x=lazyeval::lazy(start),y=lazyeval::lazy(stop))
   data %>% group_by_(.dots=lazyeval::lazy_dots(...),add=add) %>%
