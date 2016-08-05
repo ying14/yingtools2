@@ -213,26 +213,6 @@ min2 <- function(...,na.rm=FALSE) {
 }
 
 
-#' Coalesce
-#'
-#' Similar to SQL, use vectors in order until not NA.
-#' @param ... vectors, all the same size, listed in order of priority
-#' @return A single vector of values
-#' @examples
-#' a <- c(1,  2,  NA, 4, NA)
-#' b <- c(NA, NA, NA, 5, 6)
-#' c <- c(7,  8,  NA, 9, 10)
-#' coalesce(a,b,c)
-#' @export
-coalesce <- function(...) {
-  Reduce(function(x, y) {
-    i <- which(is.na(x))
-    x[i] <- y[i]
-    x},
-    list(...))
-}
-
-
 
 #' Ying's Cut 2
 #'
@@ -287,6 +267,9 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
   }
   return(new.x)
 }
+
+
+
 
 #' Color Shades
 #'
@@ -828,7 +811,7 @@ date.regex <- function(format) {
                     "%H"="([0-1][0-9]|2[0-3])", #hours as decimal 00-23
                     "%I"="(0?[1-9]|1[0-2])", #hours as decimal 01-12
                     "%M"="([0-5][0-9])", #minute 00-59
-                    "%S"="(0?[0-9]|[1-5][0-9])(\\.[0-9]+)?", #second 00-59
+                    "%S"="(0?[0-9]|[1-5][0-9])(\\.[0-9]+)?", #second 00-59 (can have up to 6 decimals)
                     "%p"="(AM|PM)",
                     "\\."="\\.")
   regex <- recode2(format,date.recodes,regexp=TRUE,replace=TRUE,multi.hits=TRUE,ignore.case=FALSE)
@@ -866,6 +849,8 @@ as.Date2 <- function(vec) {
                     "%Y-%m-%d 00:00:00", #"2004-02-21 00:00:00","1999-07-20 00:00:00" Access dates, read in by RODBC
                     "%Y-%m-%d 00:00:00.000000") #"2015-08-26 00:00:00.000000","2016-02-04 00:00:00.000000" SQL dates.
   datetime.formats <- c("%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29","1999-07-20 14:25:29"
+                        #"%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29.3","1999-07-20 14:25:29"
+                        "%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29","1999-07-20 14:25:29"
                         "%Y-%m-%d-%H.%M.%S") #"1999-07-27-10.55.27","1999-07-27-10.55.27"
 
   vec2 <- vec[!is.na(vec) & vec!=""]
@@ -881,7 +866,6 @@ as.Date2 <- function(vec) {
       return(as.POSIXct(vec,format=df))
     }
   }
-
   return(vec)
 }
 
@@ -1301,6 +1285,7 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
 }
 
 
+
 #' Read Excel File 2
 #'
 #' Same as \code{readxl::read_excel} function, but col_types can be named vector
@@ -1327,6 +1312,7 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
   xl <- read_excel(path=path,sheet=sheet,col_names=col_names,col_types=col_types,na=na,skip=skip)
   return(xl)
 }
+
 
 #' Send a Text Message
 #'
@@ -1370,7 +1356,6 @@ middle.pattern <- function(start="",middle=".+",end="") {
   }
   paste0(start,middle,end)
 }
-
 
 
 #' Fill in Blanks
@@ -1545,14 +1530,6 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
     }
   }
 }
-
-
-
-
-
-
-
-
 
 
 
@@ -1756,6 +1733,9 @@ survival.frame.info <- function(t,sf,infotype) {
 
 
 
+
+
+
 #' Generate Kaplan-Meier curve in ggplot2
 #'
 #' Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
@@ -1886,6 +1866,48 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 
 
 
+#' Group by Time
+#'
+#' Given data frame with start and stop times, group times by non-overlapping start and stop times.
+#'
+#' This is like running \code{group_by}, but creates a new grouping variable called \code{index_} that is created from times.
+#' @param data data frame
+#' @param start start times
+#' @param stop stop times
+#' @param ... other variables to group by. These will be applied prior to grouping by times.
+#' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is 1.
+#' @param add Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.
+#' @return Returnes \code{data}, but grouped by times and other variables.
+#' @author Ying Taur
+#' @export
+group_by_times <- function(data,start,stop, ... ,gap=1,add=FALSE) {
+  mutate_call <- lazyeval::interp(~lag(cumsum(lead(x)-cummax(y)>gap),default=0),
+                                  x=lazyeval::lazy(start),y=lazyeval::lazy(stop))
+  data %>% group_by_(.dots=lazyeval::lazy_dots(...),add=add) %>%
+    arrange_(.dots=list(lazyeval::lazy(start),lazyeval::lazy(stop))) %>%
+    mutate_(.dots=setNames(list(mutate_call),"index_")) %>%
+    group_by(index_,add=TRUE)
+}
+
+
+# #' Coalesce
+# #'
+# #' Similar to SQL, use vectors in order until not NA.
+# #' @param ... vectors, all the same size, listed in order of priority
+# #' @return A single vector of values
+# #' @examples
+# #' a <- c(1,  2,  NA, 4, NA)
+# #' b <- c(NA, NA, NA, 5, 6)
+# #' c <- c(7,  8,  NA, 9, 10)
+# #' coalesce(a,b,c)
+# #' @export
+# coalesce <- function(...) {
+#   Reduce(function(x, y) {
+#     i <- which(is.na(x))
+#     x[i] <- y[i]
+#     x},
+#     list(...))
+# }
 
 # #' CID Data
 # #'
