@@ -1895,6 +1895,34 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 }
 
 
+#' Cumulative Max
+#'
+#' Overrides base::cummax in order to correctly manage dates, if that is the input.
+#' @param x vector, numeric or Date.
+#' @return Cumulative max of the vector
+#' @author Ying Taur
+#' @export
+cummax <- function(x,...) {
+  UseMethod("cummax")
+}
+
+#' @rdname cummax
+#' @export
+cummax.default <- base::cummax
+
+#' @rdname cummax
+#' @export
+cummax.Date <- function(x) {
+  new.x <- as.numeric(x)
+  cu <- base::cummax(new.x)
+  as.Date(cu,origin="1970-01-01")
+}
+
+
+
+
+
+
 # #' Coalesce
 # #'
 # #' Similar to SQL, use vectors in order until not NA.
