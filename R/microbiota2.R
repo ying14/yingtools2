@@ -60,7 +60,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
     sdata <- data.frame(sample=sample_names(phy),stringsAsFactors=FALSE)
   } else {
     if ("sample" %in% sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
-    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample")
+    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("sample")
   }
   if (stats) {
     dup.names <- intersect(c("nseqs",measures),names(sdata))
@@ -82,7 +82,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @return formatted sample_data.
 #' @export
 set.samp <- function(sdata) {
-  ss <- sdata %>% column_to_rownames("sample") %>%
+  ss <- sdata %>% tibble::column_to_rownames("sample") %>%
     data.frame(stringsAsFactors=FALSE) %>% sample_data()
   return(ss)
 }
@@ -95,7 +95,7 @@ set.samp <- function(sdata) {
 #' @return Dataframe containing tax data
 #' @export
 get.tax <- function(phy) {
-  tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu")
+  tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
 }
 
 #' Convert data frame to phyloseq tax_table
@@ -105,11 +105,8 @@ get.tax <- function(phy) {
 #' @return formatted tax_table.
 #' @export
 set.tax <- function(tdata) {
-  tt <- tdata %>% column_to_rownames("otu") %>%
+  tt <- tdata %>% tibble::column_to_rownames("otu") %>%
     as.matrix() %>% tax_table()
-#   tt <- tdata %>% dplyr::select(-otu)
-#   row.names(tt) <- tdata[["otu"]]
-#   tt <- tt %>% as.matrix() %>% tax_table()
   return(tt)
 }
 
