@@ -996,9 +996,14 @@ as.mrn.default <- function(mrn) {
 #' @rdname as.mrn
 #' @export
 as.mrn.data.frame <- function(data,verbose=TRUE) {
-  mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=TRUE)
   #looks like mrn
-  mrn.vars <- mrn.form[sapply(mrn.form,function(x) is.mrn(data[[x]],like=TRUE))]
+  mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=TRUE)
+
+  if (length(mrn.form)==0) {
+    mrn.vars <- NULL
+  } else {
+    mrn.vars <- mrn.form[sapply(mrn.form,function(x) is.mrn(data[[x]],like=TRUE))]
+  }
   if (length(mrn.vars)>0) {
     for (mv in mrn.vars) {
       data[[mv]] <- as.mrn(data[[mv]])
@@ -1942,27 +1947,7 @@ cummax.Date <- function(x) {
 #     list(...))
 # }
 
-# #' CID Data
-# #'
-# #' A dataset containing clinical and microbiota data on the 94 patients from CID 2012.
-# #'
-# #' \itemize{
-# #'   \item pt Patient data (N=94)
-# #'   \item samp Stool sample data
-# #'   \item med Medications dispensed
-# #'   \item tax Taxonomic data (\code{samp} has same data but this is melted down)
-# #'   \item bsi Bloodstream infection data
-# #'   \item cdiff C.difficile testing
-# #'   \item fever Tmax for patients
-# #'   \item hosp Hospitalizations
-# #' }
-# #'
-# #' @docType data
-# #' @keywords datasets
-# #' @name cid
-# #' @usage data(cid)
-# #' @format Several data frames.
-# NULL
+
 #
 # if (FALSE) { #use this to re-create cid data
 #   rm(list=ls())
