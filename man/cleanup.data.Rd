@@ -6,7 +6,7 @@
 \usage{
 cleanup.data(data, remove.na.cols = FALSE, remove.na.rows = TRUE,
   make.names = TRUE, trim = TRUE, convert.dates = TRUE, as.mrn = TRUE,
-  verbose = TRUE)
+  verbose = FALSE)
 }
 \arguments{
 \item{remove.na.cols}{If \code{TRUE}, will remove any column consisting entirely of \code{NA}'s. Default=\code{FALSE}}
@@ -21,7 +21,7 @@ cleanup.data(data, remove.na.cols = FALSE, remove.na.rows = TRUE,
 
 \item{as.mrn}{If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}}
 
-\item{verbose}{logical indicating whether or not to display info on data cleaning. Default is \code{TRUE}.}
+\item{verbose}{logical indicating whether or not to display info on data cleaning. Default is \code{FALSE}.}
 }
 \value{
 Returns a clean version of \code{data}.

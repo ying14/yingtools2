@@ -9,7 +9,7 @@ make.names(x, ...)
 \arguments{
 \item{names}{character vector to be coerced to syntactically valid names. This is coerced to character if necessary.}
 
-\item{verbose}{logical indicating whether or not to display info name cleanup. Default is \code{TRUE}. Dataframe only}
+\item{verbose}{logical indicating whether or not to display info name cleanup. Default is \code{FALSE}. Dataframe only}
 }
 \value{
 Data frame with corrected names

@@ -4,12 +4,12 @@
 \alias{remove.na.rows}
 \title{Remove NA rows}
 \usage{
-remove.na.rows(data, verbose = TRUE)
+remove.na.rows(data, verbose = FALSE)
 }
 \arguments{
 \item{data}{data frame to be filtered.}
 
-\item{verbose}{logical indicating whether or not to display info on rows removed. Default is \code{TRUE}.}
+\item{verbose}{logical indicating whether or not to display info on rows removed. Default is \code{FALSE}.}
 }
 \value{
 The original data frame, with blank rows removed.

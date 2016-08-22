@@ -852,6 +852,7 @@ as.Date2 <- function(vec) {
                     "%m-%d-%y", #"01-14-14","01-21-14"
                     "%m/%d/%y", #"01/14/14","01/21/14"
                     "%Y-%m-%d 00:00:00", #"2004-02-21 00:00:00","1999-07-20 00:00:00" Access dates, read in by RODBC
+                    "%Y-%m-%d 00:00:00.0", #"2004-02-21 00:00:00.0","1999-07-20 00:00:00.0" Access dates, read in by RODBC
                     "%Y-%m-%d 00:00:00.000000") #"2015-08-26 00:00:00.000000","2016-02-04 00:00:00.000000" SQL dates.
   datetime.formats <- c("%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29","1999-07-20 14:25:29"
                         #"%Y-%m-%d %H:%M:%S", #"1999-07-20 14:25:29.3","1999-07-20 14:25:29"
@@ -872,6 +873,45 @@ as.Date2 <- function(vec) {
     }
   }
   return(vec)
+}
+
+
+
+#' Create Date-Time (POSIXct object)
+#'
+#' @param date Date object
+#' @param time character with time in it
+#' @return Returns POSIXct object with date and time combined.
+#' @examples
+
+#' @export
+make.datetime <- function(date,time) {
+  if (!is.Date(date)) {
+    stop("YTError: date is not a Date object!")
+  }
+  if (!is.character(time)) {
+    stop("YTError: time should be character!")
+  }
+  dt <- as.POSIXct(rep(NA,length(date)))
+  convert <- !is.na(date) & !is.na(time)
+  dt[convert] <- as.POSIXct(paste(date[convert],time[convert]))
+  return(dt)
+}
+
+
+
+#' Extract Time
+#'
+#' @param datetime POSIXct object
+#' @param format character parameter for formatting of time. Default is "%I:%m%p" (e.g. 10:30AM)
+#' @return character with time component
+#' @export
+get.time <- function(datetime,format="%I:%m%p") {
+
+  if (!is.POSIXt(datetime)) {
+    stop("YTError: datetime is not a POSIX date-time!")
+  }
+  format(datetime,format)
 }
 
 
@@ -899,9 +939,9 @@ all.grepl <- function(pattern, x, n.screen=10000, ... ) {
 #'
 #' Basically applies \code{as.Date2} to all variables.
 #' @param data The data frame to be converted.
-#' @param verbose logical indicating whether or not to display info on date conversions. Default is \code{TRUE}.
+#' @param verbose logical indicating whether or not to display info on date conversions. Default is \code{FALSE}.
 #' @export
-convert.dates <- function(data,verbose=TRUE) {
+convert.dates <- function(data,verbose=FALSE) {
   #data=xx
   newdata <- data
   for (var in names(newdata)) {
@@ -995,9 +1035,9 @@ as.mrn.default <- function(mrn) {
 
 #' @rdname as.mrn
 #' @export
-as.mrn.data.frame <- function(data,verbose=TRUE) {
+as.mrn.data.frame <- function(data,verbose=FALSE) {
   #looks like mrn
-  mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=TRUE)
+  mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=FALSE)
 
   if (length(mrn.form)==0) {
     mrn.vars <- NULL
@@ -1027,10 +1067,10 @@ as.mrn.data.frame <- function(data,verbose=TRUE) {
 #' Remove NA columns
 #'
 #' @param data data frame to be filtered.
-#' @param verbose logical indicating whether or not to display info on columns removed. Default is \code{TRUE}.
+#' @param verbose logical indicating whether or not to display info on columns removed. Default is \code{FALSE}.
 #' @return The original data frame, with blank columns removed.
 #' @export
-remove.na.cols <- function(data,verbose=TRUE) {
+remove.na.cols <- function(data,verbose=FALSE) {
   keepcols <- sapply(data,function(col) !all(is.na(col)))
   if (verbose) {
     n.col.discard <- sum(!keepcols)
@@ -1048,10 +1088,10 @@ remove.na.cols <- function(data,verbose=TRUE) {
 #' Remove NA rows
 #'
 #' @param data data frame to be filtered.
-#' @param verbose logical indicating whether or not to display info on rows removed. Default is \code{TRUE}.
+#' @param verbose logical indicating whether or not to display info on rows removed. Default is \code{FALSE}.
 #' @return The original data frame, with blank rows removed.
 #' @export
-remove.na.rows <- function(data,verbose=TRUE) {
+remove.na.rows <- function(data,verbose=FALSE) {
   keeprows <- apply(data,1,function(row) !all(is.na(row)))
   if (verbose) {
     n.row.discard <- sum(!keeprows)
@@ -1071,7 +1111,7 @@ remove.na.rows <- function(data,verbose=TRUE) {
 #'
 #' Like original \code{make.names}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
 #' @param names character vector to be coerced to syntactically valid names. This is coerced to character if necessary.
-#' @param verbose logical indicating whether or not to display info name cleanup. Default is \code{TRUE}. Dataframe only
+#' @param verbose logical indicating whether or not to display info name cleanup. Default is \code{FALSE}. Dataframe only
 #' @return Data frame with corrected names
 #' @export
 make.names <- function(x,...) UseMethod("make.names")
@@ -1080,7 +1120,7 @@ make.names <- function(x,...) UseMethod("make.names")
 make.names.default <- base::make.names
 
 #' @export
-make.names.data.frame <- function(data,verbose=TRUE) {
+make.names.data.frame <- function(data,verbose=FALSE) {
   oldnames <- names(data)
   names(data) <- make.names(names(data),unique=TRUE)
   newnames <- names(data)
@@ -1115,13 +1155,13 @@ make.names.data.frame <- function(data,verbose=TRUE) {
 #' @param trim If \code{TRUE}, will remove whitespace from all character variables. Default=\code{TRUE}
 #' @param convert.dates If \code{TRUE}, will convert variables that look like dates to Date format. Default=\code{TRUE}
 #' @param as.mrn If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}
-#' @param verbose logical indicating whether or not to display info on data cleaning. Default is \code{TRUE}.
+#' @param verbose logical indicating whether or not to display info on data cleaning. Default is \code{FALSE}.
 #' @return Returns a clean version of \code{data}.
 #' @examples
 #' #####
 #' @author Ying Taur
 #' @export
-cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,verbose=TRUE) {
+cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,verbose=FALSE) {
   #data=d;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
   #data=diet;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
   if (remove.na.cols) {

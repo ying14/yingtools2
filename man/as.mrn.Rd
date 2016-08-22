@@ -10,7 +10,7 @@ as.mrn(x, ...)
 
 \method{as.mrn}{default}(mrn)
 
-\method{as.mrn}{data.frame}(data, verbose = TRUE)
+\method{as.mrn}{data.frame}(data, verbose = FALSE)
 }
 \arguments{
 \item{data}{Character or numeric vector or data frame to be analyzed.}

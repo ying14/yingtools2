@@ -4,12 +4,12 @@
 \alias{remove.na.cols}
 \title{Remove NA columns}
 \usage{
-remove.na.cols(data, verbose = TRUE)
+remove.na.cols(data, verbose = FALSE)
 }
 \arguments{
 \item{data}{data frame to be filtered.}
 
-\item{verbose}{logical indicating whether or not to display info on columns removed. Default is \code{TRUE}.}
+\item{verbose}{logical indicating whether or not to display info on columns removed. Default is \code{FALSE}.}
 }
 \value{
 The original data frame, with blank columns removed.
