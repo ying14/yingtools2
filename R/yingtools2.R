@@ -868,8 +868,8 @@ as.Date2 <- function(vec) {
   }
   for (dtf in datetime.formats) {
     #use of useBytes is to avoid warnings about locale
-    if (all.grepl(date.regex(df),vec2,useBytes=TRUE)) {
-      return(as.POSIXct(vec,format=df))
+    if (all.grepl(date.regex(dtf),vec2,useBytes=TRUE)) {
+      return(as.POSIXct(vec,format=dtf))
     }
   }
   return(vec)
@@ -883,7 +883,6 @@ as.Date2 <- function(vec) {
 #' @param time character with time in it
 #' @return Returns POSIXct object with date and time combined.
 #' @examples
-
 #' @export
 make.datetime <- function(date,time) {
   if (!is.Date(date)) {
