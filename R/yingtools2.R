@@ -1036,7 +1036,7 @@ as.mrn.default <- function(mrn) {
 #' @export
 as.mrn.data.frame <- function(data,verbose=FALSE) {
   #looks like mrn
-  mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=FALSE)
+  mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=TRUE)
 
   if (length(mrn.form)==0) {
     mrn.vars <- NULL
@@ -1049,7 +1049,7 @@ as.mrn.data.frame <- function(data,verbose=FALSE) {
     }
     mrn.vars.summary <- mrn.vars
     if ("MRN" %!in% names(data)) {
-      data <- rename_(data,MRN=mrn.vars[1])
+      data <- dplyr::rename_(data,MRN=mrn.vars[1])
       mrn.vars.summary[1] <- paste0("MRN=",mrn.vars.summary[1])
     }
     msg <- paste0("as.mrn: ",paste(mrn.vars.summary,collapse=", "))
