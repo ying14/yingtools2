@@ -233,9 +233,10 @@ read.oligos <- function(oligo.file) {
                   barcode.commented=substr(line,1,1)=="#",
                   barcode=sapply(strsplit(line,split="\t"),function(x) paste(x[c(-1,-length(x))],collapse="\t")))
   cmt <- d %>% dplyr::filter(info=="comment")
-  pool <- str_extract(oligo.file,"pool[^/]+(?=\\.oligos)")
+  #pool <- str_extract(oligo.file,"pool[^/]+(?=\\.oligos)")
+  pool <- sub("\\.oligos$","",basename(oligo.file),ignore.case=TRUE)
   if (is.na(pool)) {
-    stop("YTError: Could not extract pool number from file!")
+    stop("YTError: Could not extract pool name from file!")
   }
   n.primers <- nrow(p)
   two.golay.barcodes <- all(grepl("[ACGT]{12}\t[ACGT]{12}",b$barcode))

@@ -807,7 +807,7 @@ date.regex <- function(format) {
                     "%b"="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)",
                     "%B"="(January|February|March|April|May|June|July|August|September|October|November|December)",
                     "%y"="([0-9]{2})", #2-digit year
-                    "%Y"="((19|20)[0-9]{2})",
+                    "%Y"="((18|19|20)[0-9]{2})", #4 digit year
                     "%H"="([0-1][0-9]|2[0-3])", #hours as decimal 00-23
                     "%I"="(0?[1-9]|1[0-2])", #hours as decimal 01-12
                     "%M"="([0-5][0-9])", #minute 00-59
