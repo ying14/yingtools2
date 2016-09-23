@@ -229,7 +229,7 @@ read.oligos <- function(oligo.file) {
     mutate(primer=sub("^(primer|forward)\t","",line))
   primer <- p$primer[1]
   b <- d %>% dplyr::filter(info=="barcode") %>%
-    mutate(group=sapply(strsplit(line,split="\t"),last),
+    mutate(sample=sapply(strsplit(line,split="\t"),last),
                   barcode.commented=substr(line,1,1)=="#",
                   barcode=sapply(strsplit(line,split="\t"),function(x) paste(x[c(-1,-length(x))],collapse="\t")))
   cmt <- d %>% dplyr::filter(info=="comment")
@@ -249,7 +249,7 @@ read.oligos <- function(oligo.file) {
     stop("YTError: Not sure what platform!")
   }
   out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
-    dplyr::select(pool,group,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
+    dplyr::select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
   return(out)
 }
 

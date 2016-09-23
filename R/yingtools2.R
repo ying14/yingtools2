@@ -1864,6 +1864,147 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.f
 }
 
 
+#' ...Title...
+#'
+#' ...Description...
+#'
+#' @usage ...usage.code...
+#'
+#' ...details...
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+logistic <- function(x,...) UseMethod("logistic")
+
+
+
+#' ...Title...
+#'
+#' ...Description...
+#'
+#' @usage ...usage.code...
+#'
+#' ...details...
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+logistic.character <- function( ... ,data,firth=FALSE,formatted=TRUE,digits=3,addto) {
+  y <- c(...)[1]
+  x <- paste(c(...)[-1],collapse="+")
+  model <- paste(y,x,sep="~")
+  logistic(as.formula(model),data=data,firth=firth,formatted=formatted,digits=digits,addto=addto)
+}
+
+#' ...Title...
+#'
+#' ...Description...
+#'
+#' @usage ...usage.code...
+#'
+#' ...details...
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+logistic.formula <- function( ... ,firth=FALSE,formatted=TRUE,digits=3,addto) {
+  results <- logistf( ... , firth=firth)
+  results.table <- data.frame(
+    model=gsub("\"| ","",paste(deparse(results$formula),collapse="")),
+    yvar=as.character(results$formula)[2],
+    xvar=results$terms,
+    odds.ratio=exp(results$coefficients),
+    lower.ci=exp(results$ci.lower),
+    upper.ci=exp(results$ci.upper),
+    p.value=results$prob,
+    row.names=NULL,stringsAsFactors=FALSE)
+  #get rid of intercept line, keep above vars only
+  results.table <- subset(results.table,xvar!="(Intercept)",select=c(model,yvar,xvar,odds.ratio,lower.ci,upper.ci,p.value))
+  if (formatted) {
+    results.table$signif <- cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-"))
+    numvars <- sapply(results.table,is.numeric)
+    results.table[,numvars] <- sapply(results.table[,numvars],function(x) formatC(x,format="f",digits=digits))
+    results.table <- adply(results.table,1,function(x) {
+      x$odds.ratio <- paste0(x$odds.ratio," (",x$lower.ci," - ",x$upper.ci,")")
+      return(x)
+    })
+    results.table <- subset(results.table,select=c(model,yvar,xvar,odds.ratio,p.value,signif))
+  }
+  if (missing(addto)) {
+    return(results.table)
+  } else {
+    return(rbind(addto,results.table))
+  }
+}
+
+
+
+
+#' ...Title...
+#'
+#' ...Description...
+#'
+#' @usage ...usage.code...
+#'
+#' ...details...
+#'
+#' @param .param1. ...param1.description...
+#' @param .param2. ...param2.description...
+#' @return ...description.of.data.returned...
+#' @examples
+#' ...examples.here....
+#' @keywords keyword1 keyword2 ...
+#' @seealso \code{\link{cdiff.method}}
+#' @author Ying Taur
+#' @export
+univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cutoff=0.2,formatted=TRUE,digits=3) {
+  results.table <- data.frame()
+  for (xvar in xvars) {
+    print(xvar)
+    results.table <- logistic(yvar,xvar,data=data,firth=firth,addto=results.table,formatted=formatted,digits=digits)
+  }
+  if (multi) {
+    multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
+    multivars <- unique(multivars)
+    multivars <- sapply(multivars,function(x) {
+      xvars[sapply(xvars,function(y) {
+        y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
+      })]
+    })
+    print("multivariate model: ")
+    print(paste0(multivars,collapse=", "))
+    multi.table <- logistic(yvar,multivars,data=data,firth=firth,digits=digits)
+    names(multi.table) <- car::recode(names(multi.table),"'odds.ratio'='multi.odds.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
+    multi.table <- subset(multi.table,select=-model)
+    results.table <- subset(results.table,select=-model)
+    combined.table <- merge(results.table,multi.table,all.x=TRUE)
+    results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
+    results.table <- data.frame(lapply(results.table,function(x) car::recode(x,"NA=''")))
+  }
+  return(results.table)
+}
+
+
+
 #' Extract legend from a ggplot2 object
 #' @export
 gg.legend <- function(a.gplot) {
@@ -2856,142 +2997,8 @@ cummax.Date <- function(x) {
 # #####################################
 # #### logistic regression methods ####
 # #####################################
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# logistic <- function(x,...) UseMethod("logistic")
-#
-#
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# logistic.character <- function( ... ,data,firth=FALSE,formatted=TRUE,digits=3,addto) {
-#   y <- c(...)[1]
-#   x <- paste(c(...)[-1],collapse="+")
-#   model <- paste(y,x,sep="~")
-#   logistic(as.formula(model),data=data,firth=firth,formatted=formatted,digits=digits,addto=addto)
-# }
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# logistic.formula <- function( ... ,firth=FALSE,formatted=TRUE,digits=3,addto) {
-#   results <- logistf( ... , firth=firth)
-#   results.table <- data.frame(
-#     model=gsub("\"| ","",paste(deparse(results$formula),collapse="")),
-#     yvar=as.character(results$formula)[2],
-#     xvar=results$terms,
-#     odds.ratio=exp(results$coefficients),
-#     lower.ci=exp(results$ci.lower),
-#     upper.ci=exp(results$ci.upper),
-#     p.value=results$prob,
-#     row.names=NULL,stringsAsFactors=FALSE)
-#   #get rid of intercept line, keep above vars only
-#   results.table <- subset(results.table,xvar!="(Intercept)",select=c(model,yvar,xvar,odds.ratio,lower.ci,upper.ci,p.value))
-#   if (formatted) {
-#     results.table$signif <- cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-"))
-#     numvars <- sapply(results.table,is.numeric)
-#     results.table[,numvars] <- sapply(results.table[,numvars],function(x) formatC(x,format="f",digits=digits))
-#     results.table <- adply(results.table,1,function(x) {
-#       x$odds.ratio <- paste0(x$odds.ratio," (",x$lower.ci," - ",x$upper.ci,")")
-#       return(x)
-#     })
-#     results.table <- subset(results.table,select=c(model,yvar,xvar,odds.ratio,p.value,signif))
-#   }
-#   if (missing(addto)) {
-#     return(results.table)
-#   } else {
-#     return(rbind(addto,results.table))
-#   }
-# }
-#
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cutoff=0.2,formatted=TRUE,digits=3) {
-#   results.table <- data.frame()
-#   for (xvar in xvars) {
-#     print(xvar)
-#     results.table <- logistic(yvar,xvar,data=data,firth=firth,addto=results.table,formatted=formatted,digits=digits)
-#   }
-#   if (multi) {
-#     multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
-#     multivars <- unique(multivars)
-#     multivars <- sapply(multivars,function(x) {
-#       xvars[sapply(xvars,function(y) {
-#         y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
-#       })]
-#     })
-#     print("multivariate model: ")
-#     print(paste0(multivars,collapse=", "))
-#     multi.table <- logistic(yvar,multivars,data=data,firth=firth,digits=digits)
-#     names(multi.table) <- car::recode(names(multi.table),"'odds.ratio'='multi.odds.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
-#     multi.table <- subset(multi.table,select=-model)
-#     results.table <- subset(results.table,select=-model)
-#     combined.table <- merge(results.table,multi.table,all.x=TRUE)
-#     results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
-#     results.table <- data.frame(lapply(results.table,function(x) car::recode(x,"NA=''")))
-#   }
-#   return(results.table)
-# }
+
+
 #
 # #' @export
 # forest.plot <- function(data.table,varname="xvar",estimate=NULL,lower="lower.ci",upper="upper.ci",p.value="p.value",
