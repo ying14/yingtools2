@@ -2067,7 +2067,7 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 #' @param ... other variables to group by. These will be applied prior to grouping by times.
 #' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is 1.
 #' @param add Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.
-#' @return Returnes \code{data}, but grouped by times and other variables.
+#' @return Returns \code{data}, but grouped by times and other variables.
 #' @author Ying Taur
 #' @export
 group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
@@ -2078,6 +2078,27 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
     mutate_(.dots=setNames(list(mutate_call),"index_")) %>%
     group_by(index_,add=TRUE)
 }
+
+
+#' Select 2
+#'
+#' Basically \code{dplyr::select}, but ignores variables that aren't found in the data frame.
+#'
+#' @param data Data frame
+#' @param ... Comma separated list of unquoted expressions. You can treat variable names like they are positions. Use positive values to select variables; use negative values to drop variables.
+#' @return Returns \code{data}, but grouped by times and other variables.
+#' @author Ying Taur
+#' @export
+select2 <- function(data,...) {
+  args <- lazyeval::lazy_dots(...)
+  arg.values <- unname(sapply(args,function(x) deparse(x$expr)))
+  funct <- grepl("(",arg.values,fixed=TRUE) #probably better way to do this...
+  found <- arg.values %in% names(data)
+  keep <- funct|found
+  args2 <- args[keep]
+  dplyr::select_(data,.dots=args2)
+}
+
 
 
 #' Cumulative Max

@@ -20,7 +20,7 @@ group_by_time(data, start, stop, ..., gap = 1, add = FALSE)
 \item{add}{Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.}
 }
 \value{
-Returnes \code{data}, but grouped by times and other variables.
+Returns \code{data}, but grouped by times and other variables.
 }
 \description{
 Given data frame with start and stop times, group times by non-overlapping start and stop times.
