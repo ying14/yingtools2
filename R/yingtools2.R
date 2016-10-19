@@ -523,13 +523,42 @@ fit <- function(x,width=100,copy.clipboard=TRUE) {
 #' @export
 copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
   #converts x to R-code.
-  if (!is.vector(x)) {
-    stop("YTError: not a vector!")
-  }
-  x <- as.character(x)
-  sql <- paste0("(",paste0("'",x,"'",collapse=","),")")
-  if (fit) {
-    sql <- fit(sql,width=width,copy.clipboard=FALSE)
+  if (is.vector(x)) {
+    x <- as.character(x)
+    sql <- paste0("(",paste0("'",x,"'",collapse=","),")")
+    if (fit) {
+      sql <- fit(sql,width=width,copy.clipboard=FALSE)
+    }
+  } else if (is.data.frame(x)) {
+    #   select '12345678' as mrn, 12 as number, '2016-01-01' as trans_dte
+    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
+    #   union all
+    #   select '12345679' as mrn, 13 as number, '2016-01-01' as trans_dte
+    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
+    #   union all
+    #   select '12345668' as mrn, 12 as number, '2016-01-01' as trans_dte
+    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
+    #   union all
+    #   select '12345448' as mrn, 14 as number, '2016-01-01' as trans_dte
+    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
+
+    #add quotations if necessary
+    format.value <- function(col) {
+      if (is.numeric(col)) {
+        newcol <- as.character(col)
+      } else {
+        newcol <- paste0("'",as.character(col),"'")
+      }
+      return(newcol)
+    }
+    data2 <- mutate_each(x,funs(format.value))
+    for (var in names(data2)) {
+      data2[[var]] <- paste(data2[[var]],"as",var)
+    }
+    sql.values <- apply(data2,1,function(x) {
+      paste(x,collapse=",")
+    })
+    sql <- paste("select",sql.values,"from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'",collapse="\nunion all\n")
   }
   if (copy.clipboard) {
     copy.to.clipboard(sql)
@@ -537,6 +566,10 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
   return(sql)
 }
 
+
+makesql <- function(data) {
+
+}
 
 
 #' Pretty Numeric Format (Non-scientific)
