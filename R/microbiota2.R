@@ -28,11 +28,13 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
 #' @export
 read.tree.uparse <- function(tree.file) {
   tree.text <- scan(tree.file,what=character(),quiet=TRUE)
-  #replace ; with __
-  new.tree.text <- gsub("(OTU_[0-9]+);(size=[0-9]+);","\\1__\\2__",tree.text)
-  tr <- ape::read.tree(text=new.tree.text)
+  #replace ; with __, and place single quotes around, if not already there. (qiime places quotes, mothur does not)
+  new.tree.text <- gsub("'?(OTU_[0-9]+);(size=[0-9]+);'?","'\\1__\\2__'",tree.text)
+  #new.tree.text <- gsub("(OTU_[0-9]+);(size=[0-9]+);","\\1__\\2__",tree.text)
   tr$tip.label <- gsub("'(OTU_[0-9]+)__(size=[0-9]+)__'","\\1;\\2;",tr$tip.label)
   tr$node.label <- gsub("'(OTU_[0-9]+)__(size=[0-9]+)__'","\\1;\\2;",tr$node.label)
+  #tr$tip.label <- gsub("'?(OTU_[0-9]+)__(size=[0-9]+)__'?","\\1;\\2;",tr$tip.label)
+  #tr$node.label <- gsub("'?(OTU_[0-9]+)__(size=[0-9]+)__'?","\\1;\\2;",tr$node.label)
   return(tr)
 }
 
@@ -146,6 +148,36 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   return(otu)
 }
 
+#' Import UPARSE pipeline data and create phyloseq
+#'
+#' Reads folder and looks for key files used to create phyloseq object.
+#'
+#' @param dirpath directory path (character) specifying folder where uparse data is.
+#' @return phyloseq object containing the specified UPARSE data.
+#' @author Ying Taur
+#' @export
+read.uparse.data <- function(dirpath) {
+  #path="uparse"
+  if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
+  repseq.file <- "total.5.repset.fasta"
+  tax.file <- "total.5.repset.fasta.blastn.refseq_rna.txt"
+  biom.file <- "total.8.otu-tax.biom"
+  tree.file <- "total.10.tree"
+  repseq.file <- file.path(dirpath,repseq.file)
+  tax.file <- file.path(dirpath,tax.file)
+  biom.file <- file.path(dirpath,biom.file)
+  tree.file <- file.path(dirpath,tree.file)
+  files <- c(repseq.file,tax.file,biom.file,tree.file)
+  if (any(!file.exists(files))) stop("YTError: File not found: ",files[!file.exists(files)])
+  biom.miseq <- import_biom(biom.file)
+  repseq.miseq <- import_qiime(refseqfilename=repseq.file)
+  tree.miseq <- read.tree.uparse(tree.file)
+  phy <- merge_phyloseq(biom.miseq,repseq.miseq,tree.miseq)
+  tax <- read.blastn.file(tax.file)
+  tax_table(phy) <- tax %>% set.tax()
+  return(phy)
+}
+
 
 #' Read in tax file from blastn output
 #'
@@ -154,12 +186,11 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 #' Chooses one taxonomy from the hits, also listing runner-up taxonomy.
 #'
 #' @param tax Taxonomy data from blastn, either as the file or a data frame.
-#' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq tax_table object. If FALSE, returns data frame with Default is fault, which provides more information.
-#' @param blastn.data logical, if TRUE will include a blastn.data column containing extra info, such as runner-up hits.
+#' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq tax_table object. If FALSE, returns data frame with all hits and associated data.
 #' @return Data from the blastn data file.
 #' @author Ying Taur
 #' @export
-read.blastn.file <- function(tax.file,tax_table=TRUE,blastn.data=FALSE) {
+read.blastn.file <- function(tax.file,tax_table=TRUE) {
   #tax.file="uparse/total.5.repset.fasta.blastn.refseq_rna.txt";tax_table=TRUE;blastn.data=FALSE
   t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character")) %>% dplyr::tbl_df() %>%
     dplyr::mutate(taxonomy=gsub("\\[(superkingdom|phylum|class|order|family|genus|species)\\]","",taxonomy),
@@ -170,24 +201,42 @@ read.blastn.file <- function(tax.file,tax_table=TRUE,blastn.data=FALSE) {
     dplyr::group_by(otu) %>%
     dplyr::arrange(evalue,staxid) %>%
     dplyr::filter(!duplicated(taxonomy)) %>%
-    dplyr::mutate(n.ties=sum(dense_rank(evalue)==1),
-                  blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
-    dplyr::filter(row_number()==1) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(otu.number) %>%
-    dplyr::select(otu,evalue,pident,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species,n.ties,blast.data,everything())
-  if (tax_table) {
-    if (blastn.data) {
-      tt <- t %>% dplyr::select(otu,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species,blast.data)
-    } else {
-      tt <- t %>% dplyr::select(otu,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species)
-    }
-    return(tt)
+    dplyr::mutate(evalue.rank=dense_rank(evalue)) %>%
+    dplyr::select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything())
+  if (!tax_table) {
+    t <- t %>% ungroup(t) %>% arrange(otu.number)
+    return(t)
   } else {
+    t <- t %>%
+      # dplyr::mutate(n.ties=sum(dense_rank(evalue)==1),blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
+      dplyr::filter(row_number()==1) %>%
+      dplyr::ungroup() %>%
+      dplyr::arrange(otu.number) %>%
+      dplyr::select(otu,evalue,pident,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species)
     return(t)
   }
 }
 
+
+#' Read in mothur taxonomy file.
+#'
+#' @param tax.file mothur taxonomy file to be read.
+#' @return Returns a data frame containing taxonomy
+#' @author Ying Taur
+#' @export
+read.mothur.taxfile <- function(tax.file) {
+  taxlevels <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  tbl <- read.delim(tax.file,header=FALSE,row.names=NULL) %>% rename(otu=V1,taxonomy=V2) %>%
+    mutate(taxonomy=sub(";$","",taxonomy)) %>%
+    separate(taxonomy,taxlevels,sep=";",remove=FALSE)
+  for (lvl in taxlevels) {
+    pctvar <- paste0(lvl,".pid")
+    tbl[[pctvar]] <- as.numeric(str_extract(tbl[[lvl]],middle.pattern("\\(","[0-9.]+","\\)")))
+    tbl[[lvl]] <- sub("\\([0-9.]+\\)","",tbl[[lvl]])
+    tbl[[lvl]] <- sub("[kpcofgs]_+","",tbl[[lvl]])
+  }
+  return(tbl)
+}
 
 
 #' Read in oligos file.
@@ -387,15 +436,20 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
   #firmicutes:
   firm <- tax.dict$Phylum=="Firmicutes"
   tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
-  #cid
+  #within firmicutes, color bacilli
+  bacilli <- tax.dict$Class=="Bacilli"
+  tax.dict$color[bacilli] <- rep(shades("#3b51a3",variation=0.2),length.out=sum(bacilli))
+  #within firmicutes, color blautia
+  blautia <- tax.dict$Genus=="Blautia"
+  tax.dict$color[blautia] <- rep(shades("#f69ea0",variation=0.2),length.out=sum(blautia))
   if (use.cid.colors) {
-    cid <- cid.colors[match(tax.dict$Genus,names(cid.colors))]
+    cid.colors.new <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Staphylococcus"="#f1eb25")
+    cid <- cid.colors.new[match(tax.dict$Genus,names(cid.colors.new))]
     tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
   }
   tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$Species))
   tax.palette
 }
-
 
 
 #' Plot tax
@@ -438,10 +492,6 @@ tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.col
 
 
 
-
-
-
-
 #' Plot Principal Components Analysis
 #'
 #' Plots PCA from distance matrix data.
@@ -463,15 +513,14 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
   for (i in 1:length(pca.labels)) {
     label(pca.axes[,i]) <- pca.labels[i]
   }
-  pca.axes$group <- row.names(pca.axes)
-
+  pca.axes$sample <- row.names(pca.axes)
   if (data) {
     names(pca.axes) <- sub("^PC",paste2(prefix,"PCA",sep="."),names(pca.axes))
     return(pca.axes)
   } else {
     g <- ggplot(pca.axes) +
-      geom_point(aes(x=PC1,y=PC2,color=group,size=3)) +
-      geom_text(aes(x=PC1,y=PC2,label=group),size=3,vjust=1.4) +
+      geom_point(aes(x=PC1,y=PC2,color=sample,size=3)) +
+      geom_text(aes(x=PC1,y=PC2,label=sample),size=3,vjust=1.4) +
       theme(aspect.ratio=1)
     return(g)
   }
