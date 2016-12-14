@@ -650,6 +650,32 @@ log_epsilon_trans_breaks <- function(epsilon) {
   }
 }
 
+#' Display values for ggplot's shape aesthetic
+#'
+#' Used for quick reference
+#' @export
+show_shapes <- function() {
+  d=data.frame(p=c(0:25,32:127))
+  ggplot() +
+    scale_y_continuous(name="") +
+    scale_x_continuous(name="") +
+    scale_shape_identity() +
+    geom_point(data=d, mapping=aes(x=p%%16, y=p%/%16, shape=p), size=5, fill="red") +
+    geom_text(data=d, mapping=aes(x=p%%16, y=p%/%16+0.25, label=p), size=3)
+}
+
+#' Display values for ggplot's linetype aesthetic
+#'
+#' Used for quick reference
+#' @export
+show_linetypes <- function() {
+  d=data.frame(lt=c("blank", "solid", "dashed", "dotted", "dotdash", "longdash", "twodash", "1F", "F1", "4C88C488", "12345678"))
+  ggplot() +
+    scale_x_continuous(name="", limits=c(0,1), breaks=NULL) +
+    scale_y_discrete(name="linetype") +
+    scale_linetype_identity() +
+    geom_segment(data=d, mapping=aes(x=0, xend=1, y=lt, yend=lt, linetype=lt))
+}
 
 
 #' Stack and line up ggplot objects in a column
