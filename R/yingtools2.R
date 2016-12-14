@@ -1007,7 +1007,7 @@ convert.dates <- function(data,verbose=FALSE) {
   }
   oldclass <- sapply(data,function(x) class(x)[1])
   newclass <- sapply(newdata,function(x) class(x)[1])
-  changes <- data_frame(var=names(data),oldclass,newclass) %>% filter(oldclass!=newclass)
+  changes <- data_frame(var=names(data),oldclass,newclass) %>% dplyr::filter(oldclass!=newclass)
   # cat("Looking for date variables to convert...  ")
   if (nrow(changes)==0) {
     msg <- "convert.dates: no date vars"
