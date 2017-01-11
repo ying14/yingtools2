@@ -460,6 +460,51 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
 }
 
 
+
+#' Extract any text within quotes.
+#'
+#' Works like \code{str_extract_all}, but is used to extract quoted text within text. This comes for example text a character string contains code itself, like a python list.
+#'
+#' This is more difficult than you might think. \code{str_extract_all(text,middle.pattern("\"",".*","\""))}
+#' doesn't work because (1) it includes stuff on either side of the quote, and (2) it will fail if there are quotes inside the text (which look like \code{\\\"})within the quoted text.
+#' So you need to extract based on \code{\"} but ignore \code{\\\"}, and only extract stuff between pairs of quotes.
+#' @param text character vector with quotes to be extracted.
+#' @param convert.text.quotes logical indicating whether or not to convert \\\" to \" after converting.
+#' @examples
+#' #Should be a 3 item python list, with middle item being empty.
+#' python.list <- "[\"no quotes here, ok?\",\"\",\"I like to put \\\"things\\\" in quotes\"]"
+#' #This doesn't work....
+#' str_extract_all(python.list,middle.pattern("\"",".*","\""))
+#' #This also doesn't work...
+#' str_extract_all(python.list,middle.pattern("\"","[^\"]*","\""))
+#' #Even this doesn't work
+#' str_extract_all(python.list,middle.pattern("(?<!\\\\)\\\"",".*","(?<!\\\\)\\\""))
+#' #But: use this function to get it done.
+#' str_extract_all_quotes(python.list)
+#' @author Ying Taur
+#' @export
+str_extract_all_quotes <- function(text,convert.text.quotes=TRUE) {
+  #text="\"\", \"tRNA acetyltransferase TAN1\""
+  quote.pattern <- "(?<!\\\\)\\\""
+  quote.list <- lapply(text,function(x) {
+    quote.pos <- gregexpr(quote.pattern,x,perl=TRUE)[[1]]
+    if (quote.pos[1]==-1) {
+      return(NULL)
+    }
+    if (length(quote.pos) %% 2!=0) stop("YTError: Found an odd number of quotes in this character string:\n",x)
+    quote.pairs <- split(quote.pos,cumsum(rep(1:0,length.out=length(quote.pos))))
+    within.quotes <- sapply(quote.pairs,function(y) substr(x,y[1]+1,y[2]-1))
+    if (convert.text.quotes) {
+      within.quotes <- gsub("\\\\\"","\\\"",within.quotes)
+    }
+    return(within.quotes)
+  })
+  return(quote.list)
+}
+
+
+
+
 fit <- function(x,width=100,copy.clipboard=TRUE) {
   #width=100;copy.clipboard=TRUE
   cr.pattern <- "(?<!\\\\)\\n"
