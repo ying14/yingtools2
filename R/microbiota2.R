@@ -245,13 +245,14 @@ read.mothur.taxfile <- function(tax.file) {
 #' Reads in oligos file, listing pertinent information
 #'
 #' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
+#' @param remove.commented logical indicating whether or not to remove commented lines (default TRUE)
 #' @return Returns a data frame containing oligo information
 #' @examples
 #' ...examples.here....
 #' @keywords keyword1 keyword2 ...
 #' @author Ying Taur
 #' @export
-read.oligos <- function(oligo.file) {
+read.oligos <- function(oligo.file,remove.commented=TRUE) {
 
   if (!file.exists(oligo.file)) {
     stop("YTError: file/directory not found: ",oligo.file)
@@ -300,6 +301,9 @@ read.oligos <- function(oligo.file) {
   }
   out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
     dplyr::select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
+  if (remove.commented) {
+    out <- out %>% filter(!barcode.commented)
+  }
   return(out)
 }
 
