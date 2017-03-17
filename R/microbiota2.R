@@ -391,23 +391,32 @@ GeomHilight <- ggplot2::ggproto("GeomHilight", ggplot2::Geom,
 )
 
 
-#' Right Angle for Text on circular ggtree
+
+#' Modify Angle for Text on Circular ggtree
 #'
-#' @param angle
-#' @param hjust logical indicating whether to output the corresponding hjsut parameter.
-#' @return angle, turned 90 degrees.
+#' @param angle numeric vector of angles taken from ggtree data
+#' @param hjust logical indicating whether to output the corresponding hjust parameter.
+#' @param right logical indicating whether label should be at right angle to the tip being labelled.
+#' @return new calculated angle or hjust aesthetic
 #' @export
-right.angle <- function(angle,hjust=FALSE) {
-  #ranges 0 to 360 no matter what
+fan.angle <- function(angle,hjust=FALSE,right=FALSE) {
   angle <- angle %% 360
-  right.side <- angle>=0 & angle<180
-  if (hjust) {
-    ifelse(right.side,1,0)
+  top.side <- angle>=0 & angle<180
+  right.side <- angle<=90 | angle>270
+  if (right) {
+    if (hjust) {
+      rep(0.5,length(angle))
+    } else {
+      ifelse(top.side,angle-90,angle+90)
+    }
   } else {
-    ifelse(right.side,angle-90,angle+90)
+    if (hjust) {
+      ifelse(right.side,0,1)
+    } else {
+      ifelse(right.side,angle,angle+180)
+    }
   }
 }
-
 
 
 #' Get YT Palette

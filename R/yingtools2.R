@@ -65,6 +65,31 @@ NULL
 }
 
 
+#' Left Join Replace
+#'
+#' Like left_join, but replaces column names in x with new columns from y.
+#'
+#' @param var the vector to be tabulated
+#' @param sortby.freq if \code{TRUE}, sorts by order
+#' @param useNA character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}
+#' @param as.char logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}
+#' @return Returns a data frame with tabulations.
+#' @examples
+#' ...examples.here....
+#' @author Ying Taur
+#' @export
+left_join_replace <- function(x, y, by, suffix = c(".x", ".y"), ...) {
+  overlap.vars <- intersect(names(x),names(y))
+  overwrite.vars <- setdiff(overlap.vars,by)
+  keep.vars <- setdiff(names(x),overwrite.vars)
+  message("Overwriting: ",paste(overwrite.vars,collapse=","))
+  x <- x[,keep.vars]
+  left_join(x,y,by,suffix,...)
+}
+
+
+
+
 #' Tabulate
 #'
 #' Tabulates frequencies of vectors. By default, sorts by frequency.
