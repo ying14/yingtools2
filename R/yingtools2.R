@@ -1121,7 +1121,6 @@ is.mrn <- function(mrn,like=FALSE) {
   }
 }
 
-
 #' Convert to MRN format
 #'
 #' Formats data containing MRNs
@@ -1148,11 +1147,14 @@ as.mrn.default <- function(mrn) {
   if (!is.mrn(mrn,like=TRUE)) {
     stop("YT: Error, data does not match MRN format!")
   }
+  if (length(mrn)==0) {
+    return(mrn)
+  }
   mrn <- trim(as.character(mrn))
   mrn[mrn==""] <- NA
   mrn <- sapply(mrn,function(x) {
     if (is.na(x)) {
-      NA
+      NA_character_
     } else {
       paste(c(rep("0",8-nchar(x)),x),collapse="")
     }
@@ -1462,6 +1464,29 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
   return(var.recode)
 }
 
+#' Find All Distinct Variables
+#'
+#' Find Distinct
+#'
+#' @param data Dataframe to be analyzed
+#' @param ... grouping variables that define data units.
+#' @return prints whether variables matching the groups or not.
+#' @export
+find.all.distinct.vars <- function(data, ...) {
+  args <- lazyeval::lazy_dots(...)
+  group.vars <- unname(sapply(args, function(x) deparse(x$expr)))
+  other.vars <- setdiff(names(data),group.vars)
+  data2 <- data %>% group_by(...) %>% summarize_each(funs(n_distinct)) %>% ungroup()
+  allone <- function(x) {
+    all(x==1)
+  }
+  data3 <- data2 %>% select_(.dots=other.vars) %>% summarize_each(funs(allone))
+  distinct.vars <- names(data3)[t(data3)]
+  non.distinct.vars <- names(data3)[!t(data3)]
+  distinct.vars.text <- paste0("[",paste(group.vars,collapse=","),"],",paste(distinct.vars,collapse=","))
+  non.distinct.vars.text <- paste0(non.distinct.vars,collapse=",")
+  message("distinct: ",distinct.vars.text,"\nnot distinct: ",non.distinct.vars.text,"\n")
+}
 
 
 #' Read Excel File 2
