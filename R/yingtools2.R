@@ -1014,6 +1014,9 @@ as.Date2 <- function(vec) {
 #' @examples
 #' @export
 make.datetime <- function(date,time) {
+  if (all(is.na(date))) {
+    return(as.POSIXct(date))
+  }
   if (!is.Date(date)) {
     stop("YTError: date is not a Date object!")
   }
