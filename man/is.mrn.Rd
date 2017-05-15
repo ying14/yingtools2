@@ -27,4 +27,3 @@ asdf
 \author{
 Ying Taur
 }
-

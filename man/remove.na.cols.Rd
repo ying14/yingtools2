@@ -17,4 +17,3 @@ The original data frame, with blank columns removed.
 \description{
 Remove NA columns
 }
-

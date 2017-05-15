@@ -20,4 +20,3 @@ If Linux, xclip is used, so you may need to install this from terminal first: 's
 \author{
 Ying Taur
 }
-

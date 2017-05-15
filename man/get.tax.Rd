@@ -15,4 +15,3 @@ Dataframe containing tax data
 \description{
 Creates data.frame from tax_table, storing the rownames as variable "otu". The opposite of set.tax function.
 }
-

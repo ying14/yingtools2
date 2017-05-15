@@ -26,4 +26,3 @@ phy <- merge_phyloseq(b,tr)
 \author{
 Ying Taur
 }
-

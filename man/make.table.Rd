@@ -33,4 +33,3 @@ make.table(mtcars,c("cyl","gear"),by="vs",showdenom=TRUE)
 \author{
 Ying Taur
 }
-

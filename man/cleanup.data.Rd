@@ -40,4 +40,3 @@ Cleans up a data frame by performing 5 tasks:
 \author{
 Ying Taur
 }
-

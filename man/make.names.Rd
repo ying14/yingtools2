@@ -20,4 +20,3 @@ Make syntactically valid names out of character vectors.
 \details{
 Like original \code{make.names}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
 }
-

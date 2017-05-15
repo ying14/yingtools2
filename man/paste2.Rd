@@ -49,4 +49,3 @@ paste2(a,b,collapse=",") #produces "1 4,2 5,3"
 \author{
 Ying Taur
 }
-

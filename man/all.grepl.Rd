@@ -12,4 +12,3 @@ Equivalent to \code{all(grepl(...))}. Performs an initial screen of first 10000 
 \details{
 This is used in \code{as.Date2} function to save time on pattern matching.
 }
-

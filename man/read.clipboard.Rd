@@ -18,4 +18,3 @@ Read clipboard into vector or data frame.
 \author{
 Ying Taur
 }
-

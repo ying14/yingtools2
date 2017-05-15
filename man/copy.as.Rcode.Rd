@@ -26,4 +26,3 @@ copy.as.Rcode(values)
 \author{
 Ying Taur
 }
-

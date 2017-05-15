@@ -17,4 +17,3 @@ In a given data frame, look for variables resembling dates and convert them to D
 \details{
 Basically applies \code{as.Date2} to all variables.
 }
-

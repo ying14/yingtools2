@@ -15,4 +15,3 @@ formatted tax_table.
 \description{
 Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".
 }
-

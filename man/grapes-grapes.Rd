@@ -9,4 +9,3 @@ x \%-\% y
 \description{
 Returns number of days.
 }
-

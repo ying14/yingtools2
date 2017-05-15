@@ -17,4 +17,3 @@ The original data frame, with blank rows removed.
 \description{
 Remove NA rows
 }
-

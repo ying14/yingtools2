@@ -26,4 +26,3 @@ A data frame consisting of Excel data.
 \description{
 Same as \code{readxl::read_excel} function, but col_types can be named vector
 }
-

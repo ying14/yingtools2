@@ -22,4 +22,3 @@ Linux R doesn't have this function, so this emulates on Linux using the 'xdg-ope
 \author{
 Ying Taur
 }
-

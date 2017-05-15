@@ -20,4 +20,3 @@ Basically \code{dplyr::select}, but ignores variables that aren't found in the d
 \author{
 Ying Taur
 }
-

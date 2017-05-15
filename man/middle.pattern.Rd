@@ -24,4 +24,3 @@ text <- c("start[target]end","start[target 2]end","start[target 3]")
 str_extract(text,middle.pattern("start",".+","end"))
 str_extract(text,middle.pattern("start",".+"))
 }
-

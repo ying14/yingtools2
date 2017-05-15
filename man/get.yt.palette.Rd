@@ -23,4 +23,3 @@ Get YT Palette
 \author{
 Ying Taur
 }
-

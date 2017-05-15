@@ -19,4 +19,3 @@ new calculated angle or hjust aesthetic
 \description{
 Modify Angle for Text on Circular ggtree
 }
-

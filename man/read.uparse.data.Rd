@@ -18,4 +18,3 @@ Reads folder and looks for key files used to create phyloseq object.
 \author{
 Ying Taur
 }
-

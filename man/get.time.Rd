@@ -17,4 +17,3 @@ character with time component
 \description{
 Extract Time
 }
-

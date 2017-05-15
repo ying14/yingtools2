@@ -124,6 +124,50 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
   }
 }
 
+
+#' Ying's DT view
+#'
+#' Use to peruse a dataframe within RStudio. Utilizes \code{DT} package.
+#'
+#' If data frame is grouped (i.e. \code{group_by} in dplyr), the rows will be sorted and shaded by group.
+#' @param data dataframe to be viewed.
+#' @param fontsize numeric controlling font size in the table, measured in px. Default is 12.
+#' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent DT from handling excessively large data frames. Default is 1000.
+#' @return A javascript-style datatable, which displays in the Rstudio viewer.
+#' @examples
+#' mtcars %>% dt()
+#' mtcars %>% group_by(cyl) %>% dt()
+#' @author Ying Taur
+#' @export
+dt <- function(data,fontsize=10,maxrows=1000) {
+  fontsize <- paste0(fontsize,"px")
+  grps <- groups(data)
+  #sort data by groups
+  data2 <- data %>% ungroup() %>% arrange_(.dots=grps)
+  data2$index_ <- data2 %>% group_indices_(.dots=grps)
+  n.groups <- n_distinct(data2$index_)
+  indices <- 1:n.groups
+  n.colors <- 4
+  pal <- c("light gray",brewer_pal("qual")(n.colors-1))
+  clrs <- rep_len(pal,length.out=n.groups)
+  clrs.rgb <- paste0("rgb(",apply(col2rgb(clrs),2,function(x) paste(x,collapse=",")),")")
+
+  data2 %>%
+    filter(row_number()<=maxrows) %>%
+    DT::datatable(
+      options=list(
+        initComplete=JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")),
+        paging=FALSE
+      )
+    ) %>%
+    formatStyle(0:length(data2),fontSize=fontsize,lineHeight="95%") %>%
+    formatStyle("index_",target="row",backgroundColor=styleEqual(indices,clrs.rgb))
+}
+
+
+
+
+
 #' Ying's Paste
 #'
 #' Similar to \code{paste} command, except that \code{NA}s are not converted to text.

@@ -24,13 +24,12 @@ Adds the p-value for a log-rank test to a ggplot2 graph.
 \examples{
 ...examples.here....
 }
-\author{
-Ying Taur
-}
 \seealso{
 \code{\link{cdiff.method}}
+}
+\author{
+Ying Taur
 }
 \keyword{...}
 \keyword{keyword1}
 \keyword{keyword2}
-

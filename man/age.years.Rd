@@ -27,4 +27,3 @@ year(as.Date("1975-02-21"))
 \author{
 Ying Taur
 }
-

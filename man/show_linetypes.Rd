@@ -9,4 +9,3 @@ show_linetypes()
 \description{
 Used for quick reference
 }
-

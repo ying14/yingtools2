@@ -35,4 +35,3 @@ show_col(sh3)
 \author{
 Ying Taur
 }
-

@@ -38,10 +38,9 @@ Use this to make Kaplan-Meier curves in ggplot2. Utilizes the \code{geom_step} f
 \examples{
 ggplot() + geom_kaplanmeier("dead","Intensity",data)
 }
-\author{
-Ying Taur
-}
 \seealso{
 \code{\link{xxxxx}}
 }
-
+\author{
+Ying Taur
+}

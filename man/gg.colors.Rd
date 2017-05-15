@@ -23,4 +23,3 @@ gg.colors(6)
 \author{
 Ying Taur
 }
-

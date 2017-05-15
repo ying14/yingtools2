@@ -23,13 +23,12 @@ At-Risk Table from Survival Data Frame
 \examples{
 ...examples.here....
 }
-\author{
-Ying Taur
-}
 \seealso{
 \code{\link{cdiff.method}}
+}
+\author{
+Ying Taur
 }
 \keyword{...}
 \keyword{keyword1}
 \keyword{keyword2}
-

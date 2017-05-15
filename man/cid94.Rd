@@ -22,4 +22,3 @@ A dataset containing clinical and microbiota data on the 94 patients from CID 20
 }
 }
 \keyword{datasets}
-

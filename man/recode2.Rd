@@ -70,4 +70,3 @@ bsi$org.short.5
 \author{
 Ying Taur
 }
-

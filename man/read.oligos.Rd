@@ -4,10 +4,12 @@
 \alias{read.oligos}
 \title{Read in oligos file.}
 \usage{
-read.oligos(oligo.file)
+read.oligos(oligo.file, remove.commented = TRUE)
 }
 \arguments{
 \item{oligo.file}{oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.}
+
+\item{remove.commented}{logical indicating whether or not to remove commented lines (default TRUE)}
 }
 \value{
 Returns a data frame containing oligo information
@@ -24,4 +26,3 @@ Ying Taur
 \keyword{...}
 \keyword{keyword1}
 \keyword{keyword2}
-

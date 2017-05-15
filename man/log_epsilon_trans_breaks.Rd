@@ -12,4 +12,3 @@ break function returning break values.
 \description{
 This is used by scant_trans as default method for breaks. Will fill in logs of 10.
 }
-

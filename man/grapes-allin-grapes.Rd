@@ -9,4 +9,3 @@ x \%allin\% y
 \description{
 Convenience function. \code{a \%allin\% b} is equivalent to \code{all(a \%in\% b, na.rm=FALSE)}
 }
-

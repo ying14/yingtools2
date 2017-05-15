@@ -2,8 +2,8 @@
 % Please edit documentation in R/yingtools2.R
 \name{cummax}
 \alias{cummax}
-\alias{cummax.Date}
 \alias{cummax.default}
+\alias{cummax.Date}
 \title{Cumulative Max}
 \usage{
 cummax(x, ...)
@@ -24,4 +24,3 @@ Overrides base::cummax in order to correctly manage dates, if that is the input.
 \author{
 Ying Taur
 }
-

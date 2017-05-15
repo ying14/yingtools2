@@ -9,4 +9,3 @@ occurs.within(tstart, tstop, start.interval, stop.interval)
 \description{
 Determines if tstart-tstop occurs anywhere within interval.
 }
-

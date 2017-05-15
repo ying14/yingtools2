@@ -19,4 +19,3 @@ Use to format axes in ggplot with non-scientific notation. Good for abundances!
 pretty_number(c(111e-12,230000022.11111,0.1234567))
 ggplot(mtcars,aes(mpg*1e-6)) + geom_bar() + scale_x_continuous(label=pretty_number)
 }
-

@@ -23,4 +23,3 @@ Chooses one taxonomy from the hits, also listing runner-up taxonomy.
 \author{
 Ying Taur
 }
-

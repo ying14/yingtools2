@@ -18,4 +18,3 @@ Read in mothur taxonomy file.
 \author{
 Ying Taur
 }
-

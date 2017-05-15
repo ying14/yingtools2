@@ -31,4 +31,3 @@ This is like running \code{group_by}, but creates a new grouping variable called
 \author{
 Ying Taur
 }
-

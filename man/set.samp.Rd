@@ -15,4 +15,3 @@ formatted sample_data.
 \description{
 Use this on data with sample info. The opposite of function get.samp. Make sure it contains variable "sample"
 }
-

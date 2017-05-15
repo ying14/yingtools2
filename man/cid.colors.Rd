@@ -15,4 +15,3 @@ The color scheme used in CID manuscript.
 Ying Taur
 }
 \keyword{datasets}
-

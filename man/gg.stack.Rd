@@ -30,4 +30,3 @@ Performs these steps:
 (2) alters widths of each component so that the plots will line up nicely
 (3) calls \code{grid.arrange(...,ncol=1)}
 }
-

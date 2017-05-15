@@ -30,4 +30,3 @@ Plot tax
 \author{
 Ying Taur
 }
-

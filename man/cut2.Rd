@@ -9,4 +9,3 @@ cut2(x, lower, upper, quantiles, percentiles, date.bin, lvls)
 \description{
 Ying's Cut 2
 }
-

@@ -9,4 +9,3 @@ x \%!in\% y
 \description{
 Convenience function. \code{a \%!in\% b} is equivalent to \code{!(a \%in\% b)}
 }
-

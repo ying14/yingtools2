@@ -31,6 +31,7 @@ This might come in handy if running min/max functions across an \code{apply} or 
 
 \item \code{min2}: \code{max2} minimum value.
 }}
+
 \examples{
 a <- c(1,2,3)
 b <- c(1,2,NA)
@@ -55,4 +56,3 @@ max2(c,na.rm=TRUE)
 \author{
 Ying Taur
 }
-

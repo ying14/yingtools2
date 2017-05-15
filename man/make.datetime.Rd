@@ -17,4 +17,3 @@ Returns POSIXct object with date and time combined.
 \description{
 Create Date-Time (POSIXct object)
 }
-

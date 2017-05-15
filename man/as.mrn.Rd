@@ -2,8 +2,8 @@
 % Please edit documentation in R/yingtools2.R
 \name{as.mrn}
 \alias{as.mrn}
-\alias{as.mrn.data.frame}
 \alias{as.mrn.default}
+\alias{as.mrn.data.frame}
 \title{Convert to MRN format}
 \usage{
 as.mrn(x, ...)
@@ -36,4 +36,3 @@ as.mrn("1234")
 \author{
 Ying Taur
 }
-

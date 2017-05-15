@@ -44,4 +44,3 @@ plot(t2,edge.width=2,cex=0.6,no.margin=TRUE)
 \author{
 Ying Taur
 }
-

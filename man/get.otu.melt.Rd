@@ -24,4 +24,3 @@ Essentially gives back the OTU table, in melted form, such that each row represe
 Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
 Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
 }
-

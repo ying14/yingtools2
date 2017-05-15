@@ -24,13 +24,12 @@ Convenience function for survival analysis. Typically uses the \code{coxphf} fun
 \examples{
 ...examples.here....
 }
-\author{
-Ying Taur
-}
 \seealso{
 \code{\link{cdiff.method}}
+}
+\author{
+Ying Taur
 }
 \keyword{...}
 \keyword{keyword1}
 \keyword{keyword2}
-

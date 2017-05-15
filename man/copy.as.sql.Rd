@@ -25,4 +25,3 @@ copy.as.sql(values)
 \author{
 Ying Taur
 }
-

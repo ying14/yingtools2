@@ -9,4 +9,3 @@ gg.legend(a.gplot)
 \description{
 Extract legend from a ggplot2 object
 }
-

@@ -23,4 +23,3 @@ send.text.message("Hello, this is a text message")
 \author{
 Ying Taur
 }
-

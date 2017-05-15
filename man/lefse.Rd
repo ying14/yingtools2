@@ -52,4 +52,3 @@ lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")
 \author{
 Ying Taur
 }
-

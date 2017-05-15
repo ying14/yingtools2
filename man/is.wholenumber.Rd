@@ -28,4 +28,3 @@ is.wholenumber(c)
 \author{
 Ying Taur
 }
-
