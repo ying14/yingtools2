@@ -809,7 +809,7 @@ show_linetypes <- function() {
 #'
 #' @return break function returning break values.
 #' @export
-gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inches") {
+gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inches",as.list=FALSE) {
   grobs <- list(...)
   length.grobs <- length(grobs)
   if (length.grobs<=1) {
@@ -842,6 +842,9 @@ gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inc
     g$widths <- max.widths
     return(g)
   })
+  if (as.list) {
+    return(grobs4)
+  }
   args <- c(grobs4,list(ncol=1,heights=heights))
   do.call(grid.arrange,args)
 }

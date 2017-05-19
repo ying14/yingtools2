@@ -5,7 +5,7 @@
 \title{Stack and line up ggplot objects in a column}
 \usage{
 gg.stack(..., heights = NULL, gg.extras = NULL, gap = 0, margin = 1,
-  units = "inches")
+  units = "inches", as.list = FALSE)
 }
 \arguments{
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
