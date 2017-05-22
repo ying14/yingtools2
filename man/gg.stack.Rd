@@ -4,8 +4,8 @@
 \alias{gg.stack}
 \title{Stack and line up ggplot objects in a column}
 \usage{
-gg.stack(..., heights = NULL, gg.extras = NULL, gap = 0, margin = 1,
-  units = "inches", as.list = FALSE)
+gg.stack(..., heights = NULL, gg.extras = NULL, gap = 0, margin = 5.5,
+  units = "pt", newpage = TRUE)
 }
 \arguments{
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
@@ -14,12 +14,14 @@ gg.stack(..., heights = NULL, gg.extras = NULL, gap = 0, margin = 1,
 
 \item{gap}{size of gap between stacked plots. Default is 0}
 
-\item{margin}{size of the margin around the plots. Default is 1.}
+\item{margin}{size of the margin around the plots. Default is 5.5.}
 
-\item{units}{specifies units used for gap and margin.}
+\item{units}{specifies units used for gap and margin. Default is "pt"}
+
+\item{newpage}{logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)}
 }
 \value{
-break function returning break values.
+plot of stacked ggplots
 }
 \description{
 Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.

@@ -804,16 +804,24 @@ show_linetypes <- function() {
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
 #' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
 #' @param gap size of gap between stacked plots. Default is 0
-#' @param margin size of the margin around the plots. Default is 1.
-#' @param units specifies units used for gap and margin.
-#'
-#' @return break function returning break values.
+#' @param margin size of the margin around the plots. Default is 5.5.
+#' @param units specifies units used for gap and margin. Default is "pt"
+#' @param newpage logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)
+#' @return plot of stacked ggplots
 #' @export
-gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inches",as.list=FALSE) {
+gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE) {
+  # g1 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am) + geom_point()
+  # g2 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am,space="free",scales="free") + geom_point()
+  # grobs=list(g1,g2,gt,gm)
+  #grobs=list(gm,gt)
+  #heights = c(1,2,3,4);gg.extras=NULL;gap=0;margin=5.5;units="pt";newpage=TRUE
   grobs <- list(...)
   length.grobs <- length(grobs)
   if (length.grobs<=1) {
     stop("YTError: should have at least 2 grobs")
+  }
+  if (is.null(heights)) {
+    heights <- rep(1,length.grobs)
   }
   top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
                      axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
@@ -825,30 +833,45 @@ gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inc
     g + middle.theme + gg.extras
   })
   g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
+
   grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
+  #list of ggplotGrobs
   grobs2 <- lapply(grobs1,function(g) {
-    #gr <- ggplotGrob(g1)
     gr <- ggplotGrob(g)
   })
+  #get max number of columns for each ggplot
   nwidths <- max(sapply(grobs2,function(g) length(g$width)))
+  #if a plot has fewer columns, add null columns to the end.
   grobs3 <- lapply(grobs2,function(g) {
-    if (length(g$widths)<nwidths) {
-      g <- gtable_add_cols(g,unit(1,"null"))
+    columns.needed <- nwidths - length(g$widths)
+    if (columns.needed>0) {
+      for (x in 1:columns.needed) {
+        g <- gtable_add_cols(g,unit(1,"null"))
+      }
     }
     return(g)
   })
-  max.widths <- do.call(unit.pmax,lapply(grobs3,function(x) x$width))
-  grobs4 <- lapply(grobs3,function(g) {
-    g$widths <- max.widths
-    return(g)
-  })
-  if (as.list) {
-    return(grobs4)
-  }
-  args <- c(grobs4,list(ncol=1,heights=heights))
-  do.call(grid.arrange,args)
-}
 
+  #normalize null heights to 1 within each plot. should be able to handle facets with varying heights.
+  #then alter heights of null portion of each plot.
+  grobs4 <- mapply(function(gr,ht) {
+    #gr=grobs3[[2]]
+    #gr$heights
+    ht.char <- as.character(gr$heights)
+    null.heights <- grep("null",ht.char)
+    relative.heights <- as.numeric(sub("null","",ht.char[null.heights]))
+    total.null.height <- sum(relative.heights)
+    gr$heights[null.heights] <- gr$heights[null.heights] * (1/total.null.height) * ht
+    return(gr)
+  },grobs3,heights)
+
+  args <- c(grobs4,list(size="max"))
+  gtable.final <- do.call(rbind,args)
+  if (newpage) {
+    grid.newpage()
+  }
+  grid.draw(gtable.final)
+}
 
 #' Age in years
 #'
@@ -2332,7 +2355,45 @@ cummax.Date <- function(x) {
 
 
 
-
+# gg.stack.old <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inches",as.list=FALSE) {
+#   grobs <- list(...)
+#   length.grobs <- length(grobs)
+#   if (length.grobs<=1) {
+#     stop("YTError: should have at least 2 grobs")
+#   }
+#   top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
+#                      axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+#   middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
+#                         axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+#   bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
+#   g.top <- grobs[[1]] + top.theme + gg.extras
+#   g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
+#     g + middle.theme + gg.extras
+#   })
+#   g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
+#   grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
+#   grobs2 <- lapply(grobs1,function(g) {
+#     #gr <- ggplotGrob(g1)
+#     gr <- ggplotGrob(g)
+#   })
+#   nwidths <- max(sapply(grobs2,function(g) length(g$width)))
+#   grobs3 <- lapply(grobs2,function(g) {
+#     if (length(g$widths)<nwidths) {
+#       g <- gtable_add_cols(g,unit(1,"null"))
+#     }
+#     return(g)
+#   })
+#   max.widths <- do.call(unit.pmax,lapply(grobs3,function(x) x$width))
+#   grobs4 <- lapply(grobs3,function(g) {
+#     g$widths <- max.widths
+#     return(g)
+#   })
+#   if (as.list) {
+#     return(grobs4)
+#   }
+#   args <- c(grobs4,list(ncol=1,heights=heights))
+#   do.call(grid.arrange,args)
+# }
 # #' Coalesce
 # #'
 # #' Similar to SQL, use vectors in order until not NA.
