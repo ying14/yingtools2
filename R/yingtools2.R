@@ -1433,7 +1433,6 @@ cleanup.data.old <- function(data,make.names=TRUE,trim=TRUE,convert.dates=TRUE,a
 
 
 
-
 #' Ying's Recode
 #'
 #' Recode a variable
@@ -1519,7 +1518,7 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
       var.recode[evals][hit] <- newname
     }
   }
-  names(var.recode) <- var #add names to result.
+  # names(var.recode) <- var #add names to result.
   #handling non-matches
   if (missing(else.value)) {
     #default is to use old value
@@ -1536,6 +1535,21 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
   }
   return(var.recode)
 }
+
+
+#' @rdname recode2
+#' @export
+recode.grep <- function(...) {
+  recode2(regexp=TRUE,...)
+  #var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE
+}
+
+#' @rdname recode2
+#' @export
+replace.grep <- function(...) {
+  recode2(regexp=TRUE,replace=TRUE,multi.hits=TRUE,...)
+}
+
 
 #' Find All Distinct Variables
 #'
@@ -3097,51 +3111,7 @@ cummax.Date <- function(x) {
 #
 #
 #
-# #' Logistic Transformation
-# #'
-# #' Performs logistic transformation of data. This is useful for graphing.
-# #'
-# #' When graphing a continuous measure, this transformation is useful if you need to fit all values
-# #' into a particular space. You can play with parameters to get the transformation just how you want it.
-# #' @param inner.range a 2-value vector representing values in the scale of \code{var}. Choose important values you'd like to see. These will loosely correspond to inflection points on the logistic curve.
-# #' @param percentiles a 2-value vector representing the corresponding percent height of the values from \code{inner.range}. By default this is \code{c(0.1,0.9)}.
-# #' @param invert whether or not to flip the logistic curve. Default is \code{FALSE}.
-# #' @param show.transformation logical, if \code{TRUE}, will show plot of the transformation.
-# #' @return Returns the logistic transformation of \code{var}, where values will fall within \code{scale}, and where \code{inner.range} will be transformed to \code{percentiles}.
-# #' @examples
-# #' #Example: WBC. Values between 0.2 and 10 take up 80% of the space. Values outside of that de-emphasized.
-# #' wbc <- seq(0,20,by=0.1)
-# #' wbc.logist <- trans.logistic(wbc,inner.range=c(0.2,10))
-# #' ggplot(data.frame(wbc,wbc.logist)) + geom_point(aes(x=wbc,y=wbc.logist))
-# #' @author Ying Taur
-# #' @export
-# logistic_trans <- function(inner.range,percentiles=c(0.1,0.9)) {
-#   a <- (inner.range[1]*log(1/percentiles[2]-1)-inner.range[2]*log(1/percentiles[1]-1))/(inner.range[1]-inner.range[2])
-#   b <- (log(1/percentiles[1]-1)-log(1/percentiles[2]-1))/(inner.range[1]-inner.range[2])
-#   trans <- function(x) {
-#     1/(1+exp(a+b*x))
-#   }
-#   inv <- function(y) {
-#     y[y<=0] <- .Machine$double.eps
-#     y[y>=1] <- 1-.Machine$double.eps
-#     (log(1/y-1)-a) / b
-#   }
-#   trans_new("logistic",trans,inv,
-#             breaks=logistic_trans_breaks(inner.range))
-#   #format=pretty_number
-# }
-#
-# #' Breaks for Logistic Tranformation
-# #'
-# #' Simple breaks for logistic, just use the inner.range used to define the curve.
-# #' @param inner.range the 2-value numeric used in logistic_trans
-# #' @return break function returning break values.
-# #' @export
-# logistic_trans_breaks <- function(inner.range) {
-#   function(x) {
-#     inner.range
-#   }
-# }
+
 #
 #
 # # trans.logistic <- function(var,inner.range,percentiles=c(0.1,0.9),invert=FALSE,scale=c(0,1),show.transformation=FALSE) {
