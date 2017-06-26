@@ -12,7 +12,8 @@ recode2(var, recodes, else.value, as.factor, regexp = FALSE,
 
 recode.grep(...)
 
-replace.grep(...)
+replace.grep(var, recodes, ignore.case = TRUE, perl = FALSE,
+  useBytes = TRUE)
 }
 \arguments{
 \item{var}{the vector to be recoded.}

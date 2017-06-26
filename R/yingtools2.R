@@ -1546,9 +1546,16 @@ recode.grep <- function(...) {
 
 #' @rdname recode2
 #' @export
-replace.grep <- function(...) {
-  recode2(regexp=TRUE,replace=TRUE,multi.hits=TRUE,...)
+replace.grep <- function(var,recodes,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
+  newvar <- var
+  for (i in 1:length(recodes)) {
+    pattern <- names(recodes)[i]
+    replacetext <- recodes[i]
+    newvar <- gsub(pattern,replacetext,newvar,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
+  }
+  return(newvar)
 }
+
 
 
 #' Find All Distinct Variables
