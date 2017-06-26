@@ -1556,8 +1556,6 @@ replace.grep <- function(var,recodes,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) 
   return(newvar)
 }
 
-
-
 #' Find All Distinct Variables
 #'
 #' Find Distinct
