@@ -54,8 +54,6 @@ NULL
 }
 
 
-
-
 #' Subtract Dates
 #'
 #' Returns number of days.
@@ -69,22 +67,20 @@ NULL
 #'
 #' Like left_join, but replaces column names in x with new columns from y.
 #'
-#' @param var the vector to be tabulated
-#' @param sortby.freq if \code{TRUE}, sorts by order
-#' @param useNA character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}
-#' @param as.char logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}
-#' @return Returns a data frame with tabulations.
-#' @examples
-#' ...examples.here....
+#' @param x, y tbls to join
+#' @param by a character vector of variables to join by.
+#' @return Returns a joined data frame
 #' @author Ying Taur
 #' @export
-left_join_replace <- function(x, y, by, suffix = c(".x", ".y"), ...) {
-  overlap.vars <- intersect(names(x),names(y))
-  overwrite.vars <- setdiff(overlap.vars,by)
-  keep.vars <- setdiff(names(x),overwrite.vars)
-  message("Overwriting: ",paste(overwrite.vars,collapse=","))
-  x <- x[,keep.vars]
-  left_join(x,y,by,suffix,...)
+left_join_replace <- function(x,y,by=NULL) {
+  replace.vars <- setdiff(intersect(names(x),names(y)),by)
+  keep.xvars <- setdiff(names(x),setdiff(names(y),by))
+  orig.x <- x %>% anti_join(y,by=by)
+  change.x <- x %>% select_(.dots=keep.xvars) %>% inner_join(y,by=by)
+  message(nrow(orig.x)," rows in x unchanged")
+  message(nrow(change.x)," rows in x updated")
+  message(length(replace.vars)," columns updated: ",paste(replace.vars,collapse=","))
+  bind_rows(orig.x,change.x)
 }
 
 

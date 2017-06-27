@@ -4,25 +4,18 @@
 \alias{left_join_replace}
 \title{Left Join Replace}
 \usage{
-left_join_replace(x, y, by, suffix = c(".x", ".y"), ...)
+left_join_replace(x, y, by = NULL)
 }
 \arguments{
-\item{var}{the vector to be tabulated}
+\item{x, }{y tbls to join}
 
-\item{sortby.freq}{if \code{TRUE}, sorts by order}
-
-\item{useNA}{character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}}
-
-\item{as.char}{logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}}
+\item{by}{a character vector of variables to join by.}
 }
 \value{
-Returns a data frame with tabulations.
+Returns a joined data frame
 }
 \description{
 Like left_join, but replaces column names in x with new columns from y.
-}
-\examples{
-...examples.here....
 }
 \author{
 Ying Taur
