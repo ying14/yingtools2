@@ -3,7 +3,6 @@
 \name{recode2}
 \alias{recode2}
 \alias{recode.grep}
-\alias{replace.grep}
 \title{Ying's Recode}
 \usage{
 recode2(var, recodes, else.value, as.factor, regexp = FALSE,
@@ -11,9 +10,6 @@ recode2(var, recodes, else.value, as.factor, regexp = FALSE,
   useBytes = TRUE)
 
 recode.grep(...)
-
-replace.grep(var, recodes, ignore.case = TRUE, perl = FALSE,
-  useBytes = TRUE)
 }
 \arguments{
 \item{var}{the vector to be recoded.}

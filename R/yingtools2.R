@@ -1540,17 +1540,100 @@ recode.grep <- function(...) {
   #var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE
 }
 
-#' @rdname recode2
+
+
+
+#' Ying's Replace Grep
+#'
+#' Perform multiple text replacements at once using regular expressions. Similar in form to \code{recode2} and \code{recode.grep}.
+#'
+#' @param var the character vector to be searched.
+#' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
+#' @param result.as.list if \code{TRUE}, returns a 2-vector list containing replaced text and text hits. Default is \code{FALSE}.
+#' @param replace.text text to replace hits with. Default is \code{""}
+#' @param collapse.hits the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{result.as.list=TRUE}
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
+#' @param perl whether to use perl-style regular expressions. Default is \code{TRUE}
+#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
+#' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
 #' @export
-replace.grep <- function(var,recodes,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
-  newvar <- var
-  for (i in 1:length(recodes)) {
-    pattern <- names(recodes)[i]
-    replacetext <- recodes[i]
-    newvar <- gsub(pattern,replacetext,newvar,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
+replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collapse.hits="|",ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
+  if (is.null(collapse.hits) & !result.as.list) {
+    stop("YTWarning: hits.collapse=NULL (hits displayed as list), but report.as.list=FALSE.")
   }
-  return(newvar)
+  if (!is.null(names(recodes))) {
+    patterns <- names(recodes)
+    replacements <- unlist(recodes)
+  } else {
+    patterns <- recodes
+    replacements <- rep(replace.text,length.out=length(recodes))
+  }
+  newvar <- var
+  hits <- rep(list(character(0)),length.out=length(var))
+  for (i in 1:length(recodes)) {
+    pattern <- patterns[i]
+    replacetext <- replacements[i]
+    if (result.as.list) {
+      newhits <- str_extract_all(newvar,regex(pattern,ignore_case=ignore.case))
+      hits <- mapply(c,hits,newhits)
+    }
+    newvar <- gsub(pattern, replacetext, newvar, ignore.case = ignore.case, perl = perl, useBytes = useBytes)
+  }
+  if (!is.null(collapse.hits)) {
+    hits <- sapply(hits,function(x) paste(x,collapse=collapse.hits))
+  }
+  if (result.as.list) {
+    list(replace.text=newvar,hits=hits)
+  } else {
+    return(newvar)
+  }
 }
+
+#' Ying's Replace Grep for Data Frames
+#'
+#' Perform multiple text replacements for a character vector in a data frame.
+#'
+#' Uses \code{replace.grep}.
+#'
+#' @param data the data frame to be manipulated.
+#' @param var the bare character vector to be searched.
+#' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
+#' @param newvar bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.
+#' @param replace.text text to replace hits with. Default is \code{""}
+#' @param hits.var bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored.
+#' @param collapse.hits the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{hits.var} is specified.
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
+#' @param perl whether to use perl-style regular expressions. Default is \code{TRUE}
+#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
+#' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
+#' @export
+replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.var=NULL,collapse.hits="|",ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
+  newvar <- as.character(substitute(newvar))
+  hits.var <- as.character(substitute(hits.var))
+  if (length(newvar)==0) {
+    newvar <- as.character(substitute(var))
+  }
+  store.hits <- length(hits.var)>0
+  oldvar <- lazyeval::lazy(var,data)
+  results <- replace.grep(var=oldvar,recodes=recodes,result.as.list=store.hits,
+                          replace.text=replace.text,collapse.hits=collapse.hits,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
+  if (store.hits) {
+    newdata <- data
+    newdata[[newvar]] <- results$replace.text
+    newdata[[hits.var]] <- results$hits
+  } else {
+    newdata <- data
+    newdata[[newvar]] <- results$replace.text
+    newdata[[hits.var]] <- results$hits
+  }
+  return(newdata)
+}
+
+
+
+
+
+
 
 #' Find All Distinct Variables
 #'
@@ -3445,7 +3528,17 @@ cummax.Date <- function(x) {
 
 #
 #
-
+#' #' @rdname recode2
+#' #' @export
+#' replace.grep.old <- function(var,recodes,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
+#'   newvar <- var
+#'   for (i in 1:length(recodes)) {
+#'     pattern <- names(recodes)[i]
+#'     replacetext <- recodes[i]
+#'     newvar <- gsub(pattern,replacetext,newvar,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
+#'   }
+#'   return(newvar)
+#' }
 #
 #
 #
