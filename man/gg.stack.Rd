@@ -31,4 +31,5 @@ Performs these steps:
 (1) change margins so that plots are closer together
 (2) alters widths of each component so that the plots will line up nicely
 (3) calls \code{grid.arrange(...,ncol=1)}
+If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
 }

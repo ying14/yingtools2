@@ -466,6 +466,44 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
 }
 
 
+
+#' Get YT Palette 2
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
+#' ...examples.here....
+#' @author Ying Taur
+#' @export
+get.yt.palette2 <- function (tax) {
+  if (class(tax)[1] %in% c("phyloseq", "taxonomyTable")) {
+    tax <- get.tax(tax.obj)
+  }
+  ranks <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  if (!all(ranks %in% names(tax))) {
+    stop("YTError: need to have taxon levels: Kingdom, Phylum, Class, Order, Family, Genus, Species")
+  }
+  tax.dict <- tax[, ranks] %>% distinct()
+  tax.dict$color <- rep(shades("gray", variation=0.25),length.out = nrow(tax.dict))
+  proteo <- tax.dict$Phylum == "Proteobacteria"
+  tax.dict$color[proteo] <- rep(shades("red", variation = 0.4), length.out = sum(proteo))
+  actino <- tax.dict$Phylum == "Actinobacteria"
+  tax.dict$color[actino] <- rep(shades("#A77097", variation = 0.25), length.out = sum(actino))
+  bacteroidetes <- tax.dict$Phylum == "Bacteroidetes"
+  tax.dict$color[bacteroidetes] <- rep(shades("#51AB9B", variation = 0.25), length.out = sum(bacteroidetes))
+  clost <- tax.dict$Order == "Clostridiales"
+  tax.dict$color[clost] <- rep(shades("#9C854E", variation = 0.25), length.out = sum(clost))
+  lachno <- tax.dict$Family == "Lachnospiraceae"
+  tax.dict$color[lachno] <- rep(shades("#EC9B96", variation = 0.25), length.out = sum(lachno))
+  rumino <- tax.dict$Family == "Ruminococcaceae"
+  tax.dict$color[rumino] <- rep(shades("#9AAE73", variation = 0.25), length.out = sum(rumino))
+  cid.colors.new <- c(Enterococcus = "#129246", Streptococcus = "#9FB846", Staphylococcus = "#f1eb25" , Lactobacillus="#3b51a3")
+  cid <- cid.colors.new[match(tax.dict$Genus, names(cid.colors.new))]
+  tax.dict$color <- ifelse(is.na(cid), tax.dict$color, cid)
+  tax.palette <- structure(tax.dict$color, names = as.character(tax.dict$Species))
+  tax.palette
+}
+
 #' Plot tax
 #'
 #' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species

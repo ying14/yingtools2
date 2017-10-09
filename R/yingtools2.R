@@ -796,6 +796,7 @@ show_linetypes <- function() {
 #' (1) change margins so that plots are closer together
 #' (2) alters widths of each component so that the plots will line up nicely
 #' (3) calls \code{grid.arrange(...,ncol=1)}
+#' If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
 #' @param ...
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
 #' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
@@ -812,6 +813,13 @@ gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=5.5,units="p
   #grobs=list(gm,gt)
   #heights = c(1,2,3,4);gg.extras=NULL;gap=0;margin=5.5;units="pt";newpage=TRUE
   grobs <- list(...)
+  if (length(grobs)!=length(heights)) {
+    stop("YTError: number of grobs does not match the number of heights.")
+  }
+  keep <- !sapply(grobs,is.null)
+  grobs <- grobs[keep]
+  heights <- heights[keep]
+
   length.grobs <- length(grobs)
   if (length.grobs<=1) {
     stop("YTError: should have at least 2 grobs")
