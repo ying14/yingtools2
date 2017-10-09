@@ -813,13 +813,15 @@ gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=5.5,units="p
   #grobs=list(gm,gt)
   #heights = c(1,2,3,4);gg.extras=NULL;gap=0;margin=5.5;units="pt";newpage=TRUE
   grobs <- list(...)
-  if (length(grobs)!=length(heights)) {
-    stop("YTError: number of grobs does not match the number of heights.")
-  }
   keep <- !sapply(grobs,is.null)
-  grobs <- grobs[keep]
-  heights <- heights[keep]
 
+  if (!is.null(heights)) {
+    if (length(grobs)!=length(heights)) {
+      stop("YTError: number of grobs does not match the number of heights.")
+    }
+    heights <- heights[keep]
+  }
+  grobs <- grobs[keep]
   length.grobs <- length(grobs)
   if (length.grobs<=1) {
     stop("YTError: should have at least 2 grobs")
