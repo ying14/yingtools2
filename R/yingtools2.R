@@ -2415,6 +2415,70 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 }
 
 
+
+#' Get Rows (optimized for timeline plots)
+#'
+#' Given timeline event data with event type labels and start/stop times, calculate rows.
+#' This will attempt to save vertical plot space by placing two event types on the same row, where possible.
+#' @param start vector of event start times (numeric or Date).
+#' @param stop vector of event stop times (numeric or Date).
+#' @param row vector of event types. Can be original row assignments or event labels.
+#' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}
+#' @param min.gap minimum allowable gap between two different event types, if they are to be placed on the same row. Default is \code{0}.
+#' @return Returns a vector of row number assignments for each time event.
+#' @author Ying Taur
+#' @export
+get.row <- function(start,stop,row,by=NULL,min.gap=0) {
+  # start=medssub$start_day;stop=medssub$stop_day;row=medssub$y.row;by=list(medssub$abx_class,medssub$med_class3);min.gap=0
+  if (!is.null(by)) {
+    d <- data.frame(start,stop,row,by)
+    by.list <- setdiff(names(d),c("start","stop","row"))
+    dd <- d %>%
+      mutate(orig.order=1:n()) %>%
+      group_by_(.dots=by.list) %>%
+      mutate(newrow=get.row(start,stop,row,min.gap=min.gap)) %>%
+      ungroup() %>%
+      arrange_(.dots=c(by.list,"newrow"))
+    dd$newrow2 <- do.call(paste,dd[,c(by.list,"newrow")])
+    dd <- dd %>%
+      mutate(#newrow2=paste(by,newrow),
+        newrow2=factor(newrow2,levels=unique(newrow2)),
+        newrow2=as.numeric(newrow2)) %>%
+      arrange(orig.order)
+    return(dd$newrow2)
+  }
+
+  d <- data.frame(start,stop,row)
+  d.collapse <- d %>% group_by(row) %>%
+    summarize(start=min(start),stop=max(stop)) %>% ungroup() %>%
+    mutate(y.row1=row_number(stop),
+           y.row2=row_number(start)-n())
+
+  d.row.test <- adply(0:(nrow(d.collapse)-1),1,function(overlap) {
+    d.test <- d.collapse %>%
+      mutate(y.row2=y.row2+overlap,
+             y.row3=ifelse(y.row2>=1,y.row2,y.row1))
+    overlap.check <- d.test %>% filter(y.row3<=overlap) %>%
+      group_by(y.row3) %>% filter(n()==2) %>%
+      arrange(start) %>%
+      summarize(start1=start[1],stop1=stop[1],start2=start[2],stop2=stop[2]) %>%
+      mutate(gap=start2-stop1,
+             overlaps=start2-stop1<=min.gap)
+    data.frame(overlap,n.rows=n_distinct(d.test$y.row3),
+               gap=suppressWarnings(min(overlap.check$gap)))
+  },.id=NULL)
+  d.use.row <- d.row.test %>% filter(gap>=min.gap) %>% arrange(n.rows,desc(gap)) %>% slice(1)
+  d.final <- d.collapse %>%
+    mutate(y.row2=y.row2+d.use.row$overlap,
+           y.row3=ifelse(y.row2>=1,y.row2,y.row1),
+           y.row3=dense_rank(y.row3))
+  newrow <- d.final$y.row3[match(d$row,d.final$row)]
+  return(newrow)
+}
+
+
+
+
 #' Select 2
 #'
 #' Basically \code{dplyr::select}, but ignores variables that aren't found in the data frame.
