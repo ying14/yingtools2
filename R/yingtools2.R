@@ -2430,7 +2430,7 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 #' @export
 get.row <- function(start,stop,row,by=NULL,min.gap=0) {
   # start=medssub$start_day;stop=medssub$stop_day;row=medssub$y.row;by=list(medssub$abx_class,medssub$med_class3);min.gap=0
-  if (nrow(start)==0|nrow(stop)==0) {return(NA_integer_)}
+  if (length(start)==0|length(stop)==0) {return(NA_integer_)}
   if (!is.null(by)) {
     d <- data.frame(start,stop,row,by)
     by.list <- setdiff(names(d),c("start","stop","row"))
