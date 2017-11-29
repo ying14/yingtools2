@@ -760,6 +760,68 @@ log_epsilon_trans_breaks <- function(epsilon) {
   }
 }
 
+
+
+#' Logistic Transformation
+#'
+#' Performs logistic transformation of data. This is useful for graphing.
+#'
+#' When graphing a continuous measure, this transformation is useful if you need to fit all values
+#' into a particular space. You can play with parameters to get the transformation just how you want it.
+#' @param value1 First value whose percent height you'd like to specify.
+#' @param value2 Second value whose percent height you'd like to specify.
+#' @param pct.value1 Percent height of the first value. Default is 0.1.
+#' @param pct.value2 Percent height of the second value. Default is 0.9.
+#' @param invert whether or not to flip the logistic curve. Default is \code{FALSE}.
+#' @param show.transformation logical, if \code{TRUE}, will show plot of the transformation.
+#' @return Returns the logistic transformation of \code{var}, where values will fall within \code{scale}, and where \code{inner.range} will be transformed to \code{percentiles}.
+#' @examples
+#' #Example: WBC. Values between 0.2 and 10 take up 80% of the space. Values outside of that de-emphasized.
+#' wbc <- seq(0,20,by=0.1)
+#' wbc.logist <- trans.logistic(wbc,inner.range=c(0.2,10))
+#' ggplot(data.frame(wbc,wbc.logist)) + geom_point(aes(x=wbc,y=wbc.logist))
+#' @author Ying Taur
+#' @export
+logistic_trans <- function(value1,value2,pct.value1=0.1,pct.value2=0.9) {
+  inner.range <- c(value1,value2)
+  percentiles <- c(pct.value1,pct.value2)
+  a <- (inner.range[1]*log(1/percentiles[2]-1)-inner.range[2]*log(1/percentiles[1]-1))/(inner.range[1]-inner.range[2])
+  b <- (log(1/percentiles[1]-1)-log(1/percentiles[2]-1))/(inner.range[1]-inner.range[2])
+  trans <- function(x) {
+    1/(1+exp(a+b*x))
+  }
+  inv <- function(y) {
+    y[y<=0] <- .Machine$double.eps
+    y[y>=1] <- 1-.Machine$double.eps
+    (log(1/y-1)-a) / b
+  }
+  trans_new("logistic",trans,inv,
+            breaks=logistic_trans_breaks(inner.range))
+}
+
+#' Breaks for Logistic Tranformation
+#'
+#' Simple breaks for logistic, just use the inner.range used to define the curve.
+#' @param inner.range the 2-value numeric used in logistic_trans
+#' @return break function returning break values.
+#' @export
+logistic_trans_breaks <- function(inner.range) {
+  function(x) {
+    inner.range
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 #' Display values for ggplot's shape aesthetic
 #'
 #' Used for quick reference
