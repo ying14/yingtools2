@@ -661,7 +661,7 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
       }
       return(newcol)
     }
-    data2 <- mutate_each(x,funs(format.value))
+    data2 <- mutate_all(x,funs(format.value))
     for (var in names(data2)) {
       data2[[var]] <- paste(data2[[var]],"as",var)
     }
@@ -1004,7 +1004,7 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
     if(as.string) {levels(x)[is.na(levels(x))] <- "NA"}
     return(x)
   }
-  data <- data %>% mutate_each_(funs(factorize),c(vars,by))
+  data <- data %>% mutate_all_(funs(factorize),c(vars,by))
   get.column <- function(subdata) {
     #subdata=data
     denom <- nrow(subdata)
@@ -1248,7 +1248,6 @@ is.mrn <- function(mrn,like=FALSE) {
   if (like) { #if numeric or factor, and if leading zeroes gone, can still hit.
     mrn <- as.character(trim(mrn))
     mrn <- mrn[!is.na(mrn) & mrn!=""]
-    #answer <- all(grepl("^[03][0-9]{7}$|^[0-9]{1,7}$",mrn))
     answer <- all.grepl("^[03][0-9]{7}$|^[0-9]{1,7}$",mrn)
     if (answer & is.numeric(mrn)) {
       if (mean(grepl("^3[0-9]{7}$",mrn))<0.80) {
@@ -1704,9 +1703,6 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 
 
 
-
-
-
 #' Find All Distinct Variables
 #'
 #' Find Distinct
@@ -1719,11 +1715,11 @@ find.all.distinct.vars <- function(data, ...) {
   args <- lazyeval::lazy_dots(...)
   group.vars <- unname(sapply(args, function(x) deparse(x$expr)))
   other.vars <- setdiff(names(data),group.vars)
-  data2 <- data %>% group_by(...) %>% summarize_each(funs(n_distinct)) %>% ungroup()
+  data2 <- data %>% group_by(...) %>% summarize_all(funs(n_distinct)) %>% ungroup()
   allone <- function(x) {
     all(x==1)
   }
-  data3 <- data2 %>% select_(.dots=other.vars) %>% summarize_each(funs(allone))
+  data3 <- data2 %>% select_(.dots=other.vars) %>% summarize_all(funs(allone))
   distinct.vars <- names(data3)[t(data3)]
   non.distinct.vars <- names(data3)[!t(data3)]
   distinct.vars.text <- paste0("[",paste(group.vars,collapse=","),"],",paste(distinct.vars,collapse=","))
@@ -1868,6 +1864,7 @@ chop.endpoint <- function(data,newvar,oldvar, ...) {
 #' @author Ying Taur
 #' @export
 stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE) {
+  data <- data.frame(data)
   y <- c(...)[1]
   xvars <- c(...)[-1]
   y.day <- paste0(y,"_day")

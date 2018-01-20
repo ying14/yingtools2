@@ -1,4 +1,7 @@
 
+#need this for get.otu.melt to work in package.
+.datatable.aware = TRUE
+
 
 #' The color scheme used in CID manuscript.
 #' @author Ying Taur
@@ -114,10 +117,7 @@ set.tax <- function(tdata) {
 }
 
 
-
-
-
-#' Convert Phyloseq to Melted OTU x Sample Data
+#' Convert Phyloseq to Melted OTU x Sample Data (OLD)
 #'
 #' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
 #'
@@ -130,7 +130,7 @@ set.tax <- function(tdata) {
 #' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
 #' @return Data frame melted OTU data
 #' @export
-get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
+get.otu.melt.old <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
   otu0 <- otu_table(phy) %>% as.matrix() %>% reshape2::melt(varnames=c("otu","sample"),value.name="numseqs") %>%
     dplyr::as_data_frame() %>% mutate(otu=as.character(otu),sample=as.character(sample))
@@ -148,6 +148,76 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   }
   return(otu)
 }
+
+
+
+#' Convert Phyloseq to Melted OTU x Sample Data
+#'
+#' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
+#'
+#' Essentially gives back the OTU table, in melted form, such that each row represents a certain OTU for a certain sample.
+#' Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
+#' Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
+#' The \code{get.otu.melt} now works by performing operations via data table, making it about 30x faster than before.
+#' @param phy phyloseq object containing sample data
+#' @param filter.zero Logical, whether or not to remove zero abundances. Default \code{TRUE}.
+#' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
+#' @return Data frame melted OTU data
+#' @export
+get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
+  # supports "naked" otu_table as `phy` input.
+  otutab = as(otu_table(phy), "matrix")
+  if (!taxa_are_rows(phy)) {
+    otutab <- t(otutab)
+  }
+  otudt = data.table(otutab, keep.rownames = TRUE)
+  data.table::setnames(otudt, "rn", "otu")
+  # Enforce character otu key
+  # note that .datatable.aware = TRUE needs to be set for this to work well.
+  otudt[, otuchar:=as.character(otu)]
+  otudt[, otu := NULL]
+  setnames(otudt, "otuchar", "otu")
+  # Melt count table
+  mdt = data.table::melt.data.table(otudt, id.vars = "otu", variable.name = "sample",value.name = "numseqs")
+  if (filter.zero) {
+    # Remove zeroes, NAs
+    mdt <- mdt[numseqs > 0][!is.na(numseqs)]
+  } else {
+    mdt <- mdt[!is.na(numseqs)]
+  }
+  # Calculate relative abundance
+  mdt[, pctseqs := numseqs / sum(numseqs), by = sample]
+  if(!is.null(tax_table(phy, errorIfNULL=FALSE))) {
+    # If there is a tax_table, join with it. Otherwise, skip this join.
+    taxdt = data.table(as(tax_table(phy, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
+    setnames(taxdt, "rn", "otu")
+    # Enforce character otu key
+    taxdt[, otuchar := as.character(otu)]
+    taxdt[, otu := NULL]
+    setnames(taxdt, "otuchar", "otu")
+    # Join with tax table
+    setkey(taxdt, "otu")
+    setkey(mdt, "otu")
+    mdt <- taxdt[mdt]
+  }
+  if (sample_data & !is.null(tax_table(phy, errorIfNULL = FALSE))) {
+    # If there is a sample_data, join with it.
+    sampledt = data.table(as(sample_data(phy, errorIfNULL = TRUE), "data.frame"),keep.rownames=TRUE)
+    setnames(sampledt, "rn", "sample")
+    # Enforce character sample key
+    sampledt[, samplechar := as.character(sample)]
+    sampledt[, sample := NULL]
+    setnames(sampledt, "samplechar", "sample")
+    # Join with tax table
+    setkey(sampledt, "sample")
+    setkey(mdt, "sample")
+    mdt <- sampledt[mdt]
+  }
+  return(tbl_df(mdt))
+  # return(mdt)
+}
+
+
 
 #' Import UPARSE pipeline data and create phyloseq
 #'
