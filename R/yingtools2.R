@@ -14,6 +14,12 @@
 NULL
 
 
+## to force a fresh pull from github:
+# git fetch --all
+# git reset --hard origin/master
+# git pull origin master
+
+
 ## git remote add origin git@github.com:ying14/yingtools2.git
 ## git push -u origin master
 #" ...Title...
@@ -861,6 +867,7 @@ show_linetypes <- function() {
 #' If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
 #' @param ...
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
+#' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.
 #' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
 #' @param gap size of gap between stacked plots. Default is 0
 #' @param margin size of the margin around the plots. Default is 5.5.
@@ -868,7 +875,7 @@ show_linetypes <- function() {
 #' @param newpage logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)
 #' @return plot of stacked ggplots
 #' @export
-gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE) {
+gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE) {
   # g1 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am) + geom_point()
   # g2 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am,space="free",scales="free") + geom_point()
   # grobs=list(g1,g2,gt,gm)
@@ -891,16 +898,31 @@ gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=5.5,units="p
   if (is.null(heights)) {
     heights <- rep(1,length.grobs)
   }
-  top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
-                     axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-  middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
-                        axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-  bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
-  g.top <- grobs[[1]] + top.theme + gg.extras
+
+  g.top <- grobs[[1]] + gg.extras
   g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
-    g + middle.theme + gg.extras
+    g + gg.extras
   })
-  g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
+  g.bottom <- grobs[[length.grobs]] + gg.extras
+
+  if (adjust.themes) {
+    top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
+                       axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+    middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
+                          axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+    bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
+
+    g.top <- g.top + top.theme
+    g.middle.list <- lapply(g.middle.list,function(g) {
+      g + middle.theme
+    })
+    g.bottom <- g.bottom + bottom.theme
+  }
+  # g.top <- grobs[[1]] + top.theme + gg.extras
+  # g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
+  #   g + middle.theme + gg.extras
+  # })
+  # g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
 
   grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
   #list of ggplotGrobs
@@ -934,7 +956,7 @@ gg.stack <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=5.5,units="p
   },grobs3,heights)
 
   args <- c(grobs4,list(size="max"))
-  gtable.final <- do.call(rbind,args)
+  gtable.final <- do.call(gtable_rbind,args)
   if (newpage) {
     grid.newpage()
   }
