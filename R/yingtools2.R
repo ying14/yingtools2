@@ -2280,70 +2280,45 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.f
 }
 
 
-#' ...Title...
+#' Logistic Regression
 #'
-#' ...Description...
+#' Performs univariate or multivariate logistic regression
 #'
-#' @usage ...usage.code...
+#' Logistic regression is for prediction of yes/no outcomes.
 #'
-#' ...details...
-#'
-#' @param .param1. ...param1.description...
-#' @param .param2. ...param2.description...
-#' @return ...description.of.data.returned...
+#' @return A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
 #' @examples
-#' ...examples.here....
-#' @keywords keyword1 keyword2 ...
-#' @seealso \code{\link{cdiff.method}}
+#' # logistic regression predicting vs with mpg, cyl, and disp:
+#' # specify yvar and xvar in model:
+#' logistic("vs",c("mpg","cyl","disp"),data=mtcars)
+#' # specify model:
+#' logistic(vs~mpg+cyl+disp,data=mtcars)
 #' @author Ying Taur
 #' @export
 logistic <- function(x,...) UseMethod("logistic")
 
 
-
-#' ...Title...
-#'
-#' ...Description...
-#'
-#' @usage ...usage.code...
-#'
-#' ...details...
-#'
-#' @param .param1. ...param1.description...
-#' @param .param2. ...param2.description...
-#' @return ...description.of.data.returned...
-#' @examples
-#' ...examples.here....
-#' @keywords keyword1 keyword2 ...
-#' @seealso \code{\link{cdiff.method}}
-#' @author Ying Taur
+#' @rdname logistic
+#' @param yvar Y-variable of interest (column name within data). Should be either logical or 0-1.
+#' @param xvar X-variable(s) of interest (vector of column names within data). A vector of length=1 will perform a univariate analysis, length>1 will perform a multivariate analysis.
+#' @param data data frame containing the data.
+#' @param firth Whether to apply Firth's penalized likelihood correction. Default is \code{FALSE}
+#' @param formatted logical specifying whether to format the data in a table. Default is \code{TRUE}.
+#' @param digits number of significant digits in results. Default is 3.
 #' @export
-logistic.character <- function( ... ,data,firth=FALSE,formatted=TRUE,digits=3,addto) {
-  y <- c(...)[1]
-  x <- paste(c(...)[-1],collapse="+")
-  model <- paste(y,x,sep="~")
-  logistic(as.formula(model),data=data,firth=firth,formatted=formatted,digits=digits,addto=addto)
+logistic.character <- function(yvar, xvars ,data,firth=FALSE,formatted=TRUE,digits=3) {
+  # y <- c(...)[1]
+  # x <- paste(c(...)[-1],collapse="+")
+  # model <- paste(y,x,sep="~")
+  model <- paste0(yvar,"~",paste(xvars,collapse="+"))
+  logistic(as.formula(model),data=data,firth=firth,formatted=formatted,digits=digits)
 }
 
-#' ...Title...
-#'
-#' ...Description...
-#'
-#' @usage ...usage.code...
-#'
-#' ...details...
-#'
-#' @param .param1. ...param1.description...
-#' @param .param2. ...param2.description...
-#' @return ...description.of.data.returned...
-#' @examples
-#' ...examples.here....
-#' @keywords keyword1 keyword2 ...
-#' @seealso \code{\link{cdiff.method}}
-#' @author Ying Taur
+#' @rdname logistic
+#' @param formula formula on which to perform logistic regression.
 #' @export
-logistic.formula <- function( ... ,firth=FALSE,formatted=TRUE,digits=3,addto) {
-  results <- logistf( ... , firth=firth)
+logistic.formula <- function(formula, data=sys.parent(), firth=FALSE,formatted=TRUE,digits=3) {
+  results <- logistf(formula, data=data, firth=firth)
   results.table <- data.frame(
     model=gsub("\"| ","",paste(deparse(results$formula),collapse="")),
     yvar=as.character(results$formula)[2],
@@ -2365,39 +2340,42 @@ logistic.formula <- function( ... ,firth=FALSE,formatted=TRUE,digits=3,addto) {
     })
     results.table <- subset(results.table,select=c(model,yvar,xvar,odds.ratio,p.value,signif))
   }
-  if (missing(addto)) {
-    return(results.table)
-  } else {
-    return(rbind(addto,results.table))
-  }
+  return(results.table)
 }
 
 
 
 
-#' ...Title...
+#' Univariate Logistic Regression
 #'
-#' ...Description...
+#' Perform logistic regression analysis on a group of predictors, and optionally perform multivariate analysis on significant univariate predictors.
 #'
-#' @usage ...usage.code...
-#'
-#' ...details...
-#'
-#' @param .param1. ...param1.description...
-#' @param .param2. ...param2.description...
-#' @return ...description.of.data.returned...
+#' @param yvar ...param1.description...xxx
+#' @param xvars ...param2.description...
+#' @param data data frame containing the data.
+#' @param firth Whether to apply Firth's penalized likelihood correction. Default is \code{FALSE}
+#' @param multi whether to contruct a multivariate model using univariate predictors. Default is \code{FALSE}
+#' @param multi.cutoff P-value cutoff at which a univariate predictor is included in the multivariate. Default is \code{0.2}.
+#' @param digits number of significant digits in results. Default is 3.
+#' @return A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
 #' @examples
-#' ...examples.here....
+#' univariate.logistic("vs",c("mpg","cyl","disp","am","gear"),data=mtcars,multi=TRUE)
 #' @keywords keyword1 keyword2 ...
 #' @seealso \code{\link{cdiff.method}}
 #' @author Ying Taur
 #' @export
-univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cutoff=0.2,formatted=TRUE,digits=3) {
-  results.table <- data.frame()
-  for (xvar in xvars) {
+univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cutoff=0.2,digits=3) {
+  # yvar="vs";xvars=c("mpg","cyl","disp","hp","drat","wt","qsec","am","gear","carb");data=mtcars;firth=F;multi=T;multi.cutoff=0.2;digits=3
+  # results.table <- data.frame()
+  # for (xvar in xvars) {
+  #   print(xvar)
+  #   results.table <- logistic(yvar,xvar,data=data,firth=firth,addto=results.table,digits=digits)
+  # }
+  results.table <- lapply(xvars,function(xvar) {
     print(xvar)
-    results.table <- logistic(yvar,xvar,data=data,firth=firth,addto=results.table,formatted=formatted,digits=digits)
-  }
+    logistic(yvar,xvar,data=data,firth=firth,digits=digits)
+  }) %>% bind_rows()
+
   if (multi) {
     multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
     multivars <- unique(multivars)
@@ -2409,12 +2387,12 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
     print("multivariate model: ")
     print(paste0(multivars,collapse=", "))
     multi.table <- logistic(yvar,multivars,data=data,firth=firth,digits=digits)
-    names(multi.table) <- car::recode(names(multi.table),"'odds.ratio'='multi.odds.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
+    names(multi.table) <- c("model","yvar","xvar","multi.odds.ratio","multi.p.value","multi.signif")
     multi.table <- subset(multi.table,select=-model)
     results.table <- subset(results.table,select=-model)
     combined.table <- merge(results.table,multi.table,all.x=TRUE)
     results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
-    results.table <- data.frame(lapply(results.table,function(x) car::recode(x,"NA=''")))
+    results.table <- data.frame(lapply(results.table,function(x) ifelse(is.na(x),"",as.character(x))))
   }
   return(results.table)
 }

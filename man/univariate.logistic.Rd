@@ -2,25 +2,34 @@
 % Please edit documentation in R/yingtools2.R
 \name{univariate.logistic}
 \alias{univariate.logistic}
-\title{...Title...}
+\title{Univariate Logistic Regression}
 \usage{
-...usage.code...
-
-...details...
+univariate.logistic(yvar, xvars, data, firth = FALSE, multi = FALSE,
+  multi.cutoff = 0.2, digits = 3)
 }
 \arguments{
-\item{.param1.}{...param1.description...}
+\item{yvar}{...param1.description...xxx}
 
-\item{.param2.}{...param2.description...}
+\item{xvars}{...param2.description...}
+
+\item{data}{data frame containing the data.}
+
+\item{firth}{Whether to apply Firth's penalized likelihood correction. Default is \code{FALSE}}
+
+\item{multi}{whether to contruct a multivariate model using univariate predictors. Default is \code{FALSE}}
+
+\item{multi.cutoff}{P-value cutoff at which a univariate predictor is included in the multivariate. Default is \code{0.2}.}
+
+\item{digits}{number of significant digits in results. Default is 3.}
 }
 \value{
-...description.of.data.returned...
+A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
 }
 \description{
-...Description...
+Perform logistic regression analysis on a group of predictors, and optionally perform multivariate analysis on significant univariate predictors.
 }
 \examples{
-...examples.here....
+univariate.logistic("vs",c("mpg","cyl","disp","am","gear"),data=mtcars,multi=TRUE)
 }
 \seealso{
 \code{\link{cdiff.method}}

@@ -4,11 +4,13 @@
 \alias{gg.stack}
 \title{Stack and line up ggplot objects in a column}
 \usage{
-gg.stack(..., heights = NULL, gg.extras = NULL, gap = 0, margin = 5.5,
-  units = "pt", newpage = TRUE)
+gg.stack(..., heights = NULL, adjust.themes = TRUE, gg.extras = NULL,
+  gap = 0, margin = 5.5, units = "pt", newpage = TRUE)
 }
 \arguments{
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
+
+\item{adjust.themes}{logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.}
 
 \item{gg.extras}{a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.}
 

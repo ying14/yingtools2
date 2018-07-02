@@ -2,32 +2,49 @@
 % Please edit documentation in R/yingtools2.R
 \name{logistic}
 \alias{logistic}
-\title{...Title...}
+\alias{logistic.character}
+\alias{logistic.formula}
+\title{Logistic Regression}
 \usage{
-...usage.code...
+logistic(x, ...)
 
-...details...
+\method{logistic}{character}(yvar, xvars, data, firth = FALSE,
+  formatted = TRUE, digits = 3)
+
+\method{logistic}{formula}(formula, data = sys.parent(), firth = FALSE,
+  formatted = TRUE, digits = 3)
 }
 \arguments{
-\item{.param1.}{...param1.description...}
+\item{yvar}{Y-variable of interest (column name within data). Should be either logical or 0-1.}
 
-\item{.param2.}{...param2.description...}
+\item{data}{data frame containing the data.}
+
+\item{firth}{Whether to apply Firth's penalized likelihood correction. Default is \code{FALSE}}
+
+\item{formatted}{logical specifying whether to format the data in a table. Default is \code{TRUE}.}
+
+\item{digits}{number of significant digits in results. Default is 3.}
+
+\item{formula}{formula on which to perform logistic regression.}
+
+\item{xvar}{X-variable(s) of interest (vector of column names within data). A vector of length=1 will perform a univariate analysis, length>1 will perform a multivariate analysis.}
 }
 \value{
-...description.of.data.returned...
+A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
 }
 \description{
-...Description...
+Performs univariate or multivariate logistic regression
+}
+\details{
+Logistic regression is for prediction of yes/no outcomes.
 }
 \examples{
-...examples.here....
-}
-\seealso{
-\code{\link{cdiff.method}}
+# logistic regression predicting vs with mpg, cyl, and disp:
+# specify yvar and xvar in model:
+logistic("vs",c("mpg","cyl","disp"),data=mtcars)
+# specify model:
+logistic(vs~mpg+cyl+disp,data=mtcars)
 }
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}
