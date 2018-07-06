@@ -117,39 +117,6 @@ set.tax <- function(tdata) {
 }
 
 
-#' Convert Phyloseq to Melted OTU x Sample Data (OLD)
-#'
-#' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
-#'
-#' Essentially gives back the OTU table, in melted form, such that each row represents a certain OTU for a certain sample.
-#' Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
-#' Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
-#'
-#' @param phy phyloseq object containing sample data
-#' @param filter.zero Logical, whether or not to remove zero abundances. Default \code{TRUE}.
-#' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
-#' @return Data frame melted OTU data
-#' @export
-get.otu.melt.old <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
-  #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
-  otu0 <- otu_table(phy) %>% as.matrix() %>% reshape2::melt(varnames=c("otu","sample"),value.name="numseqs") %>%
-    dplyr::as_data_frame() %>% mutate(otu=as.character(otu),sample=as.character(sample))
-  tax0 <- get.tax(phy)
-  tax0.match <- dplyr::select(tax0,-otu)[match(otu0$otu,tax0$otu),]
-  otu <- cbind(otu0,tax0.match) %>%
-    group_by(sample) %>% mutate(pctseqs=prop.table(numseqs)) %>% ungroup() %>% dplyr::tbl_df()
-  if (filter.zero) {
-    otu <- otu %>% filter(numseqs>0)
-  }
-  #add sample data
-  if (sample_data & !is.null(phyloseq::sample_data(phy,FALSE))) {
-    samp0 <- get.samp(phy,stats=FALSE)
-    otu <- otu %>% dplyr::left_join(samp0,by="sample")
-  }
-  return(otu)
-}
-
-
 
 #' Convert Phyloseq to Melted OTU x Sample Data
 #'
@@ -649,8 +616,6 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 }
 
 
-
-
 #' LEfSe
 #'
 #' Run LEfSe (LDA Effect Size) analysis using a phyloseq object.
@@ -660,7 +625,7 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 #' (2) Executes format_input.py to further format lefse.txt into lefse.in
 #' (3) Executes run_lefse.py, which does the actual analysis and produces lefse.res.
 #' (4) Executes plot_res.py and plot_cladogram.py, which create the graphics for LEfSe.
-#' Note that
+#' Note that you must have command-line lefse.py installed... this function is just an R wrapper for the original Huttenhower scripts.
 #' @param phy the phyloseq object containing data
 #' @param class variable to be tested by LEfSe. This must be a variable in sample_data(phy)
 #' @param subclass variable to perform subclass testing. This step is skipped if it is not specified.
@@ -873,7 +838,37 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
 
 
 
-
+#' #' Convert Phyloseq to Melted OTU x Sample Data (OLD)
+#' #'
+#' #' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
+#' #'
+#' #' Essentially gives back the OTU table, in melted form, such that each row represents a certain OTU for a certain sample.
+#' #' Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
+#' #' Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
+#' #'
+#' #' @param phy phyloseq object containing sample data
+#' #' @param filter.zero Logical, whether or not to remove zero abundances. Default \code{TRUE}.
+#' #' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
+#' #' @return Data frame melted OTU data
+#' #' @export
+#' get.otu.melt.old <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
+#'   #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
+#'   otu0 <- otu_table(phy) %>% as.matrix() %>% reshape2::melt(varnames=c("otu","sample"),value.name="numseqs") %>%
+#'     dplyr::as_data_frame() %>% mutate(otu=as.character(otu),sample=as.character(sample))
+#'   tax0 <- get.tax(phy)
+#'   tax0.match <- dplyr::select(tax0,-otu)[match(otu0$otu,tax0$otu),]
+#'   otu <- cbind(otu0,tax0.match) %>%
+#'     group_by(sample) %>% mutate(pctseqs=prop.table(numseqs)) %>% ungroup() %>% dplyr::tbl_df()
+#'   if (filter.zero) {
+#'     otu <- otu %>% filter(numseqs>0)
+#'   }
+#'   #add sample data
+#'   if (sample_data & !is.null(phyloseq::sample_data(phy,FALSE))) {
+#'     samp0 <- get.samp(phy,stats=FALSE)
+#'     otu <- otu %>% dplyr::left_join(samp0,by="sample")
+#'   }
+#'   return(otu)
+#' }
 
 # #' Simpson's diversity
 # #' @export

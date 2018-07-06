@@ -75,21 +75,22 @@ NULL
 #'
 #' @param x, y tbls to join
 #' @param by a character vector of variables to join by.
+#' @param verbose whether to comment on rows altered (default \code{FALSE})
 #' @return Returns a joined data frame
 #' @author Ying Taur
 #' @export
-left_join_replace <- function(x,y,by=NULL) {
+left_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
   replace.vars <- setdiff(intersect(names(x),names(y)),by)
   keep.xvars <- setdiff(names(x),setdiff(names(y),by))
   orig.x <- x %>% anti_join(y,by=by)
   change.x <- x %>% select_(.dots=keep.xvars) %>% inner_join(y,by=by)
-  message(nrow(orig.x)," rows in x unchanged")
-  message(nrow(change.x)," rows in x updated")
-  message(length(replace.vars)," columns updated: ",paste(replace.vars,collapse=","))
+  if (verbose) {
+    message(nrow(orig.x)," rows in x unchanged")
+    message(nrow(change.x)," rows in x updated")
+    message(length(replace.vars)," columns updated: ",paste(replace.vars,collapse=","))
+  }
   bind_rows(orig.x,change.x)
 }
-
-
 
 
 #' Tabulate
@@ -284,11 +285,18 @@ min2 <- function(...,na.rm=FALSE) {
 }
 
 
-
 #' Ying's Cut 2
 #'
+#' Similar to cut, but with several options for grouping.
+#' @param x a numeric vector (or Date) to be converted to factor by cutting.
+#' @param lower a vector of lower bounds
+#' @param upper a vector of upper bounds
+#' @param quantiles an integer specifying number of quantiles.
+#' @param percentiles a vector of percentile breakpoints
+#' @param lvls optional vector for renaming the levels
+#' @return a factor derived from grouping of x
 #' @export
-cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
+cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
   if (!missing(lower)) {
     breaks <- unique(c(-Inf,lower,Inf))
     right=FALSE
@@ -301,11 +309,6 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
   } else if (!missing(percentiles)) {
     breaks <- quantile(x,seq(0,1,1/percentiles))
     right=TRUE
-  } else if (!missing(date.binsize) & class(x)=="Date") {
-    startdate <- as.Date(paste0(min(year(x),na.rm=TRUE),"-01-01"))
-    enddate <- as.Date(paste0(max(year(x),na.rm=TRUE)+1,"-01-01"))
-    breaks <- seq(startdate,enddate,date.bin)
-    right=FALSE
   } else {
     print("Error, need parameters!")
     return(NULL)
@@ -338,7 +341,6 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,date.bin,lvls) {
   }
   return(new.x)
 }
-
 
 
 
@@ -683,10 +685,6 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
 }
 
 
-makesql <- function(data) {
-
-}
-
 
 #' Pretty Numeric Format (Non-scientific)
 #'
@@ -822,12 +820,6 @@ logistic_trans_breaks <- function(inner.range) {
 
 
 
-
-
-
-
-
-
 #' Display values for ggplot's shape aesthetic
 #'
 #' Used for quick reference
@@ -878,9 +870,9 @@ show_linetypes <- function() {
 gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE) {
   # g1 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am) + geom_point()
   # g2 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am,space="free",scales="free") + geom_point()
-  # grobs=list(g1,g2,gt,gm)
+  # grobs=list(g1,g2)
   #grobs=list(gm,gt)
-  #heights = c(1,2,3,4);gg.extras=NULL;gap=0;margin=5.5;units="pt";newpage=TRUE
+  #heights = c(1,2);gg.extras=NULL;gap=0;margin=5.5;units="pt";newpage=TRUE
   grobs <- list(...)
   keep <- !sapply(grobs,is.null)
 
@@ -911,19 +903,12 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
     middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
                           axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
     bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
-
     g.top <- g.top + top.theme
     g.middle.list <- lapply(g.middle.list,function(g) {
       g + middle.theme
     })
     g.bottom <- g.bottom + bottom.theme
   }
-  # g.top <- grobs[[1]] + top.theme + gg.extras
-  # g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
-  #   g + middle.theme + gg.extras
-  # })
-  # g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
-
   grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
   #list of ggplotGrobs
   grobs2 <- lapply(grobs1,function(g) {
@@ -2475,6 +2460,7 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 
 
 
+
 #' Get Rows (optimized for timeline plots)
 #'
 #' Given timeline event data with event type labels and start/stop times, calculate rows.
@@ -2586,103 +2572,6 @@ cummax.Date <- function(x) {
 
 
 
-
-# gg.stack.old <- function(...,heights = NULL,gg.extras=NULL,gap=0,margin=1,units="inches",as.list=FALSE) {
-#   grobs <- list(...)
-#   length.grobs <- length(grobs)
-#   if (length.grobs<=1) {
-#     stop("YTError: should have at least 2 grobs")
-#   }
-#   top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
-#                      axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-#   middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
-#                         axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-#   bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
-#   g.top <- grobs[[1]] + top.theme + gg.extras
-#   g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
-#     g + middle.theme + gg.extras
-#   })
-#   g.bottom <- grobs[[length.grobs]] + bottom.theme + gg.extras
-#   grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
-#   grobs2 <- lapply(grobs1,function(g) {
-#     #gr <- ggplotGrob(g1)
-#     gr <- ggplotGrob(g)
-#   })
-#   nwidths <- max(sapply(grobs2,function(g) length(g$width)))
-#   grobs3 <- lapply(grobs2,function(g) {
-#     if (length(g$widths)<nwidths) {
-#       g <- gtable_add_cols(g,unit(1,"null"))
-#     }
-#     return(g)
-#   })
-#   max.widths <- do.call(unit.pmax,lapply(grobs3,function(x) x$width))
-#   grobs4 <- lapply(grobs3,function(g) {
-#     g$widths <- max.widths
-#     return(g)
-#   })
-#   if (as.list) {
-#     return(grobs4)
-#   }
-#   args <- c(grobs4,list(ncol=1,heights=heights))
-#   do.call(grid.arrange,args)
-# }
-# #' Coalesce
-# #'
-# #' Similar to SQL, use vectors in order until not NA.
-# #' @param ... vectors, all the same size, listed in order of priority
-# #' @return A single vector of values
-# #' @examples
-# #' a <- c(1,  2,  NA, 4, NA)
-# #' b <- c(NA, NA, NA, 5, 6)
-# #' c <- c(7,  8,  NA, 9, 10)
-# #' coalesce(a,b,c)
-# #' @export
-# coalesce <- function(...) {
-#   Reduce(function(x, y) {
-#     i <- which(is.na(x))
-#     x[i] <- y[i]
-#     x},
-#     list(...))
-# }
-
-
-#
-# if (FALSE) { #use this to re-create cid data
-#   rm(list=ls())
-#   load("C:/Users/taury/Desktop/superrun 300/bmtmicro.part5.RData")
-#   library(yingtools)
-#   cid.init <- c("AA","AL","ARC","BG","CFR","CLA","CSC","DB","DC","DC2","DNV","DRS","DTC","EJB","FG","FL","FS","GD","GIR","GM","GP","HAS","HH","HS","IG","IR","JAF","JCP","JD","JD3","JF","JG","JHC","JJA","JK3","JLO","JP","JRR","JSC","JT","JT2","KD","KD2","KFM","KS","LC","LCD","LL","LR","LRV","MB","MB2","MC","MEA","MEB","MEL","MGA","MIW","MJC","MP","MP2","NB","NN","PAL","PJ","RAS","RC","REB","RG","RK","RL","RM","RMS","RSA","RT","RTH","SA","SDB","SEC","SFD","SK","SM","SN","SN2","SP","SPF","SS2","TC","TG","TL","TS","VM","WEM","WJW")
-#   hosp <- d.admissions %.% filter(init %in% cid.init)
-#   pt <- p %.% filter(init %in% cid.init)
-#   samp <- s %.% filter(init %in% cid.init,seq.status=="sequenced",platform=="454")
-#   tax <- t %.% filter(group %in% samp$group)
-#   bsi <- bsi %.% filter(init %in% cid.init)
-#   med <- d.meds %.% filter(init %in% cid.init)
-#   cdiff <- m.cdiff %.% left_join(p.bmts,by="MRN") %.% filter(init %in% cid.init)
-#   fever <- d.tmax %.% filter(init %in% cid.init)
-#   save(pt,samp,tax,bsi,med,cdiff,fever,hosp,file="D:/Google Drive/R/yingtools/yingtools/data/cid.rda")
-#
-# }
-#
-# if (FALSE) {
-#   library(Hmisc) #labelling of variables
-#   library(ggplot2) #go-to graphing package
-#   library(gridExtra) #grid.arrange
-#   library(plyr) #ddply and adply
-#   library(scales) #percents on axes in ggplot2
-#   library(stringr) #str_extract
-#   library(logistf) #Firth's penalized likelihood, logistic regression
-#   library(coxphf) #Firth's penalized likelihood, survival analysis
-#   library(reshape2)
-#   library(ifultools)
-#   library(car) #recode
-#   library(gdata) #remove.vars, read.xls
-#   library(chron)
-#   library(dplyr)
-#   #library(RODBC) #read/writing Office files (Excel, Access)
-# }
-#
-#
 
 #
 #
@@ -2875,86 +2764,6 @@ cummax.Date <- function(x) {
 #
 #
 
-#
-#
-# #' Split into lines
-# #'
-# #' Given a string of lines separated by "xxx", divide into a character vector.
-# #'
-# #' This is the opposite command of \code{collapse.lines}
-# #' @export
-# splitlines <- function(str) {
-#   if (length(str)>1 | class(str)!="character") {
-#     print("Error! str is not a character or has length > 1")
-#     return(NULL)
-#   }
-#   unlist(strsplit(str,split="\n"))
-# }
-#
-# #' Collapse Lines
-# #'
-# #' Given a character vector, collapse into one atomic vector, separated by "xxx"
-# #' @export
-# collapselines <- function(lines,trim=FALSE,sep="\n") {
-#   #if(trim) {
-#   #  lines <- trim(lines)
-#   #}
-#   paste(lines,collapse=sep)
-# }
-#
-#
-# #' @export
-# grouplines <- function(lines,newline.pattern,offset=0,invert=FALSE,ignorecase=TRUE,split.first.only=FALSE,collapse=FALSE) {
-#   #for a vector of strings, group into an array of separate vectors
-#   #based on regexp pattern for the new line. offset alters index of regexp pattern
-#   #e.g. if pattern is for last line of the first section, use offset=1.
-#   #splitall specifies whether to split at every find.
-#   #if collapse is true, instead return vector of strings, where char vector collapsed.
-#   d <- data.frame(lines,stringsAsFactors=FALSE)
-#   if (invert) {
-#     newline.index <- which(!grepl(newline.pattern,d$lines,ignore.case=ignorecase)) + offset
-#   } else {
-#     newline.index <- which(grepl(newline.pattern,d$lines,ignore.case=ignorecase)) + offset
-#   }
-#   #make sure indices are within bounds.
-#   newline.index <- newline.index[newline.index<=nrow(d)]
-#   if (split.first.only) {
-#     newline.index <- newline.index[1]
-#   }
-#   d$newline <- FALSE
-#   d$newline[newline.index] <- TRUE
-#   d$group.index <- cumsum(d$newline)
-#   group.array <- split(d$lines,d$group.index)
-#   if (collapse) {
-#     group.array <- aaply(group.array,1,collapse.lines)
-#   }
-#   return(group.array)
-# }
-#
-# #' @export
-# grep.between <- function(x,start.pattern,stop.pattern,non.matches) {
-#
-#   d <- data.frame(x,stringsAsFactors=FALSE)
-#   d$start.pos <- regexpr(start.pattern,d$x)
-#   d$start.pos <- d$start.pos + attr(d$start.pos,"match.length")
-#   d$start.pos <- as.vector(d$start.pos)
-#
-#   d <- adply(d,1,function(y) {
-#     stop.hits <- as.vector(unlist(gregexpr(stop.pattern,y$x)))
-#     y$stop.pos <- stop.hits[stop.hits==-1|stop.hits>y$start.pos][1] - 1
-#     return(y)
-#   })
-#   d$result <- NA
-#   quals <- !is.na(d$stop.pos) & d$start.pos>0 & d$stop.pos>0
-#   d$result[quals] <- substr(d$x[quals],d$start.pos[quals],d$stop.pos[quals])
-#   if (!missing(non.matches)) {
-#     d$nonmatches <- non.matches
-#     d$result[is.na(d$result)] <- d$nonmatches[is.na(d$result)]
-#   }
-#   d$result
-# }
-#
-#
 
 #
 #
@@ -2973,111 +2782,7 @@ cummax.Date <- function(x) {
 #
 #
 #
-# #' @export
-# recode.grep <- function(var,recodes,else.value,as.factor,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE) {
-#   #recodes a character vector based on recodes, a vector of reg expressions
-#   #if multi.hits=FALSE, first hit in recodes takes priority. if multi.hits=TRUE, hits are combined in order they appear within string (takes longer).
-#   if (multi.hits) {
-#     var.recode <- sapply(var,function(x) {
-#       #apply across all recodes
-#       if (is.na(x)) {
-#         return(NA)
-#       }
-#       hits <- mapply(function(pat,newname) {
-#         regexpr(pat,x,ignore.case=ignore.case,perl=perl)
-#       },names(recodes),recodes)
-#       names(hits) <- recodes
-#       if (all(hits==-1)) {
-#         return(NA)
-#       } else {
-#         hits <- hits[hits!=-1]
-#         if (multi.hits) {
-#           hits.seq <- unique(names(hits)[order(hits)])
-#           return(paste(hits.seq,collapse=";"))
-#         } else {
-#           return(names(hits)[1])
-#         }
-#       }
-#     })
-#   } else { #this code is faster
-#     var.recode <- rep(NA,length(var))
-#     for (i in 1:length(recodes)) {
-#       pattern <- names(recodes)[i]
-#       newname <- recodes[i]
-#       still.na <- is.na(var.recode)
-#       hit <- grepl(pattern,var[still.na],ignore.case=ignore.case,perl=perl)
-#       var.recode[still.na][hit] <- newname
-#     }
-#     names(var.recode) <- var
-#   }
-#   #handling non-matches
-#   if (missing(else.value)) {
-#     #default is to use old value
-#     var.recode <- ifelse(is.na(var.recode),var,var.recode)
-#   } else {
-#     var.recode <- ifelse(is.na(var.recode),else.value,var.recode)
-#   }
-#   if (missing(as.factor)) {
-#     as.factor <- is.factor(var)
-#   }
-#   if (as.factor) {
-#     if (missing(else.value)) {
-#       var.recode <- factor(var.recode)
-#     } else {
-#       var.recode <- factor(var.recode,levels=c(recodes,else.value))
-#     }
-#   }
-#   return(var.recode)
-# }
-#
 
-#
-# # recode.grep.old2 <- function(var,recodes,else.value,as.factor,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE) {
-# #   #recodes a character vector based on recodes, a vector of reg expressions
-# #   #if multi.hits=FALSE, first hit in recodes takes priority. if multi.hits=TRUE, hits are combined in order they appear within string.
-# #   #apply to each value of var
-# #   var.recode <- sapply(var,function(x) {
-# #     #apply across all recodes
-# #     if (is.na(x)) {
-# #       return(NA)
-# #     }
-# #     hits <- mapply(function(pat,newname) {
-# #       regexpr(pat,x,ignore.case=ignore.case,perl=perl)
-# #     },names(recodes),recodes)
-# #     names(hits) <- recodes
-# #     if (all(hits==-1)) {
-# #       return(NA)
-# #     } else {
-# #       hits <- hits[hits!=-1]
-# #       if (multi.hits) {
-# #         hits.seq <- unique(names(hits)[order(hits)])
-# #         return(paste(hits.seq,collapse=";"))
-# #       } else {
-# #         return(names(hits)[1])
-# #       }
-# #     }
-# #   })
-# #   #handling non-matches
-# #   if (missing(else.value)) {
-# #     #default is to use old value
-# #     var.recode <- ifelse(is.na(var.recode),var,var.recode)
-# #   } else {
-# #     var.recode <- ifelse(is.na(var.recode),else.value,var.recode)
-# #   }
-# #   if (missing(as.factor)) {
-# #     as.factor <- is.factor(var)
-# #   }
-# #   if (as.factor) {
-# #     if (missing(else.value)) {
-# #       var.recode <- factor(var.recode)
-# #     } else {
-# #       var.recode <- factor(var.recode,levels=c(recodes,else.value))
-# #     }
-# #   }
-# #   return(var.recode)
-# # }
-#
-#
 #
 #
 #
@@ -3372,14 +3077,6 @@ cummax.Date <- function(x) {
 #
 #
 
-
-#
-#
-#
-
-#
-
-#
 #
 # #' Year
 # #'
@@ -3657,24 +3354,7 @@ cummax.Date <- function(x) {
 #
 #
 
-#
 
-
-#
-#
-#' #' @rdname recode2
-#' #' @export
-#' replace.grep.old <- function(var,recodes,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
-#'   newvar <- var
-#'   for (i in 1:length(recodes)) {
-#'     pattern <- names(recodes)[i]
-#'     replacetext <- recodes[i]
-#'     newvar <- gsub(pattern,replacetext,newvar,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
-#'   }
-#'   return(newvar)
-#' }
-#
-#
 #
 #
 #

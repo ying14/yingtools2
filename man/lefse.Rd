@@ -44,7 +44,7 @@ This function performs the analysis using the following steps.
 (2) Executes format_input.py to further format lefse.txt into lefse.in
 (3) Executes run_lefse.py, which does the actual analysis and produces lefse.res.
 (4) Executes plot_res.py and plot_cladogram.py, which create the graphics for LEfSe.
-Note that
+Note that you must have command-line lefse.py installed... this function is just an R wrapper for the original Huttenhower scripts.
 }
 \examples{
 lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")

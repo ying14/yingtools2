@@ -4,8 +4,24 @@
 \alias{cut2}
 \title{Ying's Cut 2}
 \usage{
-cut2(x, lower, upper, quantiles, percentiles, date.bin, lvls)
+cut2(x, lower, upper, quantiles, percentiles, lvls)
+}
+\arguments{
+\item{x}{a numeric vector (or Date) to be converted to factor by cutting.}
+
+\item{lower}{a vector of lower bounds}
+
+\item{upper}{a vector of upper bounds}
+
+\item{quantiles}{an integer specifying number of quantiles.}
+
+\item{percentiles}{a vector of percentile breakpoints}
+
+\item{lvls}{optional vector for renaming the levels}
+}
+\value{
+a factor derived from grouping of x
 }
 \description{
-Ying's Cut 2
+Similar to cut, but with several options for grouping.
 }

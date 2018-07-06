@@ -4,12 +4,14 @@
 \alias{left_join_replace}
 \title{Left Join Replace}
 \usage{
-left_join_replace(x, y, by = NULL)
+left_join_replace(x, y, by = NULL, verbose = FALSE)
 }
 \arguments{
 \item{x, }{y tbls to join}
 
 \item{by}{a character vector of variables to join by.}
+
+\item{verbose}{whether to comment on rows altered (default \code{FALSE})}
 }
 \value{
 Returns a joined data frame
