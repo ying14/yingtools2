@@ -1709,7 +1709,6 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 
 
 
-
 #' Find All Distinct Variables
 #'
 #' Find Distinct
@@ -1719,20 +1718,23 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #' @return prints whether variables matching the groups or not.
 #' @export
 find.all.distinct.vars <- function(data, ...) {
-  args <- lazyeval::lazy_dots(...)
-  group.vars <- unname(sapply(args, function(x) deparse(x$expr)))
-  other.vars <- setdiff(names(data),group.vars)
-  data2 <- data %>% group_by(...) %>% summarize_all(funs(n_distinct)) %>% ungroup()
-  allone <- function(x) {
-    all(x==1)
-  }
-  data3 <- data2 %>% select_(.dots=other.vars) %>% summarize_all(funs(allone))
+  id.vars <- quos(...)
+  id.varnames <- sapply(id.vars,quo_name)
+  other.varnames <- setdiff(names(data),id.varnames)
+  other.vars <- rlang::syms(other.varnames)
+  data2 <- data %>% group_by(...) %>% summarize_all(function(x) length(unique(x))) %>% ungroup()
+  data3 <- data2 %>% select(!!!other.vars) %>% summarize_all(function(x) all(x==1))
+
   distinct.vars <- names(data3)[t(data3)]
   non.distinct.vars <- names(data3)[!t(data3)]
-  distinct.vars.text <- paste0("[",paste(group.vars,collapse=","),"],",paste(distinct.vars,collapse=","))
+  distinct.vars.text <- paste0("[",paste(id.varnames,collapse=","),"],",paste(distinct.vars,collapse=","))
   non.distinct.vars.text <- paste0(non.distinct.vars,collapse=",")
   message("distinct: ",distinct.vars.text,"\nnot distinct: ",non.distinct.vars.text,"\n")
+
 }
+
+
+
 
 
 #' Read Excel File 2
@@ -2434,7 +2436,6 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 
 
 
-
 #' Group by Time
 #'
 #' Given data frame with start and stop times, group times by non-overlapping start and stop times.
@@ -2450,14 +2451,13 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 #' @author Ying Taur
 #' @export
 group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
-  mutate_call <- lazyeval::interp(~lag(cumsum(lead(x)-cummax(y)>gap),default=0),
-                                  x=lazyeval::lazy(start),y=lazyeval::lazy(stop))
-  data %>% group_by_(.dots=lazyeval::lazy_dots(...),add=add) %>%
-    arrange_(.dots=list(lazyeval::lazy(start),lazyeval::lazy(stop))) %>%
-    mutate_(.dots=setNames(list(mutate_call),"index_")) %>%
-    group_by(index_,add=TRUE)
+  group_vars <- quos(...)
+  start <- enquo(start)
+  stop <- enquo(stop)
+  data %>% group_by(!!!group_vars,add=add) %>%
+    arrange(!!start,!!stop) %>%
+    mutate(index_=lag(cumsum(lead(!!start)-cummax(!!stop)>gap),default=0))
 }
-
 
 
 
@@ -2535,15 +2535,11 @@ get.row <- function(start,stop,row,by=NULL,min.gap=0) {
 #' @author Ying Taur
 #' @export
 select2 <- function(data,...) {
-  args <- lazyeval::lazy_dots(...)
-  arg.values <- unname(sapply(args,function(x) deparse(x$expr)))
-  funct <- grepl("(",arg.values,fixed=TRUE) #probably better way to do this...
-  found <- arg.values %in% names(data)
-  keep <- funct|found
-  args2 <- args[keep]
-  dplyr::select_(data,.dots=args2)
+  select_vars <- quos(...)
+  select_var_names <- sapply(select_vars,quo_name)
+  select_vars_keep <- select_vars[select_var_names %in% names(data)]
+  data %>% select(!!!select_vars_keep)
 }
-
 
 
 #' Cumulative Max
@@ -2571,7 +2567,47 @@ cummax.Date <- function(x) {
 
 
 
+#' find.all.distinct.vars.old <- function(data, ...) {
+#'   args <- lazyeval::lazy_dots(...)
+#'   group.vars <- unname(sapply(args, function(x) deparse(x$expr)))
+#'   other.vars <- setdiff(names(data),group.vars)
+#'   data2 <- data %>% group_by(...) %>% summarize_all(funs(n_distinct)) %>% ungroup()
+#'   allone <- function(x) {
+#'     all(x==1)
+#'   }
+#'   data3 <- data2 %>% select_(.dots=other.vars) %>% summarize_all(funs(allone))
+#'   distinct.vars <- names(data3)[t(data3)]
+#'   non.distinct.vars <- names(data3)[!t(data3)]
+#'   distinct.vars.text <- paste0("[",paste(group.vars,collapse=","),"],",paste(distinct.vars,collapse=","))
+#'   non.distinct.vars.text <- paste0(non.distinct.vars,collapse=",")
+#'   message("distinct: ",distinct.vars.text,"\nnot distinct: ",non.distinct.vars.text,"\n")
+#' }
+#'
+#'
+#' select2 <- function(data,...) {
+#'   args <- lazyeval::lazy_dots(...)
+#'   arg.values <- unname(sapply(args,function(x) deparse(x$expr)))
+#'   funct <- grepl("(",arg.values,fixed=TRUE) #probably better way to do this...
+#'   found <- arg.values %in% names(data)
+#'   keep <- funct|found
+#'   args2 <- args[keep]
+#'   dplyr::select_(data,.dots=args2)
+#' }
 
+#' group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
+#'   # mutate_call <- lazyeval::interp(~lag(cumsum(lead(x)-cummax(y)>gap),default=0),
+#'   #                                 x=lazyeval::lazy(start),y=lazyeval::lazy(stop))
+#'   # data %>% group_by_(.dots=lazyeval::lazy_dots(...),add=add) %>%
+#'   #   arrange_(.dots=list(lazyeval::lazy(start),lazyeval::lazy(stop))) %>%
+#'   #   mutate_(.dots=setNames(list(mutate_call),"index_")) %>%
+#'   #   group_by(index_,add=TRUE)
+#'   group_vars <- quos(...)
+#'   start <- enquo(start)
+#'   stop <- enquo(stop)
+#'   data %>% group_by(!!!group_vars,add=add) %>%
+#'     arrange(!!start,!!stop) %>%
+#'     mutate(index_=lag(cumsum(lead(!!start)-cummax(!!stop)>gap),default=0))
+#' }
 
 #
 #
