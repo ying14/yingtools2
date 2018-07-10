@@ -1011,7 +1011,7 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
     if(as.string) {levels(x)[is.na(levels(x))] <- "NA"}
     return(x)
   }
-  data <- data %>% mutate_all_(funs(factorize),c(vars,by))
+  data <- data %>% mutate_all(factorize)
   get.column <- function(subdata) {
     #subdata=data
     denom <- nrow(subdata)
@@ -1315,7 +1315,6 @@ as.mrn.default <- function(mrn) {
 as.mrn.data.frame <- function(data,verbose=FALSE) {
   #looks like mrn
   mrn.form <- grep("mrn",names(data),ignore.case=TRUE,value=TRUE)
-
   if (length(mrn.form)==0) {
     mrn.vars <- NULL
   } else {
@@ -2456,8 +2455,39 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
   stop <- enquo(stop)
   data %>% group_by(!!!group_vars,add=add) %>%
     arrange(!!start,!!stop) %>%
-    mutate(index_=lag(cumsum(lead(!!start)-cummax(!!stop)>gap),default=0))
+    mutate(index_=lag(cumsum(lead(!!start)-cummax(!!stop)>gap),default=0)) %>%
+    group_by(index_,add=TRUE)
 }
+
+
+
+#' Group by Time Streaks
+#'
+#' Group time data by consecutive streaks of a certain indicator variable.
+#'
+#' Similar to \code{group_by_time}, but for a different purpose. This function groups by consecutive values of the indicator variable.
+#' This is to measure how long the indicator remains in the same state.
+#' @param data data frame
+#' @param time time variable
+#' @param indicator variable to group consecutive streaks
+#' @param ... other variables to group by. These will be applied prior to grouping by time streaks.
+#' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is \code{Inf}, i.e. no gap.
+#' @param add Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.
+#' @return Returns \code{data}, but grouped by time streaks
+#' @author Ying Taur
+#' @export
+group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,add=FALSE) {
+  time <- enquo(time)
+  indicator <- enquo(indicator)
+  group_vars <- quos(...)
+  data %>% group_by_time(!!time,!!time,!!!group_vars,gap=gap,add=add) %>%
+    arrange(!!time) %>%
+    mutate(index2_=(!!indicator)!=lag(!!indicator),
+           index2_=is.na(index2_)|index2_,
+           index2_=cumsum(index2_)) %>%
+    group_by(index2_,add=TRUE)
+}
+
 
 
 
