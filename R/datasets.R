@@ -5,12 +5,12 @@
 #' A dataset containing clinical and microbiota data on the 94 patients from CID 2012.
 #'
 #' \itemize{
-#'   \item pt Patient data (N=94)
-#'   \item med Medications dispensed
-#'   \item bsi Bloodstream infection data
-#'   \item cdiff C.difficile testing
-#'   \item fever Tmax for patients
-#'   \item hosp Hospitalizations
+#'   \item cid.patients Patient data (N=94)
+#'   \item cid.meds Medications dispensed
+#'   \item cid.bsi Bloodstream infection data
+#'   \item cid.cdiff C.difficile testing
+#'   \item cid.hosp Hospitalizations
+#'   \item cid.phy 16S data (phyloseq format)
 #' }
 #'
 #' @docType data

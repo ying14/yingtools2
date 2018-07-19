@@ -1828,7 +1828,6 @@ fill.in.blanks <- function(vec,blank="",include.na=TRUE) {
   c(vec[non.blanks][1], vec[non.blanks])[cumsum(non.blanks)+1]
 }
 
-#Imports: ape,phytools,dplyr,ggtree,phyloseq,ggplot2,scales,colorspace,stringr,logistf,coxphf,reshape2,lubridate,plyr,tidyr,data.table,Hmisc,readxl
 
 #' Determines if tstart-tstop occurs anywhere within interval.
 #' @export
@@ -1837,22 +1836,43 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 }
 
 
+#' Chop survival endpoint
+#'
+#' For a given survival endpoint, censor at earlier timepoints, if they occur.
+#' @param data the data frame with survival data
+#' @param newvar the name (unquoted) of the new survival endpoint to be created (creates \\code{newvar}, plus \\code{paste0(newvar,"_day")}
+#' @param oldvar the original survival endpoint, to be censored.
+#' @param ... columns representing censoring times.
+#' @return Returns \\code{data}, with a newly defined survival endpoint (\\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
+#' @examples
+#' # create a endpoint(dead30d), which represents death within 30 days or discharge.
+#' new.pt.cid94 <- pt.cid94 %>% chop.endpoint(dead30d,dead,30,disharge.day)
+#' @author Ying Taur
 #' @export
-chop.endpoint <- function(data,newvar,oldvar, ...) {
-  #create a new endpoint where multiple timepoints of censoring can be specified.
-  listargs <- lapply(list(...),function(x) {
-    if (is.character(x)) {
-      x <- data[,x]
-    }
-    return(x)
-  })
-  chop.time <- do.call(min,listargs)
-  newvar_day <- paste0(newvar,"_day")
-  oldvar_day <- paste0(oldvar,"_day")
-  data[,newvar] <- ifelse(chop.time<data[,oldvar_day],FALSE,data[,oldvar])
-  data[,newvar_day] <- ifelse(chop.time<data[,oldvar_day],chop.time,data[,oldvar_day])
-  return(data)
+chop.endpoint <- function(data,newvar,oldvar,...) {
+  newvar <- enquo(newvar)
+  oldvar <- enquo(oldvar)
+
+  oldvar_day <- paste0(quo_name(oldvar),"_day")
+  oldvar_day <- rlang::sym(oldvar_day)
+  newvar <- quo_name(newvar)
+  newvar_day <- paste0(quo_name(newvar),"_day")
+  vars <- quos(...)
+  ov <- pull(data,!!oldvar)
+  if (!is.logical(ov) & !all(ov %in% 0:1,na.rm=TRUE)) {stop("YTError: oldvar should be a logical or 0-1!")}
+  if (!has_name(data,quo_name(oldvar_day))) {stop("YTError: ",quo_name(oldvar_day)," does not exist!")}
+  ovd <- pull(data,!!oldvar_day)
+  if (!is.numeric(ovd)) {stop("YTError: oldvar should be a logical or 0-1!")}
+
+  data2 <- data %>%
+    mutate(chop_=pmin(!!!vars),
+           !!newvar:=ifelse(chop_<!!oldvar_day,FALSE,!!oldvar),
+           !!newvar_day:=ifelse(chop_<!!oldvar_day,chop_,!!oldvar_day)) %>%
+    select(-chop_)
+  data2
 }
+
+
 
 
 
@@ -2596,6 +2616,23 @@ cummax.Date <- function(x) {
 }
 
 
+#' #' @export
+#' chop.endpoint.old <- function(data,newvar,oldvar, ...) {
+#'   #create a new endpoint where multiple timepoints of censoring can be specified.
+#'   listargs <- lapply(list(...),function(x) {
+#'     if (is.character(x)) {
+#'       x <- data[,x]
+#'     }
+#'     return(x)
+#'   })
+#'   chop.time <- do.call(min,listargs)
+#'   newvar_day <- paste0(newvar,"_day")
+#'   oldvar_day <- paste0(oldvar,"_day")
+#'   data[,newvar] <- ifelse(chop.time<data[,oldvar_day],FALSE,data[,oldvar])
+#'   data[,newvar_day] <- ifelse(chop.time<data[,oldvar_day],chop.time,data[,oldvar_day])
+#'   return(data)
+#' }
+#'
 
 #' find.all.distinct.vars.old <- function(data, ...) {
 #'   args <- lazyeval::lazy_dots(...)
