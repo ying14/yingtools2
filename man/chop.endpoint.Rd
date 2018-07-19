@@ -9,14 +9,14 @@ chop.endpoint(data, newvar, oldvar, ...)
 \arguments{
 \item{data}{the data frame with survival data}
 
-\item{newvar}{the name (unquoted) of the new survival endpoint to be created (creates \\code{newvar}, plus \\code{paste0(newvar,"_day")}}
+\item{newvar}{the name (unquoted) of the new survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")}}
 
 \item{oldvar}{the original survival endpoint, to be censored.}
 
 \item{...}{columns representing censoring times.}
 }
 \value{
-Returns \\code{data}, with a newly defined survival endpoint (\\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
+Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
 }
 \description{
 For a given survival endpoint, censor at earlier timepoints, if they occur.

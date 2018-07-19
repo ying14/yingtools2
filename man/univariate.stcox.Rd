@@ -2,32 +2,29 @@
 % Please edit documentation in R/yingtools2.R
 \name{univariate.stcox}
 \alias{univariate.stcox}
-\title{...Title...}
+\title{Univariate Cox Proportional Hazards}
 \usage{
-...usage.code...
-
-...details...
+univariate.stcox(yvar, xvars, starttime = "tstart", data, firth = TRUE,
+  multi = FALSE, multi.cutoff = 0.2)
 }
 \arguments{
-\item{.param1.}{...param1.description...}
+\item{xvars}{column names of predictors.}
 
-\item{.param2.}{...param2.description...}
+\item{data}{the data frame to be analyzed}
+
+\item{firth}{whether to perform Firth's penalized likelihood correction.}
+
+\item{multi}{whether to perform multivariate modelling of signficant univariate predictors}
+
+\item{multi.cutoff}{if multivariate is done, the P-value cutoff for inclusion into the multivariate model.}
+
+\item{yvars}{column name of survival endpoint.}
+
+\item{tstart}{column name of start variable.}
 }
 \value{
-...description.of.data.returned...
+A regression table containing results
 }
 \description{
-...Description...
+Perform univariate survival, then multivariate on significant variables.
 }
-\examples{
-...examples.here....
-}
-\seealso{
-\code{\link{cdiff.method}}
-}
-\author{
-Ying Taur
-}
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

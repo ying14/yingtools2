@@ -1840,10 +1840,10 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 #'
 #' For a given survival endpoint, censor at earlier timepoints, if they occur.
 #' @param data the data frame with survival data
-#' @param newvar the name (unquoted) of the new survival endpoint to be created (creates \\code{newvar}, plus \\code{paste0(newvar,"_day")}
+#' @param newvar the name (unquoted) of the new survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")}
 #' @param oldvar the original survival endpoint, to be censored.
 #' @param ... columns representing censoring times.
-#' @return Returns \\code{data}, with a newly defined survival endpoint (\\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
+#' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
 #' @examples
 #' # create a endpoint(dead30d), which represents death within 30 days or discharge.
 #' new.pt.cid94 <- pt.cid94 %>% chop.endpoint(dead30d,dead,30,disharge.day)
@@ -1892,6 +1892,7 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' @author Ying Taur
 #' @export
 stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE) {
+  library(coxphf)
   data <- data.frame(data)
   y <- c(...)[1]
   xvars <- c(...)[-1]
@@ -2005,56 +2006,42 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
 
 
 
-#' ...Title...
+#' Univariate Cox Proportional Hazards
 #'
-#' ...Description...
-#'
-#' @usage ...usage.code...
-#'
-#' ...details...
-#'
-#' @param .param1. ...param1.description...
-#' @param .param2. ...param2.description...
-#' @return ...description.of.data.returned...
-#' @examples
-#' ...examples.here....
-#' @keywords keyword1 keyword2 ...
-#' @seealso \code{\link{cdiff.method}}
-#' @author Ying Taur
+#' Perform univariate survival, then multivariate on significant variables.
+#' @param yvars column name of survival endpoint.
+#' @param xvars column names of predictors.
+#' @param tstart column name of start variable.
+#' @param data the data frame to be analyzed
+#' @param firth whether to perform Firth's penalized likelihood correction.
+#' @param multi whether to perform multivariate modelling of signficant univariate predictors
+#' @param multi.cutoff if multivariate is done, the P-value cutoff for inclusion into the multivariate model.
+#' @return A regression table containing results
 #' @export
-univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi=FALSE,multi.cutoff=0.2,referrent=FALSE) {
-  results.table <- data.frame()
-  for (xvar in xvars) {
+univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi=FALSE,multi.cutoff=0.2) {
+  # yvar="dead.180";xvars=c("age","race.group","detect.trop","imm.med.group2");starttime="tstart";data=pt;firth=F;multi=TRUE;multi.cutoff=0.2;referrent=FALSE
+  results.list <- lapply(xvars,function(xvar) {
     print(xvar)
-    results.table <- stcox(yvar,xvar,starttime=starttime,data=data,addto=results.table,firth=firth)
-  }
+    stcox(yvar,xvar,starttime=starttime,data=data,firth=firth)
+  })
+  results.table <- results.list %>% bind_rows()
   if (multi) {
-    multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
-    multivars <- unique(sub("\\(td\\)$","",multivars))
-    multivars <- sapply(multivars,function(x) {
-      xvars[sapply(xvars,function(y) {
-        y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
-      })]
+    multi.signif <- sapply(results.list,function(tbl) {
+      any(tbl$p.value<=multi.cutoff)
     })
-    print("Multivariate model:")
+    multivars <- xvars[multi.signif]
+    message("Multivariate model:")
     if (length(multivars)>0) {
-      print(paste0(multivars))
+      message(paste0(multivars,collapse=","))
       multi.table <- stcox(yvar,multivars,starttime=starttime,data=data,firth=firth)
-      #names(multi.table) <- car::recode(names(multi.table),"'haz.ratio'='multi.haz.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
       names(multi.table) <- recode2(names(multi.table),c("haz.ratio"="multi.haz.ratio","p.value"="multi.p.value","signif"="multi.signif"))
-      multi.table <- subset(multi.table,select=-model)
-      results.table <- subset(results.table,select=-model)
-      #combined.table <- merge(results.table,multi.table,all.x=TRUE)
-      combined.table <- results.table %>% left_join(multi.table,by=c("yvar","xvar"))
-      #sort by original order
-      results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
-      for (v in c("multi.haz.ratio","multi.p.value","multi.signif")) {
-        results.table[is.na(results.table[,v]),v] <- ""
-      }
-      n.events <- sum(data[,yvar])
-      n.multivars <- length(unique(multivars))
-      print(paste0(n.events/n.multivars," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
-      #results.table <- data.frame(lapply(results.table,function(x) recode(x,"NA=''")))
+      multi.table <- multi.table %>% select(-model)
+      results.table <- results.table %>% select(-model)
+      combined.table <- results.table %>% left_join(multi.table,by=c("yvar","xvar")) %>%
+        mutate_at(vars(multi.haz.ratio,multi.p.value,multi.signif),function(x) ifelse(is.na(x),"",x))
+      n.events <- sum(data[[yvar]])
+      n.multivars <- length(multivars)
+      print(paste0(round(n.events/n.multivars,3)," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
     } else {
       print("No variables in multivariate!")
       results.table <- subset(results.table,select=-model)
@@ -2065,6 +2052,8 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
   }
   return(results.table)
 }
+
+
 
 
 #' Create Survival Data Frame
@@ -4134,5 +4123,47 @@ cummax.Date <- function(x) {
 # #   }
 # #   return(new.var)
 # # }
-
+# univariate.stcox.old <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi=FALSE,multi.cutoff=0.2,referrent=FALSE) {
+#   results.table <- data.frame()
+#   for (xvar in xvars) {
+#     print(xvar)
+#     results.table <- stcox(yvar,xvar,starttime=starttime,data=data,addto=results.table,firth=firth)
+#   }
+#   if (multi) {
+#     multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
+#     multivars <- unique(sub("\\(td\\)$","",multivars))
+#     multivars <- sapply(multivars,function(x) {
+#       xvars[sapply(xvars,function(y) {
+#         y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
+#       })]
+#     })
+#     print("Multivariate model:")
+#     if (length(multivars)>0) {
+#       print(paste0(multivars,collapse=","))
+#       multi.table <- stcox(yvar,multivars,starttime=starttime,data=data,firth=firth)
+#       #names(multi.table) <- car::recode(names(multi.table),"'haz.ratio'='multi.haz.ratio';'p.value'='multi.p.value';'signif'='multi.signif'")
+#       names(multi.table) <- recode2(names(multi.table),c("haz.ratio"="multi.haz.ratio","p.value"="multi.p.value","signif"="multi.signif"))
+#       multi.table <- subset(multi.table,select=-model)
+#       results.table <- subset(results.table,select=-model)
+#       #combined.table <- merge(results.table,multi.table,all.x=TRUE)
+#       combined.table <- results.table %>% left_join(multi.table,by=c("yvar","xvar"))
+#       #sort by original order
+#       results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
+#       for (v in c("multi.haz.ratio","multi.p.value","multi.signif")) {
+#         results.table[is.na(results.table[,v]),v] <- ""
+#       }
+#       n.events <- sum(data[,yvar])
+#       n.multivars <- length(unique(multivars))
+#       print(paste0(n.events/n.multivars," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
+#       #results.table <- data.frame(lapply(results.table,function(x) recode(x,"NA=''")))
+#     } else {
+#       print("No variables in multivariate!")
+#       results.table <- subset(results.table,select=-model)
+#       results.table$multi.haz.ratio <- ""
+#       results.table$multi.p.value <- ""
+#       results.table$multi.signif <- ""
+#     }
+#   }
+#   return(results.table)
+# }
 
