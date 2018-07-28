@@ -5,8 +5,8 @@
 \title{Cleanup data}
 \usage{
 cleanup.data(data, remove.na.cols = FALSE, remove.na.rows = TRUE,
-  make.names = TRUE, trim = TRUE, convert.dates = TRUE, as.mrn = TRUE,
-  verbose = FALSE)
+  make.names = TRUE, trim = TRUE, convert.dates = TRUE,
+  as.mrn = TRUE, verbose = FALSE)
 }
 \arguments{
 \item{remove.na.cols}{If \code{TRUE}, will remove any column consisting entirely of \code{NA}'s. Default=\code{FALSE}}

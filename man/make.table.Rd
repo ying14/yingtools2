@@ -4,7 +4,8 @@
 \alias{make.table}
 \title{Make Table}
 \usage{
-make.table(data, vars, by = NULL, showdenom = FALSE, fisher.test = TRUE)
+make.table(data, vars, by = NULL, showdenom = FALSE,
+  fisher.test = TRUE)
 }
 \arguments{
 \item{data}{Data frame containing data to be described.}

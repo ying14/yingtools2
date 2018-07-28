@@ -5,7 +5,8 @@
 \title{Cox Proportional Hazards Regression}
 \usage{
 stcox(..., starttime = "tstart", data, addto, as.survfit = FALSE,
-  firth = TRUE, formatted = TRUE, logrank = FALSE, coxphf.obj = FALSE)
+  firth = TRUE, formatted = TRUE, logrank = FALSE,
+  coxphf.obj = FALSE)
 }
 \arguments{
 \item{.param1.}{...param1.description...}

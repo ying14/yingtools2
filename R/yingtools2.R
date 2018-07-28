@@ -143,6 +143,8 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' @author Ying Taur
 #' @export
 dt <- function(data,fontsize=10,maxrows=1000) {
+  requireNamespace("DT",quietly=TRUE)
+
   fontsize <- paste0(fontsize,"px")
   grps <- groups(data)
   #sort data by groups
@@ -159,7 +161,7 @@ dt <- function(data,fontsize=10,maxrows=1000) {
     filter(row_number()<=maxrows) %>%
     DT::datatable(
       options=list(
-        initComplete=JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")),
+        initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")),
         paging=FALSE
       )
     ) %>%
@@ -1749,6 +1751,7 @@ find.all.distinct.vars <- function(data, ...) {
 #' @return A data frame consisting of Excel data.
 #' @export
 read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na = "",skip = 0) {
+  requireNamespace("readxl")
   #path="Allo Patients 2015Apr15.xlsx";col_types=c("ANC 500"="date","POD Date"="date","Last Contact"="date","Relapse Date"="date","Onset"="date");sheet=1;col_names=TRUE;na="";skip=0
   if (!is.null(col_types)) {
     data <- readxl::read_excel(path=path,sheet=sheet,col_names=col_names,na=na,skip=skip)
@@ -1892,7 +1895,8 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' @author Ying Taur
 #' @export
 stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE) {
-  library(coxphf)
+  requireNamespace("coxphf",quietly=TRUE)
+
   data <- data.frame(data)
   y <- c(...)[1]
   xvars <- c(...)[-1]
@@ -1965,7 +1969,7 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
     results <- summary(coxph(formula,data=data))
     return(results$logtest[3])
   } else {
-    results <- coxphf(formula,data=data,firth=firth)
+    results <- coxphf::coxphf(formula,data=data,firth=firth)
     if (coxphf.obj) {
       return(results)
     }
@@ -2313,7 +2317,8 @@ logistic.character <- function(yvar, xvars ,data,firth=FALSE,formatted=TRUE,digi
 #' @param formula formula on which to perform logistic regression.
 #' @export
 logistic.formula <- function(formula, data=sys.parent(), firth=FALSE,formatted=TRUE,digits=3) {
-  results <- logistf(formula, data=data, firth=firth)
+  requireNamespace("logistf",quietly=TRUE)
+  results <- logistf::logistf(formula, data=data, firth=firth)
   results.table <- data.frame(
     model=gsub("\"| ","",paste(deparse(results$formula),collapse="")),
     yvar=as.character(results$formula)[2],

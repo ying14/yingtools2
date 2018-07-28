@@ -4,7 +4,8 @@
 \alias{group_by_time_streaks}
 \title{Group by Time Streaks}
 \usage{
-group_by_time_streaks(data, time, indicator, ..., gap = Inf, add = FALSE)
+group_by_time_streaks(data, time, indicator, ..., gap = Inf,
+  add = FALSE)
 }
 \arguments{
 \item{data}{data frame}

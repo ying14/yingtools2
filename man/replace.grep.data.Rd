@@ -5,8 +5,8 @@
 \title{Ying's Replace Grep for Data Frames}
 \usage{
 replace.grep.data(data, var, recodes, newvar = NULL, replace.text = "",
-  hits.var = NULL, collapse.hits = "|", ignore.case = TRUE, perl = TRUE,
-  useBytes = TRUE)
+  hits.var = NULL, collapse.hits = "|", ignore.case = TRUE,
+  perl = TRUE, useBytes = TRUE)
 }
 \arguments{
 \item{data}{the data frame to be manipulated.}

@@ -60,12 +60,13 @@ read.tree.uparse <- function(tree.file) {
 #' @return Data frame containing \code{sample_data} data.
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
+  requireNamespace(c("phyloseq","tibble"))
 
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
     sdata <- data.frame(sample=sample_names(phy),stringsAsFactors=FALSE)
   } else {
-    if ("sample" %in% sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
+    if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
     sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("sample")
   }
   if (stats) {
@@ -74,7 +75,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
       sdata <- sdata[,setdiff(names(sdata),dup.names)]
       warning("YTWarning: Following variables are duplicated. Deleting old values from phyloseq: ",paste(dup.names,collapse=", "))
     }
-    sdata$nseqs <- sample_sums(phy)
+    sdata$nseqs <- phyloseq::sample_sums(phy)
     sdata <- cbind(sdata,estimate_richness(phy,measures=measures))
   }
   return(sdata)
@@ -88,8 +89,9 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @return formatted sample_data.
 #' @export
 set.samp <- function(sdata) {
+  requireNamespace(c("phyloseq","tibble"))
   ss <- sdata %>% tibble::column_to_rownames("sample") %>%
-    data.frame(stringsAsFactors=FALSE) %>% sample_data()
+    data.frame(stringsAsFactors=FALSE) %>% phyloseq::sample_data()
   return(ss)
 }
 
@@ -101,7 +103,8 @@ set.samp <- function(sdata) {
 #' @return Dataframe containing tax data
 #' @export
 get.tax <- function(phy) {
-  tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
+  requireNamespace(c("phyloseq","tibble"))
+  phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
 }
 
 #' Convert data frame to phyloseq tax_table
@@ -111,8 +114,9 @@ get.tax <- function(phy) {
 #' @return formatted tax_table.
 #' @export
 set.tax <- function(tdata) {
+  requireNamespace(c("phyloseq","tibble"))
   tt <- tdata %>% tibble::column_to_rownames("otu") %>%
-    as.matrix() %>% tax_table()
+    as.matrix() %>% phyloseq::tax_table()
   return(tt)
 }
 
@@ -132,9 +136,10 @@ set.tax <- function(tdata) {
 #' @return Data frame melted OTU data
 #' @export
 get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
+  requireNamespace(c("phyloseq","data.table"))
   # supports "naked" otu_table as `phy` input.
-  otutab = as(otu_table(phy), "matrix")
-  if (!taxa_are_rows(phy)) {
+  otutab = as(phyloseq::otu_table(phy), "matrix")
+  if (!phyloseq::taxa_are_rows(phy)) {
     otutab <- t(otutab)
   }
   otudt = data.table(otutab, keep.rownames = TRUE)
@@ -143,7 +148,7 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
   # note that .datatable.aware = TRUE needs to be set for this to work well.
   otudt[, otuchar:=as.character(otu)]
   otudt[, otu := NULL]
-  setnames(otudt, "otuchar", "otu")
+  data.table::setnames(otudt, "otuchar", "otu")
   # Melt count table
   mdt = data.table::melt.data.table(otudt, id.vars = "otu", variable.name = "sample",value.name = "numseqs")
   if (filter.zero) {
@@ -195,6 +200,7 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
 #' @author Ying Taur
 #' @export
 read.uparse.data <- function(dirpath) {
+  requireNamespace("phyloseq")
   #path="uparse"
   if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
   repseq.file <- "total.5.repset.fasta"
@@ -207,12 +213,12 @@ read.uparse.data <- function(dirpath) {
   tree.file <- file.path(dirpath,tree.file)
   files <- c(repseq.file,tax.file,biom.file,tree.file)
   if (any(!file.exists(files))) stop("YTError: File not found: ",files[!file.exists(files)])
-  biom.miseq <- import_biom(biom.file)
-  repseq.miseq <- import_qiime(refseqfilename=repseq.file)
+  biom.miseq <- phyloseq::import_biom(biom.file)
+  repseq.miseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
   tree.miseq <- read.tree.uparse(tree.file)
-  phy <- merge_phyloseq(biom.miseq,repseq.miseq,tree.miseq)
+  phy <- phyloseq::merge_phyloseq(biom.miseq,repseq.miseq,tree.miseq)
   tax <- read.blastn.file(tax.file)
-  tax_table(phy) <- tax %>% set.tax()
+  phyloseq::tax_table(phy) <- tax %>% set.tax()
   return(phy)
 }
 
@@ -229,28 +235,29 @@ read.uparse.data <- function(dirpath) {
 #' @author Ying Taur
 #' @export
 read.blastn.file <- function(tax.file,tax_table=TRUE) {
+  requireNamespace("data.table")
   #tax.file="uparse/total.5.repset.fasta.blastn.refseq_rna.txt";tax_table=TRUE;blastn.data=FALSE
-  t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character")) %>% dplyr::tbl_df() %>%
-    dplyr::mutate(taxonomy=gsub("\\[(superkingdom|phylum|class|order|family|genus|species)\\]","",taxonomy),
+  t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character")) %>% tbl_df() %>%
+    mutate(taxonomy=gsub("\\[(superkingdom|phylum|class|order|family|genus|species)\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
            otu=paste0(qseqid,";"),
-           otu.number=as.numeric(stringr::str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
-    tidyr::separate(taxonomy,into=c("Kingdom","Phylum","Class","Order","Family","Genus","Species"),sep="\\|",remove=FALSE) %>%
-    dplyr::group_by(otu) %>%
-    dplyr::arrange(evalue,staxid) %>%
-    dplyr::filter(!duplicated(taxonomy)) %>%
-    dplyr::mutate(evalue.rank=dense_rank(evalue)) %>%
-    dplyr::select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything())
+           otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
+    separate(taxonomy,into=c("Kingdom","Phylum","Class","Order","Family","Genus","Species"),sep="\\|",remove=FALSE) %>%
+    group_by(otu) %>%
+    arrange(evalue,staxid) %>%
+    filter(!duplicated(taxonomy)) %>%
+    mutate(evalue.rank=dense_rank(evalue)) %>%
+    select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything())
   if (!tax_table) {
     t <- t %>% ungroup(t) %>% arrange(otu.number)
     return(t)
   } else {
     t <- t %>%
-      # dplyr::mutate(n.ties=sum(dense_rank(evalue)==1),blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
-      dplyr::filter(row_number()==1) %>%
-      dplyr::ungroup() %>%
-      dplyr::arrange(otu.number) %>%
-      dplyr::select(otu,evalue,pident,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species)
+      # mutate(n.ties=sum(dense_rank(evalue)==1),blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
+      filter(row_number()==1) %>%
+      ungroup() %>%
+      arrange(otu.number) %>%
+      select(otu,evalue,pident,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species)
     return(t)
   }
 }
@@ -313,14 +320,14 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
   if (any(d$info=="error")) {
     stop("YTError: Did not understand one of the lines in the oligos file!\nFile: ",oligo.file,"\nLine: ",d$line[d$info=="error"][1])
   }
-  p <- d %>% dplyr::filter(info=="primer") %>%
+  p <- d %>% filter(info=="primer") %>%
     mutate(primer=sub("^(primer|forward)\t","",line))
   primer <- p$primer[1]
-  b <- d %>% dplyr::filter(info=="barcode") %>%
+  b <- d %>% filter(info=="barcode") %>%
     mutate(sample=sapply(strsplit(line,split="\t"),last),
                   barcode.commented=substr(line,1,1)=="#",
                   barcode=sapply(strsplit(line,split="\t"),function(x) paste(x[c(-1,-length(x))],collapse="\t")))
-  cmt <- d %>% dplyr::filter(info=="comment")
+  cmt <- d %>% filter(info=="comment")
   #pool <- str_extract(oligo.file,"pool[^/]+(?=\\.oligos)")
   pool <- sub("\\.oligos$","",basename(oligo.file),ignore.case=TRUE)
   if (is.na(pool)) {
@@ -337,7 +344,7 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
     stop("YTError: Not sure what platform!")
   }
   out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
-    dplyr::select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
+    select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
   if (remove.commented) {
     out <- out %>% filter(!barcode.commented)
   }
@@ -651,7 +658,7 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
   #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
   #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
   #phy=ph.lefse;class="CDI";subclass="SampleType";subject="MRN";anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
-
+  requireNamespace("phyloseq")
   keepvars <- c(class,subclass,subject,"sample")
   keepvars <- unique(keepvars[!is.na(keepvars)])
   samp <- get.samp(phy)[,keepvars]
