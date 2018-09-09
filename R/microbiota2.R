@@ -191,6 +191,60 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
 
 
 
+
+#' Collapse Phyloseq Into Taxonomy
+#'
+#' In a phyloseq object, combine OTUs of the same taxonomic classification.
+#'
+#' Similar to \code{phyloseq::tax_glom}, but with the following differences:
+#' (a) it performs much faster,
+#' (b) requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
+#' (c) the new OTU names will specify old OTU names separated by '|'
+#' @param phy A phylsoeq object.
+#' @param taxranks tax levels to collapse by. Default is \code{c("Kingdom","Phylum","Class","Order","Family","Genus","Species")}.
+#' @return A phyloseq object with OTUs collapsed.
+#' @export
+phy.collapse <- function(phy,taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus","Species")) {
+  # taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  taxranks <- rlang::syms(taxranks)
+  otudt <- as(otu_table(phy),"matrix") %>% data.table()
+  taxdt = as(tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table() %>% select(!!!taxranks)
+  indices_ <- taxdt %>% group_indices(!!!taxranks)
+  new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
+  new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
+  otu.names <- data.table(otu=taxa_names(phy))
+  otu.names <- otu.names[,lapply(.SD,function(x) {
+    x <- x[order(as.numeric(str_extract(x,"[0-9]+")))]
+    paste(x,collapse="|")
+  }),by=indices_] %>% pull(otu)
+  otu.rep <- data.table(otu=taxa_names(phy))
+  otu.rep <- otu.rep[,lapply(.SD,function(x) {
+    rep <- x[which.min(as.numeric(str_extract(x,"[0-9]+")))]
+    rep
+  }),by=indices_] %>% pull(otu)
+  new.otudt <- new.otudt[,"indices_":=NULL] %>% as.matrix()
+  new.taxdt <- new.taxdt[,"indices_":=NULL] %>% as.matrix()
+  row.names(new.otudt) <- otu.names
+  row.names(new.taxdt) <- otu.names
+  new.otu <- new.otudt %>% otu_table(taxa_are_rows=TRUE)
+  new.tax <- new.taxdt %>% tax_table()
+  samp <- sample_data(phy,errorIfNULL=FALSE)
+  tree <- phy_tree(phy,errorIfNULL=FALSE)
+  if (!is.null(tree)) {
+    tree <- prune_taxa(otu.rep,tree)
+    taxa_names(tree) <- unname(setNames(otu.names,otu.rep)[taxa_names(tree)])
+  }
+  seqs <- refseq(phy,errorIfNULL=FALSE)
+  if (!is.null(seqs)) {
+    seqs <- prune_taxa(otu.rep,seqs)
+    taxa_names(seqs) <- unname(setNames(otu.names,otu.rep)[taxa_names(seqs)])
+  }
+  new.phy <- merge_phyloseq(new.otu,new.tax,samp,tree,seqs)
+  return(new.phy)
+}
+
+
+
 #' Import UPARSE pipeline data and create phyloseq
 #'
 #' Reads folder and looks for key files used to create phyloseq object.

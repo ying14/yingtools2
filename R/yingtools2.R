@@ -779,7 +779,6 @@ log_epsilon_trans_breaks <- function(epsilon) {
 #' @param pct.value1 Percent height of the first value. Default is 0.1.
 #' @param pct.value2 Percent height of the second value. Default is 0.9.
 #' @param invert whether or not to flip the logistic curve. Default is \code{FALSE}.
-#' @param show.transformation logical, if \code{TRUE}, will show plot of the transformation.
 #' @return Returns the logistic transformation of \code{var}, where values will fall within \code{scale}, and where \code{inner.range} will be transformed to \code{percentiles}.
 #' @examples
 #' #Example: WBC. Values between 0.2 and 10 take up 80% of the space. Values outside of that de-emphasized.

@@ -16,8 +16,6 @@ logistic_trans(value1, value2, pct.value1 = 0.1, pct.value2 = 0.9)
 \item{pct.value2}{Percent height of the second value. Default is 0.9.}
 
 \item{invert}{whether or not to flip the logistic curve. Default is \code{FALSE}.}
-
-\item{show.transformation}{logical, if \code{TRUE}, will show plot of the transformation.}
 }
 \value{
 Returns the logistic transformation of \code{var}, where values will fall within \code{scale}, and where \code{inner.range} will be transformed to \code{percentiles}.
