@@ -259,23 +259,24 @@ read.uparse.data <- function(dirpath) {
   if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
   repseq.file <- "total.5.repset.fasta"
   tax.file <- "total.5.repset.fasta.blastn.refseq_rna.txt"
-  biom.file <- "total.8.otu-tax.biom"
+  # biom.file <- "total.8.otu-tax.biom"
+  otu.file <- "total.6.otu-table.txt"
   tree.file <- "total.10.tree"
   repseq.file <- file.path(dirpath,repseq.file)
   tax.file <- file.path(dirpath,tax.file)
-  biom.file <- file.path(dirpath,biom.file)
+  # biom.file <- file.path(dirpath,biom.file)
   tree.file <- file.path(dirpath,tree.file)
   files <- c(repseq.file,tax.file,biom.file,tree.file)
   if (any(!file.exists(files))) stop("YTError: File not found: ",files[!file.exists(files)])
-  biom.miseq <- phyloseq::import_biom(biom.file)
-  repseq.miseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
-  tree.miseq <- read.tree.uparse(tree.file)
-  phy <- phyloseq::merge_phyloseq(biom.miseq,repseq.miseq,tree.miseq)
+  otu <- read.delim(otu.file,header=TRUE,check.names=FALSE,row.names="OTUId") %>% otu_table(taxa_are_rows=TRUE)
+  # biom <- phyloseq::import_biom(biom.file)
+  repseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
+  tree <- read.tree.uparse(tree.file)
+  phy <- phyloseq::merge_phyloseq(otu,repseq,tree)
   tax <- read.blastn.file(tax.file)
   phyloseq::tax_table(phy) <- tax %>% set.tax()
   return(phy)
 }
-
 
 #' Read in tax file from blastn output
 #'
