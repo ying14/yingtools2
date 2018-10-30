@@ -122,6 +122,41 @@ set.tax <- function(tdata) {
 
 
 
+
+#' Extract Phyloseq otu_table
+#'
+#' Creates data.frame from otu_table, storing the rownames as variable "otu". The opposite of set.tax function.
+#'
+#' @param phy phyloseq object containing otu_data
+#' @param as.df if \code{TRUE}, return data frame (instead of matrix)
+#' @return Dataframe containing otu table
+#' @export
+get.otu <- function(phy,as.df=FALSE) {
+  requireNamespace("phyloseq")
+  otu <- phy %>% phyloseq::otu_table(taxa_are_rows=TRUE) %>% as.matrix()
+  if (as.df) {
+    requireNamespace("tibble")
+    otu <- otu %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
+  }
+  return(otu)
+}
+
+
+#' Convert otu table to phyloseq otu_table
+#'
+#' Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".
+#' @param odata otu table (matrix or dataframe with 'otu' column) to be converted back to otu_table.
+#' @return formatted tax_table.
+#' @export
+set.otu <- function(odata) {
+  requireNamespace(c("phyloseq","tibble"))
+  if (is.data.frame(odata) & ("otu" %in% colnames(odata))) {
+    odata <- odata %>% tibble::column_to_rownames("otu") %>% as.matrix()
+  }
+  odata %>% phyloseq::otu_table(taxa_are_rows=TRUE)
+}
+
+
 #' Convert Phyloseq to Melted OTU x Sample Data
 #'
 #' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
