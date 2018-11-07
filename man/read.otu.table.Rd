@@ -9,8 +9,7 @@ read.otu.table(otu.file, row.names = "OTUId")
 \arguments{
 \item{otu.file}{text file to be read, containing otu table data}
 
-\item{otu.row.names}{specify column listing OTU names. This is passed to \code{read.delim};
-i.e. can be vector of accual row names, single number of column, or character string name of the column.}
+\item{otu.row.names}{specify column listing OTU names. This is passed to \code{read.delim}; i.e. can be vector of accual row names, single number of column, or character string name of the column.}
 }
 \value{
 Dataframe containing otu table

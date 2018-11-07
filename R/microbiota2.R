@@ -50,8 +50,7 @@ read.tree.uparse <- function(tree.file) {
 #'
 #' Assumes tab-delimited file, with 'OTUID' to specify otu column.
 #' @param otu.file text file to be read, containing otu table data
-#' @param otu.row.names specify column listing OTU names. This is passed to \code{read.delim};
-#' i.e. can be vector of accual row names, single number of column, or character string name of the column.
+#' @param otu.row.names specify column listing OTU names. This is passed to \code{read.delim}; i.e. can be vector of accual row names, single number of column, or character string name of the column.
 #' @return Dataframe containing otu table
 #' @export
 read.otu.table <- function(otu.file,row.names="OTUId") {
