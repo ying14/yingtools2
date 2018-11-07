@@ -4,12 +4,12 @@
 \alias{get.otu}
 \title{Extract Phyloseq otu_table}
 \usage{
-get.otu(phy, as.df = FALSE)
+get.otu(phy, as.matrix = FALSE)
 }
 \arguments{
 \item{phy}{phyloseq object containing otu_data}
 
-\item{as.df}{if \code{TRUE}, return data frame (instead of matrix)}
+\item{as.matrix}{if \code{TRUE}, return matrix (instead of data frame with otu as column)}
 }
 \value{
 Dataframe containing otu table

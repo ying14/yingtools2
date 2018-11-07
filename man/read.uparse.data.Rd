@@ -4,10 +4,20 @@
 \alias{read.uparse.data}
 \title{Import UPARSE pipeline data and create phyloseq}
 \usage{
-read.uparse.data(dirpath)
+read.uparse.data(dirpath, otu.file = "total.6.otu-table.txt",
+  tax.file = "total.5.repset.fasta.blastn.refseq_rna.txt",
+  repseq.file = "total.5.repset.fasta", tree.file = "total.10.tree")
 }
 \arguments{
 \item{dirpath}{directory path (character) specifying folder where uparse data is.}
+
+\item{otu.file}{otu table file. Default is 'total.6.otu-table.txt'}
+
+\item{tax.file}{tax file (blastn). Default is 'total.5.repset.fasta.blastn.refseq_rna.txt'. Specify \code{NULL} to skip.}
+
+\item{repseq.file}{rep seq file (fasta format). Defaul is 'total.5.repset.fasta' Specify \code{NULL} to skip.}
+
+\item{tree.file}{phylo tree file (newick file). Default is 'total.10.tree' Specify \code{NULL} to skip.}
 }
 \value{
 phyloseq object containing the specified UPARSE data.

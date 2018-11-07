@@ -44,6 +44,23 @@ read.tree.uparse <- function(tree.file) {
 
 
 
+#' Read OTU table from text file
+#'
+#' Used for uparse pipeline to read in otu table.
+#'
+#' Assumes tab-delimited file, with 'OTUID' to specify otu column.
+#' @param otu.file text file to be read, containing otu table data
+#' @param otu.row.names specify column listing OTU names. This is passed to \code{read.delim};
+#' i.e. can be vector of accual row names, single number of column, or character string name of the column.
+#' @return Dataframe containing otu table
+#' @export
+read.otu.table <- function(otu.file,row.names="OTUId") {
+  otu <- read.delim(otu.file,header=TRUE,check.names=FALSE,row.names=row.names) %>%
+    tibble::rownames_to_column("otu")
+  return(otu)
+}
+
+
 #' Extract Phyloseq sample_data
 #'
 #' Returns \code{sample_data} component from phyloseq object, as a data frame.
@@ -122,23 +139,22 @@ set.tax <- function(tdata) {
 
 
 
-
 #' Extract Phyloseq otu_table
 #'
 #' Creates data.frame from otu_table, storing the rownames as variable "otu". The opposite of set.tax function.
 #'
 #' @param phy phyloseq object containing otu_data
-#' @param as.df if \code{TRUE}, return data frame (instead of matrix)
+#' @param as.matrix if \code{TRUE}, return matrix (instead of data frame with otu as column)
 #' @return Dataframe containing otu table
 #' @export
-get.otu <- function(phy,as.df=FALSE) {
+get.otu <- function(phy,as.matrix=FALSE) {
   requireNamespace("phyloseq")
   otu <- phy %>% phyloseq::otu_table(taxa_are_rows=TRUE) %>% as.matrix()
-  if (as.df) {
-    requireNamespace("tibble")
-    otu <- otu %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
+  if(as.matrix) {
+    return(otu)
   }
-  return(otu)
+  otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
+  return(otu.df)
 }
 
 
@@ -155,7 +171,6 @@ set.otu <- function(odata) {
   }
   odata %>% phyloseq::otu_table(taxa_are_rows=TRUE)
 }
-
 
 #' Convert Phyloseq to Melted OTU x Sample Data
 #'
@@ -279,37 +294,48 @@ phy.collapse <- function(phy,taxranks=c("Kingdom","Phylum","Class","Order","Fami
 }
 
 
-
 #' Import UPARSE pipeline data and create phyloseq
 #'
 #' Reads folder and looks for key files used to create phyloseq object.
 #'
 #' @param dirpath directory path (character) specifying folder where uparse data is.
+#' @param otu.file otu table file. Default is 'total.6.otu-table.txt'
+#' @param tax.file tax file (blastn). Default is 'total.5.repset.fasta.blastn.refseq_rna.txt'. Specify \code{NULL} to skip.
+#' @param repseq.file rep seq file (fasta format). Defaul is 'total.5.repset.fasta' Specify \code{NULL} to skip.
+#' @param tree.file phylo tree file (newick file). Default is 'total.10.tree' Specify \code{NULL} to skip.
 #' @return phyloseq object containing the specified UPARSE data.
 #' @author Ying Taur
 #' @export
-read.uparse.data <- function(dirpath) {
+read.uparse.data <- function(dirpath,
+                             otu.file="total.6.otu-table.txt",
+                             tax.file="total.5.repset.fasta.blastn.refseq_rna.txt",
+                             repseq.file="total.5.repset.fasta",
+                             tree.file="total.10.tree") {
   requireNamespace("phyloseq")
-  #path="uparse"
+  # dirpath="uparse";otu.file="total.6.otu-table.txt";tax.file="total.5.repset.fasta.blastn.refseq_genomic.txt";repseq.file="total.5.repset.fasta";tree.file="total.10.tree"
   if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
-  repseq.file <- "total.5.repset.fasta"
-  tax.file <- "total.5.repset.fasta.blastn.refseq_rna.txt"
-  # biom.file <- "total.8.otu-tax.biom"
-  otu.file <- "total.6.otu-table.txt"
-  tree.file <- "total.10.tree"
-  repseq.file <- file.path(dirpath,repseq.file)
-  tax.file <- file.path(dirpath,tax.file)
-  # biom.file <- file.path(dirpath,biom.file)
-  tree.file <- file.path(dirpath,tree.file)
-  files <- c(repseq.file,tax.file,biom.file,tree.file)
-  if (any(!file.exists(files))) stop("YTError: File not found: ",files[!file.exists(files)])
-  otu <- read.delim(otu.file,header=TRUE,check.names=FALSE,row.names="OTUId") %>% otu_table(taxa_are_rows=TRUE)
-  # biom <- phyloseq::import_biom(biom.file)
-  repseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
-  tree <- read.tree.uparse(tree.file)
-  phy <- phyloseq::merge_phyloseq(otu,repseq,tree)
-  tax <- read.blastn.file(tax.file)
-  phyloseq::tax_table(phy) <- tax %>% set.tax()
+  # dirpath="uparse"
+  otu.file <- file.path(dirpath,otu.file)
+  if (!file.exists(otu.file)) stop("YTError not found: ",otu.file)
+  phy <- read.otu.table(otu.file) %>% set.otu()
+  if (!is.null(tax.file)) {
+    tax.file <- file.path(dirpath,tax.file)
+    if (!file.exists(tax.file)) stop("YTError not found: ",tax.file)
+    tax <- read.blastn.file(tax.file) %>% set.tax()
+    phy <- merge_phyloseq(phy,tax)
+  }
+  if (!is.null(repseq.file)) {
+    repseq.file <- file.path(dirpath,repseq.file)
+    if (!file.exists(repseq.file)) stop("YTError not found: ",repseq.file)
+    repseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
+    phy <- merge_phyloseq(phy,repseq)
+  }
+  if (!is.null(tree.file)) {
+    tree.file <- file.path(dirpath,tree.file)
+    if (!file.exists(tree.file)) stop("YTError not found: ",tree.file)
+    tree <- read.tree.uparse(tree.file)
+    phy <- merge_phyloseq(phy,tree)
+  }
   return(phy)
 }
 
@@ -330,7 +356,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
   t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character")) %>% tbl_df() %>%
     mutate(taxonomy=gsub("\\[(superkingdom|phylum|class|order|family|genus|species)\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
-           otu=paste0(qseqid,";"),
+           # otu=sub(";?$",";",qseqid),
            otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
     separate(taxonomy,into=c("Kingdom","Phylum","Class","Order","Family","Genus","Species"),sep="\\|",remove=FALSE) %>%
     group_by(otu) %>%
