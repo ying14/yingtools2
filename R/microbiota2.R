@@ -221,7 +221,7 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
     setkey(mdt, "otu")
     mdt <- taxdt[mdt]
   }
-  if (sample_data & !is.null(tax_table(phy, errorIfNULL = FALSE))) {
+  if (sample_data & !is.null(sample_data(phy, errorIfNULL = FALSE))) {
     # If there is a sample_data, join with it.
     sampledt = data.table(as(sample_data(phy, errorIfNULL = TRUE), "data.frame"),keep.rownames=TRUE)
     setnames(sampledt, "rn", "sample")
@@ -355,7 +355,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
   t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character")) %>% tbl_df() %>%
     mutate(taxonomy=gsub("\\[(superkingdom|phylum|class|order|family|genus|species)\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
-           # otu=sub(";?$",";",qseqid),
+           otu=qseqid,    # otu=sub(";?$",";",qseqid),
            otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
     separate(taxonomy,into=c("Kingdom","Phylum","Class","Order","Family","Genus","Species"),sep="\\|",remove=FALSE) %>%
     group_by(otu) %>%
