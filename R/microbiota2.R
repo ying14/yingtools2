@@ -311,7 +311,7 @@ read.uparse.data <- function(dirpath,
                              repseq.file="total.5.repset.fasta",
                              tree.file="total.10.tree") {
   requireNamespace("phyloseq")
-  # dirpath="uparse";otu.file="total.6.otu-table.txt";tax.file="total.5.repset.fasta.blastn.refseq_genomic.txt";repseq.file="total.5.repset.fasta";tree.file="total.10.tree"
+  # dirpath="uparse";otu.file="total.6.otu-table.txt";tax.file="total.5.repset.fasta.blastn.refseq_rna.txt";repseq.file="total.5.repset.fasta";tree.file="total.10.tree"
   if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
   # dirpath="uparse"
   otu.file <- file.path(dirpath,otu.file)
@@ -352,12 +352,15 @@ read.uparse.data <- function(dirpath,
 read.blastn.file <- function(tax.file,tax_table=TRUE) {
   requireNamespace("data.table")
   #tax.file="uparse/total.5.repset.fasta.blastn.refseq_rna.txt";tax_table=TRUE;blastn.data=FALSE
-  t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character")) %>% tbl_df() %>%
-    mutate(taxonomy=gsub("\\[(superkingdom|phylum|class|order|family|genus|species)\\]","",taxonomy),
+  t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
+  ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
+  ranklevels <- properCase(make.names(ranklevels))
+  t <- t %>%
+    mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
            otu=qseqid,    # otu=sub(";?$",";",qseqid),
            otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
-    separate(taxonomy,into=c("Kingdom","Phylum","Class","Order","Family","Genus","Species"),sep="\\|",remove=FALSE) %>%
+    separate(taxonomy,into=ranklevels,sep="\\|",remove=FALSE) %>%
     group_by(otu) %>%
     arrange(evalue,staxid) %>%
     filter(!duplicated(taxonomy)) %>%
@@ -372,7 +375,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
       filter(row_number()==1) %>%
       ungroup() %>%
       arrange(otu.number) %>%
-      select(otu,evalue,pident,Kingdom,Phylum,Class,Order,Phylum,Class,Order,Family,Genus,Species)
+      select(otu,evalue,pident,!!!ranklevels)
     return(t)
   }
 }
