@@ -2448,6 +2448,34 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 
 
 
+
+
+#' Group By All Distinct Variables
+#'
+#' Can be used similar to \code{group_by}, but will try to add additional variables to the group list, such that the grouping remains the same.
+#' In other words, \code{group_by_all_distinct(data,a,b,c)} will group by a,b,c,x,y,z, where x,y,z do not alter the groups.
+#' This is useful for keeping extra variables that go with the grouping, if you perform \code{summarize} afterwards.
+#'
+#' This is a convenience function that I made because of sheer laziness....
+#' probably better to avoid using this for really rigorous data operations.
+#' @param data data frame
+#' @param ... variables to group by
+#' @return Returns \code{data}, but grouped by \code{...} plus other variables that can be grouped along with it.
+#' @author Ying Taur
+#' @export
+group_by_all_distinct <- function(data, ...) {
+  id.vars <- quos(...)
+  id.varnames <- sapply(id.vars,quo_name)
+  data2 <- data %>% group_by(...) %>% summarize_all(function(x) length(unique(x))) %>% ungroup() %>%
+    select_if(function(x) all(x==1))
+  all.dist.vars <- unique(c(id.varnames,names(data2)))
+  not.grouped <- setdiff(names(data),all.dist.vars)
+  message("Grouping by [",length(all.dist.vars),"]: ",paste(all.dist.vars,collapse=", "))
+  message("[Not grouped by [",length(not.grouped),"]: ",paste(not.grouped,collapse=", "),"]")
+  data %>% group_by(!!!rlang::syms(all.dist.vars))
+}
+
+
 #' Group by Time
 #'
 #' Given data frame with start and stop times, group times by non-overlapping start and stop times.
