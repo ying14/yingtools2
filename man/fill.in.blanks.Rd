@@ -4,7 +4,7 @@
 \alias{fill.in.blanks}
 \title{Fill in Blanks}
 \usage{
-fill.in.blanks(vec, blank = "", include.na = TRUE)
+\method{fill}{in.blanks}(vec, blank = "", include.na = TRUE)
 }
 \arguments{
 \item{vec}{the vector to be ed in.}

@@ -76,7 +76,7 @@ read.otu.table <- function(otu.file,row.names="OTUId") {
 #' @return Data frame containing \code{sample_data} data.
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
-  requireNamespace(c("phyloseq","tibble"))
+  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
 
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
@@ -105,7 +105,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @return formatted sample_data.
 #' @export
 set.samp <- function(sdata) {
-  requireNamespace(c("phyloseq","tibble"))
+  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
   ss <- sdata %>% tibble::column_to_rownames("sample") %>%
     data.frame(stringsAsFactors=FALSE) %>% phyloseq::sample_data()
   return(ss)
@@ -119,7 +119,7 @@ set.samp <- function(sdata) {
 #' @return Dataframe containing tax data
 #' @export
 get.tax <- function(phy) {
-  requireNamespace(c("phyloseq","tibble"))
+  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
   phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
 }
 
@@ -130,7 +130,7 @@ get.tax <- function(phy) {
 #' @return formatted tax_table.
 #' @export
 set.tax <- function(tdata) {
-  requireNamespace(c("phyloseq","tibble"))
+  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
   tt <- tdata %>% tibble::column_to_rownames("otu") %>%
     as.matrix() %>% phyloseq::tax_table()
   return(tt)
@@ -147,7 +147,7 @@ set.tax <- function(tdata) {
 #' @return Dataframe containing otu table
 #' @export
 get.otu <- function(phy,as.matrix=FALSE) {
-  requireNamespace("phyloseq")
+  requireNamespace("phyloseq",quietly=TRUE)
   otu <- phy %>% phyloseq::otu_table(taxa_are_rows=TRUE) %>% as.matrix()
   if(as.matrix) {
     return(otu)
@@ -164,7 +164,7 @@ get.otu <- function(phy,as.matrix=FALSE) {
 #' @return formatted tax_table.
 #' @export
 set.otu <- function(odata) {
-  requireNamespace(c("phyloseq","tibble"))
+  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
   if (is.data.frame(odata) & ("otu" %in% colnames(odata))) {
     odata <- odata %>% tibble::column_to_rownames("otu") %>% as.matrix()
   }
@@ -185,7 +185,7 @@ set.otu <- function(odata) {
 #' @return Data frame melted OTU data
 #' @export
 get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
-  requireNamespace(c("phyloseq","data.table"))
+  requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   # supports "naked" otu_table as `phy` input.
   otutab = as(phyloseq::otu_table(phy), "matrix")
   if (!phyloseq::taxa_are_rows(phy)) {
@@ -310,7 +310,7 @@ read.uparse.data <- function(dirpath,
                              tax.file="total.5.repset.fasta.blastn.refseq_rna.txt",
                              repseq.file="total.5.repset.fasta",
                              tree.file="total.10.tree") {
-  requireNamespace("phyloseq")
+  requireNamespace("phyloseq",quietly=TRUE)
   # dirpath="uparse";otu.file="total.6.otu-table.txt";tax.file="total.5.repset.fasta.blastn.refseq_rna.txt";repseq.file="total.5.repset.fasta";tree.file="total.10.tree"
   if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
   # dirpath="uparse"
@@ -350,11 +350,11 @@ read.uparse.data <- function(dirpath,
 #' @author Ying Taur
 #' @export
 read.blastn.file <- function(tax.file,tax_table=TRUE) {
-  requireNamespace("data.table")
+  requireNamespace(c("data.table","ifultools"),quietly=TRUE)
   #tax.file="uparse/total.5.repset.fasta.blastn.refseq_rna.txt";tax_table=TRUE;blastn.data=FALSE
   t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
   ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
-  ranklevels <- properCase(make.names(ranklevels))
+  ranklevels <- ifultools::properCase(make.names(ranklevels))
   t <- t %>%
     mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
@@ -776,7 +776,7 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
   #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
   #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
   #phy=ph.lefse;class="CDI";subclass="SampleType";subject="MRN";anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
-  requireNamespace("phyloseq")
+  requireNamespace("phyloseq",quietly=TRUE)
   keepvars <- c(class,subclass,subject,"sample")
   keepvars <- unique(keepvars[!is.na(keepvars)])
   samp <- get.samp(phy)[,keepvars]

@@ -1,46 +1,4 @@
 
-#' Useful R Functions by Ying
-#'
-#' Ying's assorted collection of R functions. Primarily useful for manipulation, analysis, and plotting of data, particularly microbiome data.
-#'
-#' To install/update this package, run: \code{devtools::install_github("ying14/yingtools2")}
-#'
-#' @author
-#' Ying Taur
-#'
-#' Maintainer: Ying Taur
-#' @name yingtools2
-#' @docType package
-NULL
-
-
-## to force a fresh pull from github:
-# git fetch --all
-# git reset --hard origin/master
-# git pull origin master
-
-
-## git remote add origin git@github.com:ying14/yingtools2.git
-## git push -u origin master
-#" ...Title...
-#"
-#" ...Description...
-#"
-#" @usage ...usage.code...
-#"
-#" ...details...
-#"
-#" @param .param1. ...param1.description...
-#" @param .param2. ...param2.description...
-#" @return ...description.of.data.returned...
-#" @examples
-#" ...examples.here....
-#" @keywords keyword1 keyword2 ...
-#" @seealso \code{\link{cdiff.method}}
-#" @author Ying Taur
-#" @export
-
-
 
 
 #' Not In
@@ -480,6 +438,7 @@ read.clipboard <- function(sep="\n") {
 #' @author Ying Taur
 #' @export
 copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
+  requireNamespace("lubridate",quietly=TRUE)
   #converts x to R-code.
   if (is.data.frame(x)) {
     x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
@@ -489,10 +448,10 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
   } else if (is.Date(x)) {
     x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
     rcode <- paste0("as.Date(",x.char,")")
-  } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
+  } else if (lubridate::is.POSIXlt(x)) { #these need to come before list, since these are lists.
     x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
     rcode <- paste0("as.POSIXlt(",x.char,")")
-  } else if (is.POSIXct(x)) {
+  } else if (lubridate::is.POSIXct(x)) {
     x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
     rcode <- paste0("as.POSIXct(",x.char,")")
   } else if (is.factor(x)) {
@@ -1106,8 +1065,9 @@ date.regex <- function(format) {
 #' as.Date2(access.dates)
 #' @export
 as.Date2 <- function(vec) {
+  requireNamespace("lubridate",quietly=TRUE)
   #vec=data$Entered.Date.and.Time
-  if (is.POSIXt(vec)) {
+  if (lubridate::is.POSIXt(vec)) {
     if (all(format(vec,"%H:%M:%S")=="00:00:00")) {
       return(as.Date(vec))
     } else {
@@ -1184,8 +1144,8 @@ make.datetime <- function(date,time) {
 #' @return character with time component
 #' @export
 get.time <- function(datetime,format="%I:%m%p") {
-
-  if (!is.POSIXt(datetime)) {
+  requireNamespace("lubridate",quietly=TRUE)
+  if (!lubridate::is.POSIXt(datetime)) {
     stop("YTError: datetime is not a POSIX date-time!")
   }
   format(datetime,format)
@@ -1611,14 +1571,13 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
 }
 
 
+
+
 #' @rdname recode2
 #' @export
 recode.grep <- function(...) {
   recode2(regexp=TRUE,...)
-  #var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE
 }
-
-
 
 
 #' Ying's Replace Grep
@@ -1750,7 +1709,7 @@ find.all.distinct.vars <- function(data, ...) {
 #' @return A data frame consisting of Excel data.
 #' @export
 read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na = "",skip = 0) {
-  requireNamespace("readxl")
+  requireNamespace("readxl",quietly=TRUE)
   #path="Allo Patients 2015Apr15.xlsx";col_types=c("ANC 500"="date","POD Date"="date","Last Contact"="date","Relapse Date"="date","Onset"="date");sheet=1;col_names=TRUE;na="";skip=0
   if (!is.null(col_types)) {
     data <- readxl::read_excel(path=path,sheet=sheet,col_names=col_names,na=na,skip=skip)
