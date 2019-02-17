@@ -1843,8 +1843,17 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #'
 #' Convenience function for survival analysis. Typically uses the \code{coxphf} function.
 #'
-#' @param .param1. ...param1.description...
-#' @param .param2. ...param2.description...
+#' @param  ...
+#' @param starttime character column name for start times (either point to zero or indicate left censor times). Default is "tstart".
+#' @param data survival data.
+#' @param addto if specified, add results to this data.frame of results. Default is NULL
+#' @param as.survfit if TRUE, return the survival fit object (use for kaplan-meier stuff).
+#' @param firth whether or not to perform Firth's penalized likelihood. Default is TRUE.
+#' @param formatted whether to format the data.frame of results. Default is TRUE
+#' @param logrank whether to calculate log rank p-value. Default is FALSE
+#' @param coxphf.obj whether to return cox results object (rather than regression table). Default is FALSE.
+#' @param return.split.data whether to return data after split (do this to split time-dependent variables and run Cox manually). Default is FALSE
+#'
 #' @return ...description.of.data.returned...
 #' @examples
 #' ...examples.here....
@@ -1852,7 +1861,7 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' @seealso \code{\link{cdiff.method}}
 #' @author Ying Taur
 #' @export
-stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE) {
+stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE,return.split.data=FALSE) {
   requireNamespace("coxphf",quietly=TRUE)
 
   data <- data.frame(data)
@@ -1914,11 +1923,22 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
   if (length(td.xvars)>0) {
     data <- adply(data,1,splitline)
   }
+  if (return.split.data) {
+    return(data)
+  }
+
   #calculate model
   leftside <- "Surv(s.start,s.stop,y)"
   rightside <- paste(xvars,collapse=" + ")
   model <- paste(leftside,rightside,sep=" ~ ")
   formula <- as.formula(model)
+
+  for (x in xvars) { #check for nonvarying predictors
+    xvalues <- unique(data[,x])
+    if (length(xvalues)==1) {
+      stop("YTError: This predictor does not vary across observations: ",x," is always equal to ",xvalues)
+    }
+  }
   if (as.survfit) {
     #return a survfit object
     return(survfit(formula,data=data))
@@ -1984,8 +2004,14 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
   # yvar="dead.180";xvars=c("age","race.group","detect.trop","imm.med.group2");starttime="tstart";data=pt;firth=F;multi=TRUE;multi.cutoff=0.2;referrent=FALSE
   results.list <- lapply(xvars,function(xvar) {
     print(xvar)
-    stcox(yvar,xvar,starttime=starttime,data=data,firth=firth)
+    tryCatch({
+      stcox(yvar,xvar,starttime=starttime,data=data,firth=firth)
+    },error=function(e) {
+      warning(e$message)
+      data.frame(model=paste0("Surv(s.start,s.stop,y) ~ ",xvar),yvar=yvar,xvar=paste0(xvar,"[ERROR non-varying]"),haz.ratio=NA,p.value=NA,signif=NA)
+    })
   })
+
   results.table <- results.list %>% bind_rows()
   if (multi) {
     multi.signif <- sapply(results.list,function(tbl) {

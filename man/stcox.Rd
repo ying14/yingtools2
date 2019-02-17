@@ -6,12 +6,28 @@
 \usage{
 stcox(..., starttime = "tstart", data, addto, as.survfit = FALSE,
   firth = TRUE, formatted = TRUE, logrank = FALSE,
-  coxphf.obj = FALSE)
+  coxphf.obj = FALSE, return.split.data = FALSE)
 }
 \arguments{
-\item{.param1.}{...param1.description...}
+\item{...}{}
 
-\item{.param2.}{...param2.description...}
+\item{starttime}{character column name for start times (either point to zero or indicate left censor times). Default is "tstart".}
+
+\item{data}{survival data.}
+
+\item{addto}{if specified, add results to this data.frame of results. Default is NULL}
+
+\item{as.survfit}{if TRUE, return the survival fit object (use for kaplan-meier stuff).}
+
+\item{firth}{whether or not to perform Firth's penalized likelihood. Default is TRUE.}
+
+\item{formatted}{whether to format the data.frame of results. Default is TRUE}
+
+\item{logrank}{whether to calculate log rank p-value. Default is FALSE}
+
+\item{coxphf.obj}{whether to return cox results object (rather than regression table). Default is FALSE.}
+
+\item{return.split.data}{whether to return data after split (do this to split time-dependent variables and run Cox manually). Default is FALSE}
 }
 \value{
 ...description.of.data.returned...
