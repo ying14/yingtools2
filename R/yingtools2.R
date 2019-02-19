@@ -50,6 +50,24 @@ left_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
   bind_rows(orig.x,change.x)
 }
 
+#' @rdname left_join
+#' @export
+inner_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
+  replace.vars <- setdiff(intersect(names(x),names(y)),by)
+  keep.xvars <- setdiff(names(x),setdiff(names(y),by))
+  change.x <- x %>% select_(.dots=keep.xvars) %>% inner_join(y,by=by)
+  if (verbose) {
+    message(length(replace.vars)," columns updated: ",paste(replace.vars,collapse=","))
+  }
+  change.x
+}
+
+#' @rdname left_join
+#' @export
+right_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
+  left_join_replace(y,x,by=by,verbose=verbose)
+}
+
 
 #' Tabulate
 #'
@@ -1692,8 +1710,22 @@ find.all.distinct.vars <- function(data, ...) {
 
 }
 
-
-
+#' Is Distinct
+#'
+#' Determine if specified columns within data are distinct for individual rows.
+#' @param data Dataframe to be analyzed
+#' @param ... grouping variables that define data units.
+#' @param add.group.vars if \code{TRUE}, add any grouping variables.
+#' @return Logical indicating whether or not columns are distinct.
+#' @export
+is.distinct <- function(data, ..., add.group.vars=TRUE) {
+  row.tally <- data %>%
+    group_by(...,add=add.group.vars) %>%
+    summarize(n=n())
+    ungroup()
+  is.dist <- max(row.tally$n)==1
+  return(is.dist)
+}
 
 
 #' Read Excel File 2
