@@ -1678,8 +1678,8 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
     newdata[[hits.var]] <- results$hits
   } else {
     newdata <- data
-    newdata[[newvar]] <- results$replace.text
-    newdata[[hits.var]] <- results$hits
+    newdata[[newvar]] <- results
+    # newdata[[hits.var]] <- results$hits
   }
   return(newdata)
 }
@@ -1719,9 +1719,10 @@ find.all.distinct.vars <- function(data, ...) {
 #' @return Logical indicating whether or not columns are distinct.
 #' @export
 is.distinct <- function(data, ..., add.group.vars=TRUE) {
+  vars <- quos(...)
   row.tally <- data %>%
-    group_by(...,add=add.group.vars) %>%
-    summarize(n=n())
+    group_by(!!!vars,add=add.group.vars) %>%
+    summarize(n=n()) %>%
     ungroup()
   is.dist <- max(row.tally$n)==1
   return(is.dist)
@@ -2057,17 +2058,22 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
       names(multi.table) <- recode2(names(multi.table),c("haz.ratio"="multi.haz.ratio","p.value"="multi.p.value","signif"="multi.signif"))
       multi.table <- multi.table %>% select(-model)
       results.table <- results.table %>% select(-model)
+
       combined.table <- results.table %>% left_join(multi.table,by=c("yvar","xvar")) %>%
         mutate_at(vars(multi.haz.ratio,multi.p.value,multi.signif),function(x) ifelse(is.na(x),"",x))
+      # return(list(uni=results.table,multi=multi.table))
+
       n.events <- sum(data[[yvar]])
       n.multivars <- length(multivars)
       print(paste0(round(n.events/n.multivars,3)," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
+      return(combined.table)
     } else {
       print("No variables in multivariate!")
       results.table <- subset(results.table,select=-model)
       results.table$multi.haz.ratio <- ""
       results.table$multi.p.value <- ""
       results.table$multi.signif <- ""
+      return(results.table)
     }
   }
   return(results.table)
