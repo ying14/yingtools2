@@ -251,9 +251,10 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
 #' (c) the new OTU names will specify old OTU names separated by '|'
 #' @param phy A phylsoeq object.
 #' @param taxranks tax levels to collapse by. Default is \code{c("Kingdom","Phylum","Class","Order","Family","Genus","Species")}.
+#' @param short_taxa_names How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.
 #' @return A phyloseq object with OTUs collapsed.
 #' @export
-phy.collapse <- function(phy,taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus","Species")) {
+phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
   # taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
   taxranks <- rlang::syms(taxranks)
   otudt <- as(otu_table(phy),"matrix") %>% data.table()
@@ -263,8 +264,12 @@ phy.collapse <- function(phy,taxranks=c("Kingdom","Phylum","Class","Order","Fami
   new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
   otu.names <- data.table(otu=taxa_names(phy))
   otu.names <- otu.names[,lapply(.SD,function(x) {
-    x <- x[order(as.numeric(str_extract(x,"[0-9]+")))]
-    paste(x,collapse="|")
+    # x <- x[order(as.numeric(str_extract(x,"[0-9]+")))]
+    if (short_taxa_names) {
+      paste0(x[1],"_ntaxa=",length(x))
+    } else {
+      paste(x,collapse="|")
+    }
   }),by=indices_] %>% pull(otu)
   otu.rep <- data.table(otu=taxa_names(phy))
   otu.rep <- otu.rep[,lapply(.SD,function(x) {

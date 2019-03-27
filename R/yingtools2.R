@@ -120,20 +120,20 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' @export
 dt <- function(data,fontsize=10,maxrows=1000) {
   requireNamespace("DT",quietly=TRUE)
-
   fontsize <- paste0(fontsize,"px")
   grps <- groups(data)
   #sort data by groups
-  data2 <- data %>% ungroup() %>% arrange_(.dots=grps)
-  data2$index_ <- data2 %>% group_indices_(.dots=grps)
-  n.groups <- n_distinct(data2$index_)
+  data$index_ <- data %>% group_indices()
+  data <- data %>% mutate(index_=factor(index_,levels=unique(index_))) %>% arrange(index_)
+
+  n.groups <- n_distinct(data$index_)
   indices <- 1:n.groups
-  n.colors <- 4
-  pal <- c("light gray",brewer_pal("qual")(n.colors-1))
+  pal <- c("white","seashell","aliceblue")
+  # n.colors <- 5
+  # pal <- c("light gray",brewer_pal("qual")(n.colors-1))
   clrs <- rep_len(pal,length.out=n.groups)
   clrs.rgb <- paste0("rgb(",apply(col2rgb(clrs),2,function(x) paste(x,collapse=",")),")")
-
-  data2 %>%
+  data %>%
     filter(row_number()<=maxrows) %>%
     DT::datatable(
       options=list(
@@ -141,7 +141,7 @@ dt <- function(data,fontsize=10,maxrows=1000) {
         paging=FALSE
       )
     ) %>%
-    formatStyle(0:length(data2),fontSize=fontsize,lineHeight="95%") %>%
+    formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
     formatStyle("index_",target="row",backgroundColor=styleEqual(indices,clrs.rgb))
 }
 
@@ -1810,10 +1810,10 @@ middle.pattern <- function(start="",middle=".+",end="") {
 #' @param include.na vector of values that denote a blank. By default, \code{""} is used.
 #' @return Returns \code{vec}, with blanks filled in.
 #' @examples
-#' fill.in.blanks(c("1",NA,"2","","3","","","4",NA,NA))
+#' fill_in_blanks(c("1",NA,"2","","3","","","4",NA,NA))
 #' @author Ying Taur
 #' @export
-fill.in.blanks <- function(vec,blank="",include.na=TRUE) {
+fill_in_blanks <- function(vec,blank="",include.na=TRUE) {
   if (include.na) {
     non.blanks <- !is.na(vec) & !(vec %in% blank)
   } else {
@@ -3146,39 +3146,7 @@ cummax.Date <- function(x) {
 #
 #
 #
-# #' @export
-# geom_timeline <- function(data,tstart,tstop,label,fill,rowvar,sortby=NULL,plot.yrange=NULL,angle=0,alpha=1) {
-#   if (nrow(data)==0) {
-#     return(NULL)
-#   }
-#   tl <- timeline.rows(data=data,tstart=tstart,tstop=tstop,rowvar=rowvar,sortby=sortby,plot.yrange=plot.yrange)
-#   list(geom_rect(data=tl,aes_string(xmin="xmin",xmax="xmax",ymin="ymin",ymax="ymax",fill=fill)),
-#        geom_text(data=tl,aes_string(x="x",y="y",label=label,angle=angle)))
-# }
-#
-# #' @export
-# geom_linestrip <- function(data,yvar,xvar,data.yrange=c(0,1),plot.yrange=c(0,1),background.fill="gray",background.alpha=0.3) {
-#   #data=pha.sub;yvar="PHA";xvar="day";data.yrange=c(0,1);plot.yrange=c(11,12)
-#   if (nrow(data)==0) {
-#     return(NULL)
-#   }
-#   #if yvar doesn't stay within yrange, scale it.
-#   real.yrange <- range(data[,yvar])
-#   if (!(occurs.within(data.yrange[1],data.yrange[2],real.yrange[1],real.yrange[2]))) {
-#     warning("YT: Expected yvar to be within data.yrange=",copy.as.Rcode(data.yrange,copy.clipboard=FALSE),", but it wasn't. Scaled data range to fit.")
-#     data$new.y <- rescale(data[,yvar],from=range(data[,yvar]))
-#     yvar <- "new.y"
-#   }
-#   data$y <- rescale(data[,yvar],from=data.yrange,to=plot.yrange)
-#   data$x <- data[,xvar]
-#   g.linestrip <- list(geom_point(data=data,aes(x=x,y=y)),geom_line(data=data,aes(x=x,y=y)))
-#   if (!is.null(background.fill)) {
-#     g.linestrip <- c(annotate("rect",xmin=-Inf,xmax=Inf,ymin=plot.yrange[1],ymax=plot.yrange[2],fill=background.fill,alpha=background.alpha),g.linestrip)
-#   }
-#   return(g.linestrip)
-# }
-#
-#
+
 #
 #
 
