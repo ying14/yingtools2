@@ -1086,7 +1086,7 @@ as.Date2 <- function(vec) {
   requireNamespace("lubridate",quietly=TRUE)
   #vec=data$Entered.Date.and.Time
   if (lubridate::is.POSIXt(vec)) {
-    if (all(format(vec,"%H:%M:%S")=="00:00:00")) {
+    if (all(format(vec,"%H:%M:%S")=="00:00:00" | is.na(vec))) {
       return(as.Date(vec))
     } else {
       return(vec)
@@ -1443,47 +1443,43 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 }
 
 
-#' Cleanup data (OLD)
+
+#' Coalesce indicator variables into one summary variable.
 #'
-#' Cleans up a data frame by performing 4 tasks:
-#' (1) \code{trim}: for all character variables, remove whitespace
-#' (2) \code{convert.dates}: for all character variables, remove whitespace
-#' (3) \code{as.mrn}: will properly format any MRN variable.
-#' (4) Remove any column or row that is all \code{NA} values.
-#'
-#' @param make.names If \code{TRUE}, will fix variable names. Default=\code{TRUE}
-#' @param trim If \code{TRUE}, will remove whitespace from all character variables. Default=\code{TRUE}
-#' @param convert.dates If \code{TRUE}, will convert variables that look like dates to Date format. Default=\code{TRUE}
-#' @param as.mrn If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}
-#' @param remove.na.cols.rows If \code{TRUE}, will remove any column or row consisting entirely of \code{NA}'s. Default=\code{FALSE}
-#' @return Returns a clean version of \code{data}.
+#' After providing multiple indicator variables, summarize them by creating a character vector.
+#' @param ... indicator variables to coalesce together. Should be all logical.
+#' @param else.value The character value if there are no hits. Default is \code{NA}
+#' @param first.hit.only If \code{TRUE}, will only show first hit (which is a true coalesce). Default is \code{FALSE}, which concatenates all hits.
+#' @return A vector of same length as the indicators, displaying variable names that were \code{TRUE}
 #' @examples
 #' #####
 #' @author Ying Taur
 #' @export
-cleanup.data.old <- function(data,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,remove.na.cols.rows=FALSE) {
-  #data=d;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
-  #data=diet;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
-  if (remove.na.cols.rows) {
-    data <- remove.na.cols.rows(data)
+coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
+  vars <- quos(...)
+  varnames <- sapply(vars,quo_name)
+  arglist <- list(...)
+  len <- unique(sapply(arglist,length))
+  if (length(len)!=1) {
+    stop("YTError: arguments are different lengths!")
   }
-  if (make.names) {
-    #names(data) <- make.names(names(data))
-    setnames(data,names(data),make.names(names(data),unique=TRUE))
-  }
-  if (trim) {
-    data <- trim(data) #gets rid of whitespace
-  }
-  if (convert.dates) {
-    data <- convert.dates(data)
-  }
-  if (as.mrn) {
-    data <- as.mrn(data)
-  }
-  return(data)
+  mat <- do.call(cbind,arglist)
+  output <- sapply(1:len,function(i) {
+    row <- mat[i,]
+    keep <- !is.na(row) & row
+    vec <- varnames[keep]
+    if (length(vec)==0) {
+      return(else.value)
+    } else {
+      if (!first.hit.only) { # collapse all
+        return(paste(vec,collapse="|"))
+      } else { # coalesce
+        return(vec[1])
+      }
+    }
+  })
+  return(output)
 }
-
-
 
 #' Ying's Recode
 #'
@@ -2660,6 +2656,48 @@ cummax.Date <- function(x) {
 }
 
 
+
+
+#'
+#' #' Cleanup data (OLD)
+#' #'
+#' #' Cleans up a data frame by performing 4 tasks:
+#' #' (1) \code{trim}: for all character variables, remove whitespace
+#' #' (2) \code{convert.dates}: for all character variables, remove whitespace
+#' #' (3) \code{as.mrn}: will properly format any MRN variable.
+#' #' (4) Remove any column or row that is all \code{NA} values.
+#' #'
+#' #' @param make.names If \code{TRUE}, will fix variable names. Default=\code{TRUE}
+#' #' @param trim If \code{TRUE}, will remove whitespace from all character variables. Default=\code{TRUE}
+#' #' @param convert.dates If \code{TRUE}, will convert variables that look like dates to Date format. Default=\code{TRUE}
+#' #' @param as.mrn If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}
+#' #' @param remove.na.cols.rows If \code{TRUE}, will remove any column or row consisting entirely of \code{NA}'s. Default=\code{FALSE}
+#' #' @return Returns a clean version of \code{data}.
+#' #' @examples
+#' #' #####
+#' #' @author Ying Taur
+#' #' @export
+#' cleanup.data.old <- function(data,make.names=TRUE,trim=TRUE,convert.dates=TRUE,as.mrn=TRUE,remove.na.cols.rows=FALSE) {
+#'   #data=d;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
+#'   #data=diet;make.names=TRUE;trim=TRUE;convert.dates=TRUE;as.mrn=TRUE;remove.na.cols.rows=FALSE
+#'   if (remove.na.cols.rows) {
+#'     data <- remove.na.cols.rows(data)
+#'   }
+#'   if (make.names) {
+#'     #names(data) <- make.names(names(data))
+#'     setnames(data,names(data),make.names(names(data),unique=TRUE))
+#'   }
+#'   if (trim) {
+#'     data <- trim(data) #gets rid of whitespace
+#'   }
+#'   if (convert.dates) {
+#'     data <- convert.dates(data)
+#'   }
+#'   if (as.mrn) {
+#'     data <- as.mrn(data)
+#'   }
+#'   return(data)
+#' }
 #' #' @export
 #' chop.endpoint.old <- function(data,newvar,oldvar, ...) {
 #'   #create a new endpoint where multiple timepoints of censoring can be specified.
