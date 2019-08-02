@@ -14,8 +14,10 @@
 #' @rawNamespace import(dplyr, except=recode)
 #' @import tidyr
 #' @importFrom reshape2 dcast melt
+#' @importFrom readxl read_excel
 #' @importFrom scales percent
 NULL
+
 
 
 #' Pipe operator
@@ -25,6 +27,20 @@ NULL
 #' @rdname pipe
 #' @export
 NULL
+
+
+
+### DESCRIPTION file:
+## suggests:
+## imports:
+## depends: just like loads the package, similar to library(xxxx) [don't do this].
+
+### __imports.R file:
+## @import xxxx: import package xxxx
+## @importFrom xxxx f1 f2: import specific functions f1 and f2 from xxxx
+## @rawNamespace import(xxxx, except=yyyy): import all functions except recode
+## (alternatively, just use the :: operator)
+
 
 
 

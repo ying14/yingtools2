@@ -5,7 +5,7 @@
 \title{Group by Time Streaks}
 \usage{
 group_by_time_streaks(data, time, indicator, ..., gap = Inf,
-  add = FALSE)
+  na.skip = FALSE, add = FALSE)
 }
 \arguments{
 \item{data}{data frame}
@@ -17,6 +17,8 @@ group_by_time_streaks(data, time, indicator, ..., gap = Inf,
 \item{...}{other variables to group by. These will be applied prior to grouping by time streaks.}
 
 \item{gap}{time periods differing by this gap or less will be combined in the grouping variable. Default is \code{Inf}, i.e. no gap.}
+
+\item{na.skip}{whether to ignore \code{NA} values in the indicator. Default is \code{FALSE}, which will just break streaks and provide a warning if they are encountered.}
 
 \item{add}{Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.}
 }

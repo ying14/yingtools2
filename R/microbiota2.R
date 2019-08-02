@@ -598,9 +598,9 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
   if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
     tax <- get.tax(tax.obj)
   }
-  ranks <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  ranks <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
   if (!all(ranks %in% names(tax))) {
-    stop("YTError: need to have taxon levels: Kingdom, Phylum, Class, Order, Family, Genus, Species")
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species")
   }
   tax.dict <- tax[,ranks] %>% distinct()
   #bacteria are shades of gray by default
@@ -646,9 +646,10 @@ get.yt.palette2 <- function (tax) {
   if (class(tax)[1] %in% c("phyloseq", "taxonomyTable")) {
     tax <- get.tax(tax.obj)
   }
-  ranks <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  ranks <- c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
   if (!all(ranks %in% names(tax))) {
-    stop("YTError: need to have taxon levels: Kingdom, Phylum, Class, Order, Family, Genus, Species")
+    missing.vars <- setdiff(ranks,names(tax))
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species; missing: ",paste(missing.vars,collapse=","))
   }
   tax.dict <- tax[, ranks] %>% distinct()
   tax.dict$color <- rep(shades("gray", variation=0.25),length.out = nrow(tax.dict))
@@ -685,15 +686,20 @@ get.yt.palette2 <- function (tax) {
 #' @export
 tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
   #t=get.otu.melt(phy.species)
-  vars <- c("sample","pctseqs","Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
+  vars <- c("sample","pctseqs",tax.levels)
   if (!all(vars %in% names(t))) {
-    stop("YTError: need to have these vars: sample, pctseqs, Kingdom, Phylum, Class, Order, Family, Genus, Species")
+    missing.vars <- setdiff(vars,names(t))
+    stop("YTError: missing var:",paste(missing.vars,collapse=","))
   }
-  t <- t %>% arrange(Kingdom,Phylum,Class,Order,Family,Genus,Species) %>%
-    mutate(Species=factor(Species,levels=unique(Species))) %>%
+  t <- t %>% arrange(Superkingdom,Phylum,Class,Order,Family,Genus,Species) %>%
+    mutate(Species=fct_inorder(Species)) %>%
     group_by(sample) %>% arrange(Species) %>%
     mutate(cum.pct=cumsum(pctseqs),
-           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2) %>% ungroup() %>% dplyr::select(-cum.pct) %>%
+           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
+           y.text=1-y.text) %>%
+    ungroup() %>%
+    select(-cum.pct) %>%
     mutate(tax.label=ifelse(pctseqs>=label.pct.cutoff,as.character(Species),""))
   pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
   attr(t,"pal") <- pal
@@ -1343,393 +1349,6 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
 # # }
 # #
 # #
-# # #################
-# # ### tax tools ###
-# # #################
-# #
-# # tax.name <- function(taxname) {
-# #   #given varname (scalar or vector), return taxname.
-# #   #e.g. tax__Enterococcus__6__0.1.15.1.2.3.2 -> Enterococcus
-# #   taxname <- as.character(taxname)
-# #   tax.list=strsplit(taxname,split="__")
-# #   unlist(lapply(tax.list,function(x) x[[2]]))
-# # }
-# #
-# # tax.level <- function(taxname) {
-# #   #given varname (scalar or vector), return taxname.
-# #   #e.g. tax__Enterococcus__6__0.1.15.1.2.3.2 -> 6
-# #   taxname <- as.character(taxname)
-# #   tax.list=strsplit(taxname,split="__")
-# #   as.integer(unlist(lapply(tax.list,function(x) x[[3]])))
-# # }
-# #
-# # as.taxlevel.factor <- function(lvl) {
-# #   #convert number to factor
-# #   factor(lvl,levels=1:7,labels=c("Kingdom(1)","Phylum(2)","Class(3)","Order(4)","Family(5)","Genus(6)","Species(7)"),ordered=TRUE)
-# # }
-# #
-# # tax.rank <- function(taxname) {
-# #   #given varname (scalar or vector), return rankID.
-# #   #e.g. tax__Enterococcus__6__0.1.15.1.2.3.2 -> 0.1.15.1.2.3.2
-# #   taxname <- as.character(taxname)
-# #   tax.list=strsplit(taxname,split="__")
-# #   unlist(lapply(tax.list,function(x) x[[4]]))
-# # }
-# #
-# #
-# # tax.var <- function(taxon,level,sdata) {
-# #   #given name/level, return taxname.
-# #   #e.g. Enterococcus, 6 -> tax__Enterococcus__6__0.1.15.1.2.3.2
-# #   #returns first match, in case there are duplicates
-# #   pattern <- paste("^tax",taxon,level,"[0-9.]+$",sep="__")
-# #   ##erase if not needed: names(sdata)[grepl(pattern,names(sdata))][1]
-# #   grep(pattern,names(sdata),value=TRUE)[1]
-# # }
-# #
-# # pct.var <- function(taxon,level,sdata) {
-# #   #given name/level, return pct_taxname.
-# #   #e.g. Enterococcus, 6 -> pct__Enterococcus__6__0.1.15.1.2.3.2
-# #   #returns first match, in case there are duplicates
-# #   pattern <- paste("^pct",taxon,level,"[0-9.]+$",sep="__")
-# #   ##erase if not needed: names(sdata)[grepl(pattern,names(sdata))][1]
-# #   grep(pattern,names(sdata),value=TRUE)[1]
-# # }
-# # #' ...Title...
-# #
-# #
-# # tax.subset <- function(x,...) UseMethod("tax.subset")
-# #
-# # tax.subset.character <- function(snames,level) {
-# #   #given vector of names, return those matching taxons of specified level.
-# #   if (missing(level)) {
-# #     pattern <- paste("^tax",".+","[0-9]","[0-9.]+$",sep="__")
-# #   } else {
-# #     pattern <- paste("^tax",".+",level,"[0-9.]+$",sep="__")
-# #   }
-# #   ##erase if not needed: snames[grepl(pattern,snames)]
-# #   grep(pattern,snames,value=TRUE)
-# # }
-# #
-# # tax.subset.data.frame <- function(sdata,level,keep) {
-# #   #given sample data, return subset of taxons
-# #   #keep is extra varnames to hold onto.
-# #   taxnames <- tax.subset(names(sdata),level)
-# #   if (!missing(keep)) {
-# #     taxnames <- c(keep,taxnames)
-# #   }
-# #   sdata[,taxnames]
-# # }
-# #
-# # pct.subset <- function(x,...) UseMethod("pct.subset")
-# #
-# # pct.subset.character <- function(snames,level) {
-# #   #given vector of names, return those matching taxons of specified level.
-# #   if (missing(level)) {
-# #     pattern <- paste("^pct",".+","[0-9]","[0-9.]+$",sep="__")
-# #   } else {
-# #     pattern <- paste("^pct",".+",level,"[0-9.]+$",sep="__")
-# #   }
-# #   ##erase if not needed: snames[grepl(pattern,snames)]
-# #   grep(pattern,snames,value=TRUE)
-# # }
-# #
-# # pct.subset.data.frame <- function(sdata,level,keep) {
-# #   #given sample data, return subset of pct_taxons
-# #   #keep is extra varnames to hold onto.
-# #   pctnames <- pct.subset(names(sdata),level)
-# #   if (!missing(keep)) {
-# #     pctnames <- c(keep,pctnames)
-# #   }
-# #   sdata[,pctnames]
-# # }
-# #
-# #
-# # notax.subset <- function(x,...) UseMethod("notax.subset")
-# #
-# # notax.subset.character <- function(snames) {
-# #   #removes all tax/pct variables
-# #   setdiff(snames,c(tax.subset(snames),pct.subset(snames)))
-# # }
-# #
-# #
-# # notax.subset.data.frame <- function(sdata) {
-# #   sdata[,notax.subset(names(sdata))]
-# # }
-# #
-# # ###still needed?
-# # #' @export
-# # tax.percent <- function(sdata,taxon,level) {
-# #   #given taxon/level, calculates rel abundance and returns vector of percents
-# #   taxvarname <- tax.var(taxon,level,sdata)
-# #   sdata[,taxvarname] / sdata$tax__Bacteria__1__0.1
-# # }
-# #
-# # group.minorities <- function(sdata,level,
-# #                              max.percent.cutoff=0.03,
-# #                              total.percent.cutoff=0,
-# #                              max.number.taxons=30,
-# #                              new.minority.name="Other Bacteria") {
-# #   #find minorities and renames them, then returns altered sdata
-# #   #just renames columns, basically.
-# #   sub <- tax.subset(sdata,level) #select tax vars with level
-# #   ####row.names(sub) <- sub$group #copy group var to names
-# #   ####sub <- subset(sub,select=-group) #remove group var
-# #   sub <- as.matrix(sub)
-# #   sub <- prop.table(sub,1) #proportions across rows
-# #   total.percent <- apply(sub,2,mean) #overall abundance of taxons
-# #   max.percent <- apply(sub,2,max) #max percent for each taxon
-# #   minority.bytotal <- names(total.percent)[total.percent<total.percent.cutoff]
-# #   minority.bymax <-names(max.percent)[max.percent<max.percent.cutoff]
-# #   #minorities to be renamed.
-# #   minorities <- unique(c(minority.bymax,minority.bytotal))
-# #   remaining.taxons <- colnames(sub)[!(colnames(sub) %in% minorities)]
-# #   #if remaining taxons is more than max,
-# #   if (length(remaining.taxons)>max.number.taxons) {
-# #     max.percent.ordered <- max.percent[order(max.percent,decreasing=TRUE)]
-# #     names.ordered <- names(max.percent.ordered)
-# #     remaining.taxons.ordered <- names.ordered[!is.na(match(names.ordered,remaining.taxons))]
-# #     #shave off bottom and add to minorities
-# #     more.minorities <- remaining.taxons.ordered[(max.number.taxons+1):length(remaining.taxons.ordered)]
-# #     minorities <- unique(c(minorities,more.minorities))
-# #   }
-# #   minority.list=strsplit(minorities,split="__")
-# #   #rename 2nd element
-# #   minority.list.new <- lapply(minority.list,function(x){x[2]<-new.minority.name;return(x)})
-# #   #new minority names
-# #   minorities.new <- sapply(minority.list.new,function(x) paste(x,collapse="__"))
-# #   names(sdata)[match(minorities,names(sdata))] <- minorities.new
-# #   ###sdata <- calculate.percent.taxa(sdata)
-# #   return(sdata)
-# # }
-# #
-# # get.level.rank <- function(rank) {
-# #   #get level given rankID
-# #   nchar(rank) - nchar(gsub("\\.","",rank))
-# # }
-# #
-# # rank.pattern <- function(rank,target.level) {
-# #   #given rankID, change to a reg.exp pattern for specified level. is recursive.
-# #   level <- get.level.rank(rank)
-# #   if (level>target.level) {
-# #     #shorten rankID
-# #     rank <- gsub("\\.[0-9]{1,5}$","",rank)
-# #     return(rank.pattern(rank,target.level))
-# #   } else if (level<target.level) {
-# #     #add to rankID
-# #     rank <- paste(rank,".[0-9]{1,5}",sep="")
-# #     return(rank.pattern(rank,target.level))
-# #   } else {
-# #     #rank=target.level
-# #     pattern <- paste("^",gsub(".","\\.",rank,fixed=TRUE),"$",sep="")
-# #     return(pattern)
-# #   }
-# # }
-# #
-# #
-# # relative.taxnames <- function(sdata,orig.taxname,target.level) {
-# #   #given orig.taxname, return names of taxons within sdata that are at target level.... moves up or down in phylo level.
-# #   #going up means listing 1 taxon with more seqs, going down means listing multiple taxons, same number of seqs
-# #   orig.taxname <- grep(orig.taxname,names(sdata),value=T)[1]
-# #   orig.rank <- tax.rank(orig.taxname)
-# #   pattern <- rank.pattern(orig.rank,target.level)
-# #   target.taxlist <- tax.subset(names(sdata),target.level)
-# #   target.taxlist[grepl(pattern,tax.rank(target.taxlist))]
-# # }
-# #
-# #
-# #
-# #
-# #
-# #
-# #
-# # get.relative <- function(name,sdata,parent.level) {
-# #   #get relative name (not variable names)
-# #   varname <- grep(name,c(tax.subset(names(sdata)),pct.subset(names(sdata))),value=TRUE)[1]
-# #   relatives <- relative.taxnames(sdata,varname,parent.level)
-# #   tax.name(relatives)
-# # }
-# #
-# #
-# #
-# # full.name <- function(name,sdata,top.level=1) {
-# #   #obtain full name of taxon: e.g. tax__Enterococcus__6__0.1.15.1.2.3.2 becomes Bacteria|Firmicutes|Bacilli|Lactobacillales|Enterococcaceae|Enterococcus
-# #   #sdata=s.s0;name=pct.subset(names(sdata));top.level=1
-# #   sapply(name,function(x) {
-# #     levels <- top.level:tax.level(x)
-# #     all.names <- sapply(levels,function(y) get.relative(x,sdata,y))
-# #     print(paste(all.names,collapse="|"))
-# #     paste(all.names,collapse="|")
-# #   })
-# # }
-# #
-# #
-# # rename.taxon.to.parent <- function(parent.taxname,orig.level,sdata,exceptions=NULL,parent.name=NULL) {
-# #   if (is.null(parent.name)) {
-# #     parent.name <- tax.name(grep(parent.taxname,names(sdata),value=TRUE)[1])
-# #   }
-# #   #returns sdata with children of parent.taxname at orig.level renamed to the parent taxon.
-# #   child.taxnames <- relative.taxnames(sdata,parent.taxname,orig.level)
-# #   #remove anything in exceptions
-# #   #child.taxnames <- child.taxnames[!(tax.name(child.taxnames) %in% exceptions)]
-# #   if (!is.null(exceptions)) {
-# #     child.taxnames <- child.taxnames[!grepl(paste(exceptions,collapse="|"),child.taxnames)]
-# #   }
-# #   child.taxnames.list <- strsplit(child.taxnames,split="__")
-# #   #rename 2nd element to parent name
-# #   child.taxnames.list.new <- lapply(child.taxnames.list,function(x){x[2]<-parent.name;return(x)})
-# #   child.renamed <- sapply(child.taxnames.list.new,function(x) paste(x,collapse="__"))
-# #   names(sdata)[names(sdata) %in% child.taxnames] <- child.renamed
-# #   #sdata <- calculate.percent.taxa(sdata)
-# #   return(sdata)
-# # }
-# #
-# #
-# # get.dominating.taxon <- function(sdata,level) {
-# #   #returns vector of taxon names representing most dominant taxon.
-# #   sdata.subset <- as.matrix(tax.subset(sdata,level))
-# #   varname <- apply(sdata.subset,1,function(x) names(x)[order(x,decreasing=TRUE)][1])
-# #   tax.name(varname)
-# # }
-# #
-# #
-# #
-# # get.dominating.amount <- function(sdata,level) {
-# #   #returns vector of highest achieved relative abundances.
-# #   sdata.subset <- as.matrix(tax.subset(sdata,level))
-# #   sdata.subset <- prop.table(sdata.subset,1)
-# #   apply(sdata.subset,1,max)
-# # }
-# #
-# #
-# #
-# #
-# # tax.plot.old <- function(sdata,level,xvar="group",facet=NULL,cid=FALSE,return.df=FALSE) {
-# #   #plot taxons. x-axis is specified by xvar, which is group by default
-# #   #list of taxon variables to melt
-# #   if (cid) {
-# #     sdata.tax <- cid.reclassify(sdata)
-# #   } else {
-# #     sdata.tax <- group.minorities(sdata,level,
-# #                   max.percent.cutoff=0.03,total.percent.cutoff=0.03,max.number.taxons=15)
-# #   }
-# #   taxvars <- tax.subset(names(sdata.tax),level)
-# #   sdata.melt <- melt(sdata.tax,measure.vars=taxvars,variable_name="taxon")
-# #   #after melt, no need to keep track of zeros. not necessarily needed
-# #   sdata.melt <- subset(sdata.melt,value!=0)
-# #   #now remove tax/pct vars, no longer correct.
-# #   sdata.melt <- notax.subset(sdata.melt)
-# #   #convert to taxon name (tax__Enterococcus__6__0.1.15.1.2.3.2 -> Enterococcus)
-# #   sdata.melt$taxon <- tax.name(sdata.melt$taxon)
-# #   if (cid & level==6) {
-# #     sdata.melt$taxon <- factor(sdata.melt$taxon,levels=rev(names(cid.colors)))
-# #   }
-# #   #need to get rid of duplicate names. this will group by group+taxon and add up amts
-# #   #occurs mainly because of multiple "unclassified" categories.
-# #   sdata.melt.grouped <- ddply(sdata.melt,c("group","taxon"),function(x) data.frame(x[1,setdiff(names(x),"value")],value=sum(x$value)))
-# #   #grouped.list <- by(sdata.melt, list(sdata.melt$group,sdata.melt$taxon),
-# #                      #function(x) data.frame(x[1,c("group","taxon",xvar)],value=sum(x$value)))
-# #   #sdata.melt.grouped <- do.call(rbind,grouped.list)
-# #
-# #   if (return.df) {
-# #     return(sdata.melt.grouped)
-# #   } else {
-# #     g <- ggplot() +
-# #       geom_bar(data=sdata.melt.grouped,aes_string(x=xvar,y="value",fill="taxon",width=0.90),stat="identity",position="fill") +
-# #       scale_y_continuous(labels=percent) + ylab("Relative Abundance")
-# #     if (cid & level==6) {
-# #       g <- g + scale_fill_manual(values=cid.colors) + guides(fill=guide_legend(reverse=TRUE))
-# #     }
-# #     if (!is.null(facet)) {
-# #       g <- g + facet_grid(paste0(". ~ ",facet),scales="free_x",space="free_x")
-# #     }
-# #     return(g)
-# #   }
-# # }
-# #
-# #
-# #
-# #
-# # cid.reclassify <- function(sdata) {
-# #   sdata <- rename.taxon.to.parent("tax__Proteobacteria__2__",6,sdata)
-# #   sdata <- rename.taxon.to.parent("tax__Bacteroidetes__2__",6,sdata,
-# #                                   exceptions=names(cid.colors),parent.name="Other Bacteroidetes")
-# #   sdata <- rename.taxon.to.parent("tax__Firmicutes__2__",6,sdata,
-# #                                   exceptions=names(cid.colors),parent.name="Other Firmicutes")
-# #   sdata <- rename.taxon.to.parent("tax__Bacteria__1__",6,sdata,
-# #                                   exceptions=names(cid.colors),parent.name="Other Bacteria")
-# #   return(sdata)
-# # }
-# #
-# # tax.colors <- function(taxcolorfile="taxcolors.csv") {
-# #   c <- read.csv(taxcolorfile)
-# #   code <- rgb(c$red,c$green,c$blue,names=c$taxon,maxColorValue=255)
-# #   names(code) <- as.character(c$taxon)
-# #   return(code)
-# # }
-# #
-# # create.taxpalette <- function(sdata.tax,level) {
-# #   #returns manual color palette, given sdata's taxons
-# #   #list of things being graphed
-# #   taxvars <- tax.subset(names(sdata.tax),level)
-# #   taxnames <- unique(tax.name(taxvars))
-# #   #exceptions to coloring:
-# #   other.taxon <- c("Other_Bacteria"="#7b7b7b")
-# #   #now divide taxnames into color and exceptions to color.
-# #   taxnames.other <- grep(names(other.taxon),taxnames,value=TRUE)
-# #   taxnames <-grep(names(other.taxon),taxnames,value=TRUE,invert=TRUE)
-# #
-# #   #assign colors to regular taxons
-# #   #palette <- data.frame(taxon=taxnames,pal=brewer.pal(length(taxnames),"Spectral"))
-# #   palette <- data.frame(taxon=taxnames,pal=rainbow(length(taxnames)))
-# #
-# #   ##getparents
-# #   #parents <- sapply(taxvars,function(x) relative.taxnames(sdata,x,2))
-# #   #now reformat to vector with label
-# #   formatted.palette <- as.character(palette$pal)
-# #   names(formatted.palette) <- palette$taxon
-# #   #combine back with exception color.
-# #   palette.combined <- c(formatted.palette,other.taxon)
-# #   palette.combined
-# #   return(palette.combined)
-# # }
-# #
-# #
-# # read.tax.melt <- function(taxfile) {
-# #   #taxfile="total.tax.summary"
-# #   t0 <- read.delim(taxfile,check.names=FALSE,as.is=TRUE)
-# #   t0$taxon <- sub("[kpcofgs]__","",t0$taxon) #get rid of leading letter, if there
-# #   #get rid of NA column
-# #   t0 <- t0[,!sapply(t0,function(x) all(is.na(x)))]
-# #   measure.vars <- names(t0)[(which(names(t0)=="total")+1):length(names(t0))]
-# #   max.lvl <- max(t0$taxlevel)
-# #   t <- subset(t0,taxlevel==max.lvl)
-# #   get.rank <- function(rank,newlevel) {
-# #     #rank=t$rankID;newlevel=6
-# #     oldlevel <- get.level.rank(rank[1])
-# #     diff <- oldlevel - newlevel
-# #     if (oldlevel<=newlevel) {
-# #       return(rank)
-# #     } else {
-# #       pattern <- paste(c(rep("\\.[0-9]+",times=oldlevel-newlevel),"$"),collapse="")
-# #       return(sub(pattern,"",rank))
-# #     }
-# #   }
-# #   for (l in max.lvl:1) {
-# #     varname <- paste0("taxon.",l)
-# #     t[,varname] <- t0$taxon[match(get.rank(t$rankID,l),t0$rankID)]
-# #   }
-# #   t <- subset(t,select=c(-daughterlevels,-total))
-# #   t.melt <- melt(t,measure.vars=measure.vars)
-# #   t.melt$variable <- as.character(t.melt$variable)
-# #   names(t.melt)[names(t.melt)=="variable"] <- "group"
-# #   names(t.melt)[names(t.melt)=="value"] <- "numseqs"
-# #   t.melt <- ddply(t.melt,"group",function(x) {
-# #     x$pctseqs <- prop.table(x$numseqs)
-# #     return(x)
-# #   },.progress="text")
-# #   return(t.melt)
-# # }
-#
 #
 #
 #

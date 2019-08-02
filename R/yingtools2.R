@@ -118,38 +118,44 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-dt <- function(data,fontsize=10,maxrows=1000) {
+dt <- function(data,fontsize=10,maxchars=6,maxrows=1000) {
+  #data=pt.all %>% group_by(first_name) %>% select(race,first_name)
+  # data=pt.all %>% select(race,last_name)
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
-  grps <- groups(data)
-  #sort data by groups
+
+  # grps <- groups(data)
+  # #sort data by groups
   data$index_ <- data %>% group_indices()
-  data <- data %>% mutate(index_=factor(index_,levels=unique(index_))) %>% arrange(index_)
+  data <- data %>% ungroup() %>% mutate(index_=factor(index_,levels=unique(index_))) %>%
+    arrange(index_) %>% select(-index_,everything())
 
   n.groups <- n_distinct(data$index_)
-  indices <- 1:n.groups
+  indices <- levels(data$index_)
   pal <- c("white","seashell","aliceblue")
-  # n.colors <- 5
-  # pal <- c("light gray",brewer_pal("qual")(n.colors-1))
   clrs <- rep_len(pal,length.out=n.groups)
   clrs.rgb <- paste0("rgb(",apply(col2rgb(clrs),2,function(x) paste(x,collapse=",")),")")
   data %>%
     filter(row_number()<=maxrows) %>%
     DT::datatable(
+      # plugins="ellipsis",
       options=list(
         initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")),
+        # columnDefs = list(list(
+        #   targets = 1,
+        #   render = DT::JS("$.fn.dataTable.render.ellipsis( 6 )"))),
+        searchHighlight=TRUE,
         paging=FALSE
       )
     ) %>%
-    formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
-    formatStyle("index_",target="row",backgroundColor=styleEqual(indices,clrs.rgb))
+    DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
+    DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
 }
 
 
 
 
 
-#' Ying's Paste
 #'
 #' Similar to \code{paste} command, except that \code{NA}s are not converted to text.
 #' If all fields are \code{NA}, then return \code{NA} if collapse if specified.
@@ -463,7 +469,7 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
     rcode <- paste(x.cols,collapse=",\n")
     rcode <- paste0("data.frame(",rcode,")")
-  } else if (is.Date(x)) {
+  } else if (lubridate::is.Date(x)) {
     x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
     rcode <- paste0("as.Date(",x.char,")")
   } else if (lubridate::is.POSIXlt(x)) { #these need to come before list, since these are lists.
@@ -664,6 +670,25 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
 }
 
 
+#' Display sizes of objects in memory
+#'
+#' Use this to see what is occupying memory
+#' @param envir the environment to list objects. Default is \code{.GlobalEnv}
+#' @return a data frame showing objects and the object size, in Mb.
+#' @export
+ls.object.sizes <- function(envir=.GlobalEnv) {
+  objects <- ls(envir=envir)
+  dsize <- lapply(objects,function(objname) {
+    obj <- get(objname)
+    size <- object.size(obj)
+    bytes <- as.numeric(size)
+    mb <- format(size,units="Mb")
+    class <- class(obj)[1]
+    tibble(obj=objname,class,bytes,mb)
+  }) %>% bind_rows() %>% arrange(desc(bytes)) %>% select(-bytes)
+  return(dsize)
+}
+
 
 #' Pretty Numeric Format (Non-scientific)
 #'
@@ -719,10 +744,11 @@ pretty_scientific <- function(l,parse=TRUE) {
 #' @author Ying Taur
 #' @export
 log_epsilon_trans <- function(epsilon=0.001) {
+  requireNamespace("scales",quietly=TRUE)
   ep8 <- epsilon/8
   trans <- function(x) sign(x)*(log(abs(x)+epsilon/8)-log(epsilon/8))
   inv <- function(y) sign(y)*epsilon/8*(exp(abs(y))-1)
-  trans_new(paste0("log_epsilon-",format(epsilon)),trans,inv,
+  scales::trans_new(paste0("log_epsilon-",format(epsilon)),trans,inv,
             breaks=log_epsilon_trans_breaks(epsilon),
             format=pretty_number,
             domain=c(-Inf,Inf))
@@ -765,6 +791,7 @@ log_epsilon_trans_breaks <- function(epsilon) {
 #' @author Ying Taur
 #' @export
 logistic_trans <- function(value1,value2,pct.value1=0.1,pct.value2=0.9) {
+  requireNamespace("scales",quietly=TRUE)
   inner.range <- c(value1,value2)
   percentiles <- c(pct.value1,pct.value2)
   a <- (inner.range[1]*log(1/percentiles[2]-1)-inner.range[2]*log(1/percentiles[1]-1))/(inner.range[1]-inner.range[2])
@@ -777,7 +804,7 @@ logistic_trans <- function(value1,value2,pct.value1=0.1,pct.value2=0.9) {
     y[y>=1] <- 1-.Machine$double.eps
     (log(1/y-1)-a) / b
   }
-  trans_new("logistic",trans,inv,
+  scales::trans_new("logistic",trans,inv,
             breaks=logistic_trans_breaks(inner.range))
 }
 
@@ -803,7 +830,7 @@ logistic_trans_breaks <- function(inner.range) {
 #' Used for quick reference
 #' @export
 show_shapes <- function() {
-  d=data.frame(p=c(0:25,32:127))
+  d <- data.frame(p=c(0:25,32:127))
   ggplot() +
     scale_y_continuous(name="") +
     scale_x_continuous(name="") +
@@ -817,7 +844,7 @@ show_shapes <- function() {
 #' Used for quick reference
 #' @export
 show_linetypes <- function() {
-  d=data.frame(lt=c("blank", "solid", "dashed", "dotted", "dotdash", "longdash", "twodash", "1F", "F1", "4C88C488", "12345678"))
+  d <- data.frame(lt=c("blank", "solid", "dashed", "dotted", "dotdash", "longdash", "twodash", "1F", "F1", "4C88C488", "12345678"))
   ggplot() +
     scale_x_continuous(name="", limits=c(0,1), breaks=NULL) +
     scale_y_discrete(name="linetype") +
@@ -1138,10 +1165,11 @@ as.Date2 <- function(vec) {
 #' @examples
 #' @export
 make.datetime <- function(date,time) {
+  requireNamespace("lubridate",quietly=TRUE)
   if (all(is.na(date))) {
     return(as.POSIXct(date))
   }
-  if (!is.Date(date)) {
+  if (!lubridate::is.Date(date)) {
     stop("YTError: date is not a Date object!")
   }
   if (!is.character(time)) {
@@ -2532,14 +2560,22 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 #' @param indicator variable to group consecutive streaks
 #' @param ... other variables to group by. These will be applied prior to grouping by time streaks.
 #' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is \code{Inf}, i.e. no gap.
+#' @param na.skip whether to ignore \code{NA} values in the indicator. Default is \code{FALSE}, which will just break streaks and provide a warning if they are encountered.
 #' @param add Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.
 #' @return Returns \code{data}, but grouped by time streaks
 #' @author Ying Taur
 #' @export
-group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,add=FALSE) {
+group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALSE,add=FALSE) {
   time <- enquo(time)
   indicator <- enquo(indicator)
   group_vars <- quos(...)
+
+
+  ind <- pull(data,!!indicator)
+  if (any(is.na(ind))) {
+    warning("YTwarning: Found NA values in the indicator,", quo_name(indicator),". Streaks are broken whenever these are encountered.")
+  }
+
   data %>% group_by_time(!!time,!!time,!!!group_vars,gap=gap,add=add) %>%
     arrange(!!time) %>%
     mutate(index2_=(!!indicator)!=lag(!!indicator),

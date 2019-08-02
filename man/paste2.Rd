@@ -2,7 +2,8 @@
 % Please edit documentation in R/yingtools2.R
 \name{paste2}
 \alias{paste2}
-\title{Ying's Paste}
+\title{Similar to \code{paste} command, except that \code{NA}s are not converted to text.
+If all fields are \code{NA}, then return \code{NA} if collapse if specified.}
 \usage{
 paste2(..., sep = " ", collapse = NULL)
 }
@@ -17,10 +18,6 @@ paste2(..., sep = " ", collapse = NULL)
 A character vector of the concatenated values.
 }
 \description{
-Similar to \code{paste} command, except that \code{NA}s are not converted to text.
-If all fields are \code{NA}, then return \code{NA} if collapse if specified.
-}
-\details{
 This is useful when dealing with \code{NA} values. \code{paste} produces character \code{"NA"} values,
 of course I could just convert those to actual \code{NA} values afterwards. However, if I use \code{collapse} option,
 I can frequently get a lot of character combinations with \code{NA} in it, where it can be hard to remove.

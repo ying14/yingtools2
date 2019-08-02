@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.0.90
+Version: 0.0.0.92
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -9,21 +9,16 @@ Description: Useful R Functions by Ying
 License: GPL-2
 LazyData: TRUE
 Imports:
-    magrittr,
-    stringr,
     reshape2,
-    dplyr,
-    tidyr,
     ape,
-    ggplot2
-Suggests:
     data.table,
     ifultools,
-    tibble,
-    lubridate,
-    readxl,
     coxphf,
     logistf,
     DT,
+    lubridate,
+    readxl,
+    tidyverse
+Suggests:
     phyloseq
 RoxygenNote: 6.1.1
