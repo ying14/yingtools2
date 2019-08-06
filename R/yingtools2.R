@@ -111,6 +111,7 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' If data frame is grouped (i.e. \code{group_by} in dplyr), the rows will be sorted and shaded by group.
 #' @param data dataframe to be viewed.
 #' @param fontsize numeric controlling font size in the table, measured in px. Default is 12.
+#' @param maxchars max number of characters before adding an ellipsis \code{...}. Default is 250.
 #' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent DT from handling excessively large data frames. Default is 1000.
 #' @return A javascript-style datatable, which displays in the Rstudio viewer.
 #' @examples
@@ -118,18 +119,18 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-dt <- function(data,fontsize=10,maxchars=6,maxrows=1000) {
+dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
   #data=pt.all %>% group_by(first_name) %>% select(race,first_name)
   # data=pt.all %>% select(race,last_name)
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
-
   # grps <- groups(data)
   # #sort data by groups
+  n.cols <- ncol(data)
+  index_col <- n.cols+1
   data$index_ <- data %>% group_indices()
   data <- data %>% ungroup() %>% mutate(index_=factor(index_,levels=unique(index_))) %>%
     arrange(index_) %>% select(-index_,everything())
-
   n.groups <- n_distinct(data$index_)
   indices <- levels(data$index_)
   pal <- c("white","seashell","aliceblue")
@@ -138,12 +139,19 @@ dt <- function(data,fontsize=10,maxchars=6,maxrows=1000) {
   data %>%
     filter(row_number()<=maxrows) %>%
     DT::datatable(
-      # plugins="ellipsis",
+      plugins="ellipsis",
       options=list(
         initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")),
-        # columnDefs = list(list(
-        #   targets = 1,
-        #   render = DT::JS("$.fn.dataTable.render.ellipsis( 6 )"))),
+        columnDefs = list(
+          list(
+            targets = 1:n.cols,
+            render = DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," )")
+          ),
+          list(
+            targets = index_col,
+            visible = FALSE
+          )
+        ),
         searchHighlight=TRUE,
         paging=FALSE
       )
@@ -151,7 +159,6 @@ dt <- function(data,fontsize=10,maxchars=6,maxrows=1000) {
     DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
     DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
 }
-
 
 
 

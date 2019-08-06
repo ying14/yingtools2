@@ -4,12 +4,14 @@
 \alias{dt}
 \title{Ying's DT view}
 \usage{
-dt(data, fontsize = 10, maxchars = 6, maxrows = 1000)
+dt(data, fontsize = 10, maxchars = 250, maxrows = 1000)
 }
 \arguments{
 \item{data}{dataframe to be viewed.}
 
 \item{fontsize}{numeric controlling font size in the table, measured in px. Default is 12.}
+
+\item{maxchars}{max number of characters before adding an ellipsis \code{...}. Default is 250.}
 
 \item{maxrows}{numeric controlling max number of rows to display. The purpose is to prevent DT from handling excessively large data frames. Default is 1000.}
 }
