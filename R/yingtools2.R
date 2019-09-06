@@ -379,12 +379,13 @@ shades <- function(color,ncolor=3,variation=1) {
 #' @author Ying Taur
 #' @export
 copy.to.clipboard <- function(obj) {
-  if (Sys.info()["sysname"]=="Linux") {
+  sysname <- tolower(Sys.info()["sysname"])
+  if (sysname=="linux") {
     con <- pipe("xclip -selection clipboard -i", open="w")
     col.names <- !is.vector(obj)
     write.table(obj, con, sep="\t",quote=FALSE, row.names=FALSE, col.names=col.names)
     close(con)
-  } else if (Sys.info()["sysname"]=="Windows") { #windows
+  } else if (sysname=="windows") { #windows
     if (is.data.frame(obj)) {
       #obj=cod.summary
       if (any((grepl("\n",c(as.character(unlist(obj)),names(obj)),fixed=TRUE)))) {
@@ -402,6 +403,10 @@ copy.to.clipboard <- function(obj) {
     } else {
       writeClipboard(obj)
     }
+  } else if (sysname=="darwin") {
+    clip <- pipe("pbcopy", "w")
+    utils::write.table(data, file = clip, sep = "\t", row.names = FALSE)
+    close(clip)
   } else {
     stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
   }
@@ -627,7 +632,7 @@ fit <- function(x,width=100,copy.clipboard=TRUE) {
 #' @param copy.clipboard logical, if \code{TRUE}, will copy the SQL code to the Clipboard.
 #' @return Returns the SQL code.
 #' @examples
-#' values <- c("35171234",""35507574)
+#' values <- c("35171234","35507574")
 #' copy.as.sql(values)
 #' @author Ying Taur
 #' @export
@@ -765,7 +770,7 @@ log_epsilon_trans <- function(epsilon=0.001) {
 #' Breaks for Log Epsilon Tranformation
 #'
 #' This is used by scant_trans as default method for breaks. Will fill in logs of 10.
-#' @param epsilon
+#' @param epsilon scaling parameter used in \code{log_epsilon_trans}
 #' @return break function returning break values.
 #' @export
 log_epsilon_trans_breaks <- function(epsilon) {
@@ -859,7 +864,6 @@ show_linetypes <- function() {
     geom_segment(data=d, mapping=aes(x=0, xend=1, y=lt, yend=lt, linetype=lt))
 }
 
-
 #' Stack and line up ggplot objects in a column
 #'
 #' Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
@@ -869,7 +873,7 @@ show_linetypes <- function() {
 #' (2) alters widths of each component so that the plots will line up nicely
 #' (3) calls \code{grid.arrange(...,ncol=1)}
 #' If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
-#' @param ...
+#' @param ... ggplot objects to be stacked
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
 #' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.
 #' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
@@ -1069,9 +1073,7 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
 trim <- function(x,...) UseMethod("trim")
 #' @export
 trim.default <- function(string) {
-  #removes whitespaces from string.
   gsub("(^ +)|( +$)", "",string)
-  #str_trim(string)
 }
 #' @export
 trim.data.frame <- function(data,verbose=TRUE) {
@@ -1164,12 +1166,12 @@ as.Date2 <- function(vec) {
 
 
 
+
 #' Create Date-Time (POSIXct object)
 #'
 #' @param date Date object
 #' @param time character with time in it
 #' @return Returns POSIXct object with date and time combined.
-#' @examples
 #' @export
 make.datetime <- function(date,time) {
   requireNamespace("lubridate",quietly=TRUE)
@@ -1898,6 +1900,90 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 }
 
 
+#' Make a competing endpoint
+#'
+#' Combine endpoints together, into a combined competing survival endpoint. This is to be used in competing risk analysis, such as with the cmprsk package.
+#'
+#' Note, endpoints (primary and competing) can be specified either as a "varname" and "varname_day" pair, representing survival indicator and survival time,
+#' or a single column representing positive endpoints (\code{NA} or \code{Inf}) otherwise.
+#' @param data the data to be modified, containing the endpoints to be combined
+#' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")}
+#' @param primary the original survival endpoint, to be converted to a competing endpoint
+#' @param ... columns representing competing endpoints.
+#' @param censor optional variable representing censoring times. Default is to use a censor of \code{Inf} time.
+#' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.
+#' \code{newvar} is the numeric indicator of the endpoint,
+#' \code{newvar_day} is the survival time,
+#' \code{newvar_code} is a character showing the value definition,
+#' \code{newvar_info} shows the status of all endpoints, in order.
+#' You would primarily use \code{newvar} and \code{newvar_day} with packages such as \code{cmprsk} for competing risk analysis.
+#' @examples
+#' # create a combined endpoint
+#' cid.patients %>% make.competing.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
+#' @author Ying Taur
+#' @export
+make.competing.endpt <- function(data,newvar,primary,... ,censor=NULL) {
+  newvar <- enquo(newvar)
+  newvar_day <- paste0(quo_name(newvar),"_day")
+  newvar_code <- paste0(quo_name(newvar),"_code")
+  newvar_info <- paste0(quo_name(newvar),"_info")
+  primary <- enquo(primary)
+  censor <- enquo(censor)
+  competing.vars <- quos(...)
+
+  get.surv <- function(var) {
+    var <- enquo(var)
+    varday <- paste0(quo_name(var),"_day")
+    # varcode <- paste0(quo_name(var),"_code")
+    if (rlang::quo_is_null(var)) {
+      data <- data %>% mutate(.v=0,.vd=Inf)
+    } else if (has_name(data,varday)) {
+      data <- data %>% mutate(.v=as.numeric(!!var),.vd=as.numeric(!!sym(varday)))
+    } else {
+      data <- data %>% mutate(.v=as.numeric(!is.na(!!var)),.vd=ifelse(.v==1,!!var,Inf))
+    }
+    data2 <- data %>%
+      mutate(.var=quo_name(var),
+             .row=seq_along(.v),
+             .varvalue=paste0(.var,"=",.v)) %>%
+      select(.row,.v,.vd,.var,.varvalue)
+    if (all(data2$.v %in% c(0,1))) {
+      data2 <- data2 %>% mutate(.code=ifelse(.v==0,"censor",.var))
+    } else {
+      data2 <- data2 %>% mutate(.code=ifelse(.v==0,"censor",.varvalue))
+    }
+    return(data2)
+  }
+  varlist <- c(primary,competing.vars,censor)
+  survlist <- varlist %>%
+    lapply(function(var) {
+      get.surv(!!var)
+    })
+  # names(survlist) <- sapply(varlist,quo_name)
+  endpts <- survlist %>% bind_rows() %>%
+    mutate(.var=factor(.var,levels=sapply(varlist,quo_name)),
+           .factor=ifelse(.v==0 | (.v==1 & .var==quo_name(censor)),"censor",.code),
+           .factor=ifelse(.v==1 & .var==quo_name(primary),"primary",.code))
+  codelvls <- endpts %>% arrange(.v==0,.var) %>% filter(.factor!="censor" & .factor!="primary") %>%
+    pull(.factor) %>% unique()
+  codelvls <- c("censor","primary",codelvls)
+  recodes <- setNames(0:(length(codelvls)-1),codelvls)
+  endpts2 <- endpts %>% mutate(.number=recodes[.factor])
+  endpts3 <- endpts2 %>%
+    group_by(.row) %>%
+    arrange(.vd,.number) %>%
+    summarize(.final_vd=first(.vd),
+              .final_v=first(.number),
+              .final_code=first(.code),
+              .final_info=paste0(.varvalue,"[",.vd,"]",collapse=",")) %>%
+    ungroup()
+  newdata <- data %>%
+    mutate(!!newvar:=endpts3$.final_v,
+           !!newvar_day:=endpts3$.final_vd,
+           !!newvar_code:=endpts3$.final_code,
+           !!newvar_info:=endpts3$.final_info)
+  return(newdata)
+}
 
 
 
@@ -2276,7 +2362,7 @@ survival.frame.info <- function(t,sf,infotype) {
 #' @seealso \code{\link{xxxxx}}
 #' @author Ying Taur
 #' @export
-geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE,size=NULL,logrank=FALSE,logrank.xpos,logrank.ypos,logrank.fontsize=5) {
+geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE,size=NULL,logrank=FALSE,logrank.pos=NULL,logrank.fontsize=5) {
   if (is.null(xvar)) {
     data$one <- 1
     sf <- createSurvivalFrame(stcox(yvar,"one",starttime=starttime,data=data,as.survfit=TRUE))
@@ -2296,14 +2382,62 @@ geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE
     } else {
       g <- geom_step(data=sf,aes_string(x="time",y="surv"),size=size)
     }
+    g <- list(g,ylim(0,1))
   } else {
     if (is.null(size)) {
       g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar))
     } else {
       g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar),size=size)
     }
+    g <- list(g,ylim(0,1))
     if (logrank) {
-      g <- list(g,geom_logrank(yvar=yvar,xvar=xvar,data=data,starttime=starttime,x.pos=logrank.xpos,y.pos=logrank.ypos,logrank.fontsize=logrank.fontsize))
+      #function to find best x,y for text
+      find_best_spot <- function(plot) {
+        gb <- ggplot_build(plot)
+        xlim <- gb$layout$panel_params[[1]]$x.range
+        ylim <- gb$layout$panel_params[[1]]$y.range
+        xrange <- xlim[2]-xlim[1]
+        yrange <- ylim[2]-ylim[1]
+        xs <- seq(xlim[1],xlim[2],length.out=50)
+        ys <- seq(ylim[1],ylim[2],length.out=50)
+        d.data <- lapply(gb$data,function(data) {
+          d.pts <- tibble()
+          if (c("x","y") %allin% names(data)) {
+            newdata <- data %>% select(x=x,y=y)
+            d.pts <- d.pts %>% bind_rows(newdata)
+          }
+          if (c("xend","yend") %allin% names(data)) {
+            newdata <- data %>% select(x=x,y=y)
+            d.pts <- d.pts %>% bind_rows(newdata)
+          }
+          if (c("xmin","xmax","ymin","ymax") %allin% names(data)) {
+            newdata1 <- data %>% select(x=xmin,y=ymin)
+            newdata2 <- data %>% select(x=xmax,y=ymin)
+            newdata3 <- data %>% select(x=xmin,y=ymax)
+            newdata4 <- data %>% select(x=xmax,y=ymax)
+            d.pts <- d.pts %>% bind_rows(newdata1,newdata2,newdata3,newdata4)
+          }
+          return(d.pts)
+        }) %>% bind_rows() %>%
+          filter(between(x,xlim[1],xlim[2]),between(y,ylim[1],ylim[2]))
+        d.box1 <- tibble(x=xs) %>% crossing(y=ylim)
+        d.box2 <- tibble(y=ys) %>% crossing(x=xlim)
+        d <- bind_rows(d.box1,d.box2,d.data)
+        pts <- tibble(xx=xs) %>% crossing(yy=ys) %>%
+          crossing(d) %>%
+          mutate(dist=sqrt(abs((xx-x)/xrange)^2+abs((yy-y)/yrange)^2)) %>%
+          group_by(xx,yy) %>%
+          summarize(min.dist=min(dist)) %>%
+          ungroup() %>%
+          slice(which.max(min.dist))
+        return(tibble(x=pts$xx,y=pts$yy))
+      }
+      if (is.null(logrank.pos)) {
+        gg <- ggplot() + g
+        bestpos <- find_best_spot(gg)
+        logrank.pos <- c(bestpos$x,bestpos$y)
+      }
+      g <- list(g,geom_logrank(yvar=yvar,xvar=xvar,data=data,starttime=starttime,pos=logrank.pos,logrank.fontsize=logrank.fontsize))
     }
   }
   return(g)
@@ -2325,10 +2459,13 @@ geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE
 #' @seealso \code{\link{cdiff.method}}
 #' @author Ying Taur
 #' @export
-geom_logrank <- function(yvar,xvar,data,starttime="tstart",x.pos,y.pos,logrank.fontsize=5) {
+geom_logrank <- function(yvar,xvar,data,starttime="tstart",pos,logrank.fontsize=5) {
+  if (length(pos)!=2) {
+    stop("YTError: Logrank position should be a vector of size 2: c(x,y)")
+  }
   logrank <- stcox(yvar=yvar,yvar=xvar,data=data,starttime=starttime,logrank=TRUE)
   logrank <- paste0("Log-rank\nP = ",formatC(logrank,format="f",digits=3))
-  annotate("text",x=x.pos,y=y.pos,label=logrank,size=logrank.fontsize)
+  annotate("text",x=pos[1],y=pos[2],label=logrank,size=logrank.fontsize)
 }
 
 
@@ -2697,7 +2834,6 @@ cummax.Date <- function(x) {
   cu <- base::cummax(new.x)
   as.Date(cu,origin="1970-01-01")
 }
-
 
 
 

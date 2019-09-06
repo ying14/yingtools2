@@ -20,6 +20,7 @@ NULL
 
 
 
+
 #' Pipe operator
 #'
 #' @importFrom magrittr %>%

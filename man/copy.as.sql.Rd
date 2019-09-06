@@ -19,7 +19,7 @@ Returns the SQL code.
 Produces SQL code for a vector of values.
 }
 \examples{
-values <- c("35171234",""35507574)
+values <- c("35171234","35507574")
 copy.as.sql(values)
 }
 \author{

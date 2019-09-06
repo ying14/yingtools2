@@ -913,6 +913,7 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
 #' @export
 as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=TRUE, ...){
   #data=lefse.results;x=~Kingdom/Phylum/Class/Order/Family/Genus/Species  ;collapse.singles=FALSE; distinct.tree=TRUE; full.taxonomy.only=TRUE
+  requireNamespace("phytools",quietly=TRUE)
   err <- "Formula must be of the kind \"~A1/A2/.../An\"."
   if (length(x) != 2)
     stop(err)
@@ -962,7 +963,7 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
     return(t)
   }
   string <- paste("(", paste(f.rec(taxo.data), collapse = ","),");", sep = "")
-  phy <- read.newick(text = string) ## so that singles will be read without error
+  phy <- phytools::read.newick(text = string) ## so that singles will be read without error
   phy$edge.length <- rep(1,nrow(phy$edge))
   if (collapse.singles) {
     phy <- collapse.singles(phy)

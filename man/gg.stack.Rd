@@ -8,6 +8,8 @@ gg.stack(..., heights = NULL, adjust.themes = TRUE, gg.extras = NULL,
   gap = 0, margin = 5.5, units = "pt", newpage = TRUE)
 }
 \arguments{
+\item{...}{ggplot objects to be stacked}
+
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
 
 \item{adjust.themes}{logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.}

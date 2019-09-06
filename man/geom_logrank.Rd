@@ -4,7 +4,7 @@
 \alias{geom_logrank}
 \title{Generate label for Log-rank test results in ggplot2}
 \usage{
-geom_logrank(yvar, xvar, data, starttime = "tstart", x.pos, y.pos,
+geom_logrank(yvar, xvar, data, starttime = "tstart", pos,
   logrank.fontsize = 5)
 }
 \arguments{
