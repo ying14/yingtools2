@@ -257,7 +257,11 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
 phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
   # taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
   taxranks <- rlang::syms(taxranks)
-  otudt <- as(otu_table(phy),"matrix") %>% data.table()
+  if(otu_table(phy)@taxa_are_rows){
+    otudt <- as(otu_table(phy),"matrix") %>% data.table()
+  } else {
+    otudt <- as(otu_table(phy),"matrix") %>% t() %>% data.table()
+  }
   taxdt = as(tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table() %>% select(!!!taxranks)
   indices_ <- taxdt %>% group_indices(!!!taxranks)
   new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
