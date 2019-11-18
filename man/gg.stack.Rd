@@ -5,7 +5,8 @@
 \title{Stack and line up ggplot objects in a column}
 \usage{
 gg.stack(..., heights = NULL, adjust.themes = TRUE, gg.extras = NULL,
-  gap = 0, margin = 5.5, units = "pt", newpage = TRUE)
+  gap = 0, margin = 5.5, units = "pt", newpage = TRUE,
+  as.gtable = FALSE)
 }
 \arguments{
 \item{...}{ggplot objects to be stacked}
@@ -23,6 +24,8 @@ gg.stack(..., heights = NULL, adjust.themes = TRUE, gg.extras = NULL,
 \item{units}{specifies units used for gap and margin. Default is "pt"}
 
 \item{newpage}{logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)}
+
+\item{as.gtable}{logical, whether or not to return as a gtable object (i.e. don't execute \code{grid.draw}). Default is \code{FALSE}. Do this if you want to do more arranging afterwards.}
 }
 \value{
 plot of stacked ggplots

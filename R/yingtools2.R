@@ -881,9 +881,10 @@ show_linetypes <- function() {
 #' @param margin size of the margin around the plots. Default is 5.5.
 #' @param units specifies units used for gap and margin. Default is "pt"
 #' @param newpage logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)
+#' @param as.gtable logical, whether or not to return as a gtable object (i.e. don't execute \code{grid.draw}). Default is \code{FALSE}. Do this if you want to do more arranging afterwards.
 #' @return plot of stacked ggplots
 #' @export
-gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE) {
+gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
   # g1 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am) + geom_point()
   # g2 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am,space="free",scales="free") + geom_point()
   # grobs=list(g1,g2)
@@ -955,13 +956,17 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
     gr$heights[null.heights] <- gr$heights[null.heights] * (1/total.null.height) * ht
     return(gr)
   },grobs3,heights)
-
   args <- c(grobs4,list(size="max"))
   gtable.final <- do.call(gtable_rbind,args)
-  if (newpage) {
-    grid.newpage()
+
+  if (as.gtable) {
+    return(gtable.final)
+  } else {
+    if (newpage) {
+      grid.newpage()
+    }
+    grid.draw(gtable.final)
   }
-  grid.draw(gtable.final)
 }
 
 #' Age in years
@@ -1922,7 +1927,7 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' cid.patients %>% make.competing.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
 #' @author Ying Taur
 #' @export
-make.competing.endpt <- function(data,newvar,primary,... ,censor=NULL) {
+make.competing.endpt <- function(data,newvar,primary, ... ,censor=NULL) {
   newvar <- enquo(newvar)
   newvar_day <- paste0(quo_name(newvar),"_day")
   newvar_code <- paste0(quo_name(newvar),"_code")
@@ -1971,7 +1976,7 @@ make.competing.endpt <- function(data,newvar,primary,... ,censor=NULL) {
   endpts2 <- endpts %>% mutate(.number=recodes[.factor])
   endpts3 <- endpts2 %>%
     group_by(.row) %>%
-    arrange(.vd,.number) %>%
+    arrange(.vd,.number!=0,.number) %>%
     summarize(.final_vd=first(.vd),
               .final_v=first(.number),
               .final_code=first(.code),
@@ -1982,7 +1987,189 @@ make.competing.endpt <- function(data,newvar,primary,... ,censor=NULL) {
            !!newvar_day:=endpts3$.final_vd,
            !!newvar_code:=endpts3$.final_code,
            !!newvar_info:=endpts3$.final_info)
+
+  message("Competing endpoint variables created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=","))
+
   return(newdata)
+}
+
+
+#' Cox Proportional Hazards Regression (TAKE 2)
+#'
+#' STILL WRITING THIS
+#' @export
+cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=list(cens.model="cox",model="fg")) {
+
+  requireNamespace(c("coxphf","cmprsk","timereg","riskRegression"),quietly=TRUE)
+
+  yvar <- enquo(yvar)
+  starttime <- enquo(starttime)
+  xvars <- quos(...)
+  # yvar=sym("vre.bsi");xvars=syms("agebmt");starttime=sym(NULL)
+
+  yvarday <- quo_name(yvar) %>% paste0("_day") %>% sym()
+  is.td <- function(var) {
+    var <- enquo(var)
+    vardayname <- quo_name(var) %>% paste0("_day")
+    has_name(data,vardayname)
+  }
+  xvars.td <- xvars[sapply(xvars,is.td)]
+  if (length(xvars.td)>0) {
+    xvarsdays.td <- xvars.td %>% sapply(quo_name) %>% paste0("_day") %>% syms()
+  } else {
+    xvarsdays.td <- syms(NULL)
+  }
+  timevars <- c(yvarday,xvarsdays.td)
+  data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
+
+  if (rlang::quo_is_null(starttime)) {
+    # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
+    # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
+    mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
+    start <- min(mintime-1,0)
+    message("Setting start time as: ",start)
+    data <- data %>% mutate(.y=!!yvar,.tstart=start,.tstop=!!yvarday) %>%
+      mutate_at(vars(.tstart,.tstop,!!!timevars),function(x) x-start)
+  } else {
+    data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
+  }
+  splitline <- function(data,xvar) {
+    xvar <- enquo(xvar)
+    xvarday <- quo_name(xvar) %>% paste0("_day") %>% sym()
+    data.nochange <- data %>% filter(!!xvar==0|is.na(!!xvar))
+    data.split <- data %>% filter(!!xvar==1,.tstart<!!xvarday,!!xvarday<.tstop)
+    data.xafter <- data %>% filter(!!xvar==1,.tstop<=!!xvarday)
+    data.xbefore <- data %>% filter(!!xvar==1,!!xvarday<=.tstart)
+    data.nochange.new <- data.nochange
+    data.xbefore.new <- data.xbefore
+    data.xafter.new <- data.xafter %>% mutate(!!xvar:=0)
+    data.split.new1 <- data.split %>% mutate(.tstop=!!xvarday,!!xvar:=0,.y=0)
+    data.split.new2 <- data.split %>% mutate(.tstart=!!xvarday,!!xvar:=1)
+    newdata <- bind_rows(data.nochange.new,data.xbefore.new,data.xafter.new,data.split.new1,data.split.new2) %>%
+      select(-!!xvarday)
+    return(newdata)
+  }
+  data2 <- data
+  for (xvar in xvars.td) {
+    data2 <- data2 %>% splitline(!!xvar)
+  }
+  if (return.split.data) {
+    return(data2)
+  }
+  is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
+  has.timevarying <- length(xvars.td)>0 & nrow(data2)>nrow(data)
+  leftside <- "Surv(.tstart,.tstop,.y)"
+  rightside <- xvars %>% sapply(quo_name) %>% paste(collapse=" + ")
+  model <- paste(leftside,rightside,sep=" ~ ")
+  formula <- as.formula(model)
+
+  #result 1, regular cox
+  src <- tibble(xvar="<error>",method="coxph")
+  if (is.competing) {
+    src <- tibble(xvar="<competing>",method="coxph")
+  } else {
+    tryCatch({
+      results <- coxph(formula,data=data2)
+      sr <- summary(results)
+      src <- sr$conf.int %>% as.data.frame() %>% rownames_to_column("var") %>%
+        as_tibble() %>%
+        select(xvar=var,haz.ratio=`exp(coef)`,lower.ci=`lower .95`,upper.ci=`upper .95`) %>%
+        mutate(p.value=sr$coefficients[,"Pr(>|z|)"],method="coxph")
+    },error=function(e) {
+    })
+  }
+
+  #result 2
+  src2 <- tibble(xvar="<error>",method="coxphf.F")
+  if (is.competing) {
+    src2 <- tibble(xvar="<competing>",method="coxphf.F")
+  } else {
+    tryCatch({
+      results2 <- coxphf(formula,data=data2,firth=F)
+      sr2 <- summary(results2)
+      src2 <- tibble(xvar=names(sr2$coefficients),
+                     haz.ratio=exp(sr2$coefficients),
+                     lower.ci=sr2$ci.lower,
+                     upper.ci=sr2$ci.upper,
+                     p.value=sr2$prob,
+                     method="coxphf.F")
+
+    },error=function(e) {
+    })
+
+  }
+  #result 3
+  src3 <- tibble(xvar="<error>",method="xxx")
+  if (is.competing) {
+    src3 <- tibble(xvar="<competing>",method="coxphf.T")
+  } else {
+    tryCatch({
+      results3 <- coxphf(formula,data=data2,firth=T)
+      sr3 <- summary(results3)
+      src3 <- tibble(xvar=names(sr3$coefficients),
+                     haz.ratio=exp(sr3$coefficients),
+                     lower.ci=sr3$ci.lower,
+                     upper.ci=sr3$ci.upper,
+                     p.value=sr3$prob,
+                     method="coxphf.T")
+    },error=function(e) {
+    })
+  }
+
+  #result 4
+  src4 <- tibble(xvar="<error>",method="xxx")
+  if (has.timevarying) {
+    src4 <- tibble(xvar="<timevarying>",method="crr")
+  } else {
+    tryCatch({
+      cov <- paste0("~",rightside) %>% as.formula() %>% model.matrix(data=data2)
+      cov <- cov[,-1,drop=FALSE]
+      results4 <- data2 %>% with(crr(.tstop,.y,cov1=cov))
+      sr4 <- summary(results4)
+      src4 <- sr4$conf.int %>% as.data.frame() %>% rownames_to_column("var") %>%
+        as_tibble() %>%
+        select(xvar=var,haz.ratio=`exp(coef)`,lower.ci=`2.5%`,upper.ci=`97.5%`) %>%
+        mutate(p.value=sr4$coef[,"p-value"],method="crr")
+    },error=function(e) {
+    })
+
+  }
+
+  #results 5, Fine gray riskRegression
+  src5 <- tibble(xvar="<error>",method="xxx")
+  if (has.timevarying) {
+    src5 <- tibble(xvar="<timevarying>",method="riskRegression")
+  } else {
+    tryCatch({
+      leftside.b <- "Hist(.tstop, .y)"
+      rightside <- xvars %>% sapply(quo_name) %>% paste(collapse=" + ")
+      model <- paste(leftside.b,rightside,sep=" ~ ")
+      formula <- as.formula(model)
+      print(formula)
+      r5 <- FGR(formula,data=data2,cause=1)
+      sr5 <- summary(r5)
+      src5 <- cbind(sr5$coef,sr5$conf.int) %>% as.data.frame() %>% rownames_to_column("var") %>%
+        select(xvar=var,haz.ratio=`exp(coef)`,lower.ci=`2.5%`,upper.ci=`97.5%`,p.value=`p-value`) %>%
+        mutate(method="riskRegression")
+    },error=function(e) {
+    })
+
+
+  }
+
+  # #results6 timereg
+  # leftside.b <- "Event(.tstart, .tstop, .y)"
+  # rightside.b <- xvars %>% sapply(quo_name) %>% paste0("const(",.,")",collapse=" + ")
+  # model.b <- paste0(leftside.b," ~ ",rightside.b)
+  # args <- c(list(formula=as.formula(model.b),data=data2,cause=1),args5)
+  # results6 <- do.call(comp.risk,args)
+  # sr6 <- coef(results6) %>% as.data.frame() %>% rownames_to_column("var")
+  # src6 <- tibble(xvar=sr6$var,haz.ratio=exp(sr6$Coef.),lower.ci=exp(sr6$`lower2.5%`),upper.ci=exp(sr6$`upper97.5%`),p.value=sr6$`P-val`,method="timereg")
+
+  d <- bind_rows(src,src2,src3,src4,src5)
+  d
+  # list(coxph=results,coxphf.F=results2,coxphf.T=results3,
+  #      crr=results4,data=d)
 }
 
 

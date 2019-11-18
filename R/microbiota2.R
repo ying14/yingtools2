@@ -348,7 +348,59 @@ read.uparse.data <- function(dirpath,
 #' This reads in the file created by the YT python script, blastn.py
 #'
 #' Chooses one taxonomy from the hits, also listing runner-up taxonomy.
-#'
+#' qseqid: Query Seq-id
+#' qgi: Query GI
+#' qacc: Query accesion
+#' qaccver: Query accesion.version
+#' qlen: Query sequence length
+#' sseqid: Subject Seq-id
+#' sallseqid: All subject Seq-id(s), separated by a ';'
+#' sgi: Subject GI
+#' sallgi: All subject GIs
+#' sacc: Subject accession
+#' saccver: Subject accession.version
+#' sallacc: All subject accessions
+#' slen: Subject sequence length
+#' qstart: Start of alignment in query
+#' qend: End of alignment in query
+#' sstart: Start of alignment in subject
+#' send: End of alignment in subject
+#' qseq: Aligned part of query sequence
+#' sseq: Aligned part of subject sequence
+#' evalue: Expect value. Describes the number of hits one can "expect" to see by chance when searching a database of a particular size.
+#'   It decreases exponentially as the Score (S) of the match increases. Essentially, the E value describes the random background noise.
+#'   For example, an E value of 1 assigned to a hit can be interpreted as meaning that in a database of the current size one might
+#'   expect to see 1 match with a similar score simply by chance.
+#' bitscore: Bit score
+#' score: Raw score
+#' length: Alignment length
+#' pident: Percentage of identical matches
+#' nident: Number of identical matches
+#' mismatch: Number of mismatches
+#' positive: Number of positive-scoring matches
+#' gapopen: Number of gap openings
+#' gaps: Total number of gaps
+#' ppos: Percentage of positive-scoring matches
+#' frames: Query and subject frames separated by a '/'
+#' qframe: Query frame
+#' sframe: Subject frame
+#' btop: Blast traceback operations (BTOP)
+#' staxid: Subject Taxonomy ID
+#' ssciname: Subject Scientific Name
+#' scomname: Subject Common Name
+#' sblastname: Subject Blast Name
+#' sskingdom: Subject Super Kingdom
+#' staxids: unique Subject Taxonomy ID(s), separated by a ';' (in numerical order)
+#' sscinames: unique Subject Scientific Name(s), separated by a ';'
+#' scomnames: unique Subject Common Name(s), separated by a ';'
+#' sblastnames: unique Subject Blast Name(s), separated by a ';' (in alphabetical order)
+#' sskingdoms: unique Subject Super Kingdom(s), separated by a ';' (in alphabetical order)
+#' stitle: Subject Title
+#' salltitles: All Subject Title(s), separated by a '<>'
+#' sstrand: Subject Strand
+#' qcovs: Query Coverage Per Subject
+#' qcovhsp: Query Coverage Per HSP
+#' qcovus: Query Coverage Per Unique Subject (blastn only)
 #' @param tax Taxonomy data from blastn, either as the file or a data frame.
 #' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq tax_table object. If FALSE, returns data frame with all hits and associated data.
 #' @return Data from the blastn data file.
@@ -778,6 +830,8 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 #' lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")
 #' @author Ying Taur
 #' @export
+#'
+#'
 lefse <- function(phy,class,subclass=NA,subject=NA,
                   anova.alpha=0.05,wilcoxon.alpha=0.05,lda.cutoff=2.0,
                   wilcoxon.within.subclass=FALSE,one.against.one=FALSE,
@@ -788,6 +842,11 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
   #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
   #phy=ph.lefse;class="CDI";subclass="SampleType";subject="MRN";anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
+  pkgs <- c("splines","stats4","survival","mvtnorm","modeltools","coin","MASS")
+  missing.pkgs <- setdiff(pkgs,installed.packages()[,"Package"])
+  if (length(missing.pkgs)>0) {
+    warning("YTWarning: R packages are needed for the LEFSE scripts to work: ",paste(missing.pkgs,collapse=", "))
+  }
   keepvars <- c(class,subclass,subject,"sample")
   keepvars <- unique(keepvars[!is.na(keepvars)])
   samp <- get.samp(phy)[,keepvars]
