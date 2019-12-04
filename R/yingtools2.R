@@ -120,12 +120,12 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' @author Ying Taur
 #' @export
 dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
-  #data=pt.all %>% group_by(first_name) %>% select(race,first_name)
-  # data=pt.all %>% select(race,last_name)
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
-  # grps <- groups(data)
-  # #sort data by groups
+
+  if (nrow(data)==0) {
+    stop("YTError: data has zero rows.")
+  }
   n.cols <- ncol(data)
   index_col <- n.cols+1
   data$index_ <- data %>% group_indices()
