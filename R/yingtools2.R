@@ -367,6 +367,39 @@ shades <- function(color,ncolor=3,variation=1) {
   return(pal)
 }
 
+
+
+
+
+#' Run As Temp Script
+#'
+#' Use this to run code in a separate process. It saves an image of the environment and attempts to run the code in from the terminal (via Rscript command).
+#'
+#' I use this as a temporary measure if I come across code that doesn't execute well in my current environment for some reason.
+#' For example, in sometimes can't pull SQL data when running RStudio, for unclear reasons.
+#'
+#' @param expr the code to be executed
+#' @param env environment to be saved. Default is \code{parent.frame()}
+#' @examples
+#' @export
+run.as.tempscript <- function(expr,env=parent.frame()) {
+  cmd <- substitute(expr)
+  temp.rdata <- tempfile("YTfile_",fileext=".RData")
+  temp.script <- tempfile("YTfile_",fileext=".R")
+  message("running as tempscript: ",temp.script)
+  save(list=ls(all.names=TRUE,envir=env),file=temp.rdata,envir=env)
+  script <- c(paste0("load(\"",temp.rdata,"\")"),
+              paste0("eval(",paste(deparse(cmd),collapse="\n"),")"),
+              # "print(ls())",
+              paste0("save.image(\"",temp.rdata,"\")"))
+
+  writeLines(script,temp.script)
+  os.cmd <- paste("Rscript",temp.script)
+  system(os.cmd)
+  load(temp.rdata,env)
+}
+
+
 #' Copy to Clipboard
 #'
 #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
