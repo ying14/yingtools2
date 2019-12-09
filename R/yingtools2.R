@@ -26,7 +26,6 @@
   as.numeric(difftime(x,y,units="days"))
 }
 
-
 #' Left Join Replace
 #'
 #' Like left_join, but replaces column names in x with new columns from y.
@@ -373,26 +372,48 @@ shades <- function(color,ncolor=3,variation=1) {
 
 #' Run As Temp Script
 #'
-#' Use this to run code in a separate process. It saves an image of the environment and attempts to run the code in from the terminal (via Rscript command).
+#' Use this to run code separately from the terminal, as an instance of R that is separate from the current one.
+#' It saves an image of the environment (the variables needed to run the code),
+#' loads any necessary packages, and
+#' executes the code (runs Rscript of a temporary .R file), and loads results back into the current instance of R.
 #'
-#' I use this as a temporary measure if I come across code that doesn't execute well in my current environment for some reason.
-#' For example, in sometimes can't pull SQL data when running RStudio, for unclear reasons.
+#' I use this as a quick fix measure if I come across code that doesn't execute well in my current R environment for some reason.
+#' For example, for some reason I can't pull SQL data via RJDBC when running RStudio, for unclear reasons. So I execute the pull
+#' code within this function.
 #'
 #' @param expr the code to be executed
 #' @param env environment to be saved. Default is \code{parent.frame()}
 #' @examples
 #' @export
 run.as.tempscript <- function(expr,env=parent.frame()) {
+  # given code, list functions used
+  list.functions.used <- function (expr,code=NULL) {
+    if (is.null(code)) {
+      code <- deparse(substitute(expr))
+    }
+    tmp <- getParseData(parse(text=code,keep.source=TRUE))
+    nms <- tmp$text[which(tmp$token=="SYMBOL_FUNCTION_CALL")]
+    funs <- unique(nms)
+    pkg <- paste(as.vector(sapply(funs, find)))
+    tibble(pkg,funs) %>% mutate(pkg=sub("package:","",pkg)) %>%
+      filter(!(pkg %in% c(".GlobalEnv","base")))
+  }
   cmd <- substitute(expr)
+  vars.used <- all.names(cmd)
+  vars.all <- ls(all.names=TRUE,envir=env)
+  vars.to.save <- intersect(vars.used,vars.all)
+  funs <- list.functions.used(code=deparse(cmd)) %>%
+    filter(!c(funs %in% vars.to.save))
+  pkgs.needed <- unique(funs$pkg)
   temp.rdata <- tempfile("YTfile_",fileext=".RData")
   temp.script <- tempfile("YTfile_",fileext=".R")
   message("running as tempscript: ",temp.script)
-  save(list=ls(all.names=TRUE,envir=env),file=temp.rdata,envir=env)
-  script <- c(paste0("load(\"",temp.rdata,"\")"),
+  message("using packages: ",paste(pkgs.needed,collapse=","))
+  save(list=vars.to.save,file=temp.rdata,envir=env)
+  script <- c(paste0("suppressMessages(library(",pkgs.needed,"))"),
+              paste0("load(\"",temp.rdata,"\")"),
               paste0("eval(",paste(deparse(cmd),collapse="\n"),")"),
-              # "print(ls())",
               paste0("save.image(\"",temp.rdata,"\")"))
-
   writeLines(script,temp.script)
   os.cmd <- paste("Rscript",temp.script)
   system(os.cmd)
