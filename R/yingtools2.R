@@ -408,6 +408,7 @@ run.as.tempscript <- function(expr,env=parent.frame()) {
   temp.rdata <- tempfile("YTfile_",fileext=".RData")
   temp.script <- tempfile("YTfile_",fileext=".R")
   message("running as tempscript: ",temp.script)
+<<<<<<< HEAD
   if (length(pkgs.needed)>0) {
     message("using packages: ",paste(pkgs.needed,collapse=","))
     pkgs.load <- paste0("suppressMessages(library(",pkgs.needed,"))")
@@ -416,6 +417,11 @@ run.as.tempscript <- function(expr,env=parent.frame()) {
   }
   save(list=vars.to.save,file=temp.rdata,envir=env)
   script <- c(pkgs.load,
+=======
+  message("using packages: ",paste(pkgs.needed,collapse=","))
+  save(list=vars.to.save,file=temp.rdata,envir=env)
+  script <- c(paste0("suppressMessages(library(",pkgs.needed,"))"),
+>>>>>>> 1c4256d4535c3379ba7b1b27f644009dbada8431
               paste0("load(\"",temp.rdata,"\")"),
               paste0("eval(",paste(deparse(cmd),collapse="\n"),")"),
               paste0("save.image(\"",temp.rdata,"\")"))
