@@ -370,67 +370,6 @@ shades <- function(color,ncolor=3,variation=1) {
 
 
 
-#' Run As Temp Script
-#'
-#' Use this to run code separately from the terminal, as an instance of R that is separate from the current one.
-#' It saves an image of the environment (the variables needed to run the code),
-#' loads any necessary packages, and
-#' executes the code (runs Rscript of a temporary .R file), and loads results back into the current instance of R.
-#'
-#' I use this as a quick fix measure if I come across code that doesn't execute well in my current R environment for some reason.
-#' For example, for some reason I can't pull SQL data via RJDBC when running RStudio, for unclear reasons. So I execute the pull
-#' code within this function.
-#'
-#' @param expr the code to be executed
-#' @param env environment to be saved. Default is \code{parent.frame()}
-#' @examples
-#' @export
-run.as.tempscript <- function(expr) {
-  expr <- enquo(expr)
-  list.functions.used <- function (expr) {
-    expr <- enquo(expr)
-    code <- rlang::quo_text(expr)
-    tmp <- getParseData(parse(text=code,keep.source=TRUE))
-    nms <- tmp$text[which(tmp$token=="SYMBOL_FUNCTION_CALL")]
-    funs <- unique(nms)
-    pkg <- paste(as.vector(sapply(funs,find)))
-    tibble(pkg,funs) %>% mutate(pkg=sub("package:","",pkg)) %>% filter(!(pkg %in% c(".GlobalEnv","base"))) %>%
-      unnest(pkg)
-  }
-  vars.used <- rlang::eval_tidy(all.names(rlang::quo_get_expr(expr)))
-  env <- rlang::quo_get_env(expr)
-  vars.all <- ls(all.names=TRUE,envir=env)
-  vars.to.save <- intersect(vars.used,vars.all)
-  funs <- list.functions.used(!!expr) #%>% filter(!(funs %in% vars.to.save))
-  # parent.env <- parent.env(env)
-  # vars.parent <- ls(all.names=TRUE,envir=parent.env)
-  # var.parents.to.save <- intersect(vars.parent,vars.all)
-  pkgs.needed <- unique(funs$pkg)
-  temp.rdata <- tempfile("YTfile_",fileext=".RData")
-  # temp.parent.rdata <- tempfile("YTfile_parent_",fileext=".RData")
-  temp.script <- tempfile("YTfile_",fileext=".R")
-  message("running as tempscript: ",temp.script)
-  if (length(pkgs.needed)>0) {
-    message("using packages: ",paste(pkgs.needed,collapse=",")," (functions: ",paste(unique(funs$funs),collapse=", "),")")
-    pkgs.load <- paste0("suppressMessages(library(",pkgs.needed,"))")
-  } else {
-    pkgs.load <- NULL
-  }
-  save(list=vars.to.save,file=temp.rdata,envir=env)
-  # save(list=var.parents.to.save,file=temp.parent.rdata,envir=parent.env)
-  script <- c(pkgs.load,
-              # paste0("load(\"",temp.parent.rdata,"\")"),
-              paste0("load(\"",temp.rdata,"\")"),
-              paste0("eval(",paste(rlang::quo_text(expr),collapse="\n"),")"),
-              paste0("save.image(\"",temp.rdata,"\")"))
-  writeLines(script,temp.script)
-  os.cmd <- paste("Rscript",temp.script)
-  system(os.cmd)
-  load(temp.rdata,env)
-}
-
-
-
 #' Copy to Clipboard
 #'
 #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
