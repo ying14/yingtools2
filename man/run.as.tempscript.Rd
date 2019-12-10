@@ -4,7 +4,7 @@
 \alias{run.as.tempscript}
 \title{Run As Temp Script}
 \usage{
-run.as.tempscript(expr, env = parent.frame())
+run.as.tempscript(expr)
 }
 \arguments{
 \item{expr}{the code to be executed}

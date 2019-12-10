@@ -385,51 +385,50 @@ shades <- function(color,ncolor=3,variation=1) {
 #' @param env environment to be saved. Default is \code{parent.frame()}
 #' @examples
 #' @export
-run.as.tempscript <- function(expr,env=parent.frame()) {
-  # given code, list functions used
-  list.functions.used <- function (expr,code=NULL) {
-    if (is.null(code)) {
-      code <- deparse(substitute(expr))
-    }
+run.as.tempscript <- function(expr) {
+  expr <- enquo(expr)
+  list.functions.used <- function (expr) {
+    expr <- enquo(expr)
+    code <- rlang::quo_text(expr)
     tmp <- getParseData(parse(text=code,keep.source=TRUE))
     nms <- tmp$text[which(tmp$token=="SYMBOL_FUNCTION_CALL")]
     funs <- unique(nms)
-    pkg <- paste(as.vector(sapply(funs, find)))
-    tibble(pkg,funs) %>% mutate(pkg=sub("package:","",pkg)) %>%
-      filter(!(pkg %in% c(".GlobalEnv","base")))
+    pkg <- paste(as.vector(sapply(funs,find)))
+    tibble(pkg,funs) %>% mutate(pkg=sub("package:","",pkg)) %>% filter(!(pkg %in% c(".GlobalEnv","base"))) %>%
+      unnest(pkg)
   }
-  cmd <- substitute(expr)
-  vars.used <- all.names(cmd)
+  vars.used <- rlang::eval_tidy(all.names(rlang::quo_get_expr(expr)))
+  env <- rlang::quo_get_env(expr)
   vars.all <- ls(all.names=TRUE,envir=env)
   vars.to.save <- intersect(vars.used,vars.all)
-  funs <- list.functions.used(code=deparse(cmd)) %>%
-    filter(!c(funs %in% vars.to.save))
+  funs <- list.functions.used(!!expr) #%>% filter(!(funs %in% vars.to.save))
+  # parent.env <- parent.env(env)
+  # vars.parent <- ls(all.names=TRUE,envir=parent.env)
+  # var.parents.to.save <- intersect(vars.parent,vars.all)
   pkgs.needed <- unique(funs$pkg)
   temp.rdata <- tempfile("YTfile_",fileext=".RData")
+  # temp.parent.rdata <- tempfile("YTfile_parent_",fileext=".RData")
   temp.script <- tempfile("YTfile_",fileext=".R")
   message("running as tempscript: ",temp.script)
-<<<<<<< HEAD
   if (length(pkgs.needed)>0) {
-    message("using packages: ",paste(pkgs.needed,collapse=","))
+    message("using packages: ",paste(pkgs.needed,collapse=",")," (functions: ",paste(unique(funs$funs),collapse=", "),")")
     pkgs.load <- paste0("suppressMessages(library(",pkgs.needed,"))")
   } else {
     pkgs.load <- NULL
   }
   save(list=vars.to.save,file=temp.rdata,envir=env)
+  # save(list=var.parents.to.save,file=temp.parent.rdata,envir=parent.env)
   script <- c(pkgs.load,
-=======
-  message("using packages: ",paste(pkgs.needed,collapse=","))
-  save(list=vars.to.save,file=temp.rdata,envir=env)
-  script <- c(paste0("suppressMessages(library(",pkgs.needed,"))"),
->>>>>>> 1c4256d4535c3379ba7b1b27f644009dbada8431
+              # paste0("load(\"",temp.parent.rdata,"\")"),
               paste0("load(\"",temp.rdata,"\")"),
-              paste0("eval(",paste(deparse(cmd),collapse="\n"),")"),
+              paste0("eval(",paste(rlang::quo_text(expr),collapse="\n"),")"),
               paste0("save.image(\"",temp.rdata,"\")"))
   writeLines(script,temp.script)
   os.cmd <- paste("Rscript",temp.script)
   system(os.cmd)
   load(temp.rdata,env)
 }
+
 
 
 #' Copy to Clipboard
