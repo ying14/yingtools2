@@ -77,13 +77,12 @@ read.otu.table <- function(otu.file,row.names="OTUId") {
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
   requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
-
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
-    sdata <- data.frame(sample=sample_names(phy),stringsAsFactors=FALSE)
+    sdata <- tibble(sample=sample_names(phy1))
   } else {
     if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
-    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("sample")
+    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("sample") %>% as_tibble()
   }
   if (stats) {
     dup.names <- intersect(c("nseqs",measures),names(sdata))
@@ -92,7 +91,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
       warning("YTWarning: Following variables are duplicated. Deleting old values from phyloseq: ",paste(dup.names,collapse=", "))
     }
     sdata$nseqs <- phyloseq::sample_sums(phy)
-    sdata <- cbind(sdata,estimate_richness(phy,measures=measures))
+    sdata <- cbind(sdata,estimate_richness(phy,measures=measures)) %>% as_tibble()
   }
   return(sdata)
 }
@@ -120,8 +119,9 @@ set.samp <- function(sdata) {
 #' @export
 get.tax <- function(phy) {
   requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
-  phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
+  phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu") %>% as_tibble()
 }
+
 
 #' Convert data frame to phyloseq tax_table
 #'
@@ -149,10 +149,10 @@ set.tax <- function(tdata) {
 get.otu <- function(phy,as.matrix=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
   otu <- phy %>% phyloseq::otu_table(taxa_are_rows=TRUE) %>% as.matrix()
-  if(as.matrix) {
+  if (as.matrix) {
     return(otu)
   }
-  otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu")
+  otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu") %>% as_tibble()
   return(otu.df)
 }
 
@@ -184,7 +184,7 @@ set.otu <- function(odata) {
 #' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
 #' @return Data frame melted OTU data
 #' @export
-get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
+get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   # supports "naked" otu_table as `phy` input.
   otutab = as(phyloseq::otu_table(phy), "matrix")
@@ -234,8 +234,7 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
     setkey(mdt, "sample")
     mdt <- sampledt[mdt]
   }
-  return(tbl_df(mdt))
-  # return(mdt)
+  return(as_tibble(mdt))
 }
 
 
@@ -255,7 +254,7 @@ get.otu.melt = function(phy,filter.zero=TRUE,sample_data=TRUE) {
 #' @return A phyloseq object with OTUs collapsed.
 #' @export
 phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
-  # taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   taxranks <- rlang::syms(taxranks)
   otudt <- as(otu_table(phy),"matrix") %>% data.table()
   taxdt = as(tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table() %>% select(!!!taxranks)
