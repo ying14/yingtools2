@@ -234,7 +234,8 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
     setkey(mdt, "sample")
     mdt <- sampledt[mdt]
   }
-  return(as_tibble(mdt))
+  mdt <- mdt %>% as_tibble() %>% select(sample,otu,everything())
+  return(mdt)
 }
 
 
