@@ -14,21 +14,9 @@ survival.frame.atrisk.table(t.breaks, sf, minus.epsilon.last.t = TRUE,
 
 \item{minus.epsilon.last.t}{means we substract a small amt from last timepoint, because otherwise it's all NA.}
 }
-\value{
-...description.of.data.returned...
-}
 \description{
 At-Risk Table from Survival Data Frame
-}
-\examples{
-...examples.here....
-}
-\seealso{
-\code{\link{cdiff.method}}
 }
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

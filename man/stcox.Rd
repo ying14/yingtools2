@@ -38,9 +38,6 @@ Analyzes survival data by Cox regression.
 \details{
 Convenience function for survival analysis. Typically uses the \code{coxphf} function.
 }
-\examples{
-...examples.here....
-}
 \seealso{
 \code{\link{cdiff.method}}
 }

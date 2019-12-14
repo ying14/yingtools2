@@ -19,15 +19,6 @@ info needed from survival frame
 \description{
 Given survival.frame, and time, provide info in the survivalframe.
 }
-\examples{
-...examples.here....
-}
-\seealso{
-\code{\link{cdiff.method}}
-}
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

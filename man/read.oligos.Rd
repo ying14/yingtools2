@@ -17,12 +17,6 @@ Returns a data frame containing oligo information
 \description{
 Reads in oligos file, listing pertinent information
 }
-\examples{
-...examples.here....
-}
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

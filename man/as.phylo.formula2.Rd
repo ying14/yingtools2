@@ -32,8 +32,9 @@ which can only read Newick trees without singleton branches. This uses read.newi
 }
 \examples{
 #levels are not same level.
+library(ape)
 data(carnivora)
-t1 <- ape::as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
+t1 <- as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
 par(lend=2)
 plot(t1,edge.width=2,cex=0.6,no.margin=TRUE)
 #this is correct.

@@ -8,7 +8,7 @@ lefse(phy, class, subclass = NA, subject = NA, anova.alpha = 0.05,
   wilcoxon.alpha = 0.05, lda.cutoff = 2,
   wilcoxon.within.subclass = FALSE, one.against.one = FALSE,
   mult.test.correction = 0, make.lefse.plots = FALSE,
-  by_otus = FALSE, levels = rank_names(phy))
+  by_otus = FALSE, levels = phyloseq::rank_names(phy))
 }
 \arguments{
 \item{phy}{the phyloseq object containing data}

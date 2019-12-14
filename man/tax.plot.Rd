@@ -24,9 +24,6 @@ either ggplot2 object, or data frame.
 \description{
 Plot tax
 }
-\examples{
-...examples.here....
-}
 \author{
 Ying Taur
 }

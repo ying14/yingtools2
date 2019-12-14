@@ -17,9 +17,6 @@ a color palette that can be used in \code{ggplot2}
 \description{
 Get YT Palette
 }
-\examples{
-...examples.here....
-}
 \author{
 Ying Taur
 }

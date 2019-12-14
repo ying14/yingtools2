@@ -21,9 +21,6 @@ MRN's must characters with 8 digits, where the first is either "0" or "3".
 Note that many numeric vectors \emph{could} be an MRN. Will issue a warning if the variable
 passes the tests but is not necessarily an MRN variable.
 }
-\examples{
-asdf
-}
 \author{
 Ying Taur
 }

@@ -36,10 +36,8 @@ Use this to make Kaplan-Meier curves in ggplot2. Utilizes the \code{geom_step} f
 \code{yingtools::stcox} function is used to generate data from a survival frame.
 }
 \examples{
-ggplot() + geom_kaplanmeier("dead","Intensity",data)
-}
-\seealso{
-\code{\link{xxxxx}}
+library(ggplot2)
+ggplot() + geom_kaplanmeier("dead","intensity",data=cid.patients)
 }
 \author{
 Ying Taur

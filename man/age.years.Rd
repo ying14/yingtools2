@@ -22,7 +22,7 @@ Some people calculate age by taking age in days and dividing by 365.25. That app
 because of leap years. That's weak!
 }
 \examples{
-year(as.Date("1975-02-21"))
+age.years(as.Date("1975-02-21"),Sys.Date())
 }
 \author{
 Ying Taur

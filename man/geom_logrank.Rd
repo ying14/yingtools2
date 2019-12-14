@@ -7,29 +7,9 @@
 geom_logrank(yvar, xvar, data, starttime = "tstart", pos,
   logrank.fontsize = 5)
 }
-\arguments{
-\item{.param1.}{...param1.description...}
-
-\item{.param2.}{...param2.description...}
-}
-\value{
-...description.of.data.returned...
-}
 \description{
 Adds the p-value for a log-rank test to a ggplot2 graph.
-}
-\details{
-...details...
-}
-\examples{
-...examples.here....
-}
-\seealso{
-\code{\link{cdiff.method}}
 }
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

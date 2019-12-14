@@ -55,7 +55,7 @@ read.tree.uparse <- function(tree.file) {
 #' @export
 read.otu.table <- function(otu.file,row.names="OTUId") {
   otu <- read.delim(otu.file,header=TRUE,check.names=FALSE,row.names=row.names) %>%
-    tibble::rownames_to_column("otu")
+    rownames_to_column("otu")
   return(otu)
 }
 
@@ -76,13 +76,13 @@ read.otu.table <- function(otu.file,row.names="OTUId") {
 #' @return Data frame containing \code{sample_data} data.
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
-  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
+  requireNamespace("phyloseq",quietly=TRUE)
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
     sdata <- tibble(sample=sample_names(phy1))
   } else {
     if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
-    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("sample") %>% as_tibble()
+    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
   }
   if (stats) {
     dup.names <- intersect(c("nseqs",measures),names(sdata))
@@ -104,8 +104,8 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @return formatted sample_data.
 #' @export
 set.samp <- function(sdata) {
-  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
-  ss <- sdata %>% tibble::column_to_rownames("sample") %>%
+  requireNamespace(c("phyloseq"),quietly=TRUE)
+  ss <- sdata %>% column_to_rownames("sample") %>%
     data.frame(stringsAsFactors=FALSE) %>% phyloseq::sample_data()
   return(ss)
 }
@@ -118,8 +118,8 @@ set.samp <- function(sdata) {
 #' @return Dataframe containing tax data
 #' @export
 get.tax <- function(phy) {
-  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
-  phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu") %>% as_tibble()
+  requireNamespace(c("phyloseq"),quietly=TRUE)
+  phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
 }
 
 
@@ -130,8 +130,8 @@ get.tax <- function(phy) {
 #' @return formatted tax_table.
 #' @export
 set.tax <- function(tdata) {
-  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
-  tt <- tdata %>% tibble::column_to_rownames("otu") %>%
+  requireNamespace(c("phyloseq"),quietly=TRUE)
+  tt <- tdata %>% column_to_rownames("otu") %>%
     as.matrix() %>% phyloseq::tax_table()
   return(tt)
 }
@@ -152,7 +152,7 @@ get.otu <- function(phy,as.matrix=FALSE) {
   if (as.matrix) {
     return(otu)
   }
-  otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% tibble::rownames_to_column("otu") %>% as_tibble()
+  otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
   return(otu.df)
 }
 
@@ -164,9 +164,9 @@ get.otu <- function(phy,as.matrix=FALSE) {
 #' @return formatted tax_table.
 #' @export
 set.otu <- function(odata) {
-  requireNamespace(c("phyloseq","tibble"),quietly=TRUE)
+  requireNamespace("phyloseq",quietly=TRUE)
   if (is.data.frame(odata) & ("otu" %in% colnames(odata))) {
-    odata <- odata %>% tibble::column_to_rownames("otu") %>% as.matrix()
+    odata <- odata %>% column_to_rownames("otu") %>% as.matrix()
   }
   odata %>% phyloseq::otu_table(taxa_are_rows=TRUE)
 }
@@ -191,7 +191,7 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   if (!phyloseq::taxa_are_rows(phy)) {
     otutab <- t(otutab)
   }
-  otudt = data.table(otutab, keep.rownames = TRUE)
+  otudt = data.table::data.table(otutab, keep.rownames = TRUE)
   data.table::setnames(otudt, "rn", "otu")
   # Enforce character otu key
   # note that .datatable.aware = TRUE needs to be set for this to work well.
@@ -208,7 +208,7 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   }
   # Calculate relative abundance
   mdt[, pctseqs := numseqs / sum(numseqs), by = sample]
-  if(!is.null(tax_table(phy, errorIfNULL=FALSE))) {
+  if(!is.null(phyloseq::tax_table(phy, errorIfNULL=FALSE))) {
     # If there is a tax_table, join with it. Otherwise, skip this join.
     taxdt = data.table(as(tax_table(phy, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
     setnames(taxdt, "rn", "otu")
@@ -257,12 +257,12 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   taxranks <- rlang::syms(taxranks)
-  otudt <- as(otu_table(phy),"matrix") %>% data.table()
-  taxdt = as(tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table() %>% select(!!!taxranks)
+  otudt <- as(otu_table(phy),"matrix") %>% data.table::data.table()
+  taxdt = as(tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% select(!!!taxranks)
   indices_ <- taxdt %>% group_indices(!!!taxranks)
   new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
   new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
-  otu.names <- data.table(otu=taxa_names(phy))
+  otu.names <- data.table::data.table(otu=taxa_names(phy))
   otu.names <- otu.names[,lapply(.SD,function(x) {
     # x <- x[order(as.numeric(str_extract(x,"[0-9]+")))]
     if (short_taxa_names) {
@@ -271,7 +271,7 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
       paste(x,collapse="|")
     }
   }),by=indices_] %>% pull(otu)
-  otu.rep <- data.table(otu=taxa_names(phy))
+  otu.rep <- data.table::data.table(otu=taxa_names(phy))
   otu.rep <- otu.rep[,lapply(.SD,function(x) {
     rep <- x[which.min(as.numeric(str_extract(x,"[0-9]+")))]
     rep
@@ -280,20 +280,20 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
   new.taxdt <- new.taxdt[,"indices_":=NULL] %>% as.matrix()
   row.names(new.otudt) <- otu.names
   row.names(new.taxdt) <- otu.names
-  new.otu <- new.otudt %>% otu_table(taxa_are_rows=TRUE)
-  new.tax <- new.taxdt %>% tax_table()
-  samp <- sample_data(phy,errorIfNULL=FALSE)
-  tree <- phy_tree(phy,errorIfNULL=FALSE)
+  new.otu <- new.otudt %>% phyloseq::otu_table(taxa_are_rows=TRUE)
+  new.tax <- new.taxdt %>% phyloseq::tax_table()
+  samp <- phyloseq::sample_data(phy,errorIfNULL=FALSE)
+  tree <- phyloseq::phy_tree(phy,errorIfNULL=FALSE)
   if (!is.null(tree)) {
-    tree <- prune_taxa(otu.rep,tree)
+    tree <- phyloseq::prune_taxa(otu.rep,tree)
     taxa_names(tree) <- unname(setNames(otu.names,otu.rep)[taxa_names(tree)])
   }
-  seqs <- refseq(phy,errorIfNULL=FALSE)
+  seqs <- phyloseq::refseq(phy,errorIfNULL=FALSE)
   if (!is.null(seqs)) {
-    seqs <- prune_taxa(otu.rep,seqs)
+    seqs <- phyloseq::prune_taxa(otu.rep,seqs)
     taxa_names(seqs) <- unname(setNames(otu.names,otu.rep)[taxa_names(seqs)])
   }
-  new.phy <- merge_phyloseq(new.otu,new.tax,samp,tree,seqs)
+  new.phy <- phyloseq::merge_phyloseq(new.otu,new.tax,samp,tree,seqs)
   return(new.phy)
 }
 
@@ -467,8 +467,6 @@ read.mothur.taxfile <- function(tax.file) {
 #' @param remove.commented logical indicating whether or not to remove commented lines (default TRUE)
 #' @return Returns a data frame containing oligo information
 #' @examples
-#' ...examples.here....
-#' @keywords keyword1 keyword2 ...
 #' @author Ying Taur
 #' @export
 read.oligos <- function(oligo.file,remove.commented=TRUE) {
@@ -536,8 +534,6 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
 #' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
 #' @return Returns a data frame containing oligo information
 #' @examples
-#' ...examples.here....
-#' @keywords keyword1 keyword2 ...
 #' @author Ying Taur
 #' @export
 geom_hilight <- function(mapping = NULL, data = NULL,
@@ -643,7 +639,6 @@ fan.angle <- function(angle,hjust=FALSE,right=FALSE) {
 #' @param use.cid.colors whether to use classic CID colors
 #' @return a color palette that can be used in \code{ggplot2}
 #' @examples
-#' ...examples.here....
 #' @author Ying Taur
 #' @export
 get.yt.palette <- function(tax,use.cid.colors=TRUE) {
@@ -691,7 +686,6 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
 #' @param use.cid.colors whether to use classic CID colors
 #' @return a color palette that can be used in \code{ggplot2}
 #' @examples
-#' ...examples.here....
 #' @author Ying Taur
 #' @export
 get.yt.palette2 <- function (tax) {
@@ -733,7 +727,6 @@ get.yt.palette2 <- function (tax) {
 #' @param cid.colors whether to use conventional cid colors.
 #' @return either ggplot2 object, or data frame.
 #' @examples
-#' ...examples.here....
 #' @author Ying Taur
 #' @export
 tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
@@ -778,8 +771,6 @@ tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.col
 #' @param prefix character, an optional prefix text for PCA variable names. E.g. if \code{"unifrac"} is used, \code{"PCA1"} becomes \code{"unifrac.PCA1"}.
 #' @return Returns a \code{ggplot2} graph of PCA1 and PCA2.
 #' @examples
-#' xxx
-#' @keywords keyword1 keyword2 ...
 #' @author Ying Taur
 #' @export
 pca.plot <- function(dist,data=FALSE,prefix=NA) {
@@ -837,10 +828,7 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
                   wilcoxon.within.subclass=FALSE,one.against.one=FALSE,
                   mult.test.correction=0,
                   make.lefse.plots=FALSE,by_otus=FALSE,
-                  levels=rank_names(phy)) {
-  #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
-  #phy=ph.lefse;class="CDI";subclass=NA;subject=NA;anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
-  #phy=ph.lefse;class="CDI";subclass="SampleType";subject="MRN";anova.alpha=0.05;wilcoxon.alpha=0.05;lda.cutoff=2.0;wilcoxon.within.subclass=FALSE;one.against.one=FALSE;levels=rank_names(phy)
+                  levels=phyloseq::rank_names(phy)) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   pkgs <- c("splines","stats4","survival","mvtnorm","modeltools","coin","MASS")
   missing.pkgs <- setdiff(pkgs,installed.packages()[,"Package"])
@@ -850,10 +838,7 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
   keepvars <- c(class,subclass,subject,"sample")
   keepvars <- unique(keepvars[!is.na(keepvars)])
   samp <- get.samp(phy)[,keepvars]
-  # note that lefse taxa names cannot have spaces, will replace ; and = with _
-  # gsub("[;=]","_",xx$otu)
   if (by_otus) { #perform by otu only
-
     otu <- get.otu.melt(phy,sample_data=FALSE)
     otu.levels <- otu %>% mutate(taxon=otu) %>%
       group_by(sample,taxon) %>% summarize(pctseqs=sum(pctseqs)) %>%
@@ -872,7 +857,6 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
     otu.levels <- bind_rows(otu.list) %>%
       mutate(taxon=gsub(" ","_",taxon))
   }
-
   otu.tbl <- otu.levels %>%
     dcast(sample~taxon,value.var="pctseqs",fill=0) %>%
     left_join(samp,by="sample") %>%
@@ -895,7 +879,6 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
   #   (subclasses with low cardinalities will be grouped
   #   together, if the cardinality is still low, no pairwise
   #   comparison will be performed with them)
-
   lefse.command <- paste("run_lefse.py lefse.in lefse.res",
                          "-a",anova.alpha,
                          "-w",wilcoxon.alpha,
@@ -960,8 +943,9 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
 #' @return An object of class phylo.
 #' @examples
 #' #levels are not same level.
+#' library(ape)
 #' data(carnivora)
-#' t1 <- ape::as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
+#' t1 <- as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
 #' par(lend=2)
 #' plot(t1,edge.width=2,cex=0.6,no.margin=TRUE)
 #' #this is correct.
@@ -1033,547 +1017,3 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
 
 
 
-
-#' #' Convert Phyloseq to Melted OTU x Sample Data (OLD)
-#' #'
-#' #' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
-#' #'
-#' #' Essentially gives back the OTU table, in melted form, such that each row represents a certain OTU for a certain sample.
-#' #' Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
-#' #' Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
-#' #'
-#' #' @param phy phyloseq object containing sample data
-#' #' @param filter.zero Logical, whether or not to remove zero abundances. Default \code{TRUE}.
-#' #' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
-#' #' @return Data frame melted OTU data
-#' #' @export
-#' get.otu.melt.old <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
-#'   #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
-#'   otu0 <- otu_table(phy) %>% as.matrix() %>% reshape2::melt(varnames=c("otu","sample"),value.name="numseqs") %>%
-#'     dplyr::as_data_frame() %>% mutate(otu=as.character(otu),sample=as.character(sample))
-#'   tax0 <- get.tax(phy)
-#'   tax0.match <- dplyr::select(tax0,-otu)[match(otu0$otu,tax0$otu),]
-#'   otu <- cbind(otu0,tax0.match) %>%
-#'     group_by(sample) %>% mutate(pctseqs=prop.table(numseqs)) %>% ungroup() %>% dplyr::tbl_df()
-#'   if (filter.zero) {
-#'     otu <- otu %>% filter(numseqs>0)
-#'   }
-#'   #add sample data
-#'   if (sample_data & !is.null(phyloseq::sample_data(phy,FALSE))) {
-#'     samp0 <- get.samp(phy,stats=FALSE)
-#'     otu <- otu %>% dplyr::left_join(samp0,by="sample")
-#'   }
-#'   return(otu)
-#' }
-
-# #' Simpson's diversity
-# #' @export
-# simpson.diversity <- function(pcts) {
-#   if (sum(pcts)-1>.Machine$double.eps) stop("Error, pcts don't add to 1... sum(pcts)=",sum(pcts))
-#   sum(pcts^2)
-# }
-#
-#
-# #' Inverse Simpson diversity
-# #' @export
-# invsimpson.diversity <- function(pcts) {
-#   1/simpson.diversity(pcts)
-# }
-#
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# read.pca <- function(pcafile,name,addto,keep=3) {
-#   #reads in pca file (with loadings) and returns sample dataframe with group identifier.
-#   #keep is number of axes to keep.
-#   #name for pca axis is as: pca__bray__1__10.214159
-#   headers <- as.vector(as.matrix(read.delim(pcafile, header=FALSE, nrows=1)))
-#   headers <- c(headers,NA) #for some reason there is one less header than data columns.
-#   p <- read.delim(pcafile, header=FALSE, skip=1, col.names=headers)
-#   loadingsfile <- sub(".axes",".loadings",pcafile)
-#   l <- read.delim(loadingsfile)
-#   #rename axes to pca__bray__1__10.214159
-#   new.names <- paste("pca",name,l$axis,l$loading, sep="__")
-#   names(p)[grepl("axis",names(p))] <- new.names
-#   p <- subset(p,select=1:(keep+1))
-#   if (!missing(addto)) {
-#     p <- merge(p,addto,by="group",all=TRUE)
-#   }
-#   return(p)
-# }
-#
-#
-#
-
-#
-
-#
-#
-# #' Filter Distance Matrix
-# #'
-# #' Creates subset of distance matrix.
-# #'
-# #' @param dist distance matrix to be subsetted.
-# #' @param sdata data frame of sample data. Rows should be samples, and should contain data by which subsetting is to be done, and sample identifier (\code{sdata$group}) which correspondonds to row and column names of the distance matrix.
-# #' @param ... subsetting arguments. These are passed on to the \code{filter} function in \code{dplyr}
-# #' @param sample.id.name character corresponding to the name of the variable containing sample ID. This variable should contain the row and column names of the distance matrix.
-# #' @return Returns a subset of \code{dist}.
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @author Ying Taur and Eric Littmann
-# #' @export
-# filter.dist <- function(dist,sdata, ..., sample.id.name="group") {
-#   #dist=unifrac.dist;sdata=s.s0
-#   #s.sub <- filter(sdata, SCType=="Autologous",SampleType=="Buccal Swab")
-#   s.sub <- filter(sdata, ...)
-#   mat <- as.matrix(dist)
-#   samp.subset.list <- s.sub[,sample.id.name]
-#   if (!all(samp.subset.list %in% colnames(mat))) {
-#     stop("YTError: names in sdata and distance don't match!")
-#   }
-#   as.dist(mat[samp.subset.list,samp.subset.list])
-# }
-#
-#
-
-#
-# #' The color scheme used in CID manuscript (basics only).
-# #' @author Ying Taur
-# #' @export
-# cid.colors.basic <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f69ea0",
-#                       "Lactobacillus"="#3b51a3","Staphylococcus"="#f1eb25")
-#
-#
-
-
-#
-#
-# #' ...Title...
-# #'
-# #' ...Description...
-# #'
-# #' @usage ...usage.code...
-# #'
-# #' ...details...
-# #'
-# #' @param .param1. ...param1.description...
-# #' @param .param2. ...param2.description...
-# #' @return ...description.of.data.returned...
-# #' @examples
-# #' ...examples.here....
-# #' @keywords keyword1 keyword2 ...
-# #' @seealso \code{\link{cdiff.method}}
-# #' @author Ying Taur
-# #' @export
-# convert.oligo.to.mappingfile <- function(oligo) {
-#   d <- read.delim(oligo,sep="\t",header=FALSE)
-#   if (length(d)==4) {
-#     d <- d[,-3] #implies miseq, remove 3rd column which is useless
-#   }
-#   names(d) <- c("row","code","group")
-#   primer <- d$code[grepl("forward|primer",d$row,ignore.case=TRUE)]
-#   d <- subset(d,grepl("^barcode$",row,ignore.case=TRUE))
-#   for (i in 1:length(primer)) {
-#     p <- primer[i]
-#     map <- data.frame(d$group,d$code,p,d$group)
-#     names(map) <- c("#SampleID","BarcodeSequence","LinkerPrimerSequence","Description")
-#     if (length(primer)>1) {
-#       map.filename <- sub("\\.oligos$",paste0(".",i,".map.txt"),oligo)
-#     } else {
-#       map.filename <- sub("\\.oligos$",".map.txt",oligo)
-#     }
-#     write.table(map,map.filename,quote=FALSE,row.names=FALSE,sep="\t")
-#     cat("Wrote file: ",map.filename,"\n")
-#   }
-#
-# }
-#
-#
-# # #' Read Alpha Diversity File
-# # #'
-# # #' @param alpha.file name of diversity file. May be named "final.alpha.summary"
-# # #' @param label character, specifies what "label" to obtain. The summary file may list different OTU bin sizes, e.g. 0.03, 0.01, unique, etc. Default is 0.03.
-# # #' @param addto you can optionally specify a dataframe, which will be merged with alpha diversity data. This is typically "s" data, where each row represents a sample, and where s$group is the unique identifier.
-# # #' @return Dataframe containing alpha diversity data.
-# # #' @examples
-# # #' ...examples.here....
-# # #' @keywords keyword1 keyword2 ...
-# # #' @seealso \code{\link{cdiff.method}}
-# # #' @author Ying Taur
-# # #' @export
-# # read.alpha <- function(alpha.file,label="0.03",addto) {
-# #
-# #   #alpha.file = "/home/ying14/Desktop/test1/mothur_onepool_allseqs_gg99_p8/final/final.alpha.summary"
-# #   #alpha.file = "/home/ying14/Desktop/test1/qiime_onepool_allseqs_gg99_p8/otus/alpha_diversity.txt"
-# #   a <- read.table(alpha.file,header=TRUE,as.is=TRUE)
-# #   if ("group" %in% names(a)) { #mothur
-# #     if (!"label" %in% names(a) | !label %in% a$label) {
-# #       stop(paste0("YTError: ",label," not found within label column"))
-# #     }
-# #     a$label <- as.character(a$label)
-# #     a <- select(a,-label)
-# #   } else { #qiime
-# #     a$group <- row.names(a)
-# #     row.names(a) <- NULL
-# #     alpha.recodes <- c("chao1"="chao","simpson_reciprocal"="invsimpson","simpson_e"="shannoneven",
-# #                        "observed_species"="sobs","goods_coverage"="coverage")
-# #     names(a) <- recode2(names(a),recodes=alpha.recodes)
-# #   }
-# #   if (!missing(addto)) {
-# #     a <- merge(a,addto,by="group",all=TRUE)
-# #   }
-# #   return(a)
-# # }
-# #
-# #
-# # read.alpha.old <- function(alphafile,addto) {
-# #   #read in alpha diversity summary file.
-# #   a <- read.delim(alphafile,as.is=TRUE)
-# #   a <- a[,!sapply(a,function(x) all(is.na(x)))] #get rid of NA column at end
-# #   a <- subset(a,select=-label) #get rid of label=0.03 column at beginning
-# #   if (!missing(addto)) {
-# #     a <- merge(a,addto,by="group",all=TRUE)
-# #   }
-# #   return(a)
-# # }
-# #
-# #
-# # read.tax <- function(taxfile,addto) {
-# #   t <- read.delim(taxfile,check.names=FALSE)
-# #   t$taxon <- sub("[kpcofgs]__","",t$taxon) #get rid of leading letter, if there
-# #   maxlvl <- max(t$taxlevel)
-# #   row.names(t) <- paste("tax",t$taxon,t$taxlevel,t$rankID,sep="__")
-# #   #get rid of NA column at end, and first row.
-# #   t <- t[,sapply(t,function(x) all(!is.na(x)))]
-# #   #get rid of text columns
-# #   t <- subset(t,select=c(-daughterlevels,-total,-taxlevel,-taxon,-rankID))
-# #   #convert to matrix, transpose, convert back
-# #   t <- as.data.frame(t(as.matrix(t)))
-# #   #create groups column
-# #   t$group <- row.names(t)
-# #   for (lvl in 2:maxlvl) {
-# #     dom.varname <- paste("dom","taxon",lvl,sep=".")
-# #     t[,dom.varname] <- get.dominating.taxon(t,lvl)
-# #     dom.amt.varname <- paste("dom","amount",lvl,sep=".")
-# #     t[,dom.amt.varname] <- get.dominating.amount(t,lvl)
-# #   }
-# #   #percents
-# #   t <- calculate.percent.taxa(t)
-# #   #taxvars <- tax.subset(t)
-# #   #pctvars <- as.data.frame(sapply(taxvars,function(x) x / taxvars$tax__Bacteria__1__0.1))
-# #   #names(pctvars) <- gsub("tax__","pct__",names(pctvars))
-# #   #t <- data.frame(t,pctvars)
-# #   if (!missing(addto)) {
-# #     t <- merge(t,addto,by="group",all=TRUE)
-# #   }
-# #   return(t)
-# # }
-# #
-# # read.tax.simple <- function(taxfile) {
-# #   t <- read.delim(taxfile,stringsAsFactors=FALSE)
-# #   t <- t[,sapply(t,function(x) all(!is.na(x)))]
-# #   max.level <- max(t$taxlevel)
-# #   t.new <- subset(t,taxlevel==max.level)
-# #   rank <- t.new$rankID
-# #   lvlnames <- c()
-# #   for (lvl in max.level:1) {
-# #     newname <- paste0("level",lvl)
-# #     lvlnames <- c(lvlnames,newname)
-# #     t.new[,newname] <- t[match(rank,t$rankID),"taxon"]
-# #     rank <- gsub("\\.[0-9]{1,3}$","",rank)
-# #   }
-# #   t.new <- subset(t.new,select=c(-taxlevel,-taxon,-daughterlevels,-rankID))
-# #   pcts <- t.new[,sapply(t.new,is.numeric)]
-# #   pcts <- data.frame(lapply(pcts,prop.table),stringsAsFactors=FALSE)
-# #   names(pcts) <- paste("pct.",names(pcts),sep="")
-# #   t.new <- cbind(t.new,pcts)
-# #   t.new <- t.new[,c(rev(lvlnames),setdiff(names(t.new),lvlnames))]
-# #   return(t.new)
-# # }
-# #
-# # read.taxonomy <- function(taxfile) {
-# #   #reads in taxonomy file (not the summary)
-# #   #taxfile="bot95.rdp6.wang.taxonomy";name="rdp6"
-# #   tax <- read.delim(taxfile,header=FALSE,sep="\t",as.is=TRUE,col.names=c("header","taxline"))
-# #   taxons <- data.frame(do.call(rbind,strsplit(tax$taxline,split=";")),stringsAsFactors=FALSE)
-# #   tax.levels <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-# #   names(taxons) <- tax.levels[1:length(taxons)]
-# #   tax <- cbind(tax,taxons)
-# #   tax <- subset(tax,select=-taxline)
-# #   return(tax)
-# # }
-# #
-# # write.taxonomy <- function(taxdata,file) {
-# #   #format is header, then phylogeny
-# #   tax.levels <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-# #   phylogeny <- taxdata[,tax.levels]
-# #   phylogeny <- adply(phylogeny,1,function(x) data.frame(taxline=paste0(paste(x,collapse=";"),";"),stringsAsFactors=FALSE))
-# #   finaldata <- data.frame(taxdata$header,phylogeny$taxline)
-# #   write.table(finaldata,file,sep="\t",quote=FALSE,col.names=FALSE,row.names=FALSE)
-# # }
-# #
-# #
-# #
-# #
-# # calculate.percent.taxa <- function(sdata) {
-# #   #given sdata file, calculate percent data.
-# #   #erase pct data, if any exist.
-# #   sdata <- sdata[,!(names(sdata) %in% pct.subset(names(sdata)))]
-# #   #identify taxvar columns
-# #   taxvars <- tax.subset(sdata)
-# #   #for each row, divide by tax_Bacteria column
-# #   pctvars <- as.data.frame(lapply(taxvars,function(x) x / taxvars$tax__Root__0__0))
-# #   #pctvars <- as.data.frame(sapply(taxvars,function(x) x / taxvars$tax__Bacteria__1__0.1))
-# #   names(pctvars) <- gsub("tax__","pct__",names(pctvars))
-# #
-# #   sdata <- data.frame(sdata,pctvars)
-# #   return(sdata)
-# # }
-# #
-# #
-# # #############
-# # #### PCA ####
-# # #############
-# # #' ...Title...
-# # #'
-# # #' ...Description...
-# # #'
-# # #' @usage ...usage.code...
-# # #'
-# # #' ...details...
-# # #'
-# # #' @param .param1. ...param1.description...
-# # #' @param .param2. ...param2.description...
-# # #' @return ...description.of.data.returned...
-# # #' @examples
-# # #' ...examples.here....
-# # #' @keywords keyword1 keyword2 ...
-# # #' @seealso \code{\link{cdiff.method}}
-# # #' @author Ying Taur
-# # #' @export
-# # pca.column <- function(sdata,name,axis) {
-# #   #returns name of pca column with name and axis.
-# #   #e.g. pca(s,"bray",1)
-# #   pattern <- paste("^pca",name,axis,sep="__")
-# #   #takes first match of "pca__bray__1" or whatever
-# #   #erase if working::#names(sdata)[which(grepl(pattern,names(sdata)))[1]]
-# #   grep(pattern,names(sdata),value=TRUE)[1]
-# # }
-# #
-# #
-# # pca.var <- function(pca.varname) {
-# #   #given pca varname, returns variance explained
-# #   variance <- as.numeric(unlist(strsplit(pca.varname,split="__"))[4])
-# #   return(variance)
-# # }
-# #
-# #
-# # pca.plot <- function(sdata,name,pca.y,pca.x,text,color) {
-# #   #e.g. pca.plot(s,"bray",1,2)
-# #   title <- paste("PCA plot:",name)
-# #   xcolumn <- pca.column(sdata,name,pca.x)
-# #   ycolumn <- pca.column(sdata,name,pca.y)
-# #   xvariance <- round(pca.var(xcolumn),1)
-# #   yvariance <- round(pca.var(ycolumn),1)
-# #   xlabel <- paste("PCA",pca.x," (",xvariance,"%)",sep="")
-# #   ylabel <- paste("PCA",pca.y,"(",yvariance,"%)",sep="")
-# #   g <- ggplot(sdata,aes_string(x=xcolumn,y=ycolumn)) +
-# #     scale_y_continuous(name=ylabel) +
-# #     scale_x_continuous(name=xlabel) +
-# #     opts(title=title,aspect.ratio=1)
-# #   if (!missing(text)) {
-# #     g <- g + geom_text(aes_string(label=text,vjust=-0.75),size=3)
-# #   }
-# #   if (missing(color)) {
-# #     g <- g + geom_point(size=3)
-# #   } else {
-# #     g <- g + geom_point(size=3, aes_string(color=color))
-# #   }
-# #   return(g)
-# # }
-# #
-# #
-#
-#
-#
-#
-# #
-# # read.otu.melt.phyloseq.old <- function(phy) {
-# #   #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
-# #   otu0 <- data.frame(otu=taxa_names(phy),otu_table(phy),check.names=FALSE,stringsAsFactors=FALSE)
-# #   tax0 <- data.frame(tax_table(phy),check.names=FALSE,stringsAsFactors=FALSE)
-# #   maxlvl <- length(tax0)
-# #   names(tax0) <- paste0("taxon.",1:maxlvl)
-# #   tax0 <- data.frame(lapply(tax0,function(x) {
-# #     sub("^[kpcofgs]__","",x)
-# #   }),stringsAsFactors=FALSE)
-# #   for (lvl in 2:maxlvl) {
-# #     taxa <- tax0[,lvl]
-# #     parent <- tax0[,lvl-1]
-# #     parent <- ifelse(grepl("^unclassified.+\\([0-9]\\)$",parent),parent,paste0("unclassified ",parent,"(",lvl-1,")"))
-# #     tax0[,lvl] <- ifelse(is.na(taxa),parent,taxa)
-# #   }
-# #   tax0$taxon <- tax0[,maxlvl]
-# #   tax0$taxlevel <- maxlvl
-# #   id.vars <- c("otu",names(tax0))
-# #   otu <- cbind(otu0,tax0) %>%
-# #     melt(id.vars=id.vars,variable.name="group",value.name="numseqs") %>%
-# #     mutate(group=as.character(group)) %>%
-# #     filter(numseqs>0) %>%
-# #     ddply("group",function(x) {
-# #       x$pctseqs <- prop.table(x$numseqs)
-# #       return(x)
-# #     })
-# #   return(otu)
-# # }
-# # read.otu.melt.phyloseq.old <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
-# #   #phy0=phy;phy=subset_taxa(phy0,taxa_names(phy0) %in% head(taxa_names(phy0),10))
-# #   otu0 <- data.frame(otu=taxa_names(phy),otu_table(phy),check.names=FALSE,stringsAsFactors=FALSE)
-# #   tax0 <- get.tax(phy)
-# #   id.vars <- c("otu",names(tax0))
-# #   otu <- cbind(otu0,tax0) %>%
-# #     melt(id.vars=id.vars,variable.name="sample",value.name="numseqs") %>%
-# #     mutate(group=as.character(group)) %>%
-# #     group_by(group) %>% mutate(pctseqs=prop.table(numseqs)) %>% ungroup() %>% tbl_df()
-# #   if (filter.zero) {
-# #     otu <- otu %>% filter(numseqs>0)
-# #   }
-# #   #add sample data
-# #   if (sample_data) {
-# #     samp0 <- get.samp(phy)
-# #     otu <- otu %>% left_join(samp0,by="group")
-# #   }
-# #   return(otu)
-# # }
-# # read.oligos.OLD <- function(dir) {
-# #   oligos <- list.files(dir,full.names=TRUE)
-# #   ldply(oligos,function(o) {
-# #     t <- read.table(o,sep="\t",colClasses="character")
-# #     columns <- length(t)
-# #     platform <- recode(columns,"3='454';4='miseq';else=NA",as.factor.result=TRUE)
-# #     bar <- t[grepl("barcode",t[,1],ignore.case=TRUE),] #obtain barcodes
-# #     group <- bar[,columns]
-# #     pool <- gsub("\\.?oligos/?","",o)
-# #     oligo.data <- data.frame(group,stringsAsFactors=FALSE)
-# #     data.frame(pool,platform,oligo.data,stringsAsFactors=FALSE)
-# #   })
-# # }
-# # lefse.format.old <- function(sdata,class,subclass=NULL,subject=NULL,filename="lefse.txt") {
-# #   #sdata=pp;class="dead";subclass=NULL;subject=NULL;filename="surv_lefse_nosubclass.txt"
-# #   vars <- c(class,subclass,subject)
-# #   for (v in vars) {
-# #     sdata[,v] <- gsub(" ","_",sdata[,v])
-# #   }
-# #   taxvars <- pct.subset(names(sdata))
-# #   vars <- c(vars,taxvars)
-# #   lefse <- t(sdata[,vars])
-# #   varlist.rename <- row.names(lefse) %in% taxvars
-# #   row.names(lefse)[varlist.rename] <- full.name(row.names(lefse)[varlist.rename],sdata)
-# #   write.table(lefse,filename,sep="\t",col.names=FALSE,quote=FALSE)
-# # }
-# # #' Convert Phyloseq object to Sample Data.
-# # #'
-# # #' Creates sample-level data from phyloseq object
-# # #'
-# # #' Extracts sample data from phyloseq, including number of sequences and diversity data.
-# # #'
-# # #' @param phy phyloseq object (which can be created from biom using \code{import_biom})
-# # #' @param measures Diversity indices to calculate. This parameter is passed to \code{estimate_richness}. Supported values include: \code{c("Observed", "Chao1", "ACE", "Shannon", "Simpson", "InvSimpson", "Fisher")}
-# # #' @return Output is a data frame, listing samples by ID=\code{group}, with corresponding number of sequences (\code{nseqs}), diversity metrics (e.g. \code{Observed}, \code{InvSimpson}), and sample data (if it exists in phyloseq)
-# # #' @examples
-# # #' phy <- import_biom("uparse/total.8.otu-tax.biom")
-# # #' s <- read.samp.biom(phy)
-# # #' @author Ying Taur
-# # #' @export
-# # read.samp.phyloseq <- function(phy,measures=c("Observed","InvSimpson","Shannon")) {
-# #   #phy=met;measures=c("Observed","InvSimpson","Shannon")
-# #
-# #   s <- data.frame(group=sample_names(phy),
-# #                   nseqs=sample_sums(phy),
-# #                   estimate_richness(phy,measures=measures),stringsAsFactors=FALSE)
-# #
-# #   #add sample data if present
-# #   if (!is.null(sample_data(phy,FALSE))) {
-# #     sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% mutate(group=row.names(.))
-# #     s <- s %>% left_join(sdata)
-# #   }
-# #   return(s)
-# # }
-# # get.yt.palette.old <- function(tax.melt,use.cid.colors=TRUE) {
-# #
-# #   #tax.dict <- unique(subset(tax.melt,select=c(rankID,taxlevel,taxon,taxon.1,taxon.2,taxon.3,taxon.4,taxon.5,taxon.6)))
-# #   tax.dict <- unique(subset(tax.melt,select=c(taxlevel,taxon,taxon.1,taxon.2,taxon.3,taxon.4,taxon.5,taxon.6)))
-# #   #bacteria are shades of gray by default
-# #   tax.dict$color <- rep(shades("gray"),length.out=nrow(tax.dict))
-# #   #proteobacteria: red
-# #   proteo <- tax.dict$taxon.2=="Proteobacteria"
-# #   tax.dict$color[proteo] <- rep(shades("red",variation=0.4),length.out=sum(proteo))
-# #   #bacteroidetes: cyan
-# #   bacteroidetes <- tax.dict$taxon.2=="Bacteroidetes"
-# #   tax.dict$color[bacteroidetes] <- rep(shades("#2dbfc2",variation=0.4),length.out=sum(bacteroidetes))
-# #   #actinobacteria: purple
-# #   actino <- tax.dict$taxon.2=="Actinobacteria"
-# #   tax.dict$color[actino] <- rep(shades("purple",variation=0.4),length.out=sum(actino))
-# #   #firmicutes:
-# #   firm <- tax.dict$taxon.2=="Firmicutes"
-# #   tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
-# #   #cid
-# #   if (use.cid.colors) {
-# #     cid <- cid.colors[match(tax.dict$taxon.6,names(cid.colors))]
-# #     tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
-# #   }
-# #   tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$taxon))
-# #   tax.palette
-# # }
-# #
-# # #' Plot tax
-# # #'
-# # #' @export
-# # plot.tax.old <- function(t,xvar="group",data=FALSE,label.pct.cutoff=0.3,cid.colors=TRUE) {
-# #   #t <- t %>% arrange(taxon.1,taxon.2,taxon.3,taxon.4,taxon.5,taxon.6,taxon.7)
-# #
-# #   taxlvls <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-# #   newlvls <- c("taxon.1","taxon.2","taxon.3","taxon.4","taxon.5","taxon.6","taxon.7","taxon")
-# #   if (all(taxlvls %in% names(t)) & any(newlvls %!in% names(t))) {
-# #     t <- t %>% mutate(taxon.1=Kingdom,taxon.2=Phylum,taxon.3=Class,taxon.4=Order,taxon.5=Family,taxon.6=Genus,taxon.7=Species,taxon=Species)
-# #   }
-# #   t <- t[order(t$taxon.1,t$taxon.2,t$taxon.3,t$taxon.4,t$taxon.5,t$taxon.6,t$taxon.7),]
-# #
-# #   t$taxon <- factor(t$taxon,levels=unique(t$taxon))
-# #   t$taxlevel <- 7
-# #   t <- ddply(t,"group",function(x) {
-# #     x <- x[order(x$taxon),]
-# #     cum.pct <- cumsum(x$pctseqs)
-# #     x$y.text <- (cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2
-# #     return(x)
-# #   })
-# #   pal <- get.yt.palette(t,use.cid.colors=cid.colors)
-# #   attr(t,"pal") <- pal
-# #   t$tax.label <- ifelse(t$pctseqs>=label.pct.cutoff,as.character(t$taxon),"")
-# #   if (data) {
-# #     return(t)
-# #   } else {
-# #     g <- ggplot() +
-# #       geom_bar(data=t,aes_string(x=xvar,y="pctseqs",fill="taxon"),stat="identity",position="fill") +
-# #       geom_text(data=t,aes_string(x=xvar,y="y.text",label="tax.label"),angle=-90,lineheight=0.9) +
-# #       scale_fill_manual(values=attr(t,"pal")) +
-# #       theme(legend.position="none")
-# #     return(g)
-# #   }
-# # }

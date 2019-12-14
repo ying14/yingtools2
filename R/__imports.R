@@ -13,6 +13,7 @@
 #' @docType package
 #' @rawNamespace import(dplyr, except=recode)
 #' @import tidyr
+#' @import lubridate
 #' @importFrom reshape2 dcast melt
 #' @importFrom readxl read_excel
 #' @importFrom scales percent
@@ -28,6 +29,20 @@ NULL
 #' @rdname pipe
 #' @export
 NULL
+
+
+#check:
+
+if (FALSE) {
+  check <- rcmdcheck::rcmdcheck()
+  length(check$errors)
+  cat(check$errors[1])
+  length(check$warnings)
+  cat(check$warnings[1])
+  cat(check$warnings[2])
+  cat(check$warnings[1])
+}
+
 
 
 

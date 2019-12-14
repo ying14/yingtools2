@@ -25,6 +25,7 @@ Use to peruse a dataframe within RStudio. Utilizes \code{DT} package.
 If data frame is grouped (i.e. \code{group_by} in dplyr), the rows will be sorted and shaded by group.
 }
 \examples{
+library(dplyr)
 mtcars \%>\% dt()
 mtcars \%>\% group_by(cyl) \%>\% dt()
 }

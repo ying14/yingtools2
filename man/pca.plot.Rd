@@ -19,12 +19,6 @@ Returns a \code{ggplot2} graph of PCA1 and PCA2.
 \description{
 Plots PCA from distance matrix data.
 }
-\examples{
-xxx
-}
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

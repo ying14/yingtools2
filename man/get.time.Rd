@@ -15,5 +15,5 @@ get.time(datetime, format = "\%I:\%m\%p")
 character with time component
 }
 \description{
-Extract Time
+Get time from a date-time POSIXct object.
 }

@@ -31,12 +31,6 @@ Perform logistic regression analysis on a group of predictors, and optionally pe
 \examples{
 univariate.logistic("vs",c("mpg","cyl","disp","am","gear"),data=mtcars,multi=TRUE)
 }
-\seealso{
-\code{\link{cdiff.method}}
-}
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

@@ -17,9 +17,6 @@ Returns survival data frame
 \description{
 Create Survival Data Frame
 }
-\examples{
-...examples.here....
-}
 \author{
 Ying Taur
 }

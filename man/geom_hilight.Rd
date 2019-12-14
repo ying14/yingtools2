@@ -19,12 +19,6 @@ geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"))
 geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"),xend=2)
 geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"),xadd=1.5)
 }
-\examples{
-...examples.here....
-}
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}

@@ -22,9 +22,6 @@ Returns a data frame with tabulations.
 \description{
 Tabulates frequencies of vectors. By default, sorts by frequency.
 }
-\examples{
-...examples.here....
-}
 \author{
 Ying Taur
 }
