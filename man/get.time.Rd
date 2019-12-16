@@ -9,7 +9,7 @@ get.time(datetime, format = "\%I:\%m\%p")
 \arguments{
 \item{datetime}{POSIXct object}
 
-\item{format}{character parameter for formatting of time. Default is "%I:%m%p" (e.g. 10:30AM)}
+\item{format}{character parameter for formatting of time. Default format "10:30AM"}
 }
 \value{
 character with time component

@@ -19,7 +19,7 @@ cummax(x, ...)
 Cumulative max of the vector
 }
 \description{
-Overrides base::cummax in order to correctly manage dates, if that is the input.
+Adds date functionality to \code{base::cummax} function.
 }
 \author{
 Ying Taur

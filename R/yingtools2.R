@@ -18,6 +18,7 @@
 }
 
 
+
 #' Subtract Dates
 #'
 #' Returns number of days.
@@ -158,7 +159,6 @@ dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
     DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
     DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
 }
-
 
 
 
@@ -543,7 +543,7 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
 #' @param text character vector with quotes to be extracted.
 #' @param convert.text.quotes logical indicating whether or not to convert \\\" to \" after converting.
 #' @examples
-#' #Should be a 3 item python list, with middle item being empty.
+#' # Should be a 3 item python list, with middle item being empty.
 #' python.list <- "[\"no quotes here, ok?\",\"\",\"I like to put \\\"things\\\" in quotes\"]"
 #' #This doesn't work....
 #' str_extract_all(python.list,middle.pattern("\"",".*","\""))
@@ -940,7 +940,7 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
     columns.needed <- nwidths - length(g$widths)
     if (columns.needed>0) {
       for (x in 1:columns.needed) {
-        g <- gtable_add_cols(g,unit(1,"null"))
+        g <- gtable::gtable_add_cols(g,unit(1,"null"))
       }
     }
     return(g)
@@ -1038,7 +1038,7 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   get.column <- function(subdata) {
     #subdata=data
     denom <- nrow(subdata)
-    subtbl <- adply(vars,1,function(var) {
+    subtbl <- plyr::adply(vars,1,function(var) {
       subdata %>% group_by_(value=var) %>% tally() %>% complete(value,fill=list(n=0)) %>%
         mutate(var=var,value=ifelse(!is.na(value),as.character(value),"NA"),denom=denom,pct=n/denom)
     },.id=NULL)
@@ -1170,8 +1170,6 @@ as.Date2 <- function(vec) {
 }
 
 
-
-
 #' Create Date-Time (POSIXct object)
 #'
 #' @param date Date object
@@ -1195,12 +1193,11 @@ make.datetime <- function(date,time) {
 }
 
 
-
 #' Extract Time
 #'
 #' Get time from a date-time POSIXct object.
 #' @param datetime POSIXct object
-#' @param format character parameter for formatting of time. Default is "%I:%m%p" (e.g. 10:30AM)
+#' @param format character parameter for formatting of time. Default format "10:30AM"
 #' @return character with time component
 #' @export
 get.time <- function(datetime,format="%I:%m%p") {
@@ -1734,7 +1731,7 @@ find.all.distinct.vars <- function(data, ...) {
   id.vars <- quos(...)
   id.varnames <- sapply(id.vars,quo_name)
   other.varnames <- setdiff(names(data),id.varnames)
-  other.vars <- rlang::syms(other.varnames)
+  other.vars <- syms(other.varnames)
   data2 <- data %>% group_by(...) %>% summarize_all(function(x) length(unique(x))) %>% ungroup()
   data3 <- data2 %>% select(!!!other.vars) %>% summarize_all(function(x) all(x==1))
 
@@ -1882,15 +1879,14 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 chop.endpoint <- function(data,newvar,oldvar,...) {
   newvar <- enquo(newvar)
   oldvar <- enquo(oldvar)
-
   oldvar_day <- paste0(quo_name(oldvar),"_day")
-  oldvar_day <- rlang::sym(oldvar_day)
+  oldvar_day <- sym(oldvar_day)
   newvar <- quo_name(newvar)
   newvar_day <- paste0(quo_name(newvar),"_day")
   vars <- quos(...)
   ov <- pull(data,!!oldvar)
   if (!is.logical(ov) & !all(ov %in% 0:1,na.rm=TRUE)) {stop("YTError: oldvar should be a logical or 0-1!")}
-  if (!rlang::has_name(data,quo_name(oldvar_day))) {stop("YTError: ",quo_name(oldvar_day)," does not exist!")}
+  if (!has_name(data,quo_name(oldvar_day))) {stop("YTError: ",quo_name(oldvar_day)," does not exist!")}
   ovd <- pull(data,!!oldvar_day)
   if (!is.numeric(ovd)) {stop("YTError: oldvar should be a logical or 0-1!")}
 
@@ -1933,12 +1929,11 @@ make.competing.endpt <- function(data,newvar,primary, ... ,censor=NULL) {
   primary <- enquo(primary)
   censor <- enquo(censor)
   competing.vars <- quos(...)
-
   get.surv <- function(var) {
     var <- enquo(var)
     varday <- paste0(quo_name(var),"_day")
     # varcode <- paste0(quo_name(var),"_code")
-    if (rlang::quo_is_null(var)) {
+    if (quo_is_null(var)) {
       data <- data %>% mutate(.v=0,.vd=Inf)
     } else if (has_name(data,varday)) {
       data <- data %>% mutate(.v=as.numeric(!!var),.vd=as.numeric(!!sym(varday)))
@@ -1999,7 +1994,6 @@ make.competing.endpt <- function(data,newvar,primary, ... ,censor=NULL) {
 cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=list(cens.model="cox",model="fg")) {
 
   requireNamespace(c("coxphf","cmprsk","timereg","riskRegression"),quietly=TRUE)
-
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
   xvars <- quos(...)
@@ -2020,7 +2014,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=
   timevars <- c(yvarday,xvarsdays.td)
   data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
 
-  if (rlang::quo_is_null(starttime)) {
+  if (quo_is_null(starttime)) {
     # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
     # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
     mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
@@ -2178,7 +2172,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=
 #'
 #' Convenience function for survival analysis. Typically uses the \code{coxphf} function.
 #'
-#' @param  ...
+#' @param  ... variable names in the regression
 #' @param starttime character column name for start times (either point to zero or indicate left censor times). Default is "tstart".
 #' @param data survival data.
 #' @param addto if specified, add results to this data.frame of results. Default is NULL
@@ -2188,17 +2182,11 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=
 #' @param logrank whether to calculate log rank p-value. Default is FALSE
 #' @param coxphf.obj whether to return cox results object (rather than regression table). Default is FALSE.
 #' @param return.split.data whether to return data after split (do this to split time-dependent variables and run Cox manually). Default is FALSE
-#'
-#' @return ...description.of.data.returned...
-#' @examples
-
-#' @keywords keyword1 keyword2 ...
-#' @seealso \code{\link{cdiff.method}}
+#' @return a regression table with the survival results
 #' @author Ying Taur
 #' @export
 stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE,return.split.data=FALSE) {
   requireNamespace("coxphf",quietly=TRUE)
-
   data <- data.frame(data)
   y <- c(...)[1]
   xvars <- c(...)[-1]
@@ -2256,7 +2244,7 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
     }
   }
   if (length(td.xvars)>0) {
-    data <- adply(data,1,splitline)
+    data <- plyr::adply(data,1,splitline)
   }
   if (return.split.data) {
     return(data)
@@ -2825,7 +2813,7 @@ group_by_all_distinct <- function(data, ...) {
   not.grouped <- setdiff(names(data),all.dist.vars)
   message("Grouping by [",length(all.dist.vars),"]: ",paste(all.dist.vars,collapse=", "))
   message("[Not grouped by [",length(not.grouped),"]: ",paste(not.grouped,collapse=", "),"]")
-  data %>% group_by(!!!rlang::syms(all.dist.vars))
+  data %>% group_by(!!!syms(all.dist.vars))
 }
 
 
@@ -2955,8 +2943,6 @@ get.row <- function(start,stop,row,by=NULL,min.gap=0) {
 }
 
 
-
-
 #' Select 2
 #'
 #' Basically \code{dplyr::select}, but ignores variables that aren't found in the data frame.
@@ -2973,10 +2959,9 @@ select2 <- function(data,...) {
   data %>% select(!!!select_vars_keep)
 }
 
-
 #' Cumulative Max
 #'
-#' Overrides base::cummax in order to correctly manage dates, if that is the input.
+#' Adds date functionality to \code{base::cummax} function.
 #' @param x vector, numeric or Date.
 #' @return Cumulative max of the vector
 #' @author Ying Taur

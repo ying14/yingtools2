@@ -9,21 +9,24 @@ Description: Useful R Functions by Ying
 License: GPL-2
 LazyData: TRUE
 Imports:
+    ifultools
     reshape2,
+    plyr,
     ape,
     data.table,
-    ifultools,
     coxphf,
     logistf,
+    gtable,
     DT,
+    dplyr,
+    ggplot2,
+    tidyr,
+    forcats,
+    stringr,
     lubridate,
     readxl,
-    tidyverse,
-    dplyr,
-    magrittr,
     scales,
-    tidyr
+    phyloseq (>= 1.24.2)
 Suggests:
-    phyloseq,
     phytools
 RoxygenNote: 6.1.1

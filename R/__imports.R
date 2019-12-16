@@ -13,13 +13,25 @@
 #' @docType package
 #' @rawNamespace import(dplyr, except=recode)
 #' @import tidyr
-#' @import lubridate
+#' @import ggplot2
+#'
+#' @importFrom lubridate is.Date is.POSIXct is.POSIXlt is.POSIXt
 #' @importFrom reshape2 dcast melt
 #' @importFrom readxl read_excel
 #' @importFrom scales percent
+#' @importFrom plyr adply
 NULL
 
 
+dplyr,
+ggplot2,
+tidyr,
+forcats,
+stringr,
+lubridate,
+readxl,
+scales,
+phyloseq (>= 1.24.2)
 
 
 #' Pipe operator
@@ -34,13 +46,32 @@ NULL
 #check:
 
 if (FALSE) {
-  check <- rcmdcheck::rcmdcheck()
-  length(check$errors)
-  cat(check$errors[1])
-  length(check$warnings)
-  cat(check$warnings[1])
-  cat(check$warnings[2])
-  cat(check$warnings[1])
+  # find functions used by the package
+  scripts <- list.files(path=".",pattern="\\.R$",recursive=TRUE,ignore.case=TRUE)
+  parsedata  <- lapply(scripts,function(x) {
+    getParseData(parse(file=x)) %>% mutate(file=x)
+  }) %>% bind_rows()
+
+  fundata <- parsedata %>%
+    filter(token=="SYMBOL_FUNCTION_CALL") %>%
+    group_by(text) %>%
+    mutate(pkg=paste(find(first(text)),collapse="|")) %>%
+    ungroup() %>% mutate(pkg=gsub("package:","",pkg)) %>%
+    select(pkg,text,everything())
+
+  fundata %>% filter(pkg %!in% c("base","yingtools2")) %>% group_by(pkg) %>% dt()
+
+
+  # missing
+  fundata %>% filter(pkg=="") %>% dt()
+
+  fundata %>% filter(text=="read_excel")
+
+
+
+  fundata %>% filter(grepl("readxl",pkg)) %>% count(pkg,text) %>%
+    pull(text) %>% paste(collapse=" ") %>% copy.to.clipboard()
+
 }
 
 

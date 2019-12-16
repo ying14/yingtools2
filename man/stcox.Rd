@@ -9,7 +9,7 @@ stcox(..., starttime = "tstart", data, addto, as.survfit = FALSE,
   coxphf.obj = FALSE, return.split.data = FALSE)
 }
 \arguments{
-\item{...}{}
+\item{...}{variable names in the regression}
 
 \item{starttime}{character column name for start times (either point to zero or indicate left censor times). Default is "tstart".}
 
@@ -30,7 +30,7 @@ stcox(..., starttime = "tstart", data, addto, as.survfit = FALSE,
 \item{return.split.data}{whether to return data after split (do this to split time-dependent variables and run Cox manually). Default is FALSE}
 }
 \value{
-...description.of.data.returned...
+a regression table with the survival results
 }
 \description{
 Analyzes survival data by Cox regression.
@@ -38,12 +38,6 @@ Analyzes survival data by Cox regression.
 \details{
 Convenience function for survival analysis. Typically uses the \code{coxphf} function.
 }
-\seealso{
-\code{\link{cdiff.method}}
-}
 \author{
 Ying Taur
 }
-\keyword{...}
-\keyword{keyword1}
-\keyword{keyword2}
