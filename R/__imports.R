@@ -13,8 +13,10 @@
 #' @docType package
 #' @rawNamespace import(dplyr, except=recode)
 #' @import tidyr
+#' @import tibble
 #' @import ggplot2
-#'
+#' @import forcats
+#' @import stringr
 #' @importFrom lubridate is.Date is.POSIXct is.POSIXlt is.POSIXt
 #' @importFrom reshape2 dcast melt
 #' @importFrom readxl read_excel
@@ -22,16 +24,6 @@
 #' @importFrom plyr adply
 NULL
 
-
-dplyr,
-ggplot2,
-tidyr,
-forcats,
-stringr,
-lubridate,
-readxl,
-scales,
-phyloseq (>= 1.24.2)
 
 
 #' Pipe operator
