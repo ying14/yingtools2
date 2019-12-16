@@ -482,14 +482,12 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
     out <- bind_rows(lapply(oligo.files,read.oligos))
     return(out)
   }
-
-  d <- data.frame(line=scan(oligo.file,what=character(),sep="\n",quiet=TRUE),stringsAsFactors=FALSE)
-  d$line0 <- d$line
-  d$line <- sub("[\t ]+$","",d$line)
-  d$n <- 1:nrow(d)
-  d$info <- recode2(d$line,c("^(primer|forward)\t"="primer",
-                             "^#?barcode\t"="barcode",
-                             "^#"="comment"),regexp=TRUE,else.value="error")
+  d <- tibble(line=scan(oligo.file,what=character(),sep="\n",quiet=TRUE)) %>%
+    mutate(line=sub("[\t ]+$","",line),
+           n=1:n(),
+           info=recode2(line,c("^(primer|forward)\t"="primer",
+                            "^#?barcode\t"="barcode",
+                            "^#"="comment"),regexp=TRUE,else.value="error"))
   if (any(d$info=="error")) {
     stop("YTError: Did not understand one of the lines in the oligos file!\nFile: ",oligo.file,"\nLine: ",d$line[d$info=="error"][1])
   }
@@ -497,11 +495,17 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
     mutate(primer=sub("^(primer|forward)\t","",line))
   primer <- p$primer[1]
   b <- d %>% filter(info=="barcode") %>%
-    mutate(sample=sapply(strsplit(line,split="\t"),last),
+    mutate(line0=line,
+           fields=str_split(line,"\t"),
+           n.fields=sapply(fields,length),
+           sample=sapply(fields,last),
                   barcode.commented=substr(line,1,1)=="#",
-                  barcode=sapply(strsplit(line,split="\t"),function(x) paste(x[c(-1,-length(x))],collapse="\t")))
+                  barcode=sapply(fields,function(x) paste(x[c(-1,-length(x))],collapse="\t")))
+  if (!(all(b$n.fields==3)|all(b$n.fields==4))) {
+    stop("YTError: barcode line did not contain 3 or 4 fields!")
+  }
+  b <- b %>% select(-fields,-n.fields)
   cmt <- d %>% filter(info=="comment")
-  #pool <- str_extract(oligo.file,"pool[^/]+(?=\\.oligos)")
   pool <- sub("\\.oligos$","",basename(oligo.file),ignore.case=TRUE)
   if (is.na(pool)) {
     stop("YTError: Could not extract pool name from file!")
