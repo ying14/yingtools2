@@ -79,7 +79,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
   requireNamespace("phyloseq",quietly=TRUE)
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
-    sdata <- tibble(sample=sample_names(phy1))
+    sdata <- tibble(sample=sample_names(phy))
   } else {
     if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
     sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
