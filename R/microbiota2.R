@@ -466,11 +466,9 @@ read.mothur.taxfile <- function(tax.file) {
 #' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
 #' @param remove.commented logical indicating whether or not to remove commented lines (default TRUE)
 #' @return Returns a data frame containing oligo information
-#' @examples
 #' @author Ying Taur
 #' @export
 read.oligos <- function(oligo.file,remove.commented=TRUE) {
-
   if (!file.exists(oligo.file)) {
     stop("YTError: file/directory not found: ",oligo.file)
   }
@@ -479,18 +477,20 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
     if (length(oligo.files)==0) {
       stop("YTError: no oligo files found in dir: ",oligo.file)
     }
-    out <- bind_rows(lapply(oligo.files,read.oligos))
+    out <- bind_rows(lapply(oligo.files,read.oligos,remove.commented=remove.commented))
     return(out)
   }
+
   d <- tibble(line=scan(oligo.file,what=character(),sep="\n",quiet=TRUE)) %>%
     mutate(line=sub("[\t ]+$","",line),
-           n=1:n(),
+           row=1:n(),
            info=recode2(line,c("^(primer|forward)\t"="primer",
                             "^#?barcode\t"="barcode",
                             "^#"="comment"),regexp=TRUE,else.value="error"))
   if (any(d$info=="error")) {
     stop("YTError: Did not understand one of the lines in the oligos file!\nFile: ",oligo.file,"\nLine: ",d$line[d$info=="error"][1])
   }
+
   p <- d %>% filter(info=="primer") %>%
     mutate(primer=sub("^(primer|forward)\t","",line))
   primer <- p$primer[1]
@@ -504,7 +504,7 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
   if (!(all(b$n.fields==3)|all(b$n.fields==4))) {
     stop("YTError: barcode line did not contain 3 or 4 fields!")
   }
-  b <- b %>% select(-fields,-n.fields)
+  # b <- b %>% select(-fields,-n.fields)
   cmt <- d %>% filter(info=="comment")
   pool <- sub("\\.oligos$","",basename(oligo.file),ignore.case=TRUE)
   if (is.na(pool)) {
@@ -520,14 +520,14 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
   } else {
     stop("YTError: Not sure what platform!")
   }
+
   out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
-    select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,line=line0)
+    select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,row,line=line0)
   if (remove.commented) {
     out <- out %>% filter(!barcode.commented)
   }
   return(out)
 }
-
 
 
 #' Hilight a set of ggtree tips.
