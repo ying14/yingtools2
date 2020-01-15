@@ -370,53 +370,6 @@ shades <- function(color,ncolor=3,variation=1) {
 
 
 
-#' Copy to Clipboard
-#'
-#' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
-#'
-#' If \code{obj} is a data frame, it will look for carriage returns within the data, and replace with ";"
-#' Note that if this is accomplished differently depending on operating system.
-#' If Linux, xclip is used, so you may need to install this from terminal first: 'sudo apt-get install xclip'
-#'
-#' @param obj object to by copied. Can be data frame, matrix, table, vector.
-#' @author Ying Taur
-#' @export
-copy.to.clipboard <- function(obj) {
-  sysname <- tolower(Sys.info()["sysname"])
-  if (sysname=="linux") {
-    con <- pipe("xclip -selection clipboard -i", open="w")
-    col.names <- !is.vector(obj)
-    write.table(obj, con, sep="\t",quote=FALSE, row.names=FALSE, col.names=col.names)
-    close(con)
-  } else if (sysname=="windows") { #windows
-    if (is.data.frame(obj)) {
-      #obj=cod.summary
-      if (any((grepl("\n",c(as.character(unlist(obj)),names(obj)),fixed=TRUE)))) {
-        print("Warning, carriage returns detected! Removing...")
-        names(obj) <- gsub("\n",";",names(obj),fixed=TRUE)
-        obj <- data.frame(lapply(obj,function(x) {
-          if (is.character(x) | is.factor(x)) {
-            gsub("\n",";",x,fixed=TRUE)
-          } else {
-            x
-          }
-        }),check.names=FALSE)
-      }
-      write.table(obj,"clipboard",sep="\t",row.names=FALSE,quote=FALSE)
-    } else {
-      writeClipboard(obj)
-    }
-  } else if (sysname=="darwin") {
-    clip <- pipe("pbcopy", "w")
-    utils::write.table(data, file = clip, sep = "\t", row.names = FALSE)
-    close(clip)
-  } else {
-    stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
-  }
-  print("Copied to clipboard")
-}
-
-
 #' Open a File using File Associations
 #'
 #' Opens the specified file using the application specified.
@@ -438,29 +391,50 @@ shell.exec <- function(file) {
   }
 }
 
+
+
+#' Copy to Clipboard
+#'
+#' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
+#'
+#' This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
+#'
+#' @param obj object to by copied. Can be data frame, matrix, table, vector.
+#' @author Ying Taur
+#' @export
+copy.to.clipboard <- function(obj) {
+  requireNamespace("clipr",quietly=TRUE)
+  clipr::write_clip(obj)
+  message("Copied to clipboard")
+}
+
+
+
 #' Read Clipboard
 #'
 #' Read clipboard into vector or data frame.
 #'
-#' @param sep separator between lines
+#' Attempts to determine if content is vector or data frame. If reading a data frame, it will assume first row
+#' as header (specify \code{header=FALSE} if necessary). If first cell is blank, it will assume row and column names.
+#' Note: This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
+#' @param ... Options to pass to \link[utils]{read.table} (e.g. header, row.names, sep, as.is)
 #' @return Contents of clipboard
 #' @author Ying Taur
 #' @export
-read.clipboard <- function(sep="\n") {
-  cb <- file("clipboard")
-  vec <- scan(cb,what=character(),sep=sep)
-  close(cb)
-  tabs <- str_count(vec,"\t")
-  #look for tabs
-  if (all(tabs>0) & length(unique(str_count(vec,"\t")))==1) {
-    header <- make.names(unlist(strsplit(vec[1],split="\t")),unique=TRUE)
-    line <- vec[-1]
-    tbl <- data_frame(line) %>% separate(line,into=header,sep="\t")
-    return(tbl)
-  } else {
-    return(vec)
+read.clipboard <- function(...) {
+  requireNamespace("clipr",quietly=TRUE)
+  obj <- clipr::read_clip()
+  if (all(grepl("\t",obj))) {
+    obj <- clipr::read_clip_tbl(x=obj, ...)
   }
+  if (is.null(obj)) {
+    message("Nothing found in clipboard")
+  } else {
+    message("Read ",class(obj)[1]," from clipboard")
+  }
+  return(obj)
 }
+
 
 
 #' Convert object to R-code.
@@ -472,54 +446,46 @@ read.clipboard <- function(sep="\n") {
 #' @param copy.clipboard logical, if \code{TRUE}, will copy the R-code to the Clipboard.
 #' @return Returns the R-code.
 #' @examples
-#' values <- (1:5)^1.23
-#' copy.as.Rcode(values)
+#' x <- c("a","b","c")
+#' copy.as.Rcode(x)
+#' x <- tibble("a"=1:4,"_b"=c(T,F,T,F),"c c"=Sys.Date()+4:1,"d"=factor(LETTERS[1:4]))
+#' copy.as.Rcode(x)
 #' @author Ying Taur
 #' @export
 copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
   #converts x to R-code.
-  if (is.data.frame(x)) {
-    x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
-    x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
-    rcode <- paste(x.cols,collapse=",\n")
-    rcode <- paste0("data.frame(",rcode,")")
-  } else if (is.Date(x)) {
-    x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-    rcode <- paste0("as.Date(",x.char,")")
-  } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
-    x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
-    rcode <- paste0("as.POSIXlt(",x.char,")")
-  } else if (is.POSIXct(x)) {
-    x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
-    rcode <- paste0("as.POSIXct(",x.char,")")
-  } else if (is.factor(x)) {
-    x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-    x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
-    rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
-  } else if (is.list(x)) {
-    x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
-    x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
-    rcode <- paste(x.cols,collapse=",\n")
-    rcode <- paste0("list(",rcode,")")
-  } else {
-    if (is.character(x)) {
-      x <- gsub("\\\\","\\\\\\\\",x) #\\
-      x <- gsub("\t","\\\\t",x) #\t
-      x <- gsub("\n","\\\\n",x) #\n
-      x <- gsub("\"","\\\\\"",x) #\"
-      rcode <- ifelse(is.na(x),x,paste0("\"",x,"\""))
+  if (is.atomic(x)) {
+    if (is.Date(x)) {
+      x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+      rcode <- paste0("as.Date(",x.char,")")
+    } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
+      x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+      rcode <- paste0("as.POSIXlt(",x.char,")")
+    } else if (is.POSIXct(x)) {
+      x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+      rcode <- paste0("as.POSIXct(",x.char,")")
+    } else if (is.factor(x)) {
+      x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+      x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
+      rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
+    } else if (is.logical(x) | is.numeric(x) | is.character(x)){
+      rcode <- deparse(x) %>% paste(collapse="")
+    }
+  } else { ##### not atomic
+    if (is.data.frame(x)) {
+      df_names <- names(x)
+      df_names <- ifelse(df_names==make.names(df_names),df_names,paste0("\"",df_names,"\""))
+      x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
+      x.cols <- mapply(function(varname,var) paste0(varname,"=",var),df_names,x.cols)
+      rcode <- paste(x.cols,collapse=",\n")
+      rcode <- paste0("tibble(",rcode,")")
+    } else if (is.list(x)) {
+      x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
+      x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
+      rcode <- paste(x.cols,collapse=",\n")
+      rcode <- paste0("list(",rcode,")")
     } else {
-      rcode <- x #e.g. numeric or logical
-    }
-    if (!is.null(names(x))) {
-      x.names <- names(x)
-      x.names <- paste0("\"",x.names,"\"")
-      #x.names <- ifelse(sapply(x.names,function(n) n==make.names(n)),x.names,paste0("\"",x.names,"\""))
-      rcode <- paste0(x.names,"=",rcode)
-    }
-    if (length(x)>1) {
-      rcode <- paste(rcode,collapse=",")
-      rcode <- paste0("c(",rcode,")")
+      rcode <- deparse(x)
     }
   }
   if (fit) {
@@ -530,6 +496,8 @@ copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width"
   }
   return(rcode)
 }
+
+
 
 
 
@@ -1762,6 +1730,7 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
 }
 
 
+
 #' Read Excel File 2
 #'
 #' Same as \code{readxl::read_excel} function, but col_types can be named vector
@@ -2982,4 +2951,154 @@ cummax.Date <- function(x) {
   as.Date(cu,origin="1970-01-01")
 }
 
+
+
+#'
+#'
+#' #' Copy to Clipboard
+#' #'
+#' #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
+#' #'
+#' #' This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
+#' #' This seems like a more durable solution.
+#' #' If \code{obj} is a data frame, it will look for carriage returns within the data, and replace with ";"
+#' #' Note that if this is accomplished differently depending on operating system.
+#' #' If Linux, xclip is used, so you may need to install this from terminal first: 'sudo apt-get install xclip'
+#' #'
+#' #' @param obj object to by copied. Can be data frame, matrix, table, vector.
+#' #' @author Ying Taur
+#' #' @export
+#' copy.to.clipboard <- function(obj) {
+#'   sysname <- tolower(Sys.info()["sysname"])
+#'   if (sysname=="linux") {
+#'     con <- pipe("xclip -selection clipboard -i", open="w")
+#'     col.names <- !is.vector(obj)
+#'     write.table(obj, con, sep="\t",quote=FALSE, row.names=FALSE, col.names=col.names)
+#'     close(con)
+#'   } else if (sysname=="windows") { #windows
+#'     if (is.data.frame(obj)) {
+#'       #obj=cod.summary
+#'       if (any((grepl("\n",c(as.character(unlist(obj)),names(obj)),fixed=TRUE)))) {
+#'         print("Warning, carriage returns detected! Removing...")
+#'         names(obj) <- gsub("\n",";",names(obj),fixed=TRUE)
+#'         obj <- data.frame(lapply(obj,function(x) {
+#'           if (is.character(x) | is.factor(x)) {
+#'             gsub("\n",";",x,fixed=TRUE)
+#'           } else {
+#'             x
+#'           }
+#'         }),check.names=FALSE)
+#'       }
+#'       write.table(obj,"clipboard",sep="\t",row.names=FALSE,quote=FALSE)
+#'     } else {
+#'       writeClipboard(obj)
+#'     }
+#'   } else if (sysname=="darwin") {
+#'     clip <- pipe("pbcopy", "w")
+#'     utils::write.table(data, file = clip, sep = "\t", row.names = FALSE)
+#'     close(clip)
+#'   } else {
+#'     stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
+#'   }
+#'   print("Copied to clipboard")
+#' }
+#'
+#'
+#'
+#'
+#' #' Read Clipboard
+#' #'
+#' #' Read clipboard into vector or data frame.
+#' #'
+#' #' @param sep separator between lines
+#' #' @return Contents of clipboard
+#' #' @author Ying Taur
+#' #' @export
+#' read.clipboard <- function(sep="\n") {
+#'   cb <- file("clipboard")
+#'   vec <- scan(cb,what=character(),sep=sep)
+#'   close(cb)
+#'   tabs <- str_count(vec,"\t")
+#'   #look for tabs
+#'   if (all(tr_count(vec,"\t")))==1) {
+#'     header <- abs>0) & length(unique(stmake.names(unlist(strsplit(vec[1],split="\t")),unique=TRUE)
+#'     line <- vec[-1]
+#'     tbl <- data_frame(line) %>% separate(line,into=header,sep="\t")
+#'     return(tbl)
+#'   } else {
+#'     return(vec)
+#'   }
+#' }
+#'
+#'
+#'
+#'
+#' #' Convert object to R-code.
+#' #'
+#' #' Produces R-code that would create the object inputted. I use this if I have some data object that I obtained
+#' #' somehow but just want to declare it in the code.
+#' #'
+#' #' @param x object to be converted to R-code. Can be vector or data frame.
+#' #' @param copy.clipboard logical, if \code{TRUE}, will copy the R-code to the Clipboard.
+#' #' @return Returns the R-code.
+#' #' @examples
+#' #' values <- (1:5)^1.23
+#' #' copy.as.Rcode(values)
+#' #' @author Ying Taur
+#' #' @export
+#' copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
+#'   #converts x to R-code.
+#'   if (is.data.frame(x)) {
+#'     x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
+#'     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
+#'     rcode <- paste(x.cols,collapse=",\n")
+#'     rcode <- paste0("data.frame(",rcode,")")
+#'   } else if (is.Date(x)) {
+#'     x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+#'     rcode <- paste0("as.Date(",x.char,")")
+#'   } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
+#'     x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+#'     rcode <- paste0("as.POSIXlt(",x.char,")")
+#'   } else if (is.POSIXct(x)) {
+#'     x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+#'     rcode <- paste0("as.POSIXct(",x.char,")")
+#'   } else if (is.factor(x)) {
+#'     x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+#'     x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
+#'     rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
+#'   } else if (is.list(x)) {
+#'     x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
+#'     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
+#'     rcode <- paste(x.cols,collapse=",\n")
+#'     rcode <- paste0("list(",rcode,")")
+#'   } else {
+#'     if (is.character(x)) {
+#'       x <- gsub("\\\\","\\\\\\\\",x) #\\
+#'       x <- gsub("\t","\\\\t",x) #\t
+#'       x <- gsub("\n","\\\\n",x) #\n
+#'       x <- gsub("\"","\\\\\"",x) #\"
+#'       rcode <- ifelse(is.na(x),x,paste0("\"",x,"\""))
+#'     } else {
+#'       rcode <- x #e.g. numeric or logical
+#'     }
+#'     if (!is.null(names(x))) {
+#'       x.names <- names(x)
+#'       x.names <- paste0("\"",x.names,"\"")
+#'       #x.names <- ifelse(sapply(x.names,function(n) n==make.names(n)),x.names,paste0("\"",x.names,"\""))
+#'       rcode <- paste0(x.names,"=",rcode)
+#'     }
+#'     if (length(x)>1) {
+#'       rcode <- paste(rcode,collapse=",")
+#'       rcode <- paste0("c(",rcode,")")
+#'     }
+#'   }
+#'   if (fit) {
+#'     rcode <- fit(rcode,width=width,copy.clipboard=FALSE)
+#'   }
+#'   if (copy.clipboard) {
+#'     copy.to.clipboard(rcode)
+#'   }
+#'   return(rcode)
+#' }
+#'
 
