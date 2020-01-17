@@ -383,7 +383,7 @@ shades <- function(color,ncolor=3,variation=1) {
 shell.exec <- function(file) {
   if (Sys.info()['sysname']=="Linux") {
     file <- gsub(" ","\\\\ ",file)
-    system(paste("xdg-open",file))
+    system(paste("xdg-open",file),wait=FALSE)
   } else if (Sys.info()['sysname']=="Windows") {
     base::shell.exec(file)
   } else {
@@ -660,6 +660,10 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
 #' @export
 ls.object.sizes <- function(envir=.GlobalEnv) {
   objects <- ls(envir=envir)
+  if (length(objects)==0) {
+    message("No objects found.")
+    return(NULL)
+  }
   dsize <- lapply(objects,function(objname) {
     obj <- get(objname)
     size <- object.size(obj)
@@ -670,6 +674,7 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
   }) %>% bind_rows() %>% arrange(desc(bytes)) %>% select(-bytes)
   return(dsize)
 }
+
 
 
 #' Pretty Numeric Format (Non-scientific)
