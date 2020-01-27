@@ -210,28 +210,28 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   mdt[, pctseqs := numseqs / sum(numseqs), by = sample]
   if(!is.null(phyloseq::tax_table(phy, errorIfNULL=FALSE))) {
     # If there is a tax_table, join with it. Otherwise, skip this join.
-    taxdt = data.table(as(tax_table(phy, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
-    setnames(taxdt, "rn", "otu")
+    taxdt = data.table::data.table(as(phyloseq::tax_table(phy, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
+    data.table::setnames(taxdt, "rn", "otu")
     # Enforce character otu key
     taxdt[, otuchar := as.character(otu)]
     taxdt[, otu := NULL]
-    setnames(taxdt, "otuchar", "otu")
+    data.table::setnames(taxdt, "otuchar", "otu")
     # Join with tax table
-    setkey(taxdt, "otu")
-    setkey(mdt, "otu")
+    data.table::setkey(taxdt, "otu")
+    data.table::setkey(mdt, "otu")
     mdt <- taxdt[mdt]
   }
-  if (sample_data & !is.null(sample_data(phy, errorIfNULL = FALSE))) {
+  if (sample_data & !is.null(phyloseq::sample_data(phy, errorIfNULL = FALSE))) {
     # If there is a sample_data, join with it.
-    sampledt = data.table(as(sample_data(phy, errorIfNULL = TRUE), "data.frame"),keep.rownames=TRUE)
-    setnames(sampledt, "rn", "sample")
+    sampledt = data.table::data.table(as(phyloseq::sample_data(phy, errorIfNULL = TRUE), "data.frame"),keep.rownames=TRUE)
+    data.table::setnames(sampledt, "rn", "sample")
     # Enforce character sample key
     sampledt[, samplechar := as.character(sample)]
     sampledt[, sample := NULL]
-    setnames(sampledt, "samplechar", "sample")
+    data.table::setnames(sampledt, "samplechar", "sample")
     # Join with tax table
-    setkey(sampledt, "sample")
-    setkey(mdt, "sample")
+    data.table::setkey(sampledt, "sample")
+    data.table::setkey(mdt, "sample")
     mdt <- sampledt[mdt]
   }
   mdt <- mdt %>% as_tibble() %>% select(sample,otu,everything())
@@ -257,8 +257,8 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   taxranks <- rlang::syms(taxranks)
-  otudt <- as(otu_table(phy),"matrix") %>% data.table::data.table()
-  taxdt = as(tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% select(!!!taxranks)
+  otudt <- as(phyloseq::otu_table(phy),"matrix") %>% data.table::data.table()
+  taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% select(!!!taxranks)
   indices_ <- taxdt %>% group_indices(!!!taxranks)
   new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
   new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
