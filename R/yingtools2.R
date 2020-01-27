@@ -2858,17 +2858,20 @@ group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALS
 #' Get Rows (optimized for timeline plots)
 #'
 #' Given timeline event data with event type labels and start/stop times, calculate rows.
-#' This will attempt to save vertical plot space by placing two event types on the same row, where possible.
+#' If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
 #' @param start vector of event start times (numeric or Date).
 #' @param stop vector of event stop times (numeric or Date).
 #' @param row vector of event types. Can be original row assignments or event labels.
 #' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}
-#' @param min.gap minimum allowable gap between two different event types, if they are to be placed on the same row. Default is \code{0}.
+#' @param min.gap minimum allowable gap between two different event types, if they are to be placed on the same row. Default is \code{Inf}: no row merging, \code{0} tries to perform as much merging as possible.
 #' @return Returns a vector of row number assignments for each time event.
 #' @author Ying Taur
 #' @export
-get.row <- function(start,stop,row,by=NULL,min.gap=0) {
+get.row <- function(start,stop,row,by=NULL,min.gap=Inf) {
   # start=medssub$start_day;stop=medssub$stop_day;row=medssub$y.row;by=list(medssub$abx_class,medssub$med_class3);min.gap=0
+  if (min.gap<0) {
+    stop("YTError: min.gap must be greater than 0")
+  }
   if (length(start)==0|length(stop)==0) {return(NA_integer_)}
   if (!is.null(by)) {
     d <- data.frame(start,stop,row,by)
