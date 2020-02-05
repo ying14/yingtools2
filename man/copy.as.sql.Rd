@@ -4,8 +4,12 @@
 \alias{copy.as.sql}
 \title{Convert vector to SQL code.}
 \usage{
-copy.as.sql(x, copy.clipboard = TRUE, fit = TRUE,
-  width = getOption("width") - 15)
+copy.as.sql(
+  x,
+  copy.clipboard = TRUE,
+  fit = TRUE,
+  width = getOption("width") - 15
+)
 }
 \arguments{
 \item{x}{vector to be converted to SQL code.}

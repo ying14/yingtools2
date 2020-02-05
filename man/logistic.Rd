@@ -8,11 +8,15 @@
 \usage{
 logistic(x, ...)
 
-\method{logistic}{character}(yvar, xvars, data, firth = FALSE,
-  formatted = TRUE, digits = 3)
+\method{logistic}{character}(yvar, xvars, data, firth = FALSE, formatted = TRUE, digits = 3)
 
-\method{logistic}{formula}(formula, data = sys.parent(), firth = FALSE,
-  formatted = TRUE, digits = 3)
+\method{logistic}{formula}(
+  formula,
+  data = sys.parent(),
+  firth = FALSE,
+  formatted = TRUE,
+  digits = 3
+)
 }
 \arguments{
 \item{yvar}{Y-variable of interest (column name within data). Should be either logical or 0-1.}

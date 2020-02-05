@@ -4,8 +4,14 @@
 \alias{read_excel2}
 \title{Read Excel File 2}
 \usage{
-read_excel2(path, sheet = 1, col_names = TRUE, col_types = NULL,
-  na = "", skip = 0)
+read_excel2(
+  path,
+  sheet = 1,
+  col_names = TRUE,
+  col_types = NULL,
+  na = "",
+  skip = 0
+)
 }
 \arguments{
 \item{path}{Path to the xls/xlsx file}

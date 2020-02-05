@@ -4,8 +4,14 @@
 \alias{cox}
 \title{Cox Proportional Hazards Regression (TAKE 2)}
 \usage{
-cox(data, yvar, ..., starttime = NULL, return.split.data = FALSE,
-  args5 = list(cens.model = "cox", model = "fg"))
+cox(
+  data,
+  yvar,
+  ...,
+  starttime = NULL,
+  return.split.data = FALSE,
+  args5 = list(cens.model = "cox", model = "fg")
+)
 }
 \description{
 STILL WRITING THIS

@@ -4,9 +4,16 @@
 \alias{replace.grep}
 \title{Ying's Replace Grep}
 \usage{
-replace.grep(var, recodes, result.as.list = FALSE, replace.text = "",
-  collapse.hits = "|", ignore.case = TRUE, perl = TRUE,
-  useBytes = TRUE)
+replace.grep(
+  var,
+  recodes,
+  result.as.list = FALSE,
+  replace.text = "",
+  collapse.hits = "|",
+  ignore.case = TRUE,
+  perl = TRUE,
+  useBytes = TRUE
+)
 }
 \arguments{
 \item{var}{the character vector to be searched.}

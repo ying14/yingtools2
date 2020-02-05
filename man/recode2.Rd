@@ -5,9 +5,18 @@
 \alias{recode.grep}
 \title{Ying's Recode}
 \usage{
-recode2(var, recodes, else.value, as.factor, regexp = FALSE,
-  replace = FALSE, multi.hits = FALSE, ignore.case = TRUE,
-  perl = FALSE, useBytes = TRUE)
+recode2(
+  var,
+  recodes,
+  else.value,
+  as.factor,
+  regexp = FALSE,
+  replace = FALSE,
+  multi.hits = FALSE,
+  ignore.case = TRUE,
+  perl = FALSE,
+  useBytes = TRUE
+)
 
 recode.grep(...)
 }

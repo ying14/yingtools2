@@ -4,8 +4,14 @@
 \alias{as.phylo.formula2}
 \title{Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)}
 \usage{
-as.phylo.formula2(x, data = parent.frame(), collapse.singles = FALSE,
-  distinct.tree = TRUE, full.taxonomy.only = TRUE, ...)
+as.phylo.formula2(
+  x,
+  data = parent.frame(),
+  collapse.singles = FALSE,
+  distinct.tree = TRUE,
+  full.taxonomy.only = TRUE,
+  ...
+)
 }
 \arguments{
 \item{x}{a right-side formula describing the taxonomic relationship: ~C1/C2/.../Cn.}

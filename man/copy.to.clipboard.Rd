@@ -13,9 +13,7 @@ copy.to.clipboard(obj)
 Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
 }
 \details{
-If \code{obj} is a data frame, it will look for carriage returns within the data, and replace with ";"
-Note that if this is accomplished differently depending on operating system.
-If Linux, xclip is used, so you may need to install this from terminal first: 'sudo apt-get install xclip'
+This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
 }
 \author{
 Ying Taur

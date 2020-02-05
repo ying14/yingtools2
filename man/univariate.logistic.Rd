@@ -4,8 +4,15 @@
 \alias{univariate.logistic}
 \title{Univariate Logistic Regression}
 \usage{
-univariate.logistic(yvar, xvars, data, firth = FALSE, multi = FALSE,
-  multi.cutoff = 0.2, digits = 3)
+univariate.logistic(
+  yvar,
+  xvars,
+  data,
+  firth = FALSE,
+  multi = FALSE,
+  multi.cutoff = 0.2,
+  digits = 3
+)
 }
 \arguments{
 \item{yvar}{...param1.description...xxx}

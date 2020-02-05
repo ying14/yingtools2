@@ -3,7 +3,6 @@
 \docType{package}
 \name{yingtools2}
 \alias{yingtools2}
-\alias{yingtools2-package}
 \title{Useful R Functions by Ying}
 \description{
 Ying's assorted collection of R functions. Primarily useful for manipulation, analysis, and plotting of data, particularly microbiome data.

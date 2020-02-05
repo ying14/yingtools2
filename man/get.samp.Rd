@@ -4,8 +4,7 @@
 \alias{get.samp}
 \title{Extract Phyloseq sample_data}
 \usage{
-get.samp(phy, stats = FALSE, measures = c("Observed", "InvSimpson",
-  "Shannon"))
+get.samp(phy, stats = FALSE, measures = c("Observed", "InvSimpson", "Shannon"))
 }
 \arguments{
 \item{phy}{phyloseq object containing sample_data}

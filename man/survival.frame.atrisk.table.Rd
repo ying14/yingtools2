@@ -4,8 +4,13 @@
 \alias{survival.frame.atrisk.table}
 \title{At-Risk Table from Survival Data Frame}
 \usage{
-survival.frame.atrisk.table(t.breaks, sf, minus.epsilon.last.t = TRUE,
-  melt = FALSE, row.name.xloc)
+survival.frame.atrisk.table(
+  t.breaks,
+  sf,
+  minus.epsilon.last.t = TRUE,
+  melt = FALSE,
+  row.name.xloc
+)
 }
 \arguments{
 \item{t.breaks}{vector of times to calculate at-risk}

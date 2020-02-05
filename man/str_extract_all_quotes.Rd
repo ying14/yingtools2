@@ -19,6 +19,18 @@ This is more difficult than you might think. \code{str_extract_all(text,middle.p
 doesn't work because (1) it includes stuff on either side of the quote, and (2) it will fail if there are quotes inside the text (which look like \code{\\\"})within the quoted text.
 So you need to extract based on \code{\"} but ignore \code{\\\"}, and only extract stuff between pairs of quotes.
 }
+\examples{
+# Should be a 3 item python list, with middle item being empty.
+python.list <- "[\"no quotes here, ok?\",\"\",\"I like to put \\\\\"things\\\\\" in quotes\"]"
+#This doesn't work....
+str_extract_all(python.list,middle.pattern("\"",".*","\""))
+#This also doesn't work...
+str_extract_all(python.list,middle.pattern("\"","[^\"]*","\""))
+#Even this doesn't work
+str_extract_all(python.list,middle.pattern("(?<!\\\\\\\\)\\\\\"",".*","(?<!\\\\\\\\)\\\\\""))
+#But: use this function to get it done.
+str_extract_all_quotes(python.list)
+}
 \author{
 Ying Taur
 }

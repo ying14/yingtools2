@@ -4,9 +4,18 @@
 \alias{stcox}
 \title{Cox Proportional Hazards Regression}
 \usage{
-stcox(..., starttime = "tstart", data, addto, as.survfit = FALSE,
-  firth = TRUE, formatted = TRUE, logrank = FALSE,
-  coxphf.obj = FALSE, return.split.data = FALSE)
+stcox(
+  ...,
+  starttime = "tstart",
+  data,
+  addto,
+  as.survfit = FALSE,
+  firth = TRUE,
+  formatted = TRUE,
+  logrank = FALSE,
+  coxphf.obj = FALSE,
+  return.split.data = FALSE
+)
 }
 \arguments{
 \item{...}{variable names in the regression}

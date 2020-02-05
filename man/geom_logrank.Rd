@@ -4,8 +4,7 @@
 \alias{geom_logrank}
 \title{Generate label for Log-rank test results in ggplot2}
 \usage{
-geom_logrank(yvar, xvar, data, starttime = "tstart", pos,
-  logrank.fontsize = 5)
+geom_logrank(yvar, xvar, data, starttime = "tstart", pos, logrank.fontsize = 5)
 }
 \description{
 Adds the p-value for a log-rank test to a ggplot2 graph.

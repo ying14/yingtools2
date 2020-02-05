@@ -4,8 +4,13 @@
 \alias{tax.plot}
 \title{Plot tax}
 \usage{
-tax.plot(t, xvar = "sample", data = FALSE, label.pct.cutoff = 0.3,
-  use.cid.colors = TRUE)
+tax.plot(
+  t,
+  xvar = "sample",
+  data = FALSE,
+  label.pct.cutoff = 0.3,
+  use.cid.colors = TRUE
+)
 }
 \arguments{
 \item{t}{data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species}

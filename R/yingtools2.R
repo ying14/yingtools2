@@ -1736,6 +1736,85 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
 
 
 
+#' Read Multiple Excel Sheets Into a List of Data Frames
+#'
+#' @param ... Either a file(s) or folder(s). If a folder is specified, it will look for all files ending in (.xlsx/.xls).
+#' @param col_names \code{TRUE} to use the first row as column names, \code{FALSE} to get default names, or a character
+#' vector giving a name for each column. This is passed to \code{readxl::read_excel} function.
+#' @param keep.nested If \code{TRUE}, returns a nested list of files and then sheets. Otherwise, a list of sheets is normally returned.
+#' @param bare.filename Whether to use bare vs. full path as the filename.
+#' @return A named list of data frames, where each data frame represents a sheet.
+#' @export
+read_all_excel <- function( ... ,col_names=TRUE,keep.nested=FALSE,bare.filename=TRUE) {
+  pathlist <- list(...)
+  requireNamespace("readxl",quietly=TRUE)
+
+  filelist <- sapply(pathlist,function(path) {
+    if (dir.exists(path)) {
+      list.files(path=path,pattern="(xls|xlsx)$",recursive=TRUE,full.names=TRUE)
+    } else if (all(file.exists(path))) {
+      path
+    } else {
+      stop("YTError: Input should be path or folder")
+    }
+  })
+  read_excel_file <- function(file,col_names=TRUE) {
+    sheets <- readxl::excel_sheets(file)
+    message(file,": ",length(sheets)," sheets")
+    allsheets <-lapply(sheets,function(sheet) {
+      suppressMessages(readxl::read_excel(path=file,sheet=sheet,col_names=col_names,col_types="text"))
+    })
+    names(allsheets) <- sheets
+    return(allsheets)
+  }
+  excellist <- lapply(filelist,read_excel_file,col_names=col_names)
+
+  if (bare.filename) {
+    names(excellist) <- sub("\\.xlsx$","",basename(filelist))
+  } else {
+    names(excellist) <- filelist
+  }
+  if (!keep.nested) {
+    excellist <- unlist(excellist,recursive=FALSE)
+  }
+  return(excellist)
+}
+
+#' Write multiple data frames to an Excel file
+#'
+#' @param ... objects to be written to the Excel file. Can be a data frames or lists of data frames.
+#' @param file the Excel file to be written
+#' @export
+write_all_excel <- function(..., file) {
+  requireNamespace("xlsx",quietly=TRUE)
+  quolist <- quos(...)
+  sheetnames <- ifelse(names(quolist)!="",names(quolist),unname(sapply(quolist,quo_name)))
+  objlist <- list(...)
+  names(objlist) <- sheetnames
+  is.list.of.dataframes <- function(x) {
+    is.list(x) & all(sapply(x,is.data.frame))
+  }
+  sheetlist <- sapply(objlist,function(obj) {
+    if (is.list.of.dataframes(obj)) {
+      obj
+    } else if (is.data.frame(obj)) {
+      list(obj)
+    } else {
+      stop("YTError: arguments should be either a data frame or list of dataframes.")
+    }
+  }) %>% unlist(recursive=FALSE)
+  message("Writing ",length(sheetlist)," sheets.")
+
+  wb <- xlsx::createWorkbook()
+  for (i in 1:length(sheetlist)) {
+    sheet  <- xlsx::createSheet(wb,sheetName=names(sheetlist)[i])
+    xlsx::addDataFrame(sheetlist[[i]],sheet,row.names=FALSE)
+  }
+  saveWorkbook(wb,file)
+}
+
+
+
 #' Read Excel File 2
 #'
 #' Same as \code{readxl::read_excel} function, but col_types can be named vector

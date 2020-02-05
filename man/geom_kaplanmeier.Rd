@@ -4,9 +4,17 @@
 \alias{geom_kaplanmeier}
 \title{Generate Kaplan-Meier curve in ggplot2}
 \usage{
-geom_kaplanmeier(yvar, xvar = NULL, data, starttime = "tstart",
-  flip.y = FALSE, size = NULL, logrank = FALSE, logrank.pos = NULL,
-  logrank.fontsize = 5)
+geom_kaplanmeier(
+  yvar,
+  xvar = NULL,
+  data,
+  starttime = "tstart",
+  flip.y = FALSE,
+  size = NULL,
+  logrank = FALSE,
+  logrank.pos = NULL,
+  logrank.fontsize = 5
+)
 }
 \arguments{
 \item{yvar}{character, used to indicate the variable set to be used as survival endpoint of interest.

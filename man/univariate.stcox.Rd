@@ -4,8 +4,15 @@
 \alias{univariate.stcox}
 \title{Univariate Cox Proportional Hazards}
 \usage{
-univariate.stcox(yvar, xvars, starttime = "tstart", data, firth = TRUE,
-  multi = FALSE, multi.cutoff = 0.2)
+univariate.stcox(
+  yvar,
+  xvars,
+  starttime = "tstart",
+  data,
+  firth = TRUE,
+  multi = FALSE,
+  multi.cutoff = 0.2
+)
 }
 \arguments{
 \item{xvars}{column names of predictors.}

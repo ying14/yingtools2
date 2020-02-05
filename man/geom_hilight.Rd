@@ -4,9 +4,16 @@
 \alias{geom_hilight}
 \title{Hilight a set of ggtree tips.}
 \usage{
-geom_hilight(mapping = NULL, data = NULL, stat = "identity",
-  position = "identity", ..., na.rm = FALSE, show.legend = NA,
-  inherit.aes = TRUE)
+geom_hilight(
+  mapping = NULL,
+  data = NULL,
+  stat = "identity",
+  position = "identity",
+  ...,
+  na.rm = FALSE,
+  show.legend = NA,
+  inherit.aes = TRUE
+)
 }
 \arguments{
 \item{oligo.file}{oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.}

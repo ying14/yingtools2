@@ -4,11 +4,21 @@
 \alias{lefse}
 \title{LEfSe}
 \usage{
-lefse(phy, class, subclass = NA, subject = NA, anova.alpha = 0.05,
-  wilcoxon.alpha = 0.05, lda.cutoff = 2,
-  wilcoxon.within.subclass = FALSE, one.against.one = FALSE,
-  mult.test.correction = 0, make.lefse.plots = FALSE,
-  by_otus = FALSE, levels = phyloseq::rank_names(phy))
+lefse(
+  phy,
+  class,
+  subclass = NA,
+  subject = NA,
+  anova.alpha = 0.05,
+  wilcoxon.alpha = 0.05,
+  lda.cutoff = 2,
+  wilcoxon.within.subclass = FALSE,
+  one.against.one = FALSE,
+  mult.test.correction = 0,
+  make.lefse.plots = FALSE,
+  by_otus = FALSE,
+  levels = phyloseq::rank_names(phy)
+)
 }
 \arguments{
 \item{phy}{the phyloseq object containing data}
@@ -48,7 +58,7 @@ This function performs the analysis using the following steps.
 Note that you must have command-line lefse.py installed... this function is just an R wrapper for the original Huttenhower scripts.
 }
 \examples{
-lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")
+lefse.tbl <- lefse(phy1,class="CDI",subclass="Sex")
 }
 \author{
 Ying Taur

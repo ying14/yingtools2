@@ -4,9 +4,17 @@
 \alias{gg.stack}
 \title{Stack and line up ggplot objects in a column}
 \usage{
-gg.stack(..., heights = NULL, adjust.themes = TRUE, gg.extras = NULL,
-  gap = 0, margin = 5.5, units = "pt", newpage = TRUE,
-  as.gtable = FALSE)
+gg.stack(
+  ...,
+  heights = NULL,
+  adjust.themes = TRUE,
+  gg.extras = NULL,
+  gap = 0,
+  margin = 5.5,
+  units = "pt",
+  newpage = TRUE,
+  as.gtable = FALSE
+)
 }
 \arguments{
 \item{...}{ggplot objects to be stacked}

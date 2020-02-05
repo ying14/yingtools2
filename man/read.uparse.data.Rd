@@ -4,9 +4,13 @@
 \alias{read.uparse.data}
 \title{Import UPARSE pipeline data and create phyloseq}
 \usage{
-read.uparse.data(dirpath, otu.file = "total.6.otu-table.txt",
+read.uparse.data(
+  dirpath,
+  otu.file = "total.6.otu-table.txt",
   tax.file = "total.5.repset.fasta.blastn.refseq_rna.txt",
-  repseq.file = "total.5.repset.fasta", tree.file = "total.10.tree")
+  repseq.file = "total.5.repset.fasta",
+  tree.file = "total.10.tree"
+)
 }
 \arguments{
 \item{dirpath}{directory path (character) specifying folder where uparse data is.}

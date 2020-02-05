@@ -4,8 +4,12 @@
 \alias{copy.as.Rcode}
 \title{Convert object to R-code.}
 \usage{
-copy.as.Rcode(x, copy.clipboard = TRUE, fit = TRUE,
-  width = getOption("width") - 15)
+copy.as.Rcode(
+  x,
+  copy.clipboard = TRUE,
+  fit = TRUE,
+  width = getOption("width") - 15
+)
 }
 \arguments{
 \item{x}{object to be converted to R-code. Can be vector or data frame.}
@@ -20,8 +24,10 @@ Produces R-code that would create the object inputted. I use this if I have some
 somehow but just want to declare it in the code.
 }
 \examples{
-values <- (1:5)^1.23
-copy.as.Rcode(values)
+x <- c("a","b","c")
+copy.as.Rcode(x)
+x <- tibble("a"=1:4,"_b"=c(T,F,T,F),"c c"=Sys.Date()+4:1,"d"=factor(LETTERS[1:4]))
+copy.as.Rcode(x)
 }
 \author{
 Ying Taur

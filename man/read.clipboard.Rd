@@ -4,16 +4,21 @@
 \alias{read.clipboard}
 \title{Read Clipboard}
 \usage{
-read.clipboard(sep = "\\n")
+read.clipboard(...)
 }
 \arguments{
-\item{sep}{separator between lines}
+\item{...}{Options to pass to \link[utils]{read.table} (e.g. header, row.names, sep, as.is)}
 }
 \value{
 Contents of clipboard
 }
 \description{
 Read clipboard into vector or data frame.
+}
+\details{
+Attempts to determine if content is vector or data frame. If reading a data frame, it will assume first row
+as header (specify \code{header=FALSE} if necessary). If first cell is blank, it will assume row and column names.
+Note: This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
 }
 \author{
 Ying Taur

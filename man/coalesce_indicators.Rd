@@ -4,8 +4,7 @@
 \alias{coalesce_indicators}
 \title{Coalesce indicator variables into one summary variable.}
 \usage{
-coalesce_indicators(..., else.value = NA_character_,
-  first.hit.only = FALSE)
+coalesce_indicators(..., else.value = NA_character_, first.hit.only = FALSE)
 }
 \arguments{
 \item{...}{indicator variables to coalesce together. Should be all logical.}

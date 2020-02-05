@@ -799,6 +799,8 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 }
 
 
+
+
 #' LEfSe
 #'
 #' Run LEfSe (LDA Effect Size) analysis using a phyloseq object.
@@ -822,11 +824,9 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 #' @param levels Taxonomic levels to be tested. Default is to test all levels: rank_names(phy)
 #' @return Returns data
 #' @examples
-#' lefse.tbl <- lefse(ph,class="CDI",subclass="Sex")
+#' lefse.tbl <- lefse(phy1,class="CDI",subclass="Sex")
 #' @author Ying Taur
 #' @export
-#'
-#'
 lefse <- function(phy,class,subclass=NA,subject=NA,
                   anova.alpha=0.05,wilcoxon.alpha=0.05,lda.cutoff=2.0,
                   wilcoxon.within.subclass=FALSE,one.against.one=FALSE,

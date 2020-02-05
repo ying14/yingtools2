@@ -4,8 +4,7 @@
 \alias{tab}
 \title{Tabulate}
 \usage{
-tab(var, sort = TRUE, pct = TRUE, as.char = FALSE,
-  collapse = "\\n")
+tab(var, sort = TRUE, pct = TRUE, as.char = FALSE, collapse = "\\n")
 }
 \arguments{
 \item{var}{the vector to be tabulated}
