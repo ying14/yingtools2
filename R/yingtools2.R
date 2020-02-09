@@ -1952,17 +1952,20 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 }
 
 
-#' Make a competing endpoint
+#' Make a survival endpoint
 #'
-#' Combine endpoints together, into a combined competing survival endpoint. This is to be used in competing risk analysis, such as with the cmprsk package.
+#' Construct a survival endpoint, by specifying times or survival other survival endpoints.
+#' These can be regular survival or competing endpoints (which you would analyze with something like Fine-Grey in \code{cmprsk} package).
 #'
 #' Note, endpoints (primary and competing) can be specified either as a "varname" and "varname_day" pair, representing survival indicator and survival time,
 #' or a single column representing positive endpoints (\code{NA} or \code{Inf}) otherwise.
+#'
+#' If survival endpoints are specified, note that censored times may be ignored.
 #' @param data the data to be modified, containing the endpoints to be combined
-#' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")}
+#' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")})
 #' @param primary the original survival endpoint, to be converted to a competing endpoint
 #' @param ... columns representing competing endpoints.
-#' @param censor optional variable representing censoring times. Default is to use a censor of \code{Inf} time.
+#' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.
 #' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.
 #' \code{newvar} is the numeric indicator of the endpoint,
 #' \code{newvar_day} is the survival time,
@@ -1971,10 +1974,10 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' You would primarily use \code{newvar} and \code{newvar_day} with packages such as \code{cmprsk} for competing risk analysis.
 #' @examples
 #' # create a combined endpoint
-#' cid.patients %>% make.competing.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
+#' cid.patients %>% make.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
 #' @author Ying Taur
 #' @export
-make.competing.endpt <- function(data,newvar,primary, ... ,censor=NULL) {
+make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
   newvar <- enquo(newvar)
   newvar_day <- paste0(quo_name(newvar),"_day")
   newvar_code <- paste0(quo_name(newvar),"_code")
@@ -1982,62 +1985,91 @@ make.competing.endpt <- function(data,newvar,primary, ... ,censor=NULL) {
   primary <- enquo(primary)
   censor <- enquo(censor)
   competing.vars <- quos(...)
-  get.surv <- function(var) {
+
+  vartype <- function(var) {
     var <- enquo(var)
     varday <- paste0(quo_name(var),"_day")
-    # varcode <- paste0(quo_name(var),"_code")
-    if (quo_is_null(var)) {
-      data <- data %>% mutate(.v=0,.vd=Inf)
-    } else if (has_name(data,varday)) {
-      data <- data %>% mutate(.v=as.numeric(!!var),.vd=as.numeric(!!sym(varday)))
+    x <- data %>% mutate(.x=!!var) %>% pull(.x)
+    has.day <- has_name(data,varday) && is.numeric(pull(data,!!sym(varday)))
+    looks.logical <- is.logical(x) || all(x %in% c(0,1),na.rm=TRUE)
+    looks.competing <- is.wholenumber(x) && all(x>=0)
+    if (looks.logical & has.day) {
+      return("survival")
+    } else if (looks.competing & has.day) {
+      return("competing")
+    } else if (is.numeric(x) & !has.day) {
+      return("numeric")
     } else {
+      stop("YTError")
+    }
+  }
+
+  get.surv <- function(var) {
+    var <- enquo(var)
+    varname <- quo_name(var)
+    varday <- paste0(quo_name(var),"_day")
+    if (rlang::quo_is_null(var)) {
+      if (vartype(!!primary) %in% c("survival","competing")) {
+        primary_day <- paste0(quo_name(primary),"_day")
+        data <- data %>% mutate(.v=1,.vd=!!sym(primary_day))
+      } else {
+        data <- data %>% mutate(.v=1,.vd=Inf)
+      }
+    } else if (vartype(!!var)=="survival") {
+      # var+var_day: return the endpoint
+      data <- data %>% mutate(.v=as.numeric(!!var),.vd=!!sym(varday))
+    } else if (vartype(!!var)=="numeric") {
+      # var only: assume these are times, create endpoint (NAs are censored at Inf)
       data <- data %>% mutate(.v=as.numeric(!is.na(!!var)),.vd=ifelse(.v==1,!!var,Inf))
+    } else if (vartype(!!var)=="competing") {
+      stop("YTError: competing endpoint: ",varname)
+    } else {
+      stop("YTError: unknown type: ",varname)
     }
     data2 <- data %>%
-      mutate(.var=quo_name(var),
-             .row=seq_along(.v),
-             .varvalue=paste0(.var,"=",.v)) %>%
-      select(.row,.v,.vd,.var,.varvalue)
-    if (all(data2$.v %in% c(0,1))) {
-      data2 <- data2 %>% mutate(.code=ifelse(.v==0,"censor",.var))
-    } else {
-      data2 <- data2 %>% mutate(.code=ifelse(.v==0,"censor",.varvalue))
-    }
+      mutate(.var=varname,
+             .row=seq_along(.v)) %>%
+      select(.row,.v,.vd,.var)
     return(data2)
   }
+
   varlist <- c(primary,competing.vars,censor)
+  varnames <- sapply(varlist,quo_name)
+  varnumbers <- c(seq_along(varnames)[-length(varnames)],0)
+  varrecodes <- setNames(varnumbers,varnames)
   survlist <- varlist %>%
     lapply(function(var) {
       get.surv(!!var)
     })
-  # names(survlist) <- sapply(varlist,quo_name)
   endpts <- survlist %>% bind_rows() %>%
-    mutate(.var=factor(.var,levels=sapply(varlist,quo_name)),
-           .factor=ifelse(.v==0 | (.v==1 & .var==quo_name(censor)),"censor",.code),
-           .factor=ifelse(.v==1 & .var==quo_name(primary),"primary",.code))
-  codelvls <- endpts %>% arrange(.v==0,.var) %>% filter(.factor!="censor" & .factor!="primary") %>%
-    pull(.factor) %>% unique()
-  codelvls <- c("censor","primary",codelvls)
-  recodes <- setNames(0:(length(codelvls)-1),codelvls)
-  endpts2 <- endpts %>% mutate(.number=recodes[.factor])
-  endpts3 <- endpts2 %>%
+    mutate(.var=factor(.var,levels=varnames),
+           .varnum=varrecodes[as.character(.var)],
+           .info=paste0(.var,"=",.v),
+           .info=ifelse(.v==0,.info,paste0(.info,"[t=",.vd,"]")))
+
+  endpts %>% dt
+  # endpts %>% group_by(.row) %>% arrange(desc(.v),.vd,.var) %>% dt
+  final <- endpts %>%
     group_by(.row) %>%
-    arrange(.vd,.number!=0,.number) %>%
-    summarize(.final_vd=first(.vd),
-              .final_v=first(.number),
-              .final_code=first(.code),
-              .final_info=paste0(.varvalue,"[",.vd,"]",collapse=",")) %>%
-    ungroup()
+    arrange(desc(.v),.vd,.var) %>%
+    summarize(.final_v=first(.varnum),
+              .final_vd=first(.vd),
+              .final_code=paste0(first(.var),"[",first(.varnum),"]"),
+              .final_info=paste(.info,collapse=", ")) %>%
+    ungroup() %>%
+    arrange(.row)
+
   newdata <- data %>%
-    mutate(!!newvar:=endpts3$.final_v,
-           !!newvar_day:=endpts3$.final_vd,
-           !!newvar_code:=endpts3$.final_code,
-           !!newvar_info:=endpts3$.final_info)
-
+    mutate(!!newvar:=final$.final_v,
+           !!newvar_day:=final$.final_vd,
+           !!newvar_code:=final$.final_code,
+           !!newvar_info:=final$.final_info)
+  # newdata %>% select(!!newvar,!!newvar_day,!!newvar_code,!!newvar_info) %>% dt
   message("Competing endpoint variables created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=","))
-
   return(newdata)
 }
+
+
 
 
 #' Cox Proportional Hazards Regression (TAKE 2)
@@ -2067,7 +2099,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=
   timevars <- c(yvarday,xvarsdays.td)
   data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
 
-  if (quo_is_null(starttime)) {
+  if (rlang::quo_is_null(starttime)) {
     # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
     # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
     mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
