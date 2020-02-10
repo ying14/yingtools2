@@ -1986,7 +1986,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
   censor <- enquo(censor)
   competing.vars <- quos(...)
 
-  vartype <- function(var) {
+  vartype <- function(data,var) {
     var <- enquo(var)
     varday <- paste0(quo_name(var),"_day")
     x <- data %>% mutate(.x=!!var) %>% pull(.x)
@@ -2009,19 +2009,19 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
     varname <- quo_name(var)
     varday <- paste0(quo_name(var),"_day")
     if (rlang::quo_is_null(var)) {
-      if (vartype(!!primary) %in% c("survival","competing")) {
+      if (vartype(data,!!primary) %in% c("survival","competing")) {
         primary_day <- paste0(quo_name(primary),"_day")
         data <- data %>% mutate(.v=1,.vd=!!sym(primary_day))
       } else {
         data <- data %>% mutate(.v=1,.vd=Inf)
       }
-    } else if (vartype(!!var)=="survival") {
+    } else if (vartype(data,!!var)=="survival") {
       # var+var_day: return the endpoint
       data <- data %>% mutate(.v=as.numeric(!!var),.vd=!!sym(varday))
-    } else if (vartype(!!var)=="numeric") {
+    } else if (vartype(data,!!var)=="numeric") {
       # var only: assume these are times, create endpoint (NAs are censored at Inf)
       data <- data %>% mutate(.v=as.numeric(!is.na(!!var)),.vd=ifelse(.v==1,!!var,Inf))
-    } else if (vartype(!!var)=="competing") {
+    } else if (vartype(data,!!var)=="competing") {
       stop("YTError: competing endpoint: ",varname)
     } else {
       stop("YTError: unknown type: ",varname)
@@ -2065,7 +2065,8 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
            !!newvar_code:=final$.final_code,
            !!newvar_info:=final$.final_info)
   # newdata %>% select(!!newvar,!!newvar_day,!!newvar_code,!!newvar_info) %>% dt
-  message("Competing endpoint variables created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=","))
+
+  message(vartype(newdata,!!newvar)," endpoint variable created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=","))
   return(newdata)
 }
 
