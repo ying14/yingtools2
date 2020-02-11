@@ -122,7 +122,6 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
-
   if (nrow(data)==0) {
     stop("YTError: data has zero rows.")
   }
@@ -162,6 +161,7 @@ dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
 
 
 
+#' Paste 2
 #'
 #' Similar to \code{paste} command, except that \code{NA}s are not converted to text.
 #' If all fields are \code{NA}, then return \code{NA} if collapse if specified.
@@ -1991,8 +1991,8 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
     varday <- paste0(quo_name(var),"_day")
     x <- data %>% mutate(.x=!!var) %>% pull(.x)
     has.day <- has_name(data,varday) && is.numeric(pull(data,!!sym(varday)))
-    looks.logical <- is.logical(x) || all(x %in% c(0,1),na.rm=TRUE)
-    looks.competing <- is.wholenumber(x) && all(x>=0)
+    looks.logical <- is.logical(x) || all(x %in% c(0,1,NA))
+    looks.competing <- is.wholenumber(x) && all(x>=0,na.rm=TRUE)
     if (looks.logical & has.day) {
       return("survival")
     } else if (looks.competing & has.day) {
@@ -2044,14 +2044,14 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
   endpts <- survlist %>% bind_rows() %>%
     mutate(.var=factor(.var,levels=varnames),
            .varnum=varrecodes[as.character(.var)],
-           .info=paste0(.var,"=",.v),
-           .info=ifelse(.v==0,.info,paste0(.info,"[t=",.vd,"]")))
-
-  endpts %>% dt
-  # endpts %>% group_by(.row) %>% arrange(desc(.v),.vd,.var) %>% dt
+           .info=paste0(.var,"=",.v,"[t=",.vd,"]"),
+           .is.na=is.na(.v)|is.na(.vd),
+           .vd=ifelse(.is.na,NA_real_,.vd),
+           .varnum=ifelse(.is.na,NA_integer_,.varnum))
+  # endpts %>% arrange(!.is.na,desc(.v),.vd,.var) %>% group_by(.row) %>% dt
   final <- endpts %>%
     group_by(.row) %>%
-    arrange(desc(.v),.vd,.var) %>%
+    arrange(!.is.na,desc(.v),.vd,.var) %>%
     summarize(.final_v=first(.varnum),
               .final_vd=first(.vd),
               .final_code=paste0(first(.var),"[",first(.varnum),"]"),
@@ -2064,9 +2064,13 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
            !!newvar_day:=final$.final_vd,
            !!newvar_code:=final$.final_code,
            !!newvar_info:=final$.final_info)
-  # newdata %>% select(!!newvar,!!newvar_day,!!newvar_code,!!newvar_info) %>% dt
 
   message(vartype(newdata,!!newvar)," endpoint variable created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=","))
+
+  na.count <- newdata %>% filter(is.na(!!newvar)|is.na(!!newvar_day)) %>% nrow()
+  if (na.count>0) {
+    message("note: ",na.count," NA values")
+  }
   return(newdata)
 }
 
