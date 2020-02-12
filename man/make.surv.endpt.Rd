@@ -4,7 +4,7 @@
 \alias{make.surv.endpt}
 \title{Make a survival endpoint}
 \usage{
-make.surv.endpt(data, newvar, primary, ..., censor = NULL)
+make.surv.endpt(data, newvar, primary, ..., censor = NULL, competing = FALSE)
 }
 \arguments{
 \item{data}{the data to be modified, containing the endpoints to be combined}

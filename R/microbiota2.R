@@ -84,17 +84,23 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
     if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
     sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
   }
+  newvars <- "nseqs"
   if (stats) {
-    dup.names <- intersect(c("nseqs",measures),names(sdata))
-    if (length(dup.names)>0) {
-      sdata <- sdata[,setdiff(names(sdata),dup.names)]
-      warning("YTWarning: Following variables are duplicated. Deleting old values from phyloseq: ",paste(dup.names,collapse=", "))
-    }
-    sdata$nseqs <- phyloseq::sample_sums(phy)
+    newvars <- c(newvars,measures)
+  }
+  names.exist <- intersect(newvars,names(sdata))
+  if (length(names.exist)>0) {
+    warning("YTWarning: sample data contains columns which will be overwritten: ",paste(names.exist,collapse=", "))
+    sdata <- sdata %>% select(-c(!!!rlang::syms(names.exist)))
+  }
+  sdata$nseqs <- phyloseq::sample_sums(phy)
+  if (stats) {
     sdata <- cbind(sdata,estimate_richness(phy,measures=measures)) %>% as_tibble()
   }
   return(sdata)
 }
+
+
 
 
 #' Convert data frame to phyloseq sample_data

@@ -1967,6 +1967,7 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' @param primary the original survival endpoint, to be converted to a competing endpoint
 #' @param ... columns representing competing endpoints.
 #' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.
+#' @param competing
 #'
 #' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.
 #' \code{newvar} is the numeric indicator of the endpoint,
@@ -2010,7 +2011,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
     var <- enquo(var)
     varname <- quo_name(var)
     varday <- paste0(quo_name(var),"_day")
-    if (rlang::quo_is_null(var)) {
+    if (rlang::quo_is_null(var)) { #censor
       if (vartype(data,!!primary) %in% c("survival","competing")) {
         primary_day <- paste0(quo_name(primary),"_day")
         data <- data %>% mutate(.v=1,.vd=!!sym(primary_day))
@@ -2049,16 +2050,19 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
   endpts <- survlist %>% bind_rows() %>%
     mutate(.var=factor(.var,levels=varnames),
            .varnum=varrecodes[as.character(.var)],
-           .info=paste0(.var,"[t=",.vd,"]"),
+           .var_label=as.character(.var),
+           .var_label=ifelse(.var_label=="NULL","<censor>",.var_label),
+           .info=paste0(.var_label,"[t=",.vd,"]"),
            .is.na=is.na(.v)|is.na(.vd),
-           .vd=ifelse(.is.na,NA_real_,.vd),
+           .vd=ifelse(.is.na,NA_real_,.vd), #NAs in any column will be carried forward
            .varnum=ifelse(.is.na,NA_integer_,.varnum))
+
   final <- endpts %>%
     group_by(.row) %>%
-    arrange(!.is.na,desc(.v),.vd,.var) %>%
+    arrange(!.is.na,desc(.v),.vd,.var) %>% #sort by NA, then =1 values, then time, then var order.
     summarize(.final_v=first(.varnum),
               .final_vd=first(.vd),
-              .final_code=first(.var),
+              .final_code=first(.var_label),
               .final_info=paste(.info[.v==1],collapse=", ")) %>%
     ungroup() %>%
     arrange(.row)
@@ -2068,10 +2072,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
            !!newvar_day:=final$.final_vd,
            !!newvar_code:=final$.final_code,
            !!newvar_info:=final$.final_info)
-
-  newdata %>% select(!!newvar,!!newvar_day,!!newvar_code,!!newvar_info) %>% dt
-  message(vartype(newdata,!!newvar)," endpoint variable created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=", "))
-
+  message(vartype(newdata,!!newvar)," endpoint variable created: ",quo_name(newvar))
   na.count <- newdata %>% filter(is.na(!!newvar)|is.na(!!newvar_day)) %>% nrow()
   if (na.count>0) {
     message("note: ",na.count," NA values")
