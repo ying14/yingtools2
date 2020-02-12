@@ -1961,11 +1961,13 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' or a single column representing positive endpoints (\code{NA} or \code{Inf}) otherwise.
 #'
 #' If survival endpoints are specified, note that censored times may be ignored.
+#'
 #' @param data the data to be modified, containing the endpoints to be combined
 #' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")})
 #' @param primary the original survival endpoint, to be converted to a competing endpoint
 #' @param ... columns representing competing endpoints.
 #' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.
+#'
 #' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.
 #' \code{newvar} is the numeric indicator of the endpoint,
 #' \code{newvar_day} is the survival time,
@@ -1977,7 +1979,7 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
 #' cid.patients %>% make.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
 #' @author Ying Taur
 #' @export
-make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
+make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=FALSE) {
   newvar <- enquo(newvar)
   newvar_day <- paste0(quo_name(newvar),"_day")
   newvar_code <- paste0(quo_name(newvar),"_code")
@@ -2036,6 +2038,9 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
   varlist <- c(primary,competing.vars,censor)
   varnames <- sapply(varlist,quo_name)
   varnumbers <- c(seq_along(varnames)[-length(varnames)],0)
+  if (!competing) {
+    varnumbers <-ifelse(varnumbers>1,0,varnumbers)
+  }
   varrecodes <- setNames(varnumbers,varnames)
   survlist <- varlist %>%
     lapply(function(var) {
@@ -2044,18 +2049,17 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
   endpts <- survlist %>% bind_rows() %>%
     mutate(.var=factor(.var,levels=varnames),
            .varnum=varrecodes[as.character(.var)],
-           .info=paste0(.var,"=",.v,"[t=",.vd,"]"),
+           .info=paste0(.var,"[t=",.vd,"]"),
            .is.na=is.na(.v)|is.na(.vd),
            .vd=ifelse(.is.na,NA_real_,.vd),
            .varnum=ifelse(.is.na,NA_integer_,.varnum))
-  # endpts %>% arrange(!.is.na,desc(.v),.vd,.var) %>% group_by(.row) %>% dt
   final <- endpts %>%
     group_by(.row) %>%
     arrange(!.is.na,desc(.v),.vd,.var) %>%
     summarize(.final_v=first(.varnum),
               .final_vd=first(.vd),
-              .final_code=paste0(first(.var),"[",first(.varnum),"]"),
-              .final_info=paste(.info,collapse=", ")) %>%
+              .final_code=first(.var),
+              .final_info=paste(.info[.v==1],collapse=", ")) %>%
     ungroup() %>%
     arrange(.row)
 
@@ -2065,7 +2069,8 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
            !!newvar_code:=final$.final_code,
            !!newvar_info:=final$.final_info)
 
-  message(vartype(newdata,!!newvar)," endpoint variable created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=","))
+  newdata %>% select(!!newvar,!!newvar_day,!!newvar_code,!!newvar_info) %>% dt
+  message(vartype(newdata,!!newvar)," endpoint variable created: ",paste(c(quo_name(newvar),newvar_day,newvar_code,newvar_info),collapse=", "))
 
   na.count <- newdata %>% filter(is.na(!!newvar)|is.na(!!newvar_day)) %>% nrow()
   if (na.count>0) {
@@ -2073,6 +2078,9 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL) {
   }
   return(newdata)
 }
+
+
+
 
 
 
