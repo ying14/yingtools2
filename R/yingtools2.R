@@ -119,6 +119,7 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
+
 dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
@@ -135,31 +136,42 @@ dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
   pal <- c("white","seashell","aliceblue")
   clrs <- rep_len(pal,length.out=n.groups)
   clrs.rgb <- paste0("rgb(",apply(col2rgb(clrs),2,function(x) paste(x,collapse=",")),")")
+
+  add <- function(l,...) {
+    if (is.list(l)) {
+      c(l,list(...))
+    } else {
+      c(l,...)
+    }
+  }
+  plugins <- c()
+  options <- list()
+  columnDefs <- list()
+
+  ## ellipsis
+  plugins <- add(plugins,"ellipsis")
+  columnDefs <- add(columnDefs,list(
+    targets = 1:n.cols,
+    render = DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," )")
+  ))
+  ## header font size
+  options <- add(options,initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")))
+  options <- add(options,searchHighlight=TRUE)
+  options <- add(options,paging=FALSE)
+
+  ## make index invisible
+  columnDefs <- add(columnDefs,list(
+    targets = index_col,
+    visible = FALSE
+  ))
+  options <- add(options,columnDefs)
+
   data %>%
     filter(row_number()<=maxrows) %>%
-    DT::datatable(
-      plugins="ellipsis",
-      options=list(
-        initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")),
-        columnDefs = list(
-          list(
-            targets = 1:n.cols,
-            render = DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," )")
-          ),
-          list(
-            targets = index_col,
-            visible = FALSE
-          )
-        ),
-        searchHighlight=TRUE,
-        paging=FALSE
-      )
-    ) %>%
+    DT::datatable(plugins=plugins,options=options) %>%
     DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
     DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
 }
-
-
 
 #' Paste 2
 #'
