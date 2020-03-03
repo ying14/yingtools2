@@ -119,7 +119,6 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-
 dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
@@ -164,7 +163,7 @@ dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
     targets = index_col,
     visible = FALSE
   ))
-  options <- add(options,columnDefs)
+  options <- add(options,columnDefs=columnDefs)
 
   data %>%
     filter(row_number()<=maxrows) %>%

@@ -205,7 +205,7 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   otudt[, otu := NULL]
   data.table::setnames(otudt, "otuchar", "otu")
   # Melt count table
-  mdt = data.table::melt.data.table(otudt, id.vars = "otu", variable.name = "sample",value.name = "numseqs")
+  mdt = data.table::melt.data.table(otudt, id.vars = "otu", variable.name = "sample", variable.factor=FALSE, value.name = "numseqs")
   if (filter.zero) {
     # Remove zeroes, NAs
     mdt <- mdt[numseqs > 0][!is.na(numseqs)]
