@@ -4,12 +4,14 @@
 \alias{dt}
 \title{Ying's DT view}
 \usage{
-dt(data, fontsize = 10, maxchars = 250, maxrows = 1000)
+dt(data, fontsize = 10, pageLength = Inf, maxchars = 250, maxrows = 1000)
 }
 \arguments{
 \item{data}{dataframe to be viewed.}
 
 \item{fontsize}{numeric controlling font size in the table, measured in px. Default is 12.}
+
+\item{pageLength}{number of rows to display per page (Default \code{Inf}, show all rows)}
 
 \item{maxchars}{max number of characters before adding an ellipsis \code{...}. Default is 250.}
 

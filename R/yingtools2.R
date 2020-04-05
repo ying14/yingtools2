@@ -108,10 +108,13 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' Use to peruse a dataframe within RStudio. Utilizes \code{DT} package.
 #'
 #' If data frame is grouped (i.e. \code{group_by} in dplyr), the rows will be sorted and shaded by group.
+#'
 #' @param data dataframe to be viewed.
 #' @param fontsize numeric controlling font size in the table, measured in px. Default is 12.
 #' @param maxchars max number of characters before adding an ellipsis \code{...}. Default is 250.
+#' @param pageLength number of rows to display per page (Default \code{Inf}, show all rows)
 #' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent DT from handling excessively large data frames. Default is 1000.
+#'
 #' @return A javascript-style datatable, which displays in the Rstudio viewer.
 #' @examples
 #' library(dplyr)
@@ -119,7 +122,7 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
+dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000) {
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
   if (nrow(data)==0) {
@@ -156,7 +159,8 @@ dt <- function(data,fontsize=10,maxchars=250,maxrows=1000) {
   ## header font size
   options <- add(options,initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")))
   options <- add(options,searchHighlight=TRUE)
-  options <- add(options,paging=FALSE)
+  options <- add(options,paging=!is.infinite(pageLength),
+                 pageLength=ifelse(!is.infinite(pageLength),pageLength,1e6))
 
   ## make index invisible
   columnDefs <- add(columnDefs,list(
