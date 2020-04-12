@@ -10,6 +10,7 @@ replace.grep(
   result.as.list = FALSE,
   replace.text = "",
   collapse.hits = "|",
+  recode.hits = FALSE,
   ignore.case = TRUE,
   perl = TRUE,
   useBytes = TRUE
@@ -25,6 +26,8 @@ replace.grep(
 \item{replace.text}{text to replace hits with. Default is \code{""}}
 
 \item{collapse.hits}{the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{result.as.list=TRUE}}
+
+\item{recode.hits}{whether to recode the hits into the with the replacement. Default if \code{FALSE}. This is relevant if \code{result.as.list=TRUE}.}
 
 \item{ignore.case}{whether or not to ignore case, passed to regular expression. Default is \code{TRUE}}
 

@@ -458,7 +458,10 @@ read.clipboard <- function(...) {
 #' somehow but just want to declare it in the code.
 #'
 #' @param x object to be converted to R-code. Can be vector or data frame.
+#' @param fit whether to insert carriage returns, in order to fit code on the screen (default \code{TRUE})
+#' @param width max character width of each line, if \code{fit=TRUE}. Default is \code{getOption("width")-15}
 #' @param copy.clipboard logical, if \code{TRUE}, will copy the R-code to the Clipboard.
+#'
 #' @return Returns the R-code.
 #' @examples
 #' x <- c("a","b","c")
@@ -1628,12 +1631,14 @@ recode.grep <- function(...) {
 #' @param result.as.list if \code{TRUE}, returns a 2-vector list containing replaced text and text hits. Default is \code{FALSE}.
 #' @param replace.text text to replace hits with. Default is \code{""}
 #' @param collapse.hits the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{result.as.list=TRUE}
+#' @param recode.hits whether to recode the hits into the with the replacement. Default if \code{FALSE}. This is relevant if \code{result.as.list=TRUE}.
 #' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
 #' @param perl whether to use perl-style regular expressions. Default is \code{TRUE}
 #' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
+#'
 #' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
 #' @export
-replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collapse.hits="|",ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
+replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collapse.hits="|",recode.hits=FALSE,ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
   if (is.null(collapse.hits) & !result.as.list) {
     stop("YTWarning: hits.collapse=NULL (hits displayed as list), but report.as.list=FALSE.")
   }
@@ -1655,8 +1660,15 @@ replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collap
     }
     newvar <- gsub(pattern, replacetext, newvar, ignore.case = ignore.case, perl = perl, useBytes = useBytes)
   }
+  if (recode.hits) {
+    if (length(hits)>0) {
+      hits <- lapply(hits,function(hit) {
+        recode.grep(hit,recodes=setNames(replacements,patterns),else.value=NA,perl=perl,ignore.case=ignore.case)
+      })
+    }
+  }
   if (!is.null(collapse.hits)) {
-    hits <- sapply(hits,function(x) paste(x,collapse=collapse.hits))
+    hits <- sapply(hits,function(x) paste2(x,collapse=collapse.hits))
   }
   if (result.as.list) {
     list(replace.text=newvar,hits=hits)
@@ -1680,10 +1692,12 @@ replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collap
 #' @param collapse.hits the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{hits.var} is specified.
 #' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
 #' @param perl whether to use perl-style regular expressions. Default is \code{TRUE}
+#' @param recode.hits whether to recode the hits into the with the replacement. Default if \code{FALSE}. This is relevant if \code{result.as.list=TRUE}.
 #' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
+#'
 #' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
 #' @export
-replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.var=NULL,collapse.hits="|",ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
+replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.var=NULL,collapse.hits="|",recode.hits=FALSE,ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
   newvar <- as.character(substitute(newvar))
   hits.var <- as.character(substitute(hits.var))
   if (length(newvar)==0) {
@@ -1692,7 +1706,7 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
   store.hits <- length(hits.var)>0
   oldvar <- lazyeval::lazy_eval(lazyeval::lazy(var),data)
   results <- replace.grep(var=oldvar,recodes=recodes,result.as.list=store.hits,
-                          replace.text=replace.text,collapse.hits=collapse.hits,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
+                          replace.text=replace.text,collapse.hits=collapse.hits,recode.hits=recode.hits,ignore.case=ignore.case,perl=perl,useBytes=useBytes)
   if (store.hits) {
     newdata <- data
     newdata[[newvar]] <- results$replace.text

@@ -15,6 +15,10 @@ copy.as.Rcode(
 \item{x}{object to be converted to R-code. Can be vector or data frame.}
 
 \item{copy.clipboard}{logical, if \code{TRUE}, will copy the R-code to the Clipboard.}
+
+\item{fit}{whether to insert carriage returns, in order to fit code on the screen (default \code{TRUE})}
+
+\item{width}{max character width of each line, if \code{fit=TRUE}. Default is \code{getOption("width")-15}}
 }
 \value{
 Returns the R-code.
