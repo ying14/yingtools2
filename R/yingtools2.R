@@ -730,6 +730,37 @@ pretty_scientific <- function(l,parse=TRUE) {
 }
 
 
+#' Short number formatting
+#'
+#' Use to abbreviate large numbers (e.g. 3450000 is '3.4M')
+#'
+#' @param x numeric vector to be formatted
+#' @param sig.digits number of signficant digits to use, if the number is abbreviated
+#' @return character vector of formatted numbers
+#' @examples
+#' short_number(3.4*10^(-1:10))
+#' @export
+short_number <- function(x,sig.digits=2) {
+  num <- c(3,6,9)
+  abbrev <- c("K","M","B")
+  sapply(x,function(val) {
+    if (is.na(val)) {return(NA_character_)}
+    for (i in length(num):1) {
+      pwr <- num[i]
+      abrv <- abbrev[i]
+      div <- val / 10^pwr
+      if (div>=1) {
+        root <- signif(div,sig.digits) %>% format(scientific=FALSE)
+        return(paste0(root,abrv))
+      }
+    }
+    return(format(val,scientific=FALSE))
+  })
+}
+
+
+
+
 #' Log Epsilon Tranformation
 #'
 #' Use this transformation for plotting log data including 0. You can't use regular log transformation because it can't take zero.
@@ -2111,7 +2142,172 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 
 
 
+#' Cox Proportional Hazard model
+#'
+#' Run a Cox model
+#'
+#' If any of the \code{...}
+#' @param data the data frame containing the variables to be analyzed.
+#' @param yvar the time-to-event outcome (bare unquoted).
+#' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
+#' @param starttime optional parameter specifying analysis start time.
+#' @param return.split.data if \code{TRUE}, returns the data frame after splitting rows that are time-dependent.
+#' @param return.model.obj if \code{TRUE}, returns the model object of the \code{coxph} command
+#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#'
+#' @return by default, returns a formatted regression table
+#' @examples
+#' library(yingtools2)
+#' cid.patients %>% cox(vre.bsi,enterodom30,starttime=firstsampday)
+#' @export
+cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,formatted=TRUE) {
+  requireNamespace("broom",quietly=TRUE)
+  yvar <- enquo(yvar)
+  starttime <- enquo(starttime)
+  xvars <- quos(...)
+  yvarday <- quo_name(yvar) %>% paste0("_day") %>% sym()
+  is.td <- function(var) {
+    var <- enquo(var)
+    vardayname <- quo_name(var) %>% paste0("_day")
+    has_name(data,vardayname)
+  }
+  xvars.td <- xvars[sapply(xvars,is.td)]
+  if (length(xvars.td)>0) {
+    xvarsdays.td <- xvars.td %>% sapply(quo_name) %>% paste0("_day") %>% syms()
+  } else {
+    xvarsdays.td <- syms(NULL)
+  }
+  timevars <- c(yvarday,xvarsdays.td)
+  data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
 
+  if (rlang::quo_is_null(starttime)) {
+    # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
+    # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
+    mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
+    start <- min(mintime-1,0)
+    message("Setting start time as: ",start)
+    data <- data %>% mutate(.y=!!yvar,.tstart=start,.tstop=!!yvarday) %>%
+      mutate_at(vars(.tstart,.tstop,!!!timevars),function(x) x-start)
+  } else {
+    data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
+  }
+  splitline <- function(data,xvar) {
+    xvar <- enquo(xvar)
+    xvarday <- quo_name(xvar) %>% paste0("_day") %>% sym()
+    data.nochange <- data %>% filter(!!xvar==0|is.na(!!xvar))
+    data.split <- data %>% filter(!!xvar==1,.tstart<!!xvarday,!!xvarday<.tstop)
+    data.xafter <- data %>% filter(!!xvar==1,.tstop<=!!xvarday)
+    data.xbefore <- data %>% filter(!!xvar==1,!!xvarday<=.tstart)
+    data.nochange.new <- data.nochange
+    data.xbefore.new <- data.xbefore
+    data.xafter.new <- data.xafter %>% mutate(!!xvar:=0)
+    data.split.new1 <- data.split %>% mutate(.tstop=!!xvarday,!!xvar:=0,.y=0)
+    data.split.new2 <- data.split %>% mutate(.tstart=!!xvarday,!!xvar:=1)
+    newdata <- bind_rows(data.nochange.new,data.xbefore.new,data.xafter.new,data.split.new1,data.split.new2) %>%
+      select(-!!xvarday)
+    return(newdata)
+  }
+  data2 <- data
+  for (xvar in xvars.td) {
+    data2 <- data2 %>% splitline(!!xvar)
+  }
+  if (return.split.data) {
+    return(data2)
+  }
+  is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
+  has.timevarying <- length(xvars.td)>0 & nrow(data2)>nrow(data)
+  leftside <- "Surv(.tstart,.tstop,.y)"
+  xvarnames <- xvars %>% sapply(quo_name)
+  rightside <- xvarnames %>% paste(collapse=" + ")
+  terms.to.varnames <- function(terms,vars,data) {
+    dict <- lapply(xvarnames,function(var) {
+      mm <- model.matrix(as.formula(paste0("~",var)),data=data)
+      term <- colnames(mm) %>% setdiff("(Intercept)")
+      rep(var,length(term)) %>% setNames(term)
+    }) %>% do.call(c,.)
+    if (anyDuplicated(names(dict))) {
+      stop("YTError: duplicate terms found during terms.to.varnames function!")
+    }
+    if (!setequal(names(dict),terms)) {
+      stop("YTError: varnames and terms don't match in the terms.to.varnames function!")
+    }
+    dict[match(terms,names(dict))]
+  }
+  model <- paste(leftside,rightside,sep=" ~ ")
+  formula <- as.formula(model)
+  if (is.competing) {
+    stop("YTError: can't handle competing endpoints in Cox.")
+  }
+  results <- coxph(formula,data=data2)
+  tbl <- broom::tidy(results,exponentiate=TRUE) %>%
+    mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
+           time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
+    select(yvar,xvar,term,everything())
+  if (formatted) {
+    tbl <- tbl %>%
+      mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
+             p.value=pvalue(p.value)) %>%
+      mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
+      transmute(yvar,xvar,term,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+  }
+  return(tbl)
+}
+
+
+#' Univariate and Multivariate Cox Regression
+#'
+#' Uses the \code{cox} function to perform a univariate and multivariate model analysis.
+#' @param data the data frame containing the variables to be analyzed.
+#' @param yvar the time-to-event outcome (bare unquoted).
+#' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
+#' @param starttime optional parameter specifying analysis start time.
+#' @param multi if \code{TRUE}, perform multivariate analysis.
+#' @param multi.cutoff P-value threshold for inclusion into the multivariate model (default is \code{0.25})
+#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @return by default, returns a formatted regression table
+#' @examples
+#' @export
+univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cutoff=0.25,formatted=TRUE) {
+  yvar <- enquo(yvar)
+  starttime <- enquo(starttime)
+  xvars <- quos(...)
+  univariate.reglist <- lapply(xvars,function(x) {
+    message(quo_name(x))
+    cox(!!yvar,!!x,starttime=!!starttime,data=data,formatted=FALSE)
+  })
+  univariate.tbl <- univariate.reglist %>% bind_rows()
+  if (multi) {
+    multi.xvars <- univariate.tbl %>% filter(p.value<=multi.cutoff) %>% pull(xvar) %>% unique()
+    if (length(multi.xvars)==0) {
+      message("No predictors entered multivariate model")
+      multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term,-time.dependent),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
+    } else {
+      multivariate.tbl <- cox(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
+    }
+    tbl <- univariate.tbl %>% left_join(multivariate.tbl,by=c("yvar","xvar","term","time.dependent"))
+    if (formatted) {
+      tbl <- tbl %>%
+        mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
+               p.value=pvalue(p.value),
+               multi.p.value=pvalue(multi.p.value)) %>%
+        mutate_at(vars(estimate,conf.low,conf.high,multi.estimate,multi.conf.low,multi.conf.high),~formatC(.,format="f",digits=2)) %>%
+        transmute(yvar,xvar,term,
+                  haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
+                  multi.haz.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),multi.p.value)
+    }
+  } else {
+    tbl <- univariate.tbl
+    if (formatted) {
+      tbl <- tbl %>%
+        mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
+               p.value=pvalue(p.value)) %>%
+        mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
+                    transmute(yvar,xvar,term,
+                              haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+    }
+  }
+  tbl
+}
 
 
 
@@ -2119,7 +2315,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 #'
 #' STILL WRITING THIS
 #' @export
-cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=list(cens.model="cox",model="fg")) {
+cox.old <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=list(cens.model="cox",model="fg")) {
 
   requireNamespace(c("coxphf","cmprsk","timereg","riskRegression"),quietly=TRUE)
   yvar <- enquo(yvar)
@@ -2815,7 +3011,6 @@ logistic.formula <- function(formula, data=sys.parent(), firth=FALSE,formatted=T
 
 
 
-
 #' Univariate Logistic Regression
 #'
 #' Perform logistic regression analysis on a group of predictors, and optionally perform multivariate analysis on significant univariate predictors.
@@ -2863,6 +3058,110 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
     results.table <- data.frame(lapply(results.table,function(x) ifelse(is.na(x),"",as.character(x))))
   }
   return(results.table)
+}
+
+
+
+
+
+#' Logistic regression
+#' @param data the data frame containing the variables to be analyzed.
+#' @param yvar the outcome (bare unquoted).
+#' @param ... predictors in the model (bare unquoted).
+#' @param starttime optional parameter specifying analysis start time.
+#' @param return.model.obj if \code{TRUE}, returns the model object of the \code{coxph} command
+#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @return by default, returns a formatted regression table
+#' @export
+logit <- function(data, yvar, ... , return.model.obj=FALSE,formatted=TRUE) {
+  requireNamespace("broom",quietly=TRUE)
+  yvar <- enquo(yvar)
+  xvars <- quos(...)
+  xvarnames <- sapply(xvars,quo_name)
+  formula <- paste0(quo_name(yvar),"~",paste(xvarnames,collapse="+"))
+  result <- glm(formula,data=data,family="binomial")
+  if (return.model.obj) {
+    return(result)
+  }
+  terms.to.varnames <- function(terms,vars,data) {
+    dict <- lapply(xvarnames,function(var) {
+      mm <- model.matrix(as.formula(paste0("~",var)),data=data)
+      term <- colnames(mm) %>% setdiff("(Intercept)")
+      rep(var,length(term)) %>% setNames(term)
+    }) %>% do.call(c,.)
+    if (anyDuplicated(names(dict))) {
+      stop("YTError: duplicate terms found during terms.to.varnames function!")
+    }
+    if (!setequal(names(dict),terms)) {
+      stop("YTError: varnames and terms don't match in the terms.to.varnames function!")
+    }
+    dict[match(terms,names(dict))]
+  }
+  tbl <- result %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE) %>%
+    filter(term!="(Intercept)") %>%
+    mutate(xvar=terms.to.varnames(term,xvarnames,data),
+           yvar=quo_name(yvar)) %>%
+      select(yvar,xvar,term,everything())
+    if (formatted) {
+      tbl <- tbl %>%
+        mutate(p.value=pvalue(p.value)) %>%
+        mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
+        transmute(yvar,xvar,term,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+    }
+  tbl
+}
+
+
+#' Univariate and Multivariate Cox Regression
+#'
+#' Uses the \code{cox} function to perform a univariate and multivariate model analysis.
+#' @param data the data frame containing the variables to be analyzed.
+#' @param yvar the time-to-event outcome (bare unquoted).
+#' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
+#' @param starttime optional parameter specifying analysis start time.
+#' @param multi if \code{TRUE}, perform multivariate analysis.
+#' @param multi.cutoff P-value threshold for inclusion into the multivariate model (default is \code{0.25})
+#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @return by default, returns a formatted regression table
+#' @examples
+#' @export
+univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,formatted=TRUE) {
+  yvar <- enquo(yvar)
+  xvars <- quos(...)
+  univariate.reglist <- lapply(xvars,function(x) {
+    message(quo_name(x))
+    logit(!!yvar,!!x,data=data,formatted=FALSE)
+  })
+  univariate.tbl <- univariate.reglist %>% bind_rows()
+  if (multi) {
+    multi.xvars <- univariate.tbl %>% filter(p.value<=multi.cutoff) %>% pull(xvar) %>% unique()
+    if (length(multi.xvars)==0) {
+      message("No predictors entered multivariate model")
+      multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
+    } else {
+      multivariate.tbl <- cox(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
+    }
+    tbl <- univariate.tbl %>% left_join(multivariate.tbl,by=c("yvar","xvar","term"))
+    if (formatted) {
+      tbl <- tbl %>%
+        mutate(p.value=pvalue(p.value),
+               multi.p.value=pvalue(multi.p.value)) %>%
+        mutate_at(vars(estimate,conf.low,conf.high,multi.estimate,multi.conf.low,multi.conf.high),~formatC(.,format="f",digits=2)) %>%
+        transmute(yvar,xvar,term,
+                  odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
+                  multi.odds.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),multi.p.value)
+    }
+  } else {
+    tbl <- univariate.tbl
+    if (formatted) {
+      tbl <- tbl %>%
+        mutate(p.value=pvalue(p.value)) %>%
+        mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
+        transmute(yvar,xvar,term,
+                  odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+    }
+  }
+  tbl
 }
 
 
@@ -3113,154 +3412,4 @@ cummax.Date <- function(x) {
   as.Date(cu,origin="1970-01-01")
 }
 
-
-
-#'
-#'
-#' #' Copy to Clipboard
-#' #'
-#' #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
-#' #'
-#' #' This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
-#' #' This seems like a more durable solution.
-#' #' If \code{obj} is a data frame, it will look for carriage returns within the data, and replace with ";"
-#' #' Note that if this is accomplished differently depending on operating system.
-#' #' If Linux, xclip is used, so you may need to install this from terminal first: 'sudo apt-get install xclip'
-#' #'
-#' #' @param obj object to by copied. Can be data frame, matrix, table, vector.
-#' #' @author Ying Taur
-#' #' @export
-#' copy.to.clipboard <- function(obj) {
-#'   sysname <- tolower(Sys.info()["sysname"])
-#'   if (sysname=="linux") {
-#'     con <- pipe("xclip -selection clipboard -i", open="w")
-#'     col.names <- !is.vector(obj)
-#'     write.table(obj, con, sep="\t",quote=FALSE, row.names=FALSE, col.names=col.names)
-#'     close(con)
-#'   } else if (sysname=="windows") { #windows
-#'     if (is.data.frame(obj)) {
-#'       #obj=cod.summary
-#'       if (any((grepl("\n",c(as.character(unlist(obj)),names(obj)),fixed=TRUE)))) {
-#'         print("Warning, carriage returns detected! Removing...")
-#'         names(obj) <- gsub("\n",";",names(obj),fixed=TRUE)
-#'         obj <- data.frame(lapply(obj,function(x) {
-#'           if (is.character(x) | is.factor(x)) {
-#'             gsub("\n",";",x,fixed=TRUE)
-#'           } else {
-#'             x
-#'           }
-#'         }),check.names=FALSE)
-#'       }
-#'       write.table(obj,"clipboard",sep="\t",row.names=FALSE,quote=FALSE)
-#'     } else {
-#'       writeClipboard(obj)
-#'     }
-#'   } else if (sysname=="darwin") {
-#'     clip <- pipe("pbcopy", "w")
-#'     utils::write.table(data, file = clip, sep = "\t", row.names = FALSE)
-#'     close(clip)
-#'   } else {
-#'     stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
-#'   }
-#'   print("Copied to clipboard")
-#' }
-#'
-#'
-#'
-#'
-#' #' Read Clipboard
-#' #'
-#' #' Read clipboard into vector or data frame.
-#' #'
-#' #' @param sep separator between lines
-#' #' @return Contents of clipboard
-#' #' @author Ying Taur
-#' #' @export
-#' read.clipboard <- function(sep="\n") {
-#'   cb <- file("clipboard")
-#'   vec <- scan(cb,what=character(),sep=sep)
-#'   close(cb)
-#'   tabs <- str_count(vec,"\t")
-#'   #look for tabs
-#'   if (all(tr_count(vec,"\t")))==1) {
-#'     header <- abs>0) & length(unique(stmake.names(unlist(strsplit(vec[1],split="\t")),unique=TRUE)
-#'     line <- vec[-1]
-#'     tbl <- data_frame(line) %>% separate(line,into=header,sep="\t")
-#'     return(tbl)
-#'   } else {
-#'     return(vec)
-#'   }
-#' }
-#'
-#'
-#'
-#'
-#' #' Convert object to R-code.
-#' #'
-#' #' Produces R-code that would create the object inputted. I use this if I have some data object that I obtained
-#' #' somehow but just want to declare it in the code.
-#' #'
-#' #' @param x object to be converted to R-code. Can be vector or data frame.
-#' #' @param copy.clipboard logical, if \code{TRUE}, will copy the R-code to the Clipboard.
-#' #' @return Returns the R-code.
-#' #' @examples
-#' #' values <- (1:5)^1.23
-#' #' copy.as.Rcode(values)
-#' #' @author Ying Taur
-#' #' @export
-#' copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
-#'   #converts x to R-code.
-#'   if (is.data.frame(x)) {
-#'     x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
-#'     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
-#'     rcode <- paste(x.cols,collapse=",\n")
-#'     rcode <- paste0("data.frame(",rcode,")")
-#'   } else if (is.Date(x)) {
-#'     x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-#'     rcode <- paste0("as.Date(",x.char,")")
-#'   } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
-#'     x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
-#'     rcode <- paste0("as.POSIXlt(",x.char,")")
-#'   } else if (is.POSIXct(x)) {
-#'     x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
-#'     rcode <- paste0("as.POSIXct(",x.char,")")
-#'   } else if (is.factor(x)) {
-#'     x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-#'     x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
-#'     rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
-#'   } else if (is.list(x)) {
-#'     x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
-#'     x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
-#'     rcode <- paste(x.cols,collapse=",\n")
-#'     rcode <- paste0("list(",rcode,")")
-#'   } else {
-#'     if (is.character(x)) {
-#'       x <- gsub("\\\\","\\\\\\\\",x) #\\
-#'       x <- gsub("\t","\\\\t",x) #\t
-#'       x <- gsub("\n","\\\\n",x) #\n
-#'       x <- gsub("\"","\\\\\"",x) #\"
-#'       rcode <- ifelse(is.na(x),x,paste0("\"",x,"\""))
-#'     } else {
-#'       rcode <- x #e.g. numeric or logical
-#'     }
-#'     if (!is.null(names(x))) {
-#'       x.names <- names(x)
-#'       x.names <- paste0("\"",x.names,"\"")
-#'       #x.names <- ifelse(sapply(x.names,function(n) n==make.names(n)),x.names,paste0("\"",x.names,"\""))
-#'       rcode <- paste0(x.names,"=",rcode)
-#'     }
-#'     if (length(x)>1) {
-#'       rcode <- paste(rcode,collapse=",")
-#'       rcode <- paste0("c(",rcode,")")
-#'     }
-#'   }
-#'   if (fit) {
-#'     rcode <- fit(rcode,width=width,copy.clipboard=FALSE)
-#'   }
-#'   if (copy.clipboard) {
-#'     copy.to.clipboard(rcode)
-#'   }
-#'   return(rcode)
-#' }
-#'
 
