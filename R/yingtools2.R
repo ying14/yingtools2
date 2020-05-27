@@ -3139,7 +3139,7 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,forma
       message("No predictors entered multivariate model")
       multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     } else {
-      multivariate.tbl <- cox(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
+      multivariate.tbl <- logit(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     }
     tbl <- univariate.tbl %>% left_join(multivariate.tbl,by=c("yvar","xvar","term"))
     if (formatted) {
