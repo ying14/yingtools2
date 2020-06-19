@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.22
+Version: 0.0.1.23
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -9,7 +9,6 @@ Description: Useful R Functions by Ying
 License: GPL-2
 LazyData: TRUE
 Imports:
-    ifultools,
     reshape2,
     plyr,
     ape,

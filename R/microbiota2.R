@@ -413,11 +413,11 @@ read.uparse.data <- function(dirpath,
 #' @author Ying Taur
 #' @export
 read.blastn.file <- function(tax.file,tax_table=TRUE) {
-  requireNamespace(c("data.table","ifultools"),quietly=TRUE)
+  requireNamespace("data.table",quietly=TRUE)
   #tax.file="uparse/total.5.repset.fasta.blastn.refseq_rna.txt";tax_table=TRUE;blastn.data=FALSE
   t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
   ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
-  ranklevels <- ifultools::properCase(make.names(ranklevels))
+  ranklevels <- stringr::str_to_title(make.names(ranklevels))
   t <- t %>%
     mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),

@@ -654,7 +654,8 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
       }
       return(newcol)
     }
-    data2 <- mutate_all(x,funs(format.value))
+    # data2 <- mutate_all(x,funs(format.value))
+    data2 <- mutate_all(x,format.value)
     for (var in names(data2)) {
       data2[[var]] <- paste(data2[[var]],"as",var)
     }
@@ -668,6 +669,7 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
   }
   return(sql)
 }
+
 
 
 #' Display sizes of objects in memory
