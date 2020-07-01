@@ -422,7 +422,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
     mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
            otu=qseqid,    # otu=sub(";?$",";",qseqid),
-           otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
+           otu.number=as.numeric(str_extract(otu,"(?<=ASV_)[0-9]+"))) %>%
     separate(taxonomy,into=ranklevels,sep="\\|",remove=FALSE) %>%
     group_by(otu) %>%
     arrange(evalue,staxid) %>%
@@ -430,7 +430,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
     mutate(evalue.rank=dense_rank(evalue)) %>%
     select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything())
   if (!tax_table) {
-    t <- t %>% ungroup(t) %>% arrange(otu.number)
+    t <- t %>% ungroup() %>% arrange(otu.number)
     return(t)
   } else {
     t <- t %>%
