@@ -1138,6 +1138,7 @@ date.regex <- function(format) {
 }
 
 
+
 #' Convert to Date (Ying's version)
 #'
 #' Examines strings and convert to Date format if necessary.
@@ -1789,7 +1790,7 @@ find.all.distinct.vars <- function(data, ...) {
 is.distinct <- function(data, ..., add.group.vars=TRUE) {
   vars <- quos(...)
   row.tally <- data %>%
-    group_by(!!!vars,add=add.group.vars) %>%
+    group_by(!!!vars,.add=add.group.vars) %>%
     summarize(n=n()) %>%
     ungroup()
   is.dist <- max(row.tally$n)==1
@@ -3264,10 +3265,10 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
   group_vars <- quos(...)
   start <- enquo(start)
   stop <- enquo(stop)
-  data %>% group_by(!!!group_vars,add=add) %>%
+  data %>% group_by(!!!group_vars,.add=add) %>%
     arrange(!!start,!!stop) %>%
     mutate(index_=lag(cumsum(lead(!!start)-cummax(!!stop)>gap),default=0)) %>%
-    group_by(index_,add=TRUE)
+    group_by(index_,.add=TRUE)
 }
 
 
@@ -3299,12 +3300,12 @@ group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALS
     warning("YTwarning: Found NA values in the indicator,", quo_name(indicator),". Streaks are broken whenever these are encountered.")
   }
 
-  data %>% group_by_time(!!time,!!time,!!!group_vars,gap=gap,add=add) %>%
+  data %>% group_by_time(!!time,!!time,!!!group_vars,gap=gap,.add=add) %>%
     arrange(!!time) %>%
     mutate(index2_=(!!indicator)!=lag(!!indicator),
            index2_=is.na(index2_)|index2_,
            index2_=cumsum(index2_)) %>%
-    group_by(!!indicator,index2_,add=TRUE)
+    group_by(!!indicator,index2_,.add=TRUE)
 }
 
 
