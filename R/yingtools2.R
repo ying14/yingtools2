@@ -911,11 +911,8 @@ show_linetypes <- function() {
 #' @return plot of stacked ggplots
 #' @export
 gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
-  # g1 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am) + geom_point()
-  # g2 <- ggplot(mtcars,aes(x=mpg,y=disp)) + facet_grid(cyl~am,space="free",scales="free") + geom_point()
-  # grobs=list(g1,g2)
-  #grobs=list(gm,gt)
-  #heights = c(1,2);gg.extras=NULL;gap=0;margin=5.5;units="pt";newpage=TRUE
+  requireNamespace(c("grid","gridExtra","gtable"),quietly=TRUE)
+
   grobs <- list(...)
   keep <- !sapply(grobs,is.null)
 
@@ -983,15 +980,15 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
     return(gr)
   },grobs3,heights)
   args <- c(grobs4,list(size="max"))
-  gtable.final <- do.call(gtable_rbind,args)
+  gtable.final <- do.call(gridExtra::gtable_rbind,args)
 
   if (as.gtable) {
     return(gtable.final)
   } else {
     if (newpage) {
-      grid.newpage()
+      grid::grid.newpage()
     }
-    grid.draw(gtable.final)
+    grid::grid.draw(gtable.final)
   }
 }
 
