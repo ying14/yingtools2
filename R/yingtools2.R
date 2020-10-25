@@ -1975,8 +1975,34 @@ fill_in_blanks <- function(vec,blank="",include.na=TRUE) {
 #' Determines if tstart-tstop occurs anywhere within interval.
 #' @export
 occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
+  message("YTNote: occurs.within() was renamed to overlaps()")
   tstop>=start.interval & stop.interval>=tstart
 }
+
+
+#' Determines if 2 sets of time intervals overlap.
+#'
+#' @param start1 start times for interval 1
+#' @param stop1 stop times for interval 1
+#' @param start2 start times for interval 2
+#' @param stop2 stop times for interval 2
+#'
+#' @export
+overlaps <- function(start1,stop1,start2,stop2) {
+  if (start1>stop1) {stop("YTError: start1 is greater than stop1")}
+  if (start2>stop2) {stop("YTError: start2 is greater than stop2")}
+  stop1>=start2 & stop2>=start1
+}
+
+#' Determines if x is between start and stop/
+#'
+#' Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
+#' @export
+is.between <- function(x,start,stop) {
+  if (start>stop) {stop("YTError: start is greater than stop")}
+  overlaps(x,x,start,stop)
+}
+
 
 
 #' Chop survival endpoint
