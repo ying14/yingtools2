@@ -1543,6 +1543,28 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
   return(output)
 }
 
+
+#' Coalesce values into one summary variable.
+#'
+#' After providing multiple indicator variables, summarize them by creating a character vector.
+#' @param ...  variables to coalesce together.
+#' @return A vector of same length as the variables, displaying variable names plus values.
+#' @examples
+#' #####
+#' @author Ying Taur
+#' @export
+coalesce_values <- function(...) {
+  vars <- quos(...)
+  varnames <- sapply(vars, quo_name)
+  arglist <- list(...) %>% lapply(as.character)
+  arglist2 <- mapply(function(v,x) {
+    paste0(v,"=",x)
+  },varnames,arglist,SIMPLIFY=FALSE)
+  mat <- do.call(cbind,arglist2)
+  mat %>% apply(1,function(x) paste(x,collapse="|"))
+}
+
+
 #' Ying's Recode
 #'
 #' Recode a variable
@@ -1970,6 +1992,8 @@ fill_in_blanks <- function(vec,blank="",include.na=TRUE) {
   }
   c(vec[non.blanks][1], vec[non.blanks])[cumsum(non.blanks)+1]
 }
+
+
 
 
 #' Determines if tstart-tstop occurs anywhere within interval.
