@@ -2013,8 +2013,8 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 #'
 #' @export
 overlaps <- function(start1,stop1,start2,stop2) {
-  if (start1>stop1) {stop("YTError: start1 is greater than stop1")}
-  if (start2>stop2) {stop("YTError: start2 is greater than stop2")}
+  if (any(start1>stop1,na.rm=TRUE)) {stop("YTError: start1 is greater than stop1")}
+  if (any(start2>stop2,na.rm=TRUE)) {stop("YTError: start2 is greater than stop2")}
   stop1>=start2 & stop2>=start1
 }
 
@@ -2023,7 +2023,7 @@ overlaps <- function(start1,stop1,start2,stop2) {
 #' Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
 #' @export
 is.between <- function(x,start,stop) {
-  if (start>stop) {stop("YTError: start is greater than stop")}
+  if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
   overlaps(x,x,start,stop)
 }
 
