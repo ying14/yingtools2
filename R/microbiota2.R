@@ -430,7 +430,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
     mutate(evalue.rank=dense_rank(evalue)) %>%
     select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything())
   if (!tax_table) {
-    t <- t %>% ungroup(t) %>% arrange(otu.number)
+    t <- t %>% ungroup() %>% arrange(otu.number)
     return(t)
   } else {
     t <- t %>%
