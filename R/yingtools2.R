@@ -698,20 +698,39 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
   return(dsize)
 }
 
-
-
 #' Pretty Numeric Format (Non-scientific)
 #'
 #' Use to format axes in ggplot with non-scientific notation. Good for abundances!
-#' @param l number vector to be formatted.
-#' @return Expression for l, in non-scientific notation.
+#'
+#' Note,
+#' @param x number vector to be formatted.
+#' @return Expression for x, in non-scientific notation.
 #' @examples
-#' pretty_number(c(111e-12,230000022.11111,0.1234567))
-#' ggplot(mtcars,aes(mpg*1e-6)) + geom_bar() + scale_x_continuous(label=pretty_number)
+#' x <- c(12,23.456789,1111e-7,230000022.11111,0.001234567)
+#' pretty_number(x)
+#'
+#' dtime <- as.difftime(x,units="secs")
+#' pretty_number(dtime)
 #' @export
-pretty_number <- function(l,digits=2) {
-  sapply(l,function(x) format(x,scientific=FALSE,trim=TRUE,big.mark=",",digits=digits))
+pretty_number <- function(x,...) UseMethod("pretty_number")
+#' @rdname pretty_number
+#' @export
+pretty_number.default <- function(x,digits=2) {
+  sapply(x,function(y) format(y,scientific=FALSE,trim=TRUE,big.mark=",",digits=digits))
 }
+#' @rdname pretty_number
+#' @export
+pretty_number.difftime <- function(x,...) {
+  zero <- as.POSIXct(0,origin="1970-01-01")
+  sapply(x,function(d) {
+    diff <- d+zero-zero
+    num <- diff %>% as.numeric() %>% pretty_number.default(...)
+    units <- units(diff)
+    paste(num,units)
+  })
+}
+
+
 
 
 #' Fancy Scientific Notation

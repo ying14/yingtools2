@@ -2,20 +2,32 @@
 % Please edit documentation in R/yingtools2.R
 \name{pretty_number}
 \alias{pretty_number}
+\alias{pretty_number.default}
+\alias{pretty_number.difftime}
 \title{Pretty Numeric Format (Non-scientific)}
 \usage{
-pretty_number(l, digits = 2)
+pretty_number(x, ...)
+
+\method{pretty_number}{default}(x, digits = 2)
+
+\method{pretty_number}{difftime}(x, ...)
 }
 \arguments{
-\item{l}{number vector to be formatted.}
+\item{x}{number vector to be formatted.}
 }
 \value{
-Expression for l, in non-scientific notation.
+Expression for x, in non-scientific notation.
 }
 \description{
 Use to format axes in ggplot with non-scientific notation. Good for abundances!
 }
+\details{
+Note,
+}
 \examples{
-pretty_number(c(111e-12,230000022.11111,0.1234567))
-ggplot(mtcars,aes(mpg*1e-6)) + geom_bar() + scale_x_continuous(label=pretty_number)
+x <- c(12,23.456789,1111e-7,230000022.11111,0.001234567)
+pretty_number(x)
+
+dtime <- as.difftime(x,units="secs")
+pretty_number(dtime)
 }
