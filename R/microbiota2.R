@@ -279,7 +279,7 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
   }),by=indices_] %>% pull(otu)
   otu.rep <- data.table::data.table(otu=taxa_names(phy))
   otu.rep <- otu.rep[,lapply(.SD,function(x) {
-    rep <- x[which.min(as.numeric(str_extract(x,"[0-9]+")))]
+    rep <- x[order(as.numeric(str_extract(x,"[0-9]+")))[1]]
     rep
   }),by=indices_] %>% pull(otu)
   new.otudt <- new.otudt[,"indices_":=NULL] %>% as.matrix()
