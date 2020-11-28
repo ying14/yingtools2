@@ -176,6 +176,77 @@ dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000) {
     DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
 }
 
+
+
+
+#' Kill port process
+#'
+#' Find process that is listening to the specified port and kill it.
+#'
+#' @param port the port (numeric) to search.
+#' @examples
+#' kill_port_process(4567)
+#' @export
+kill_port_process <- function(port) {
+  kill <- paste0('for /f "tokens=5" %a in (\'netstat -aon ^| find ":',port,'" ^| find "LISTENING"\') do taskkill /f /pid %a')
+  shell(kill)
+}
+
+#' Run a shiny gadget in background
+#'
+#' Similar to \code{shiny::runGadget}, you can use this to run shiny apps in the viewer pane of RStudio.
+#' The difference is that the R console is not blocked during execution,
+#' so you can continue coding while the shiny app is running.
+#'
+#' This function works by deploying the Shiny app is run in the background
+#' (using \code{callr::r_bg}), then having the viewer panel set to display the corresponding port.
+#' If a process already exists that is listening to the port, that process is killed (using \code{kill_port_process}.
+#'
+#' @param app A Shiny app object created by shinyApp()
+#' @param port The TCP port that the application should listen on.
+#' @return An \code{r_process} object, which is running separately in the background.
+#' @examples
+#' app <- shinyApp(ui = fluidPage(
+#'   titlePanel(paste0("Hello Shiny!")),
+#'   sidebarLayout(
+#'     sidebarPanel(
+#'       sliderInput(inputId = "bins",
+#'                   label = "Number of bins:",
+#'                   min = 1, max = 50, value = 30)
+#'     ),
+#'     mainPanel(
+#'       plotOutput(outputId = "distPlot")
+#'     )
+#'   )
+#' ), server = function(input, output) {
+#'   output$distPlot <- renderPlot({
+#'     x    <- faithful$waiting
+#'     bins <- seq(min(x), max(x), length.out = input$bins + 1)
+#'     hist(x, breaks = bins, col = "#75AADB", border = "white",
+#'          xlab = "Waiting time to next eruption (in mins)",
+#'          main = "Histogram of waiting times y")
+#'   })
+#' })
+#'
+#' ps <- runGadget_bg(app)
+#' ps$get_result()
+#' ps$kill()
+#' @export
+runGadget_bg <- function(app,port=4576) {
+  requireNamespace(c("shiny","callr"),quietly=TRUE)
+  kill_port_process(port)
+  ps <- callr::r_bg(function(app,port) {
+    shiny::runApp(app,port)
+  },args=list(app=app,port=port))
+  Sys.sleep(1.5)
+  getOption("viewer")(paste0("http://127.0.0.1:",port))
+  return(ps)
+}
+
+
+
+
+
 #' Paste 2
 #'
 #' Similar to \code{paste} command, except that \code{NA}s are not converted to text.
