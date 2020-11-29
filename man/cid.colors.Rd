@@ -4,7 +4,9 @@
 \name{cid.colors}
 \alias{cid.colors}
 \title{The color scheme used in CID manuscript.}
-\format{An object of class \code{character} of length 21.}
+\format{
+An object of class \code{character} of length 21.
+}
 \usage{
 cid.colors
 }

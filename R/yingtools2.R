@@ -188,14 +188,19 @@ dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000) {
 #' kill_port_process(4567)
 #' @export
 kill_port_process <- function(port) {
-  if (.Platform$OS.type=="unix") {
-    kill <- paste0("kill -9 $(lsof -t -i:",port," -sTCP:LISTEN)")
-    system(kill)
-  } else if (.Platform$OS.type=="windows") {
-    kill <- paste0('for /f "tokens=5" %a in (\'netstat -aon ^| find ":',port,'" ^| find "LISTENING"\') do taskkill /f /pid %a')
-    shell(kill)
-  } else {
-    stop("YTError: this function doesn't yet work for this OS.")
+  requireNamespace("pingr",quietly=TRUE)
+  localhost <- "127.0.0.1"
+  port_active <- pingr::is_up(localhost,port,timeout=0.5,check_online=FALSE)
+  if (port_active) {
+    if (.Platform$OS.type=="unix") {
+      kill <- paste0("kill -9 $(lsof -t -i:",port," -sTCP:LISTEN)")
+      system(kill)
+    } else if (.Platform$OS.type=="windows") {
+      kill <- paste0('for /f "tokens=5" %a in (\'netstat -aon ^| find ":',port,'" ^| find "LISTENING"\') do taskkill /f /pid %a')
+      shell(kill)
+    } else {
+      stop("YTError: this function doesn't yet work for this OS.")
+    }
   }
 }
 
@@ -214,6 +219,7 @@ kill_port_process <- function(port) {
 #' @param port The TCP port that the application should listen on.
 #' @return An \code{r_process} object, which is running separately in the background.
 #' @examples
+#' library(shiny)
 #' app <- shinyApp(ui = fluidPage(
 #'   titlePanel(paste0("Hello Shiny!")),
 #'   sidebarLayout(
@@ -232,27 +238,32 @@ kill_port_process <- function(port) {
 #'     bins <- seq(min(x), max(x), length.out = input$bins + 1)
 #'     hist(x, breaks = bins, col = "#75AADB", border = "white",
 #'          xlab = "Waiting time to next eruption (in mins)",
-#'          main = "Histogram of waiting times y")
+#'          main = "Histogram of waiting times")
 #'   })
 #' })
-#'
 #' ps <- runGadget_bg(app)
-#' ps$get_result()
+#'
+#' # to stop the app, run this or quit RStudio
 #' ps$kill()
 #' @export
-runGadget_bg <- function(app,port=4576) {
-  requireNamespace(c("shiny","callr"),quietly=TRUE)
+runGadget_bg <- function(app,port=4567) {
+  requireNamespace(c("shiny","callr","pingr"),quietly=TRUE)
+  localhost <- "127.0.0.1"
+  url <- paste0("http://",localhost,":",port)
   kill_port_process(port)
   ps <- callr::r_bg(function(app,port) {
     shiny::runApp(app,port)
   },args=list(app=app,port=port))
-  Sys.sleep(1.5)
-  getOption("viewer")(paste0("http://127.0.0.1:",port))
+  message("Running Shiny app; setting viewer to ",url)
+  for (i in 1:50) {
+    port_ready <- pingr::is_up(localhost,port,timeout=0.5,check_online=FALSE)
+    if (port_ready) {
+      break
+    }
+  }
+  getOption("viewer")(url)
   return(ps)
 }
-
-
-
 
 
 #' Paste 2
