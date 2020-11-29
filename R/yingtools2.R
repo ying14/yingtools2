@@ -188,9 +188,17 @@ dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000) {
 #' kill_port_process(4567)
 #' @export
 kill_port_process <- function(port) {
-  kill <- paste0('for /f "tokens=5" %a in (\'netstat -aon ^| find ":',port,'" ^| find "LISTENING"\') do taskkill /f /pid %a')
-  shell(kill)
+  if (.Platform$OS.type=="unix") {
+    kill <- paste0("kill -9 $(lsof -t -i:",port," -sTCP:LISTEN)")
+    system(kill)
+  } else if (.Platform$OS.type=="windows") {
+    kill <- paste0('for /f "tokens=5" %a in (\'netstat -aon ^| find ":',port,'" ^| find "LISTENING"\') do taskkill /f /pid %a')
+    shell(kill)
+  } else {
+    stop("YTError: this function doesn't yet work for this OS.")
+  }
 }
+
 
 #' Run a shiny gadget in background
 #'
