@@ -4,7 +4,7 @@
 \alias{runGadget_bg}
 \title{Run a shiny gadget in background}
 \usage{
-runGadget_bg(app, port = 4576)
+runGadget_bg(app, port = 4567)
 }
 \arguments{
 \item{app}{A Shiny app object created by shinyApp()}
@@ -25,6 +25,7 @@ This function works by deploying the Shiny app is run in the background
 If a process already exists that is listening to the port, that process is killed (using \code{kill_port_process}.
 }
 \examples{
+library(shiny)
 app <- shinyApp(ui = fluidPage(
   titlePanel(paste0("Hello Shiny!")),
   sidebarLayout(
@@ -43,11 +44,11 @@ app <- shinyApp(ui = fluidPage(
     bins <- seq(min(x), max(x), length.out = input$bins + 1)
     hist(x, breaks = bins, col = "#75AADB", border = "white",
          xlab = "Waiting time to next eruption (in mins)",
-         main = "Histogram of waiting times y")
+         main = "Histogram of waiting times")
   })
 })
-
 ps <- runGadget_bg(app)
-ps$get_result()
+
+# to stop the app, run this or quit RStudio
 ps$kill()
 }
