@@ -2391,7 +2391,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     if (anyDuplicated(names(dict))) {
       stop("YTError: duplicate terms found during terms.to.varnames function!")
     }
-    if (!setequal(names(dict),terms)) {
+    if (!all(terms %in% names(dict))) {
       stop("YTError: varnames and terms don't match in the terms.to.varnames function!")
     }
     dict[match(terms,names(dict))]
@@ -3255,8 +3255,8 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,formatted=TRUE) {
     if (anyDuplicated(names(dict))) {
       stop("YTError: duplicate terms found during terms.to.varnames function!")
     }
-    if (!setequal(names(dict),terms)) {
-      stop("YTError: varnames and terms don't match in the terms.to.varnames function!")
+    if (!all(terms %in% names(dict))) {
+      stop("YTError: not all terms found in varnames!")
     }
     dict[match(terms,names(dict))]
   }
