@@ -2406,12 +2406,29 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
            time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
     select(yvar,xvar,term,everything())
+
+  tbl.extra <- lapply(xvars,function(x) {
+    vec <- data %>% pull(!!x)
+    is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
+    if (is.01(vec)) {
+      extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
+      return(extra)
+    } else if (is.numeric(vec)) {
+      return(NULL)
+    } else {
+      tbl <- table(vec)
+      extra <- tibble(xvar=quo_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
+      return(extra)
+    }
+  }) %>% bind_rows()
+  tbl <- tbl %>% left_join(tbl.extra,by=c("xvar","term"))
+
   if (formatted) {
     tbl <- tbl %>%
       mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
              p.value=pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-      transmute(yvar,xvar,term,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+      transmute(yvar,xvar,term,n,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
   return(tbl)
 }
@@ -2454,7 +2471,7 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
                p.value=pvalue(p.value),
                multi.p.value=pvalue(multi.p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high,multi.estimate,multi.conf.low,multi.conf.high),~formatC(.,format="f",digits=2)) %>%
-        transmute(yvar,xvar,term,
+        transmute(yvar,xvar,term,n,
                   haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
                   multi.haz.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),multi.p.value)
     }
@@ -2465,7 +2482,7 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
         mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
                p.value=pvalue(p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-                    transmute(yvar,xvar,term,
+                    transmute(yvar,xvar,term,n,
                               haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
     }
   }
@@ -3265,12 +3282,28 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,formatted=TRUE) {
     mutate(xvar=terms.to.varnames(term,xvarnames,data),
            yvar=quo_name(yvar)) %>%
       select(yvar,xvar,term,everything())
-    if (formatted) {
-      tbl <- tbl %>%
-        mutate(p.value=pvalue(p.value)) %>%
-        mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-        transmute(yvar,xvar,term,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+
+  tbl.extra <- lapply(xvars,function(x) {
+    vec <- data %>% pull(!!x)
+    is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
+    if (is.01(vec)) {
+      extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
+      return(extra)
+    } else if (is.numeric(vec)) {
+      return(NULL)
+    } else {
+      tbl <- table(vec)
+      extra <- tibble(xvar=quo_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
+      return(extra)
     }
+  }) %>% bind_rows()
+  tbl <- tbl %>% left_join(tbl.extra,by=c("xvar","term"))
+  if (formatted) {
+    tbl <- tbl %>%
+      mutate(p.value=pvalue(p.value)) %>%
+      mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
+      transmute(yvar,xvar,term,n,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+  }
   tbl
 }
 
@@ -3302,7 +3335,8 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,forma
       message("No predictors entered multivariate model")
       multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     } else {
-      multivariate.tbl <- logit(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
+      multivariate.tbl <- logit(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>%
+        rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     }
     tbl <- univariate.tbl %>% left_join(multivariate.tbl,by=c("yvar","xvar","term"))
     if (formatted) {
@@ -3310,7 +3344,7 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,forma
         mutate(p.value=pvalue(p.value),
                multi.p.value=pvalue(multi.p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high,multi.estimate,multi.conf.low,multi.conf.high),~formatC(.,format="f",digits=2)) %>%
-        transmute(yvar,xvar,term,
+        transmute(yvar,xvar,term,n,
                   odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
                   multi.odds.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),multi.p.value)
     }
@@ -3320,7 +3354,7 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,forma
       tbl <- tbl %>%
         mutate(p.value=pvalue(p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-        transmute(yvar,xvar,term,
+        transmute(yvar,xvar,term,n,
                   odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
     }
   }
