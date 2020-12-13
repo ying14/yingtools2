@@ -4,7 +4,9 @@
 \name{cid.cdiff}
 \alias{cid.cdiff}
 \title{C. diff results}
-\format{data.frame}
+\format{
+data.frame
+}
 \usage{
 cid.cdiff
 }

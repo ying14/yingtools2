@@ -205,6 +205,100 @@ kill_port_process <- function(port) {
 }
 
 
+
+
+#' Get Code Info
+#'
+#' Read code (as an expression, text, or function) and provide information on
+#' functions, package dependencies
+#' @param expr expression to be evaluated.
+#' @param text character, code can alternatively input as a string.
+#' @param fn function, use this to evaluate code within a function.
+#' @param recursive whether to examine code within functions
+#' @return list containing information such as packages, functions, parsedata.
+#' @examples
+#' get.code.info(overlaps(1,2,3,sqrt(44)))
+#'
+#' get.code.info(text="log_epsilon_trans(0.001)")
+#' yingtools2::age.years()
+#'
+#' fun <- function() {
+#'   age.years(as.Date("1975-02-21"),Sys.Date())
+#' }
+#' get.code.info(fn=fun)
+#' @export
+get.code.info <- function(expr,text=NULL,fn=NULL,recursive=FALSE) {
+  expr <- enquo(expr)
+  if (is.null(text)) {
+    text <- rlang::quo_text(expr)
+  }
+  if (!is.null(fn)) {
+    text <- deparse(fn)
+  }
+  parsedata <- getParseData(parse(text=text,keep.source=TRUE)) %>%
+    filter(token %in% c("SPECIAL","SYMBOL","SYMBOL_FUNCTION_CALL")) %>%
+    mutate(src=sapply(text,function(x) find(x)[1]),
+           desc=case_when(
+             token=="SYMBOL_FUNCTION_CALL" & is.na(src) ~ "local function",
+             token=="SYMBOL_FUNCTION_CALL" & !is.na(src) ~ "package function",
+             token=="SYMBOL" ~ "variable",
+             token=="SPECIAL" ~ "operator",
+             TRUE ~ "other"),
+           pkg=str_extract(src,"(?<=package:).*$"),
+           fn=ifelse(token=="SYMBOL_FUNCTION_CALL",paste0(pkg,"::",text),NA_character_))
+  pkgs <- parsedata %>% filter(!is.na(pkg)) %>% pull(pkg) %>% unique()
+  fns <- parsedata %>% pull(fn) %>% {.[!is.na(.)]} %>% unique()
+  list(parsedata=parsedata,
+       fns=fns,
+       pkgs=pkgs)
+}
+
+
+
+#' Add Code Dependencies
+#'
+#' Given code (as an expression, text, or function), examine for package dependencies and
+#' load them.
+#' @param expr expression to be evaluated.
+#' @param text character, code can alternatively input as a string.
+#' @param fn function, use this to evaluate and modify code within a function.
+#' @return returns either a modified expression, text, or function, depending on what was input.
+#' @examples
+#' add.code.dependencies(overlaps(1,2,3,sqrt(44)))
+#'
+#' add.code.dependencies(text="log_epsilon_trans(0.001)")
+#'
+#' fun <- function() {
+#'   age.years(as.Date("1975-02-21"),Sys.Date())
+#' }
+#' add.code.dependencies(fn=fun)
+#' @export
+add.code.dependencies <- function(expr,text=NULL,fn=NULL) {
+  expr <- enquo(expr)
+  if (!is.null(fn)) { # function
+    text <- deparse(fn) %>% paste(collapse="\n")
+    newtext <- paste0(".f <- ",text,"\n.f(...)")
+    newtext2 <- paste0("function(...) {",add.code.dependencies(text=newtext),"}",sep="\n")
+    f <- eval(parse(text=newtext2))
+    return(f)
+  } else if (is.null(text)) { # expression
+    text <- rlang::quo_text(expr)
+    newtext <- add.code.dependencies(text=text)
+    newexpr <- str2expression(newtext)
+    return(newexpr)
+  }
+  # text
+  info <- get.code.info(text=text)
+  pkg.cmd <- paste0("library(",info$pkgs,")",collapse=";")
+  newtext <- paste(pkg.cmd,text,sep="\n")
+  return(newtext)
+}
+
+
+
+
+
+
 #' Run a shiny gadget in background
 #'
 #' Similar to \code{shiny::runGadget}, you can use this to run shiny apps in the viewer pane of RStudio.
