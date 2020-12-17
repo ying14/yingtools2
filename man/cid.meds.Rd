@@ -4,9 +4,7 @@
 \name{cid.meds}
 \alias{cid.meds}
 \title{Medications}
-\format{
-data.frame
-}
+\format{data.frame}
 \usage{
 cid.meds
 }

@@ -11,6 +11,8 @@ cox(
   starttime = NULL,
   return.split.data = FALSE,
   return.model.obj = FALSE,
+  firth = FALSE,
+  firth.opts = list(),
   formatted = TRUE
 )
 }

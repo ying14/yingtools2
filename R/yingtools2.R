@@ -122,7 +122,7 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000) {
+dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000,escape=FALSE) {
   requireNamespace("DT",quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
   if (nrow(data)==0) {
@@ -170,11 +170,13 @@ dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000) {
   options <- add(options,columnDefs=columnDefs)
 
   data %>%
+    # mutate(across(.fns=~gsub("\\n","<br/>",.))) %>%
     filter(row_number()<=maxrows) %>%
-    DT::datatable(plugins=plugins,options=options) %>%
+    DT::datatable(plugins=plugins,options=options,escape=escape) %>%
     DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
     DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
 }
+
 
 
 
@@ -2417,8 +2419,8 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 #' library(yingtools2)
 #' cid.patients %>% cox(vre.bsi,enterodom30,starttime=firstsampday)
 #' @export
-cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,formatted=TRUE) {
-  requireNamespace("broom",quietly=TRUE)
+cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,firth.opts=list(),formatted=TRUE) {
+  requireNamespace(c("broom","coxphf"),quietly=TRUE)
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
   xvars <- quos(...)
@@ -2495,12 +2497,35 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   if (is.competing) {
     stop("YTError: can't handle competing endpoints in Cox.")
   }
-  results <- coxph(formula,data=data2)
-  tbl <- broom::tidy(results,exponentiate=TRUE) %>%
-    mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
-           time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
-    select(yvar,xvar,term,everything())
-
+  if (!firth) {
+    results <- coxph(formula,data=data2)
+    if (return.model.obj) {
+      return(results)
+    }
+    tbl <- broom::tidy(results,exponentiate=TRUE) %>%
+      mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
+             time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
+      select(yvar,xvar,term,everything())
+  } else {
+    # results <- coxphf(formula,data=data2)
+    args <- c(list(formula,data=data2),firth.opts)
+    results <- do.call(coxphf::coxphf,args)
+    if (return.model.obj) {
+      return(results)
+    }
+    tbl <- tibble(term=names(results$coefficients),
+                  estimate=exp(results$coefficients),
+                  p.value=results$prob,
+                  conf.low=results$ci.lower,
+                  conf.high=results$ci.upper) %>%
+      mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
+             time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
+      select(yvar,xvar,term,everything())
+  }
+  # tbl <- broom::tidy(results,exponentiate=TRUE) %>%
+  #   mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
+  #          time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
+  #   select(yvar,xvar,term,everything())
   tbl.extra <- lapply(xvars,function(x) {
     vec <- data %>% pull(!!x)
     is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}

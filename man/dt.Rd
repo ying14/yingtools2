@@ -4,7 +4,14 @@
 \alias{dt}
 \title{Ying's DT view}
 \usage{
-dt(data, fontsize = 10, pageLength = Inf, maxchars = 250, maxrows = 1000)
+dt(
+  data,
+  fontsize = 10,
+  pageLength = Inf,
+  maxchars = 250,
+  maxrows = 1000,
+  escape = FALSE
+)
 }
 \arguments{
 \item{data}{dataframe to be viewed.}

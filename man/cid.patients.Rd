@@ -4,9 +4,7 @@
 \name{cid.patients}
 \alias{cid.patients}
 \title{Patients}
-\format{
-data.frame
-}
+\format{data.frame}
 \usage{
 cid.patients
 }

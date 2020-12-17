@@ -6,8 +6,7 @@
 \usage{
 phy.collapse(
   phy,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
-    "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
   short_taxa_names = TRUE
 )
 }

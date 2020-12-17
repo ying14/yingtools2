@@ -4,9 +4,7 @@
 \name{cid.bsi}
 \alias{cid.bsi}
 \title{Bloodstream Infections}
-\format{
-data.frame
-}
+\format{data.frame}
 \usage{
 cid.bsi
 }

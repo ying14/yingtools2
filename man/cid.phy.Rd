@@ -4,9 +4,7 @@
 \name{cid.phy}
 \alias{cid.phy}
 \title{16S sequence data (phyloseq format)}
-\format{
-phyloseq
-}
+\format{phyloseq}
 \usage{
 cid.phy
 }
