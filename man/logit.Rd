@@ -4,7 +4,14 @@
 \alias{logit}
 \title{Logistic regression}
 \usage{
-logit(data, yvar, ..., return.model.obj = FALSE, formatted = TRUE)
+logit(
+  data,
+  yvar,
+  ...,
+  return.model.obj = FALSE,
+  firth = FALSE,
+  formatted = TRUE
+)
 }
 \arguments{
 \item{data}{the data frame containing the variables to be analyzed.}

@@ -2419,7 +2419,8 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 #' library(yingtools2)
 #' cid.patients %>% cox(vre.bsi,enterodom30,starttime=firstsampday)
 #' @export
-cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,firth.opts=list(),formatted=TRUE) {
+cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,
+                firth.opts=list(),formatted=TRUE) {
   requireNamespace(c("broom","coxphf"),quietly=TRUE)
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
@@ -2445,7 +2446,8 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
     start <- min(mintime-1,0)
     message("Setting start time as: ",start)
-    data <- data %>% mutate(.y=!!yvar,.tstart=start,.tstop=!!yvarday) %>%
+    data <- data %>%
+      mutate(.y=!!yvar,.tstart=start,.tstop=!!yvarday) %>%
       mutate_at(vars(.tstart,.tstop,!!!timevars),function(x) x-start)
   } else {
     data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
@@ -2469,9 +2471,6 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   data2 <- data
   for (xvar in xvars.td) {
     data2 <- data2 %>% splitline(!!xvar)
-  }
-  if (return.split.data) {
-    return(data2)
   }
   is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
   has.timevarying <- length(xvars.td)>0 & nrow(data2)>nrow(data)
@@ -2497,37 +2496,33 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   if (is.competing) {
     stop("YTError: can't handle competing endpoints in Cox.")
   }
-  if (!firth) {
-    results <- coxph(formula,data=data2)
-    if (return.model.obj) {
-      return(results)
-    }
-    tbl <- broom::tidy(results,exponentiate=TRUE) %>%
-      mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
-             time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
-      select(yvar,xvar,term,everything())
-  } else {
-    # results <- coxphf(formula,data=data2)
-    args <- c(list(formula,data=data2),firth.opts)
-    results <- do.call(coxphf::coxphf,args)
-    if (return.model.obj) {
-      return(results)
-    }
-    tbl <- tibble(term=names(results$coefficients),
-                  estimate=exp(results$coefficients),
-                  p.value=results$prob,
-                  conf.low=results$ci.lower,
-                  conf.high=results$ci.upper) %>%
-      mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
-             time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
-      select(yvar,xvar,term,everything())
+  if (return.split.data) {
+    fn <- ifelse(firth,"coxphf","coxph")
+    form <- deparse(formula)
+    message(str_glue("Returning split data. Can run as follows:\n{fn}({deparse(form)},data={{data}})"))
+    return(data2)
   }
-  # tbl <- broom::tidy(results,exponentiate=TRUE) %>%
-  #   mutate(xvar=terms.to.varnames(term,xvarnames,data2),yvar=quo_name(yvar),
-  #          time.dependent=xvar %in% sapply(xvars.td,quo_name)) %>%
-  #   select(yvar,xvar,term,everything())
+  if (!firth) {
+    result <- coxph(formula,data=data2)
+  } else {
+    result <- do.call(coxphf::coxphf,c(list(formula,data=data2),firth.opts))
+  }
+  if (return.model.obj) {
+    return(result)
+  }
+  tbl <- yt.tidy(result) %>%
+    mutate(xvar=terms.to.varnames(term,xvarnames,data2),
+           yvar=quo_name(yvar),
+           time.dependent=xvar %in% sapply(xvars.td,quo_name))
+
   tbl.extra <- lapply(xvars,function(x) {
-    vec <- data %>% pull(!!x)
+    if (quo_name(x) %in% sapply(xvars.td,quo_name)) {
+      xday <- x %>% quo_name() %>% paste0("_day") %>% sym()
+      count <- data %>% summarize(count=sum((!!x==1) & (!!xday < !!yvarday))) %>% pull(count)
+      extra <- tibble(xvar=quo_name(x),n=count) %>% mutate(term=xvar)
+      return(extra)
+    }
+    vec <- data2 %>% pull(!!x)
     is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
     if (is.01(vec)) {
       extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
@@ -2551,6 +2546,41 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   }
   return(tbl)
 }
+
+
+
+
+yt.tidy <- function(x,...) UseMethod("yt.tidy")
+yt.tidy.coxph <- function(obj) {
+  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
+}
+yt.tidy.coxphf <- function(obj) {
+  tibble(term=names(obj$coefficients),
+         estimate=exp(obj$coefficients),
+         statistic=NA,
+         std.error=NA,
+         p.value=obj$prob,
+         conf.low=obj$ci.lower,
+         conf.high=obj$ci.upper)
+}
+
+yt.tidy.glm <- function(obj) {
+  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95) %>%
+    filter(term!="(Intercept)")
+}
+
+yt.tidy.logistf <- function(obj) {
+  tibble(term=obj$terms,
+         estimate=exp(obj$coefficients),
+         statistic=NA,
+         std.error=NA,
+         p.value=obj$prob,
+         conf.low=obj$ci.lower,
+         conf.high=obj$ci.upper) %>%
+    filter(term!="(Intercept)")
+}
+
+
 
 
 #' Univariate and Multivariate Cox Regression
@@ -3372,13 +3402,17 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
 #' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
 #' @return by default, returns a formatted regression table
 #' @export
-logit <- function(data, yvar, ... , return.model.obj=FALSE,formatted=TRUE) {
-  requireNamespace("broom",quietly=TRUE)
+logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted=TRUE) {
+  requireNamespace(c("broom","logistf"),quietly=TRUE)
   yvar <- enquo(yvar)
   xvars <- quos(...)
   xvarnames <- sapply(xvars,quo_name)
-  formula <- paste0(quo_name(yvar),"~",paste(xvarnames,collapse="+"))
-  result <- glm(formula,data=data,family="binomial")
+  formula <- as.formula(paste0(quo_name(yvar),"~",paste(xvarnames,collapse="+")))
+  if (!firth) {
+    result <- glm(formula,data=data,family="binomial")
+  } else {
+    result <- logistf::logistf(formula,data=data,firth=TRUE)
+  }
   if (return.model.obj) {
     return(result)
   }
@@ -3396,8 +3430,8 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,formatted=TRUE) {
     }
     dict[match(terms,names(dict))]
   }
-  tbl <- result %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE) %>%
-    filter(term!="(Intercept)") %>%
+  tbl <- yt.tidy(result)
+  tbl <- tbl %>%
     mutate(xvar=terms.to.varnames(term,xvarnames,data),
            yvar=quo_name(yvar)) %>%
       select(yvar,xvar,term,everything())
