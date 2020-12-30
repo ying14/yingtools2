@@ -4,7 +4,7 @@
 \alias{get.code.info}
 \title{Get Code Info}
 \usage{
-get.code.info(expr, text = NULL, fn = NULL, recursive = FALSE)
+get.code.info(expr, text = NULL, fn = NULL, envir = parent.frame())
 }
 \arguments{
 \item{expr}{expression to be evaluated.}

@@ -110,10 +110,14 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' If data frame is grouped (i.e. \code{group_by} in dplyr), the rows will be sorted and shaded by group.
 #'
 #' @param data dataframe to be viewed.
-#' @param fontsize numeric controlling font size in the table, measured in px. Default is 12.
+#' @param fontsize numeric controlling font size in the table, measured in px. Default is 11.
 #' @param maxchars max number of characters before adding an ellipsis \code{...}. Default is 250.
+#' @param whiteSpace CSS property sets how white space inside an element is handled. Default is "pre-wrap".
 #' @param pageLength number of rows to display per page (Default \code{Inf}, show all rows)
-#' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent DT from handling excessively large data frames. Default is 1000.
+#' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent \code{DT} from handling excessively large data frames. Default is 1000.
+#' @param rownames whether or not to show row names (passed directly to \code{\link[DT:datatable]{DT::datatable}}).
+#' @param class the CSS class(es) of the table (passed directly to \code{\link[DT:datatable]{DT::datatable}}).
+#' @param escape whether to escape HTML entities in the table (passed directly to \code{\link[DT:datatable]{DT::datatable}}).
 #'
 #' @return A javascript-style datatable, which displays in the Rstudio viewer.
 #' @examples
@@ -122,23 +126,19 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000,escape=FALSE) {
-  requireNamespace("DT",quietly=TRUE)
+dt <- function(data,fontsize=11,pageLength=Inf,maxchars=250,maxrows=500,rownames=FALSE,escape=FALSE,class="compact cell-border stripe",whiteSpace="pre-wrap") {
+  requireNamespace(c("DT","forcats"),quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
-  if (nrow(data)==0) {
-    stop("YTError: data has zero rows.")
-  }
   n.cols <- ncol(data)
-  index_col <- n.cols+1
-  data$index_ <- data %>% group_indices()
-  data <- data %>% ungroup() %>% mutate(index_=factor(index_,levels=unique(index_))) %>%
-    arrange(index_) %>% select(-index_,everything())
-  n.groups <- n_distinct(data$index_)
-  indices <- levels(data$index_)
-  pal <- c("white","seashell","aliceblue")
-  clrs <- rep_len(pal,length.out=n.groups)
-  clrs.rgb <- paste0("rgb(",apply(col2rgb(clrs),2,function(x) paste(x,collapse=",")),")")
+  index_col <- n.cols + rownames
 
+  pal <- c("white","seashell","aliceblue")
+  indices <- seq_along(pal)
+  clrs.rgb <- paste0("rgb(",apply(col2rgb(pal),2,function(x) paste(x,collapse=",")),")")
+  data$index_ <- data %>% group_indices() %>% factor() %>% forcats::fct_inorder() %>% as.numeric()
+  data <- data %>% arrange(index_) %>%
+    mutate(index_=((index_-1) %% length(pal)) + 1) %>%
+    select(!!!groups(.),-index_,everything())
   add <- function(l,...) {
     if (is.list(l)) {
       c(l,list(...))
@@ -149,7 +149,6 @@ dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000,escape=
   plugins <- c()
   options <- list()
   columnDefs <- list()
-
   ## ellipsis
   plugins <- add(plugins,"ellipsis")
   columnDefs <- add(columnDefs,list(
@@ -160,25 +159,24 @@ dt <- function(data,fontsize=10,pageLength=Inf,maxchars=250,maxrows=1000,escape=
   options <- add(options,initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")))
   options <- add(options,searchHighlight=TRUE)
   options <- add(options,paging=!is.infinite(pageLength),
-                 pageLength=ifelse(!is.infinite(pageLength),pageLength,1e6))
-
+                 pageLength=pmin(pageLength,maxrows))
   ## make index invisible
   columnDefs <- add(columnDefs,list(
     targets = index_col,
     visible = FALSE
   ))
   options <- add(options,columnDefs=columnDefs)
-
-  data %>%
-    # mutate(across(.fns=~gsub("\\n","<br/>",.))) %>%
+  output <- data %>%
     filter(row_number()<=maxrows) %>%
-    DT::datatable(plugins=plugins,options=options,escape=escape) %>%
-    DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%") %>%
-    DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
+    # mutate(across(where(is.character),~str_replace_all(.,c("<"="&lt",">"="&gt","&"="&amp","\""="&quot","'"="&#39")))) %>%
+    DT::datatable(plugins=plugins,class=class,options=options,escape=escape,rownames=rownames) %>%
+    DT::formatStyle(0:length(data),fontSize=fontsize,lineHeight="95%",whiteSpace=whiteSpace)
+  if (nrow(data)>0) {
+    output <- output %>%
+      DT::formatStyle("index_",target="row",backgroundColor=DT::styleEqual(indices,clrs.rgb))
+  }
+  return(output)
 }
-
-
-
 
 
 #' Kill port process
@@ -229,76 +227,111 @@ kill_port_process <- function(port) {
 #' }
 #' get.code.info(fn=fun)
 #' @export
-get.code.info <- function(expr,text=NULL,fn=NULL,recursive=FALSE) {
+get.code.info <- function(expr,text=NULL,fn=NULL,envir=parent.frame()) {
   expr <- enquo(expr)
   if (is.null(text)) {
     text <- rlang::quo_text(expr)
   }
   if (!is.null(fn)) {
-    text <- deparse(fn)
+    text <- deparse(body(fn))
+  }
+  exists2 <- function(x,envir) {
+    tryCatch(exists(x,envir=envir,inherits=FALSE),error=function(e) FALSE)
   }
   parsedata <- getParseData(parse(text=text,keep.source=TRUE)) %>%
-    filter(token %in% c("SPECIAL","SYMBOL","SYMBOL_FUNCTION_CALL")) %>%
     mutate(src=sapply(text,function(x) find(x)[1]),
-           desc=case_when(
-             token=="SYMBOL_FUNCTION_CALL" & is.na(src) ~ "local function",
-             token=="SYMBOL_FUNCTION_CALL" & !is.na(src) ~ "package function",
-             token=="SYMBOL" ~ "variable",
-             token=="SPECIAL" ~ "operator",
-             TRUE ~ "other"),
+           exists=sapply(text,exists2,envir=envir),
+           is.function=token=="SYMBOL_FUNCTION_CALL",
+           is.symbol=token=="SYMBOL",
+           # is.local=src==".GlobalEnv",
+           is.local=exists & (is.symbol|is.function),
            pkg=str_extract(src,"(?<=package:).*$"),
-           fn=ifelse(token=="SYMBOL_FUNCTION_CALL",paste0(pkg,"::",text),NA_character_))
-  pkgs <- parsedata %>% filter(!is.na(pkg)) %>% pull(pkg) %>% unique()
-  fns <- parsedata %>% pull(fn) %>% {.[!is.na(.)]} %>% unique()
-  list(parsedata=parsedata,
-       fns=fns,
-       pkgs=pkgs)
+           explicit=pkg!="base" & !is.na(pkg) & (is.function|is.symbol),
+           explicit.text=ifelse(explicit,paste0(pkg,"::",text),text))
+  explicit.code <- parsedata %>% group_by(line1) %>%
+    summarize(code=paste(explicit.text,collapse="")) %>%
+    ungroup() %>% pull(code) %>% paste(collapse="\n")
+  all.fns <- parsedata %>% filter(is.function) %>% pull(explicit.text)
+  locals <- parsedata %>% filter(is.local) %>% pull(text) %>% unique()
+  # local.fns <- parsedata %>% filter(is.local,is.function) %>% pull(text) %>% unique()
+  library.pkgs <- parsedata %>% filter(!is.na(pkg),pkg!="base",!explicit) %>% pull(pkg) %>% unique()
+  all.pkgs <- parsedata %>% filter(!is.na(pkg),pkg!="base") %>% pull(pkg) %>% unique()
+  results <- list(code=text,
+                  explicit.code=explicit.code,
+                  parsedata=parsedata,
+                  locals=locals,
+                  all.fns=all.fns,
+                  all.pkgs=all.pkgs,
+                  library.pkgs=library.pkgs)
+  results
 }
 
-
-
-#' Add Code Dependencies
+#' Evaluate expression in another R session
 #'
-#' Given code (as an expression, text, or function), examine for package dependencies and
-#' load them.
-#' @param expr expression to be evaluated.
-#' @param text character, code can alternatively input as a string.
-#' @param fn function, use this to evaluate and modify code within a function.
-#' @return returns either a modified expression, text, or function, depending on what was input.
-#' @examples
-#' add.code.dependencies(overlaps(1,2,3,sqrt(44)))
+#' Use these to run code in a separate instance of R, separate from your current console.
+#' This is essentially doing what the \code{callr} package does, but just adds a few modifications to make it easier to use.
 #'
-#' add.code.dependencies(text="log_epsilon_trans(0.001)")
+#' In some cases it is useful to run code in a separate R session... this is where functions from the \code{callr} package
+#' come in handy, such as \code{r()} or \code{r_bg()}. However, in order to use these, you have to be sure to:
+#' (1) place the code inside an anonymous function,
+#' (2) refer to functions and variables explicitly from other packages using the :: notation,
+#' (3) pass any necessary local variables as arguments to the anonymous function.
+#' \code{run_r()} and \code{run_r_bg()} are running \code{callr::r()} and \code{callr::r_bg()}, except that you can
+#' just insert the code without worrying about about the 3 modifications above.
 #'
-#' fun <- function() {
-#'   age.years(as.Date("1975-02-21"),Sys.Date())
-#' }
-#' add.code.dependencies(fn=fun)
+#' @param expr expression to be run in separate R session.
+#' @param envir the environment to execute the code.
+#'
+#' @return For \code{run_r}: the value of the evaluated expression.
+#' For \code{run_r_bg}: an \code{r_process} object, which has a \code{get_result()} method to collect the result.
+#' For \code{run_r_callargs}: a list containing a modified function and a list of arguments to pass to the function;
+#' this is designed to be the arguments that can be plugged into \code{callr::r} or \code{callr::r_bg}.
 #' @export
-add.code.dependencies <- function(expr,text=NULL,fn=NULL) {
-  expr <- enquo(expr)
-  if (!is.null(fn)) { # function
-    text <- deparse(fn) %>% paste(collapse="\n")
-    newtext <- paste0(".f <- ",text,"\n.f(...)")
-    newtext2 <- paste0("function(...) {",add.code.dependencies(text=newtext),"}",sep="\n")
-    f <- eval(parse(text=newtext2))
-    return(f)
-  } else if (is.null(text)) { # expression
-    text <- rlang::quo_text(expr)
-    newtext <- add.code.dependencies(text=text)
-    newexpr <- str2expression(newtext)
-    return(newexpr)
-  }
-  # text
-  info <- get.code.info(text=text)
-  pkg.cmd <- paste0("library(",info$pkgs,")",collapse=";")
-  newtext <- paste(pkg.cmd,text,sep="\n")
-  return(newtext)
+#' @examples
+run_r <- function(expr,envir=parent.frame()) {
+  requireNamespace("callr",quietly=TRUE)
+  expr <- rlang::enexpr(expr)
+  call.arglist <- run_r_callargs(!!expr,envir=envir)
+  do.call(r,call.arglist)
 }
 
+#' @rdname run_r
+#' @export
+run_r_bg <- function(expr,envir=parent.frame()) {
+  requireNamespace("callr",quietly=TRUE)
+  expr <- rlang::enexpr(expr)
+  call.arglist <- run_r_callargs(!!expr,envir=envir)
+  do.call(callr::r_bg,call.arglist)
+}
 
+#' @rdname run_r
+#' @export
+run_r_callargs <- function(expr,envir=parent.frame()) {
+  requireNamespace(c("stringr","callr"),quietly=TRUE)
+  expr <- rlang::enexpr(expr)
+  text <- rlang::quo_text(expr)
+  info <- get.code.info(text=text,envir=envir)
+  argline <- paste(info$locals,collapse=",")
+  newtext <- info$parsedata %>% group_by(line1) %>%
+    summarize(code=paste(explicit.text,collapse=" ")) %>%
+    # summarize(code=paste(text,collapse=" ")) %>%
+    ungroup() %>% pull(code) %>% paste(collapse="\n")
 
-
+  if (length(info$library.pkgs)>0) {
+    library.line <- paste0("library(",info$library.pkgs,")",collapse=";")
+  } else {
+    library.line <- ""
+  }
+  fncode <- stringr::str_glue("function({argline}) {{
+    {library.line}
+    {newtext}
+  }}")
+  fn <- eval(parse(text=fncode))
+  print(info$locals)
+  arglist <- map(info$locals,get,envir=envir) %>% setNames(info$locals)
+  call.arglist <- list(func=fn,args=arglist)
+  return(call.arglist)
+}
 
 
 #' Run a shiny gadget in background
@@ -342,24 +375,119 @@ add.code.dependencies <- function(expr,text=NULL,fn=NULL) {
 #' # to stop the app, run this or quit RStudio
 #' ps$kill()
 #' @export
-runGadget_bg <- function(app,port=4567) {
+runGadget_bg <- function(app,args=list(),port=4567) {
+  expr <- enquo(expr)
   requireNamespace(c("shiny","callr","pingr"),quietly=TRUE)
   localhost <- "127.0.0.1"
   url <- paste0("http://",localhost,":",port)
   kill_port_process(port)
-  ps <- callr::r_bg(function(app,port) {
+  ps <- r_bg(function(...) {
     shiny::runApp(app,port)
-  },args=list(app=app,port=port))
+  },args=args)
   message("Running Shiny app; setting viewer to ",url)
   for (i in 1:200) {
     port_ready <- pingr::is_up(localhost,port,check_online=FALSE)
     if (port_ready) {
       break
     }
-    Sys.sleep(0.1)
+    Sys.sleep(0.2)
   }
   getOption("viewer")(url)
   return(ps)
+}
+
+
+#' Regular Expression Widget
+#'
+#' A widget for exploring regular expressions on a vector
+#' @param vec a character vector where regex searches will be applied.
+#' @return
+#' @export
+#' @examples
+regex.widget <- function(vec,port=4567) {
+  library(shiny);library(stringi)
+  if (!is.atomic(vec)) {
+    stop("YTError: vec is not an atomic vector!")
+  }
+  app <- shinyApp(ui=fluidPage(
+    tagList(
+      div(textInput("textinput","Reg Ex #1",value="",width="100%"),
+          textInput("textinput2","Reg Ex #2",value="",width="100%"),style="height: 17 px;"),
+      fluidRow(column(3,actionButton("go","Run")),
+               column(3,checkboxInput("grouphits","Group by Hit",TRUE))),
+      div(DT::dataTableOutput("datatable",width="100%",height="400px"),style="font-size:80%"),
+      div(DT::dataTableOutput("datatable2",width="100%",height="400px"),style="font-size:80%")
+    )
+  ),server=function(input, output) {
+    tbl.all <- reactive({
+      input$go
+      tbl <- isolate({
+        re1 <- regex(input$textinput,ignore_case=TRUE)
+        re2 <- regex(input$textinput2,ignore_case=TRUE)
+        tibble(vec=tolower(vec)) %>%
+          mutate(match.re1=str_detect(vec,re1),
+                 match.re2=!match.re1 & str_detect(vec,re2)) %>%
+          filter(match.re1|match.re2) %>%
+          mutate(loc1=str_locate_all(vec,re1),
+                 loc2=str_locate_all(vec,re2))
+      })
+      tbl
+    })
+    output$datatable <- DT::renderDataTable({
+      tbl1 <- tbl.all() %>% filter(match.re1) %>%
+        # mutate(hits1=stringi::stri_sub_all(vec,loc1),
+        #        hilight1=map(hits1,~paste0("<b><font color=\"red\">",.,"</font></b>")),
+        #        repl1=stringi::stri_sub_replace_all(vec,loc1,replacement=hilight1),
+        #        hits1=sapply(hits1,function(x) paste(x,collapse=" | "))) %>%
+        unnest(loc1) %>%
+        mutate(hits1=stringi::stri_sub(vec,loc1),
+               hilight1=paste0("<b><font color=\"red\">",hits1,"</font></b>"),
+               repl1=stringi::stri_sub_replace(vec,loc1,replacement=hilight1)) %>%
+        select(hits1,repl1)
+
+      if (input$grouphits) {
+        tbl1 <- tbl1 %>%
+          group_by(hits1) %>%
+          summarize(n=n(),repl1=first(repl1)) %>%
+          ungroup() %>% arrange(desc(n))
+      } else {
+        tbl1 <- tbl1 %>%
+          group_by(repl1,hits1) %>%
+          summarize(n=n()) %>%
+          ungroup() %>% arrange(desc(n))
+      }
+      tbl1 <- tbl1 %>% filter(row_number()<=500)
+      tbl1 %>% dt()
+    })
+    output$datatable2 <- DT::renderDataTable({
+      tbl2 <- tbl.all() %>% filter(match.re2) %>%
+        # mutate(hits2=stringi::stri_sub_all(vec,loc2),
+        #        hilight2=map(hits2,~paste0("<b><font color=\"red\">",.,"</font></b>")),
+        #        repl2=stringi::stri_sub_replace_all(vec,loc2,replacement=hilight2),
+        #        hits2=sapply(hits2,function(x) paste(x,collapse=" | "))) %>%
+        unnest(loc2) %>%
+        mutate(hits2=stringi::stri_sub(vec,loc2),
+               hilight2=paste0("<b><font color=\"red\">",hits2,"</font></b>"),
+               repl2=stringi::stri_sub_replace(vec,loc2,replacement=hilight2)) %>%
+      select(hits2,repl2)
+
+      if (input$grouphits) {
+        tbl2 <- tbl2 %>%
+          group_by(hits2) %>%
+          summarize(n=n(),repl2=first(repl2)) %>%
+          ungroup() %>% arrange(desc(n))
+      } else {
+        tbl2 <- tbl2 %>%
+          group_by(repl2,hits2) %>%
+          summarize(n=n()) %>%
+          ungroup() %>% arrange(desc(n))
+      }
+      tbl2 <- tbl2 %>% filter(row_number()<=500)
+      tbl2 %>% dt()
+    })
+  })
+  # runApp(app,port=port)
+  runGadget(app)
 }
 
 
@@ -1306,6 +1434,9 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
 }
 
 
+
+
+
 #' @export
 trim <- function(x,...) UseMethod("trim")
 #' @export
@@ -1901,6 +2032,7 @@ recode.grep <- function(...) {
 #' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
 #' @export
 replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collapse.hits="|",recode.hits=FALSE,ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
+  message("YTNote: replace.grep() and replace.grep.data() are deprecated. Try using replace_grep_data.")
   if (is.null(collapse.hits) & !result.as.list) {
     stop("YTWarning: hits.collapse=NULL (hits displayed as list), but report.as.list=FALSE.")
   }
@@ -1938,6 +2070,9 @@ replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collap
     return(newvar)
   }
 }
+
+
+
 
 #' Ying's Replace Grep for Data Frames
 #'
@@ -1981,6 +2116,78 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
   return(newdata)
 }
 
+
+
+#' Replace and Extract Regular Expression Patterns for Data Frames
+#'
+#' For a given column of text, search for list of Regex patterns. Perform replacements and save the hits in another column.
+#' This is roughly equivalent to repeatedly running '\code{stringr::str_replace_all()} and/or \code{stringr::str_extract_all()} on the same
+#' column of text.
+#'
+#' This function attempts to perform multiple text manipulations (replacements and/or extractions) in an easy and efficient way.
+#' It can be faster than manually running '\code{stringr::str_replace_all()} and/or \code{stringr::str_extract_all()} for a few
+#' reasons: (1) it performs one search for both replacement and extraction, (2) it performs an initial search and ignores any rows
+#' that didn't match, which saves time especially if most rows are not hits.
+#'
+#' @param data the data frame to be manipulated.
+#' @param oldvar the bare character vector to be searched.
+#' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
+#' @param newvar bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.
+#' @param store.hits bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
+#' @param collapse.fn optional function to apply to each element of \code{store.hits}, to create an atomic vector Non-hits are ignored.
+#' @return returns the data with the above replacement text and stored hits.
+#' @examples
+#' library(stringr)
+#' recodes <- c("<s-word>"="\\bs[a-z]+","<r-word>"="\\br[a-z]+")
+#' data <- tibble(text=stringr::sentences)
+#' data %>% replace_grep_data(recodes,text,new.sentence,hits)
+#' data %>% replace_grep_data(recodes,text,new.text,hits,collapse.fn=~paste(names(.),"=",.,collapse="; "))
+#' @export
+replace_grep_data <- function(data,recodes,oldvar,newvar=NULL,store.hits=NULL,ignore.case=TRUE,collapse.fn=NULL) {
+  requireNamespace(c("rlang","stringi","purrr"),quietly=TRUE)
+  oldvar <- enquo(oldvar)
+  newvar <- enquo(newvar)
+  store.hits <- enquo(store.hits)
+  get.hits <- !rlang::quo_is_null(store.hits)
+  get.replace <- !rlang::quo_is_null(newvar)
+  if (!get.hits & !get.replace) {stop("YTError: you should specify a variable name for newvar, store.hits, or both.")}
+  if (!get.hits & !is.null(collapse.fn)) {warning("YTWarning: you specified collapse.fn, but hits are not being stored. The collapse.fn will not be used.")}
+
+  if (is.null(names(recodes))) {
+    replacements=rep("",length.out=length(recodes))
+  } else {
+    replacements <- purrr::imap(recodes,~rep(.y,length.out=length(.x))) %>% unlist() %>% unname()
+  }
+  patterns <- recodes %>% unlist() %>% unname()
+  var <- data %>% pull(!!oldvar)
+  hits <- vector(mode="list",length=length(var))
+  for (i in 1:length(recodes)) {
+    pattern <- patterns[i]
+    replacement <- replacements[i]
+    re <- regex(pattern,ignore_case=ignore.case)
+    detected <- str_detect(var,re) & !is.na(var)
+    subvar <- var[detected]
+    subloc <- stringr::str_locate_all(subvar,re)
+    if (get.hits) {
+      subnewhits <- stringi::stri_sub_all(subvar,subloc)
+      subnewhits <- subnewhits %>% map(~.[!is.na(.)]) %>% map(~set_names(.,rep(replacement,length.out=length(.))))
+      hits[detected] <- purrr::map2(hits[detected],subnewhits,c)
+    }
+    if (get.replace) {
+      var[detected] <- stringi::stri_sub_replace_all(subvar,subloc,replacement=replacement)
+    }
+  }
+  if (get.hits & !is.null(collapse.fn)) {
+    nohit <- sapply(hits,is.null)
+    newhits <- rep(NA_character_,length.out=length(var))
+    newhits[!nohit] <- hits[!nohit] %>% map_chr(collapse.fn)
+    hits <- newhits
+  }
+  data %>%
+    purrr::when(get.hits~mutate(.,!!store.hits:=hits),~.) %>%
+    purrr::when(get.replace~mutate(.,!!newvar:=var),~.)
+}
 
 
 #' Find All Distinct Variables
@@ -2242,13 +2449,14 @@ is.between <- function(x,start,stop) {
 #' @param newvar the name (unquoted) of the new survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")}
 #' @param oldvar the original survival endpoint, to be censored.
 #' @param ... columns representing censoring times.
+#' @param censor.as.tdvar whether to censor endpoints occurring exactly at the censoring time. Use \code{TRUE} for time-dependent predictors, \code{FALSE} for endpoints.
 #' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
 #' @examples
 #' # create a endpoint(dead30d), which represents death within 30 days or discharge.
 #' new.pt.cid94 <- cid.patients %>% chop.endpoint(dead30d,dead,30,discharge.day)
 #' @author Ying Taur
 #' @export
-chop.endpoint <- function(data,newvar,oldvar,...) {
+chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
   newvar <- enquo(newvar)
   oldvar <- enquo(oldvar)
   oldvar_day <- paste0(quo_name(oldvar),"_day")
@@ -2262,11 +2470,21 @@ chop.endpoint <- function(data,newvar,oldvar,...) {
   ovd <- pull(data,!!oldvar_day)
   if (!is.numeric(ovd)) {stop("YTError: oldvar should be a logical or 0-1!")}
 
-  data2 <- data %>%
-    mutate(chop_=pmin(!!!vars),
-           !!newvar:=ifelse(chop_<!!oldvar_day,FALSE,!!oldvar),
-           !!newvar_day:=ifelse(chop_<!!oldvar_day,chop_,!!oldvar_day)) %>%
-    select(-chop_)
+  if (censor.as.tdvar) {
+    # for tdvars
+    data2 <- data %>%
+      mutate(chop_=pmin(!!!vars),
+             !!newvar:=ifelse(chop_<=!!oldvar_day,FALSE,!!oldvar),
+             !!newvar_day:=ifelse(chop_<=!!oldvar_day,chop_,!!oldvar_day)) %>%
+      select(-chop_)
+  } else {
+    # for endpoints.
+    data2 <- data %>%
+      mutate(chop_=pmin(!!!vars),
+             !!newvar:=ifelse(chop_<!!oldvar_day,FALSE,!!oldvar),
+             !!newvar_day:=ifelse(chop_<!!oldvar_day,chop_,!!oldvar_day)) %>%
+      select(-chop_)
+  }
   data2
 }
 

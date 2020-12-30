@@ -4,7 +4,7 @@
 \alias{chop.endpoint}
 \title{Chop survival endpoint}
 \usage{
-chop.endpoint(data, newvar, oldvar, ...)
+chop.endpoint(data, newvar, oldvar, ..., censor.as.tdvar = FALSE)
 }
 \arguments{
 \item{data}{the data frame with survival data}
@@ -14,6 +14,8 @@ chop.endpoint(data, newvar, oldvar, ...)
 \item{oldvar}{the original survival endpoint, to be censored.}
 
 \item{...}{columns representing censoring times.}
+
+\item{censor.as.tdvar}{whether to censor endpoints occurring exactly at the censoring time. Use \code{TRUE} for time-dependent predictors, \code{FALSE} for endpoints.}
 }
 \value{
 Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.

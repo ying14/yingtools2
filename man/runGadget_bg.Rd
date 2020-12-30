@@ -4,7 +4,7 @@
 \alias{runGadget_bg}
 \title{Run a shiny gadget in background}
 \usage{
-runGadget_bg(app, port = 4567)
+runGadget_bg(app, args = list(), port = 4567)
 }
 \arguments{
 \item{app}{A Shiny app object created by shinyApp()}
