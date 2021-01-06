@@ -2229,12 +2229,12 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #' @export
 replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case=TRUE,collapse.fn=NULL) {
   requireNamespace(c("rlang","stringi","purrr"),quietly=TRUE)
-  oldvar <- enquo(oldvar)
+  var <- enquo(var)
   newvar <- enquo(newvar)
-  store.hits <- enquo(store.hits)
-  get.hits <- !rlang::quo_is_null(store.hits)
+  hits <- enquo(hits)
+  get.hits <- !rlang::quo_is_null(hits)
   get.replace <- !rlang::quo_is_null(newvar)
-  if (!get.hits & !get.replace) {stop("YTError: you should specify a variable name for newvar, store.hits, or both.")}
+  if (!get.hits & !get.replace) {stop("YTError: you should specify a variable name for newvar, hits, or both.")}
   if (!get.hits & !is.null(collapse.fn)) {warning("YTWarning: you specified collapse.fn, but hits are not being stored. The collapse.fn will not be used.")}
 
   if (is.null(names(recodes))) {
@@ -2243,8 +2243,8 @@ replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case
     replacements <- purrr::imap(recodes,~rep(.y,length.out=length(.x))) %>% unlist() %>% unname()
   }
   patterns <- recodes %>% unlist() %>% unname()
-  var <- data %>% pull(!!oldvar)
-  hits <- vector(mode="list",length=length(var))
+  var <- data %>% pull(!!var)
+  hitlist <- vector(mode="list",length=length(var))
   for (i in 1:length(recodes)) {
     pattern <- patterns[i]
     replacement <- replacements[i]
@@ -2261,20 +2261,21 @@ replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case
       } else {
         subnewhits <- subnewhits %>% map(~.[!is.na(.)]) %>% map(~set_names(.,rep(replacement,length.out=length(.))))
       }
-      hits[detected] <- purrr::map2(hits[detected],subnewhits,c)
+      hitlist[detected] <- purrr::map2(hitlist[detected],subnewhits,c)
     }
     if (get.replace) {
       var[detected] <- stringi::stri_sub_replace_all(subvar,subloc,replacement=replacement)
     }
   }
+
   if (get.hits & !is.null(collapse.fn)) {
-    nohit <- sapply(hits,is.null)
+    nohit <- sapply(hitlist,is.null)
     newhits <- rep(NA_character_,length.out=length(var))
-    newhits[!nohit] <- hits[!nohit] %>% map_chr(collapse.fn)
-    hits <- newhits
+    newhits[!nohit] <- hitlist[!nohit] %>% map_chr(collapse.fn)
+    hitlist <- newhits
   }
   data %>%
-    purrr::when(get.hits~mutate(.,!!store.hits:=hits),~.) %>%
+    purrr::when(get.hits~mutate(.,!!hits:=hitlist),~.) %>%
     purrr::when(get.replace~mutate(.,!!newvar:=var),~.)
 }
 
