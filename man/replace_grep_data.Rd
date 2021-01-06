@@ -7,9 +7,9 @@
 replace_grep_data(
   data,
   recodes,
-  oldvar,
+  var,
   newvar = NULL,
-  store.hits = NULL,
+  hits = NULL,
   ignore.case = TRUE,
   collapse.fn = NULL
 )
@@ -19,15 +19,15 @@ replace_grep_data(
 
 \item{recodes}{a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.}
 
-\item{oldvar}{the bare character vector to be searched.}
+\item{var}{the bare character vector to be searched.}
 
 \item{newvar}{bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.}
 
-\item{store.hits}{bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}}
+\item{hits}{bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}}
 
 \item{ignore.case}{whether or not to ignore case, passed to regular expression. Default is \code{TRUE}}
 
-\item{collapse.fn}{optional function to apply to each element of \code{store.hits}, to create an atomic vector Non-hits are ignored.}
+\item{collapse.fn}{optional function to apply to each element of \code{hits}, to create an atomic vector Non-hits are ignored.}
 }
 \value{
 returns the data with the above replacement text and stored hits.

@@ -18,7 +18,6 @@
 }
 
 
-
 #' Subtract Dates
 #'
 #' Returns number of days.
@@ -138,7 +137,7 @@ dt <- function(data,fontsize=11,pageLength=Inf,maxchars=250,maxrows=500,rownames
   data$index_ <- data %>% group_indices() %>% factor() %>% forcats::fct_inorder() %>% as.numeric()
   data <- data %>% arrange(index_) %>%
     mutate(index_=((index_-1) %% length(pal)) + 1) %>%
-    select(!!!groups(.),-index_,everything())
+    select(!!!groups(.),-index_,everything()) %>% ungroup()
   add <- function(l,...) {
     if (is.list(l)) {
       c(l,list(...))
@@ -426,7 +425,9 @@ regex.widget <- function(vec,port=4567) {
         re2 <- regex(input$textinput2,ignore_case=TRUE)
         tibble(vec=tolower(vec)) %>%
           mutate(match.re1=str_detect(vec,re1),
-                 match.re2=!match.re1 & str_detect(vec,re2)) %>%
+                 match.re2=!match.re1 & str_detect(vec,re2),
+                 match.re1=coalesce(match.re1,FALSE),
+                 match.re2=coalesce(match.re2,FALSE)) %>%
           filter(match.re1|match.re2) %>%
           mutate(loc1=str_locate_all(vec,re1),
                  loc2=str_locate_all(vec,re2))
@@ -435,10 +436,6 @@ regex.widget <- function(vec,port=4567) {
     })
     output$datatable <- DT::renderDataTable({
       tbl1 <- tbl.all() %>% filter(match.re1) %>%
-        # mutate(hits1=stringi::stri_sub_all(vec,loc1),
-        #        hilight1=map(hits1,~paste0("<b><font color=\"red\">",.,"</font></b>")),
-        #        repl1=stringi::stri_sub_replace_all(vec,loc1,replacement=hilight1),
-        #        hits1=sapply(hits1,function(x) paste(x,collapse=" | "))) %>%
         unnest(loc1) %>%
         mutate(hits1=stringi::stri_sub(vec,loc1),
                hilight1=paste0("<b><font color=\"red\">",hits1,"</font></b>"),
@@ -448,7 +445,7 @@ regex.widget <- function(vec,port=4567) {
       if (input$grouphits) {
         tbl1 <- tbl1 %>%
           group_by(hits1) %>%
-          summarize(n=n(),repl1=first(repl1)) %>%
+          summarize(n=n(),repl1=repl1[1]) %>%
           ungroup() %>% arrange(desc(n))
       } else {
         tbl1 <- tbl1 %>%
@@ -461,10 +458,6 @@ regex.widget <- function(vec,port=4567) {
     })
     output$datatable2 <- DT::renderDataTable({
       tbl2 <- tbl.all() %>% filter(match.re2) %>%
-        # mutate(hits2=stringi::stri_sub_all(vec,loc2),
-        #        hilight2=map(hits2,~paste0("<b><font color=\"red\">",.,"</font></b>")),
-        #        repl2=stringi::stri_sub_replace_all(vec,loc2,replacement=hilight2),
-        #        hits2=sapply(hits2,function(x) paste(x,collapse=" | "))) %>%
         unnest(loc2) %>%
         mutate(hits2=stringi::stri_sub(vec,loc2),
                hilight2=paste0("<b><font color=\"red\">",hits2,"</font></b>"),
@@ -474,7 +467,7 @@ regex.widget <- function(vec,port=4567) {
       if (input$grouphits) {
         tbl2 <- tbl2 %>%
           group_by(hits2) %>%
-          summarize(n=n(),repl2=first(repl2)) %>%
+          summarize(n=n(),repl2=repl2[1]) %>%
           ungroup() %>% arrange(desc(n))
       } else {
         tbl2 <- tbl2 %>%
@@ -486,7 +479,6 @@ regex.widget <- function(vec,port=4567) {
       tbl2 %>% dt()
     })
   })
-  # runApp(app,port=port)
   runGadget(app)
 }
 
@@ -1357,6 +1349,90 @@ age.years <- function(bdate,now) {
 }
 
 
+
+
+#' Make Table
+#'
+#' Creates a summary table (data frame) variables from the data.
+#'
+#' This was written to create a "Table 1" of a manuscript.
+#'
+#' @param data Data frame containing data to be described.
+#' @param ... column names (bare) within \code{data} to be summarized.
+#' @param denom whether to show the denominator in the summary
+#' @param maxgroups max number of groups before collapsing into an "Other" category.
+#' @param by optional variable name (bare) by which to summarize the data. Each separate value will be a column of data in the table.
+#' @param fisher whether or not to perform Fisher test. Performed if by=... is specified.
+#'
+#' @return Returns a data frame formatted to be summary table.
+#' @examples
+#' make_table(mtcars,cyl,gear)
+#' @author Ying Taur
+#' @export
+make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
+  requireNamespace(c("rlang","scales","purrr"),quietly=TRUE)
+  vars <- quos(...)
+  by <- enquo(by)
+  totalvar <- quo(total_)
+  allvars <- append(vars,totalvar)
+
+  vars.by <- vars %>% append(by) %>% map(quo_name)
+  is.td <- vars.by %>% paste0("_day") %>% has_name(data,.)
+  if (any(is.td)) {
+    warning("YTWarning: possible time-dependent variables detected: ",paste(vars.by[is.td],collapse=","),". Consider carefully before incorporating these.")
+  }
+  d <- data %>% ungroup() %>%
+    mutate(!!totalvar:="") %>%
+    select(!!!allvars,!!by) %>%
+    mutate(across(where(is.character),fct_infreq),
+           across(where(~!is.character(.) & !is.factor(.)),as.character),
+           across(where(~n_distinct(.)>5),~fct_lump_n(.,n=5,ties.method="first")))
+  tbl <- lapply(allvars,function(var) {
+    d %>% count(value=!!var) %>%
+      complete(value,fill=list(n=0)) %>%
+      mutate(sum=sum(n),
+             pct=n/sum,
+             percent=scales::percent(pct,accuracy=0.1),
+             var=quo_name(var),
+             text=purrr::when(denom ~ str_glue("{n} ({percent})"),
+                              ~ str_glue("{n}/{sum} ({percent})"))) %>%
+      select(var,value,all=text)
+  }) %>% bind_rows()
+
+  if (!rlang::quo_is_null(by)) {
+    by.table <- lapply(allvars,function(var) {
+      d %>% count(value=!!var,col=paste0(quo_name(by),"=",!!by)) %>%
+        complete(value,col,fill=list(n=0)) %>%
+        mutate(sum=sum(n),
+               pct=n/sum,
+               percent=scales::percent(pct,accuracy=0.1),
+               var=quo_name(var),
+               text=purrr::when(denom ~ str_glue("{n} ({percent})"),
+                                ~ str_glue("{n}/{sum} ({percent})"))) %>%
+        pivot_wider(id_cols=c(var,value),names_from=col,values_from=text)
+    }) %>% bind_rows()
+    tbl <- full_join(by.table,tbl,by=c("var","value"))
+  }
+  if (fisher & !rlang::quo_is_null(by)) {
+    f.tbl <- lapply(vars,function(var) {
+      x <- pull(d,!!var)
+      y <- pull(d,!!by)
+      pval <- tryCatch({
+        f <- fisher.test(x,y)
+        scales::pvalue(f$p.value)
+      },error=function(e) {
+        warning(e)
+        return("error")
+      })
+      tibble(var=quo_name(var),fisher.pvalue=pval)
+    }) %>% bind_rows()
+    tbl <- tbl %>% left_join(f.tbl,by="var") %>%
+      mutate(fisher.pvalue=if_else(duplicated(var),NA_character_,fisher.pvalue))
+  }
+  return(tbl)
+}
+
+
 #' Make Table
 #'
 #' Creates a summary table (data frame) variables from the data.
@@ -1374,14 +1450,12 @@ age.years <- function(bdate,now) {
 #' @author Ying Taur
 #' @export
 make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
-  #data=pt80;vars=xvars;by="invsimpson.group";showdenom=F;fisher.test=T
-  #data=p;vars=c("cdi.1y","cdi.ever");by=NULL;showdenom=FALSE;fisher.test=TRUE
-  #data=cdi.all;vars="multi.cdi";by="first.cdi.pre";showdenom=FALSE;fisher.test=TRUE
-  all.vars <- c(vars,by)
+  message("Note, make.table is deprecated, consider using make_table")
+  all.vars <- unique(c(vars,by))
   if (any(all.vars %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
   data <- data[,all.vars,drop=FALSE]
   if (!is.null(by)) {
-    if (by %in% vars) {stop("YTError, by-variable cannot be in vars list!")}
+    if (by %in% vars) {warning("YTWarning, ",paste(intersect(by,vars),collapse=",")," is listed in both 'vars' and 'by'!")}
   }
   factorize <- function(x,ifany=TRUE,as.string=TRUE) {
     if (!is.factor(x)) {x <- factor(x)}
@@ -1421,9 +1495,12 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   }
   #reshape into final columns using spread command. then re-separate the var_value into separate variables
   tbl.all <- tbl %>% dplyr::select(var_value,column,lbl) %>% spread(column,lbl) %>% separate(var_value,c("var","value"),sep="==")
-
   if (fisher.test & !is.null(by)) {
     fisher.pval <- sapply(vars,function(var) {
+      if (n_distinct(data[[var]])==1) {
+        warning("YTWarning: ",var," does not vary. Skipping Fisher test.")
+        return(NA_real_)
+      }
       ftest <- fisher.test(data[[var]],data[[by]])
       ftest$p.value
     })
@@ -1432,8 +1509,6 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   }
   return(tbl.all)
 }
-
-
 
 
 
@@ -1881,24 +1956,34 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
 }
 
 
+
 #' Coalesce values into one summary variable.
 #'
-#' After providing multiple indicator variables, summarize them by creating a character vector.
-#' @param ...  variables to coalesce together.
-#' @return A vector of same length as the variables, displaying variable names plus values.
-#' @examples
-#' #####
-#' @author Ying Taur
+#' Summarize the value of several variables in a single character vector by concatenating variable name and values.
+#' @param ... variables to coalesce together.
+#' @param sep character string separating variable name and value. Default is "="
+#' @param collapse character string separating variable/value pairs. Default is "|"
+#' @param omit.na whether or not to remove variable in the case of NA.
+#' @return A character vector of same length as the variables, displaying variable names plus values.
 #' @export
-coalesce_values <- function(...) {
-  vars <- quos(...)
-  varnames <- sapply(vars, quo_name)
-  arglist <- list(...) %>% lapply(as.character)
-  arglist2 <- mapply(function(v,x) {
-    paste0(v,"=",x)
-  },varnames,arglist,SIMPLIFY=FALSE)
-  mat <- do.call(cbind,arglist2)
-  mat %>% apply(1,function(x) paste(x,collapse="|"))
+#'
+#' @examples
+coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
+  vars <- enquos(...)
+  varnames <- map_chr(vars, quo_name)
+  labels <- names(vars)
+  labels <- unname(if_else(labels=="",varnames,labels))
+  arglist <- list(...) %>% map(as.character)
+  arglist2 <- map2(labels,arglist,function(v,x) {
+    if (omit.na) {
+      ifelse(!is.na(x),paste0(v,sep,x),NA)
+    } else {
+      paste0(v,sep,x)
+    }
+  })
+  final <- arglist2 %>% transpose() %>% simplify_all() %>%
+    map_chr(~paste2(.,collapse=collapse))
+  final
 }
 
 
@@ -2116,8 +2201,6 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
   return(newdata)
 }
 
-
-
 #' Replace and Extract Regular Expression Patterns for Data Frames
 #'
 #' For a given column of text, search for list of Regex patterns. Perform replacements and save the hits in another column.
@@ -2130,12 +2213,12 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #' that didn't match, which saves time especially if most rows are not hits.
 #'
 #' @param data the data frame to be manipulated.
-#' @param oldvar the bare character vector to be searched.
+#' @param var the bare character vector to be searched.
 #' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
 #' @param newvar bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.
-#' @param store.hits bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}
+#' @param hits bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}
 #' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
-#' @param collapse.fn optional function to apply to each element of \code{store.hits}, to create an atomic vector Non-hits are ignored.
+#' @param collapse.fn optional function to apply to each element of \code{hits}, to create an atomic vector Non-hits are ignored.
 #' @return returns the data with the above replacement text and stored hits.
 #' @examples
 #' library(stringr)
@@ -2144,7 +2227,7 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #' data %>% replace_grep_data(recodes,text,new.sentence,hits)
 #' data %>% replace_grep_data(recodes,text,new.text,hits,collapse.fn=~paste(names(.),"=",.,collapse="; "))
 #' @export
-replace_grep_data <- function(data,recodes,oldvar,newvar=NULL,store.hits=NULL,ignore.case=TRUE,collapse.fn=NULL) {
+replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case=TRUE,collapse.fn=NULL) {
   requireNamespace(c("rlang","stringi","purrr"),quietly=TRUE)
   oldvar <- enquo(oldvar)
   newvar <- enquo(newvar)
@@ -2166,12 +2249,18 @@ replace_grep_data <- function(data,recodes,oldvar,newvar=NULL,store.hits=NULL,ig
     pattern <- patterns[i]
     replacement <- replacements[i]
     re <- regex(pattern,ignore_case=ignore.case)
+    has.backslash <- str_detect(replacement,"\\\\[0-9]+")
     detected <- str_detect(var,re) & !is.na(var)
     subvar <- var[detected]
     subloc <- stringr::str_locate_all(subvar,re)
-    if (get.hits) {
+    if (get.hits|has.backslash) {
       subnewhits <- stringi::stri_sub_all(subvar,subloc)
-      subnewhits <- subnewhits %>% map(~.[!is.na(.)]) %>% map(~set_names(.,rep(replacement,length.out=length(.))))
+      if (has.backslash) {
+        subnewhits <- subnewhits %>% map(~.[!is.na(.)]) %>% map(~set_names(.,str_replace(.,re,replacement)))
+        replacement <- lapply(subnewhits,names)
+      } else {
+        subnewhits <- subnewhits %>% map(~.[!is.na(.)]) %>% map(~set_names(.,rep(replacement,length.out=length(.))))
+      }
       hits[detected] <- purrr::map2(hits[detected],subnewhits,c)
     }
     if (get.replace) {
@@ -2734,13 +2823,14 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
            time.dependent=xvar %in% sapply(xvars.td,quo_name))
 
   tbl.extra <- lapply(xvars,function(x) {
+    #time dependent
     if (quo_name(x) %in% sapply(xvars.td,quo_name)) {
       xday <- x %>% quo_name() %>% paste0("_day") %>% sym()
       count <- data %>% summarize(count=sum((!!x==1) & (!!xday < !!yvarday))) %>% pull(count)
       extra <- tibble(xvar=quo_name(x),n=count) %>% mutate(term=xvar)
       return(extra)
     }
-    vec <- data2 %>% pull(!!x)
+    vec <- data %>% pull(!!x)
     is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
     if (is.01(vec)) {
       extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
@@ -2764,6 +2854,9 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   }
   return(tbl)
 }
+
+
+
 
 
 

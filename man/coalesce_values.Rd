@@ -4,20 +4,20 @@
 \alias{coalesce_values}
 \title{Coalesce values into one summary variable.}
 \usage{
-coalesce_values(...)
+coalesce_values(..., sep = "=", collapse = "|", omit.na = FALSE)
 }
 \arguments{
 \item{...}{variables to coalesce together.}
+
+\item{sep}{character string separating variable name and value. Default is "="}
+
+\item{collapse}{character string separating variable/value pairs. Default is "|"}
+
+\item{omit.na}{whether or not to remove variable in the case of NA.}
 }
 \value{
-A vector of same length as the variables, displaying variable names plus values.
+A character vector of same length as the variables, displaying variable names plus values.
 }
 \description{
-After providing multiple indicator variables, summarize them by creating a character vector.
-}
-\examples{
-#####
-}
-\author{
-Ying Taur
+Summarize the value of several variables in a single character vector by concatenating variable name and values.
 }
