@@ -422,7 +422,7 @@ read.blastn.file <- function(tax.file,tax_table=TRUE) {
     mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
            otu=qseqid,    # otu=sub(";?$",";",qseqid),
-           otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
+           otu.number=as.numeric(str_extract(otu,"(?<=ASV_)[0-9]+"))) %>%
     separate(taxonomy,into=ranklevels,sep="\\|",remove=FALSE) %>%
     group_by(otu) %>%
     arrange(evalue,staxid) %>%
