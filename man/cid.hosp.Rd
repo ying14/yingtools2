@@ -4,7 +4,9 @@
 \name{cid.hosp}
 \alias{cid.hosp}
 \title{Hospitalizations}
-\format{data.frame}
+\format{
+data.frame
+}
 \usage{
 cid.hosp
 }

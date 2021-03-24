@@ -845,6 +845,8 @@ lefse <- function(phy,class,subclass=NA,subject=NA,
   if (length(missing.pkgs)>0) {
     warning("YTWarning: R packages are needed for the LEFSE scripts to work: ",paste(missing.pkgs,collapse=", "))
   }
+  warning("YTWarning: Please note that this function is deprecated, as LEFSE is currently more typically run in Docker or Conda. This function only works if you have installed an executable lefse.py script. ")
+
   keepvars <- c(class,subclass,subject,"sample")
   keepvars <- unique(keepvars[!is.na(keepvars)])
   samp <- get.samp(phy)[,keepvars]

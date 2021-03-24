@@ -152,7 +152,7 @@ dt <- function(data,fontsize=11,pageLength=Inf,maxchars=250,maxrows=500,rownames
   plugins <- add(plugins,"ellipsis")
   columnDefs <- add(columnDefs,list(
     targets = 1:n.cols,
-    render = DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," )")
+    render = DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," ,true, true)")
   ))
   ## header font size
   options <- add(options,initComplete=DT::JS(paste0("function(settings, json) {$(this.api().table().header()).css({'font-size':'",fontsize,"'});}")))
@@ -657,6 +657,55 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
   return(new.x)
 }
 
+
+pivot_wider_partial <- function(data,
+                                id_cols = NULL,
+                                names_from = name,
+                                criteria,
+                                by.group=TRUE,
+                                names_prefix = "",
+                                names_sep = "_",
+                                names_glue = NULL,
+                                names_sort = FALSE,
+                                names_repair = "check_unique",
+                                values_from = value,
+                                values_fill = NULL,
+                                values_fn = NULL) {
+  id_cols <- enquo(id_cols)
+  names_from <- enquo(names_from)
+  values_from <- enquo(values_from)
+  criteria <- enquo(criteria)
+
+  if (rlang::quo_is_null(id_cols)) {
+    name_cols <- tidyselect::eval_select(names_from,data) %>% names()
+    value_cols <- tidyselect::eval_select(values_from,data) %>% names()
+    by_vars <- setdiff(names(data),c(name_cols,value_cols))
+  } else if (by.group && is.grouped_df(data)) {
+    by_vars <- data %>% group_vars()
+  } else {
+    by_vars <- tidyselect::eval_select(id_cols,data) %>% names()
+  }
+
+  data.pivot <- data %>% ungroup() %>% filter(!!criteria) %>%
+    pivot_wider(id_cols=!!id_cols,
+                names_from = !!names_from,
+                names_prefix = names_prefix,
+                names_sep = names_sep,
+                names_glue = names_glue,
+                names_sort = names_sort,
+                names_repair = names_repair,
+                values_from = !!values_from,
+                values_fill = values_fill,
+                values_fn =values_fn)
+  data.base <- data %>% ungroup() %>% filter(!(!!criteria))
+  pdata <- data.base %>% full_join(data.pivot,by=by_vars)
+  newvars <- setdiff(names(pdata),names(data))
+  new.grouping <- c(by_vars,newvars)
+  if (by.group) {
+    pdata <- pdata %>% group_by(!!!syms(new.grouping))
+  }
+  return(pdata)
+}
 
 
 #' Color Shades
@@ -2267,16 +2316,20 @@ replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case
       var[detected] <- stringi::stri_sub_replace_all(subvar,subloc,replacement=replacement)
     }
   }
-
   if (get.hits & !is.null(collapse.fn)) {
     nohit <- sapply(hitlist,is.null)
     newhits <- rep(NA_character_,length.out=length(var))
     newhits[!nohit] <- hitlist[!nohit] %>% map_chr(collapse.fn)
     hitlist <- newhits
   }
-  data %>%
-    purrr::when(get.hits~mutate(.,!!hits:=hitlist),~.) %>%
-    purrr::when(get.replace~mutate(.,!!newvar:=var),~.)
+  if (get.hits) {
+    data[[quo_name(hits)]] <- hitlist
+  }
+  if (get.replace) {
+    data[[quo_name(newvar)]] <- var
+  }
+  return(data)
+
 }
 
 
@@ -2432,24 +2485,6 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
 }
 
 
-#' Send a Text Message
-#'
-#' Send a text message to your phone!
-#'
-#' @param message A string containing the message you want to send.
-#' @param number The phone number you want to send the message to. Default is Ying's cell number.
-#' @return No value.
-#' @examples
-#' send.text.message("Hello, this is a text message")
-#' @author Ying Taur
-#' @export
-send.text.message <- function(message,number="9149802489") {
-  if (Sys.info()["sysname"]=="Linux") {
-    system(paste0("curl http://textbelt.com/text -d number=",number," -d \"message=",message,"\""))
-  } else {
-    stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
-  }
-}
 
 
 #' Middle Pattern
@@ -4073,5 +4108,12 @@ cummax.Date <- function(x) {
   cu <- base::cummax(new.x)
   as.Date(cu,origin="1970-01-01")
 }
+
+
+
+
+
+
+
 
 
