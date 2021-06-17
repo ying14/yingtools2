@@ -1,0 +1,67 @@
+---
+title: "yingtools2 package"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+options(tibble.print_min=10,tibble.print_max=20,
+        pillar.bold=TRUE,
+        tibble.max_extra_cols=10)
+```
+
+Ying Taur's tools for analysis, with particular focus on microbiome data
+
+yingtools2 is an R package containing many tools and functions for working with clinical and microbiome data. 
+
+## Installation
+Install this package from Github:
+```{r, eval=FALSE}
+remotes::install_github("ying14/yingtools2")
+```
+
+
+## Sample Microbiome Dataset
+```{r,echo=FALSE}
+library(yingtools2)
+library(tidyverse)
+library(phyloseq)
+
+describe <- function(obj) {
+  obj <- get(obj)
+  text <- ""
+  if (is.data.frame(obj)) {
+    text <- paste(pretty_number(nrow(obj)),"rows")
+  } else if (is(obj,"phyloseq")) {
+    text <- paste0("phyloseq object, ",pretty_number(sum(sample_sums(obj)))," seqs, ",pretty_number(nsamples(obj))," samples, ",pretty_number(ntaxa(obj))," OTUs")
+  }
+  return(text)
+}
+
+x <- data(package="yingtools2")[["results"]] %>% as_tibble() %>%
+  mutate(desc=sapply(Item,describe)) %>%
+  arrange(fct_relevel(Item,"cid.phy","cid.patients","cid.hosp","cid.meds","cid.bsi","cid.cdiff"))
+
+n.otu <- ntaxa(cid.phy) %>% pretty_number()
+n.samples <- nsamples(cid.phy) %>% pretty_number()
+n.pts <- cid.phy %>% get.samp() %>% pull(Patient_ID) %>% n_distinct()
+datasets <- paste0("- `",x$Item,"`: ",x$Title," (",x$desc,")",collapse="\n")
+```
+
+Included is a de-identified microbiome dataset of stool samples collected from a cohort of bone marrow transplant recipients at Memorial Sloan Kettering Cancer Center. This was previously published in [Clinical Infectious Diseases (2012)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3657523/). The dataset includes sequence data for `r n.samples` samples (from `r n.pts` patients), as well as a variety of accompanying clinical metadata.
+
+`r datasets`
+
+## Code Examples
+Below are various use coding examples using yingtools2.
+
+### Microbiome plots
+- [Figure 1 Diversity plot](examples/cid.diversity.md)
+- [Table 1, Characteristics of Patients](examples/cid.patient.characteristics.md)
+- [Figure 3A, Hierarchical clustering](examples/cid.hclust.md)
+
+
+
+

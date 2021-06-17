@@ -1,0 +1,54 @@
+---
+title: "CID Diversity Plot"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+
+In this example we will generate a plot of diversity. This is the same plot that was published as [Figure 1 in the Clin Infect Dis (2012) paper](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3657523/figure/CIS580F1/).
+
+
+
+
+```{r,message=FALSE}
+library(tidyverse)
+library(yingtools2)
+library(phyloseq)
+
+```
+
+Use `get.samp()` to extract the sample data from the phyloseq object. By specifying `stats=TRUE`, you can calculate alpha diversity for each sample. Note that several types of diversity are calculated.
+```{r}
+s <- get.samp(cid.phy,stats=TRUE)
+s
+```
+
+With this table you can now plot:
+```{r}
+ggplot(s,aes(x=day,y=Shannon)) + geom_point()
+```
+
+We can add a smoothed conditional mean to the plot:
+```{r}
+ggplot(s,aes(x=day,y=Shannon)) + geom_point() + geom_smooth()
+```
+
+
+This is fairly equivalent to Figure 1 in the CID 2012 paper. To make it match that plot even more closely, you could perform the following aesthetic operations: (1) change the X and Y axis titles, using `xlab` and `ylab`, (2) add a verticle line at X=0 to indicate the time of stem cell infusion, (3) change the color of the smoothed mean to black, (4) change the shape and color of the points to match, and specify `alpha` to make them slightly translucent, (5) draw the perimeter of the points in a separate layer (because those are not translucent), (6) change the order of the layers, such that the points are drawn over the smoothed mean.
+```{r}
+ggplot(s,aes(x=day,y=Shannon)) + 
+  geom_smooth(color="black") + 
+  geom_point(shape=16,color="dark gray",size=3,alpha=0.4) +
+  geom_point(shape=1,size=3) + 
+  geom_vline(xintercept=0,linetype="longdash") +
+  xlab("Day of transplant") +
+  ylab("Biodiversity index (Shannon)")
+  
+```

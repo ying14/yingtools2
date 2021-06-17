@@ -42,7 +42,7 @@
 #' @format data.frame
 "cid.patients"
 
-#' 16S sequence data (phyloseq format)
+#' 16S sequence data
 #' @format phyloseq
 "cid.phy"
 

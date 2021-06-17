@@ -3,7 +3,7 @@
 \docType{data}
 \name{cid.phy}
 \alias{cid.phy}
-\title{16S sequence data (phyloseq format)}
+\title{16S sequence data}
 \format{
 phyloseq
 }
@@ -11,6 +11,6 @@ phyloseq
 cid.phy
 }
 \description{
-16S sequence data (phyloseq format)
+16S sequence data
 }
 \keyword{datasets}

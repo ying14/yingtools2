@@ -102,6 +102,25 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 }
 
 
+#' Sample N Groups
+#'
+#' Sample groups from a grouped data frame
+#' @param grouped_df the grouped data frame to be sampled
+#' @param size number of groups to sample
+#' @return a subset of the grouped data frame
+#' @export
+#' @examples
+#' gdf <- mtcars %>% group_by(gear,carb)
+#' sample_n_groups(gdf,3)
+sample_n_groups <- function(grouped_df, size) {
+  dplyr::group_data(grouped_df) %>%
+    dplyr::sample_n(size) %>%
+    dplyr::select(-.rows) %>%
+    dplyr::inner_join(grouped_df,by=dplyr::group_vars(grouped_df)) %>%
+    dplyr::group_by(!!!groups(grouped_df))
+}
+
+
 #' Ying's DT view
 #'
 #' Use to peruse a dataframe within RStudio. Utilizes \code{DT} package.
@@ -2894,9 +2913,6 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
 
 
 
-
-
-
 yt.tidy <- function(x,...) UseMethod("yt.tidy")
 yt.tidy.coxph <- function(obj) {
   obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
@@ -2922,12 +2938,10 @@ yt.tidy.logistf <- function(obj) {
          statistic=NA,
          std.error=NA,
          p.value=obj$prob,
-         conf.low=obj$ci.lower,
-         conf.high=obj$ci.upper) %>%
+         conf.low=exp(obj$ci.lower),
+         conf.high=exp(obj$ci.upper)) %>%
     filter(term!="(Intercept)")
 }
-
-
 
 
 #' Univariate and Multivariate Cox Regression
@@ -2943,13 +2957,13 @@ yt.tidy.logistf <- function(obj) {
 #' @return by default, returns a formatted regression table
 #' @examples
 #' @export
-univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cutoff=0.25,formatted=TRUE) {
+univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cutoff=0.25,firth=FALSE,formatted=TRUE) {
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
   xvars <- quos(...)
   univariate.reglist <- lapply(xvars,function(x) {
     message(quo_name(x))
-    cox(!!yvar,!!x,starttime=!!starttime,data=data,formatted=FALSE)
+    cox(!!yvar,!!x,starttime=!!starttime,data=data,firth=firth,formatted=FALSE)
   })
   univariate.tbl <- univariate.reglist %>% bind_rows()
   if (multi) {
@@ -2958,7 +2972,7 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
       message("No predictors entered multivariate model")
       multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term,-time.dependent),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
     } else {
-      multivariate.tbl <- cox(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
+      multivariate.tbl <- cox(!!yvar,!!!syms(multi.xvars),data=data,firth=firth,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
     }
     tbl <- univariate.tbl %>% left_join(multivariate.tbl,by=c("yvar","xvar","term","time.dependent"))
     if (formatted) {
@@ -3821,12 +3835,12 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
 #' @return by default, returns a formatted regression table
 #' @examples
 #' @export
-univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,formatted=TRUE) {
+univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,firth=FALSE,formatted=TRUE) {
   yvar <- enquo(yvar)
   xvars <- quos(...)
   univariate.reglist <- lapply(xvars,function(x) {
     message(quo_name(x))
-    logit(!!yvar,!!x,data=data,formatted=FALSE)
+    logit(!!yvar,!!x,data=data,formatted=FALSE,firth=firth)
   })
   univariate.tbl <- univariate.reglist %>% bind_rows()
   if (multi) {
@@ -3835,7 +3849,7 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,forma
       message("No predictors entered multivariate model")
       multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     } else {
-      multivariate.tbl <- logit(!!yvar,!!!syms(multi.xvars),data=data,formatted=FALSE) %>%
+      multivariate.tbl <- logit(!!yvar,!!!syms(multi.xvars),data=data,firth=firth,formatted=FALSE) %>%
         rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     }
     tbl <- univariate.tbl %>% left_join(multivariate.tbl,by=c("yvar","xvar","term"))

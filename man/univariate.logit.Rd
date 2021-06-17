@@ -10,6 +10,7 @@ univariate.logit(
   ...,
   multi = TRUE,
   multi.cutoff = 0.25,
+  firth = FALSE,
   formatted = TRUE
 )
 }
