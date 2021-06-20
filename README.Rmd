@@ -57,7 +57,11 @@ Included is a de-identified microbiome dataset of stool samples collected from a
 ## Code Examples
 Below are various use coding examples using yingtools2.
 
+### Basics
+- [Exercises](examples/exercises.md)
+
 ### Microbiome plots
+
 - [Figure 1 Diversity plot](examples/cid.diversity.md)
 - [Table 1, Characteristics of Patients](examples/cid.patient.characteristics.md)
 - [Figure 3A, Hierarchical clustering](examples/cid.hclust.md)

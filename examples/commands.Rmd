@@ -1,0 +1,54 @@
+---
+title: "Commands"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+
+```{r,message=FALSE}
+library(tidyverse)
+library(yingtools2)
+library(phyloseq)
+library(scales)
+```
+
+
+
+Sort `cid.patients` by `agebmt`
+```{r}
+cid.patients[order(cid.patients$agebmt),]
+```
+OR
+```{r}
+cid.patients %>% arrange(agebmt)
+```
+
+
+
+
+Tally race
+```{r}
+cid.patients %>% count(race)
+```
+
+
+
+Tally race and sort in descending
+```{r}
+cid.patients %>% count(race,sort=TRUE)
+```
+
+
+Tally race and sort in descending
+```{r}
+cid.patients %>% count(race,sort=TRUE)
+```
+
+

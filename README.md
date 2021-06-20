@@ -23,3 +23,17 @@ Included is a de-identified microbiome dataset of stool samples collected from a
 -   `cid.meds`: Medications (6,473 rows)
 -   `cid.bsi`: Bloodstream Infections (138 rows)
 -   `cid.cdiff`: C. diff results (37 rows)
+
+## Code Examples
+
+Below are various use coding examples using yingtools2.
+
+### Basics
+
+-   [Exercises](examples/exercises.md)
+
+### Microbiome plots
+
+-   [Figure 1 Diversity plot](examples/cid.diversity.md)
+-   [Table 1, Characteristics of Patients](examples/cid.patient.characteristics.md)
+-   [Figure 3A, Hierarchical clustering](examples/cid.hclust.md)

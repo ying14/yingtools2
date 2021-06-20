@@ -1,0 +1,359 @@
+---
+title: "Exercises"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+
+```{r,message=FALSE}
+library(tidyverse)
+library(yingtools2)
+library(phyloseq)
+library(scales)
+```
+
+### Q1
+Look at `cid.patients`. What percent of the patients were black race? What percent of black patients were female?
+```{r,echo=FALSE}
+is.black <- cid.patients$race=="Black/ African American"
+pct.black <- mean(is.black)
+pct.black
+
+black.pct.female <- mean(cid.patients$sex[is.black]=="Female")
+black.pct.female
+```
+`r percent(pct.black,accuracy=0.1)` of patients are black. `r percent(black.pct.female,accuracy=0.1)` of black patients are female
+
+### Q2
+What percent of the patients were black race? What percent of black patients were female?
+In the yingtools2::cid94::cid.bsi data, count the number of *patients* who had Klebsiella blood stream infections. (hint: use regular expression).
+```{r,echo=FALSE}
+#get subset of bloodstream infections that were Klebsiella
+kleb.bcx <- cid.bsi[grepl("Klebsiella",cid.bsi$organism),]
+#count the distinct patients using the Patient_ID column
+n.kleb.pts <- length(unique(kleb.bcx$Patient_ID))
+n.kleb.pts
+```
+`r n.kleb.pts` patients had Klebsiella bloodstream infection (the answer is not 9)
+
+
+### Q3
+Start with the `cid.patients` data and make the following modifications:
+
+1. Make it a subset of patients that are female and underwent a cord transplant.
+
+2. Sort rows by patient's age at BMT
+
+3. Create a column called `los` to represent of the hospital length of stay for each patient. This is calculated as `discharge.day-admit.day+1`.
+
+4. Create a column called `has.leukemia` which is `TRUE` the patient's primary diagnosis is leukemia, and `FALSE` otherwise.
+
+5. Keep these columns: `Patient_ID`, `agebmt`, `sex`, `bmt.cord`, `los`, `has.leukemia` ... remove everything else.
+
+```{r,echo=FALSE}
+cid.patients %>% 
+  filter(sex=="Female",bmt.cord) %>% 
+  arrange(agebmt) %>%
+  mutate(los=discharge.day-admit.day+1,
+         has.leukemia=primary.dx=="Leukemia") %>%
+  select(Patient_ID,agebmt,sex,bmt.cord,los,has.leukemia)
+```
+
+
+
+### Q4
+In the `cid.bsi` data, addcolumns to the data in order to show age and sex for each row (hint: use left_join).
+```{r,echo=FALSE}
+cid.bsi %>% left_join(select(cid.patients,Patient_ID,agebmt,sex),by="Patient_ID")
+```
+
+
+### Q5
+In `cid.patients`, for each level of `disease.risk`: calculate the average age, average length of stay,
+and percent of patients above 60 years (hint: use group_by).
+
+```{r,echo=FALSE}
+cid.patients %>% group_by(disease.risk) %>%
+  summarize(mean.age=mean(agebmt),
+            mean.los=mean(discharge.day-admit.day+1),
+            over60=mean(agebmt>60))
+```
+
+
+### Q6
+Modify `cid.cdiff` so that it lists whether or not the C.diff infection occurred during inpatient or outpatient.
+```{r,echo=FALSE}
+cid.cdiff %>%
+  left_join(cid.hosp,by="Patient_ID") %>%
+  group_by(Patient_ID,day,method) %>%
+  summarize(inpatient=any(admitday<=day & day<=dischargeday)) %>%
+  ungroup() %>%
+  mutate(inpatient=ifelse(inpatient,"inpatient","outpatient"))
+```
+
+
+### Q7
+Using `cid.bsi`, create a data frame that lists for each patient: (1) Patient_ID, (2) age, (3) sex, (4) number of positive
+blood cultures, (5) number of distinct organisms, (6) a character listing each distinct bloodstream organism seen,
+separated by commas and listed in the order they first occurred. If a patient did not have positive blood cultures, state '<none>'.
+```{r,echo=FALSE}
+cid.bsi %>%
+  group_by(Patient_ID) %>%
+  arrange(startday) %>%
+  summarize(n.poscultures=n(),
+            n.orgs=n_distinct(organism),
+            org.list=paste(unique(organism),collapse=",")) %>%
+  ungroup() %>%
+  right_join(cid.patients,by="Patient_ID") %>%
+  select(Patient_ID,agebmt,sex,n.poscultures,n.orgs,org.list) %>%
+  replace_na(list(n.poscultures=0,n.orgs=0,org.list="<none>"))
+```
+
+
+
+
+### Q8
+Create a data frame that lists the number of days each IV antibacterial drug was given, for each patient.
+```{r,echo=FALSE}
+cid.meds %>% filter(med.class=="Antibacterials",route=="IV") %>%
+  mutate(days=endday-startday+1) %>%
+  pivot_wider(id_cols=Patient_ID,
+              names_from=med.clean,
+              values_from=days,values_fn=sum,values_fill=0)
+```
+
+
+
+
+
+
+### Q9
+Using `cid.patients`, make a histogram of age.
+
+```{r,echo=FALSE}
+ggplot(cid.patients,aes(x=agebmt)) + geom_histogram()
+```
+
+
+
+### Q10
+Using `cid.patients`, make a bar plot of intensity (with different colors):
+
+```{r,echo=FALSE}
+ggplot(cid.patients,aes(x=intensity,fill=intensity)) + geom_bar()
+```
+
+
+
+### Q11
+Using `cid.patients`, make a histogram of length of stay (`discharge.day-admit.day+1`) during the initial transplant hospitalization, for each conditioning intensity
+
+```{r,echo=FALSE}
+cid.patients %>%
+  mutate(los=discharge.day-admit.day+1) %>%
+  ggplot(aes(x=los,fill=intensity)) + geom_histogram() +
+  facet_grid(intensity~.)
+```
+
+
+
+### Q12
+Using `cid.patients`, make a scatterplot of length of stay vs. age, and write 'M' for males and 'F' for females, and color by intensity.
+
+```{r,echo=FALSE}
+cid.patients %>%
+  mutate(los=discharge.day-admit.day+1) %>%
+  ggplot(aes(x=agebmt,y=los,color=intensity,label=substr(sex,1,1))) +
+  geom_text()
+```
+
+
+
+
+
+
+
+### Q13
+Create a function called 'count.samples' which uses `cid.phy` to determine how many samples were collected, for patients (users input `Patient_ID`)
+
+```{r,echo=FALSE}
+count.samples <- function(id) {
+  s.counts <- get.samp(cid.phy) %>% count(Patient_ID)
+  s.counts$n[match(id,s.counts$Patient_ID)]
+}
+```
+
+```{r}
+count.samples("120")
+count.samples("172")
+count.samples(c("222","178","305","155"))
+count.samples(c("178","222","xxx","130"))
+```
+
+
+
+### Q14
+Create a function called `get.first.entero.abundance` which provides Enterococcus relative abundance in the first sample collected of a given patient, using `cid.phy`.
+
+```{r,echo=FALSE}
+get.first.entero.abundance <- function(id) {
+  otu <- get.otu.melt(cid.phy,filter.zero=FALSE) %>%
+    filter(Genus=="Enterococcus") %>%
+    group_by(Patient_ID) %>%
+    filter(day==min(day)) %>%
+    group_by(Patient_ID,sample,day) %>%
+    summarize(entero.pctseqs=sum(pctseqs)) %>%
+    ungroup()
+  otu$entero.pctseqs[match(id,otu$Patient_ID)]
+}
+```
+
+```{r}
+  get.first.entero.abundance("120")
+  get.first.entero.abundance("172")
+  get.first.entero.abundance(c("222","178","305","155"))
+  get.first.entero.abundance(c("178","222","xxx","130"))
+```
+
+```{r,echo=FALSE}
+get.first.entero.abundance.fast <- function(id) {
+  t <- get.tax(cid.phy)
+  sub.otus <- t$Genus=="Enterococcus"
+  s <- get.samp(cid.phy)
+  s.first <- s %>%
+    group_by(Patient_ID) %>%
+    slice(which.min(day)) %>% ungroup()
+  sub.samp.ids <- s.first$sample[match(id,s.first$Patient_ID)]
+  sub.samp.index <- match(sub.samp.ids,sample_names(cid.phy))
+  counts <- otu_table(cid.phy)[sub.otus,sub.samp.index] %>% apply(2,sum)
+  total <- sample_sums(cid.phy)[sub.samp.index]
+  unname(counts/total)
+}
+```
+
+Bonus: How long does the function take to run? Too long? If so, see if you can rewrite to make it run as fast as possible.
+```{r}
+system.time({
+  get.first.entero.abundance("120")
+  get.first.entero.abundance("172")
+  get.first.entero.abundance(c("222","178","305","155"))
+  get.first.entero.abundance(c("178","222","xxx","130"))
+
+})
+
+system.time({
+  get.first.entero.abundance.fast("120")
+  get.first.entero.abundance.fast("172")
+  get.first.entero.abundance.fast(c("222","178","305","155"))
+  get.first.entero.abundance.fast(c("178","222","xxx","130"))
+})
+
+```
+
+
+
+
+### Q15
+Using `cid.phy`, create Fig1 of CID94, which is a scatterplot of diversity (Shannon index) and transplant day,
+with a smoothed moving confidence interval. Make sure open circles are used to plot the data,
+just like in the paper.
+Bonus: Include a horizontal dashed line to indicate transplant day (day 0),
+and add shading to the points. Note that the shading within the points was 50% transparent in the
+final paper, so that readers can see overlapping data.
+
+```{r,echo=FALSE}
+s <- get.samp(cid.phy,stats=TRUE)
+# ggplot(s,aes(x=day,y=Shannon)) + geom_smooth() + geom_point(shape=1)
+ggplot(s,aes(x=day,y=Shannon)) + geom_smooth() +
+  geom_point(size=3,shape=1) +
+  geom_point(size=3,shape=16,fill="gray",alpha=0.25) +
+  geom_vline(aes(xintercept=0),linetype="longdash") +
+  scale_y_continuous("Biodiversity index (Shannon)") +
+  scale_x_continuous("Day of transplant")
+```
+
+
+
+
+### Q16
+Write a function called `plot.patient` that draws timelines for a given patient, similar to Fig 2A of CID94. The function 
+can make use of data from `cid.patients`, `cid.phy`, and `cid.meds`
+It should include: timeline of medications administered, stacked barplot showing taxon abundance, with title showing primary diagnosis. Should use the original 'cid.colors' palette. For medications, write the name of the medication on the bar.
+Bonus:
+(1) make sure the medication colors and are the same for every plot
+(2) make the medication bars the same height in all plots
+(3) the order of the taxonomy legend and stacking order should be in order of most abundant to least abundant (but Other Firmicutes, Other Bacteroidetes, and Other Bacteria should be at the bottom no matter what)
+(4) if relative abundance is >30%, display the name of the taxon in the middle of the stacked bar.
+
+```{r,echo=FALSE}
+xlim <- c(-15,35)
+otu <- get.otu.melt(cid.phy) %>%
+  group_by(Patient_ID,sample,day,taxon) %>%
+  summarize(numseqs=sum(numseqs),pctseqs=sum(pctseqs)) %>%
+  group_by(taxon) %>%
+  mutate(taxa.sums=sum(numseqs)) %>%
+  ungroup() %>%
+  arrange(grepl("Other Bacteria",taxon),
+          grepl("Other",taxon),desc(taxa.sums)) %>%
+  mutate(taxon=factor(taxon,levels=unique(taxon))) %>%
+  group_by(Patient_ID,sample,day) %>%
+  arrange(taxon) %>%
+  mutate(cum.pct=cumsum(pctseqs),
+         y.text=(cum.pct+lag(cum.pct,default=0))/2,
+         tax.lbl=ifelse(pctseqs>=0.3,as.character(taxon),"")) %>%
+  ungroup()
+s <- get.samp(cid.phy)
+m <- cid.meds %>% filter(med.class=="Antibacterials",occurs.within(startday,endday,-15,35))
+med.pal <- unique(m$med.clean)
+med.pal <- med.pal[order(med.pal)]
+med.pal <- setNames(gg.colors(length(med.pal)),med.pal)
+max.meds <- m %>% group_by(Patient_ID) %>% summarize(n.meds=n_distinct(med.clean)) %>% pull() %>% max()
+
+plot.patient <- function(id) {
+  # id=cid.patients$Patient_ID[1]
+  psub <- cid.patients %>% filter(Patient_ID==id)
+  gtitle <- paste0("Patient ",id," (",psub$primary.dx,")")
+  otusub <- otu %>% filter(Patient_ID==id)
+  ssub <- s %>% filter(Patient_ID==id)
+  msub <- m %>% filter(Patient_ID==id) %>%
+    mutate(row=dense_rank(med.clean),
+           x.mid=(startday+endday)/2)
+
+  g.med <- ggplot(msub) + expand_limits(y=max.meds) +
+    geom_vline(aes(xintercept=0),linetype="longdash",color="gray") +
+    geom_rect(aes(xmin=startday-0.45,xmax=endday+0.45,ymin=row-0.45,ymax=row+0.45,fill=med.clean)) +
+    geom_text(aes(x=x.mid,y=row,label=med.clean)) +
+    scale_fill_manual(values=med.pal) +
+    scale_y_continuous("Medications") +
+    coord_cartesian(xlim=xlim) +
+    ggtitle(gtitle) +
+    theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),
+          legend.position="none")
+  g.tax <- ggplot() +
+    geom_vline(aes(xintercept=0),linetype="longdash",color="gray") +
+    geom_bar(data=otusub,aes(x=day,y=pctseqs,fill=taxon),stat="identity",position="fill",width=1) +
+    geom_text(data=ssub,aes(x=day,y=0,label=day),vjust=1) +
+    geom_text(data=otusub,aes(x=day,y=1-y.text,label=tax.lbl),angle=-90) +
+    scale_x_continuous("Transplant day") +
+    scale_y_continuous("Relative Abundance",label=percent) +
+    scale_fill_manual("Bacteria phylotypes",values=cid.colors) +
+    coord_cartesian(xlim=xlim) +
+    theme()
+  gg.stack(g.med,g.tax,heights=c(3,5))
+}
+
+
+```
+
+```{r}
+plot.patient("301")
+```
+
+

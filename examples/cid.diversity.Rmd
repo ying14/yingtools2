@@ -21,7 +21,6 @@ In this example we will generate a plot of diversity. This is the same plot that
 library(tidyverse)
 library(yingtools2)
 library(phyloseq)
-
 ```
 
 Use `get.samp()` to extract the sample data from the phyloseq object. By specifying `stats=TRUE`, you can calculate alpha diversity for each sample. Note that several types of diversity are calculated.
