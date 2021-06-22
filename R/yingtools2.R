@@ -2865,7 +2865,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     return(data2)
   }
   if (!firth) {
-    result <- coxph(formula,data=data2)
+    result <- survival::coxph(formula,data=data2)
   } else {
     result <- do.call(coxphf::coxphf,c(list(formula,data=data2),firth.opts))
   }

@@ -131,9 +131,6 @@ cid.meds %>% filter(med.class=="Antibacterials",route=="IV") %>%
 
 
 
-
-
-
 ### Q9
 Using `cid.patients`, make a histogram of age.
 
