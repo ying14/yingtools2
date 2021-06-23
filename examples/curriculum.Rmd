@@ -8,10 +8,6 @@ editor_options:
 ---
 
 
-
-
-
-
 ```{r global_options, include=FALSE}
 source(here::here("common.R"))
 library(knitr)
@@ -21,30 +17,29 @@ library(knitr)
 ```{r,message=FALSE}
 library(tidyverse)
 library(yingtools2)
-# library(phyloseq)
+library(phyloseq)
 library(scales)
 library(ggtree)
 library(survival)
 ```
 
+
 ### R tasks to learn
+Datasets used here: `rivers` (numeric vector), `sentences` (character vector), `state.division` (factor vector)
 ```{r,echo=FALSE}
 
 rows <- c(
-  "Subset a vector by index"="x[3]",
-  "Subset by condition"="x[x>3]",
-  "Sort a variable"="x[order(x)]",
-  "Left join"="left_join(x,y,by=\"var\")",
-  "Inner join"="inner_join(x,y,by=\"var\")",
-  "Read a CSV file"="read_csv(...)",
-  "Group by"="data %>% group_by(...) %>% [code] %>% ungroup()",
-  "Melt"="data %>% pivot_longer(...)",
-  "Cast"="data %>% pivot_wider(...)",
-  "Split a character vector"="str_split(\"the quick brown fox\",\" \")",
-  "Split a column into several columns"="data %>% separate(...)",
-  "recode a character based on multiple regex criteria"="recode.grep(vec,c(\"abc\"=\"def\"))",
-  "xxxxx"="xxxxx",
-  "xxxxx"="xxxxx")
+  "Length of a vector"="length(rivers)",
+  "Subset a vector by index"="rivers[3]",
+  "Subset by logical condition"="rivers[rivers>700]",
+  "Count number of elements that meet a condition"="sum(rivers>700)",
+  "Calculate proportion of elements that meet a condition"="mean(rivers>700)",
+  "Sort a variable"="rivers[order(rivers)]; sort(rivers)",
+  "Count the number of distinct values"="length(unique(state.division)); n_distinct(state.division)",
+  "Relevel a factor based on frequency"="fct_infreq(state.division)",
+  "Relevel a factor so that small groups are collapsed"="fct_lump_n(state.division,5)",
+  "Search for text using regular expressions"="grepl(\"dog|cat\",sentences); str_detect(sentences,\"dog|cat\")",
+  "Split sentences into a list of words"="str_split(sentences,pattern=\" \")")
 
 t <- tibble(Task=names(rows),Code=paste0("`",rows,"`"))
 
@@ -52,10 +47,113 @@ knitr::kable(t)
 
 ```
 
+### Data frames
+Datasets used here: `starwars`
+
+```{r,echo=FALSE}
+
+rows <- c(
+  "Left join"="left_join(x,y,by=\"var\")",
+  "Inner join"="inner_join(x,y,by=\"var\")",
+  "Read a CSV file"="read_csv(...)",
+  "Group by"="data %>% group_by(...) %>% [code] %>% ungroup()",
+  "Melt"="data %>% pivot_longer(...)",
+  "Cast"="data %>% pivot_wider(...)",
+  "Split a column into several columns"="data %>% separate(...)",
+  "recode a character based on multiple regex criteria"="recode.grep(vec,c(\"abc\"=\"def\"))")
+
+
+t <- tibble(Task=names(rows),Code=paste0("`",rows,"`"))
+
+knitr::kable(t)
+```
+
+
+### Phyloseq tasks
+Datasets used here: `cid.phy`
+```{r,echo=FALSE}
+
+rows <- c(
+  "Get sample data (rows=samples)"="get.samp(cid.phy)",
+  "Get sample data and calculate alpha diversity"="get.samp(cid.phy,stats=TRUE)",
+  "Get tax table (rows=taxa)"="get.tax(cid.phy)",
+  "Get combined long table of tax abundances (rows=samples x taxa)"="get.otu.melt(cid.phy)",
+  "Collapse phyloseq by genus level"="phy.collapse(cid.phy,taxranks=c(\"Superkingdom\",\"Phylum\",\"Class\", \"Order\", \"Family\", \"Genus\"))",
+  "Subset of samples with liquid consistency"="subset_samples(cid.phy,Consistency==\"liquid\")",
+  "Remove samples with fewer than 1000 seqs"="prune_samples(sample_sums(cid.phy)>=1000,cid.phy)"
+)
+
+t <- tibble(Task=names(rows),Code=paste0("`",rows,"`"))
+knitr::kable(t)
+```
 
 
 
-### ggplot2 tasks to learn
+### ggplot2 tasks
+Datasets used here: `starwars`
+
+
+
+
+```{r score_table2, fig.show = "hide", echo = FALSE, fig.height=2, fig.width=3,echo=FALSE}
+
+samp <- get.human.samples.data()
+ggplot(diamonds,aes(x=price)) + geom_histogram()
+ggplot(diamonds,aes(x=price)) + geom_histogram(color="black",fill="steelblue")
+
+ggplot(diamonds,aes(x=carat,y=price)) + geom_point()
+ggplot(diamonds,aes(x=carat,y=price,color=clarity)) + geom_point()
+ggplot(diamonds,aes(x=carat,y=price,color=clarity,size=cut)) + geom_point()
+ggplot(diamonds,aes(x=carat,y=price,color=clarity,size=cut)) + geom_point(alpha=0.5)
+
+
+
+ggplot(diamonds,aes(x=cut,y=price)) + geom_dotplot(binaxis="y",stackdir="center")
+
+
+ggplot(diamonds,aes(x=carat,y=price,color=color)) + geom_point()
+ggplot(diamonds,aes(x=clarity,y=price)) + geom_boxplot()
+ggplot(diamonds,aes(x=clarity,y=price)) + geom_violin()
+
+diamonds
+
+diamonds$clarity
+
+diamonds$color
+
+
+diamonds %>% glimpse
+data(package = "ggplot2")
+
+
+vec <- c("scatterplot"="ggplot(s,aes(x=day,y=InvSimpson)) + geom_point()",
+         "scatterplot with smoother"="ggplot(s,aes(x=day,y=InvSimpson)) + geom_point() + geom_smooth()",
+         "histogram"="ggplot(s,aes(x=day)) + geom_histogram()",
+         "Bar plot"="ggplot(s,aes(x=Consistency,fill=Consistency)) + geom_bar()",
+         "Phylogenetic tree"="tr <- phy_tree(cid.phy)\nggtree(tr)",
+         "Phylogenetic tree with circular tips"="tr <- phy_tree(cid.phy)\nggtree(tr,layout=\"circular\")",
+         "OTU heatmap"="otu <- cid.phy %>% phy.collapse(taxranks=c(\"Kingdom\",\"Phylum\",\"Class\",\"Order\",\"Family\",\"Genus\")) %>% get.otu.melt(filter.zero=FALSE) %>% ggplot(aes(x=sample,y=otu,fill=pctseqs)) + geom_tile() + scale_fill_continuous(trans=log_epsilon_trans(0.0001)) + theme(axis.text=element_blank())",
+         NULL)
+
+vec.md <- paste0("```",vec,"```")
+
+glist <- lapply(vec,function(x) {
+  eval(parse(text=x))
+})
+
+invisible(lapply(glist, print))
+out <- cbind(names(vec),vec.md,sprintf("![](%s%s-%s.png)",
+                     opts_current$get("fig.path"),
+                     opts_current$get("label"),
+                     seq_along(glist)))
+
+kable(out,col.names=c("Task","Code","Plot"))
+```
+
+
+
+
+
 
 ```{r}
 s <- get.samp(cid.phy,stats=TRUE)
@@ -73,11 +171,6 @@ vec <- c("scatterplot"="ggplot(s,aes(x=day,y=InvSimpson)) + geom_point()",
          "Phylogenetic tree with circular tips"="tr <- phy_tree(cid.phy)\nggtree(tr,layout=\"circular\")",
          "OTU heatmap"="otu <- cid.phy %>% phy.collapse(taxranks=c(\"Kingdom\",\"Phylum\",\"Class\",\"Order\",\"Family\",\"Genus\")) %>% get.otu.melt(filter.zero=FALSE) %>% ggplot(aes(x=sample,y=otu,fill=pctseqs)) + geom_tile() + scale_fill_continuous(trans=log_epsilon_trans(0.0001)) + theme(axis.text=element_blank())",
          NULL)
-
-
-cid.patients %>% cox(vre.bsi,enterodom30)
-
-
 
 vec.md <- paste0("```",vec,"```")
 

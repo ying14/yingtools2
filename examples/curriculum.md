@@ -6,31 +6,57 @@ library(tidyverse)
 library(yingtools2)
 library(phyloseq)
 library(scales)
-library(knitr)
 library(ggtree)
 library(survival)
 ```
 
-### xxsxxxx
+### R tasks to learn
 
-xxxxx
+Datasets used here: `rivers` (numeric vector), `sentences` (character
+vector), `state.division` (factor vector)
+
+| Task                                                   | Code                                                                    |
+|:-------------------------------------------------------|:------------------------------------------------------------------------|
+| Length of a vector                                     | `length(rivers)`                                                        |
+| Subset a vector by index                               | `rivers[3]`                                                             |
+| Subset by logical condition                            | `rivers[rivers>700]`                                                    |
+| Count number of elements that meet a condition         | `sum(rivers>700)`                                                       |
+| Calculate proportion of elements that meet a condition | `mean(rivers>700)`                                                      |
+| Sort a variable                                        | `rivers[order(rivers)]; sort(rivers)`                                   |
+| Count the number of distinct values                    | `length(unique(state.division)); n_distinct(state.division)`            |
+| Relevel a factor based on frequency                    | `fct_infreq(state.division)`                                            |
+| Relevel a factor so that small groups are collapsed    | `fct_lump_n(state.division,5)`                                          |
+| Search for text using regular expressions              | `grepl("dog&#124;cat",sentences); str_detect(sentences,"dog&#124;cat")` |
+| Split sentences into a list of words                   | `str_split(sentences,pattern=" ")`                                      |
+
+### Data frames
+
+Datasets used here: `starwars`
 
 | Task                                                | Code                                              |
 |:----------------------------------------------------|:--------------------------------------------------|
-| Subset a vector by index                            | `x[3]`                                            |
-| Subset by condition                                 | `x[x>3]`                                          |
-| Sort a variable                                     | `x[order(x)]`                                     |
 | Left join                                           | `left_join(x,y,by="var")`                         |
 | Inner join                                          | `inner_join(x,y,by="var")`                        |
 | Read a CSV file                                     | `read_csv(...)`                                   |
 | Group by                                            | `data %>% group_by(...) %>% [code] %>% ungroup()` |
 | Melt                                                | `data %>% pivot_longer(...)`                      |
 | Cast                                                | `data %>% pivot_wider(...)`                       |
-| Split a character vector                            | `str_split("the quick brown fox"," ")`            |
 | Split a column into several columns                 | `data %>% separate(...)`                          |
 | recode a character based on multiple regex criteria | `recode.grep(vec,c("abc"="def"))`                 |
-| xxxxx                                               | `xxxxx`                                           |
-| xxxxx                                               | `xxxxx`                                           |
+
+### Phyloseq tasks
+
+Datasets used here: `cid.phy`
+
+| Task                                                            | Code                                                                                            |
+|:----------------------------------------------------------------|:------------------------------------------------------------------------------------------------|
+| Get sample data (rows=samples)                                  | `get.samp(cid.phy)`                                                                             |
+| Get sample data and calculate alpha diversity                   | `get.samp(cid.phy,stats=TRUE)`                                                                  |
+| Get tax table (rows=taxa)                                       | `get.tax(cid.phy)`                                                                              |
+| Get combined long table of tax abundances (rows=samples x taxa) | `get.otu.melt(cid.phy)`                                                                         |
+| Collapse phyloseq by Genus                                      | `phy.collapse(cid.phy,taxranks=c("Superkingdom","Phylum","Class", "Order", "Family", "Genus"))` |
+| Subset of samples with liquid consistency                       | `subset_samples(cid.phy,Consistency=="liquid")`                                                 |
+| Remove samples with fewer than 1000 seqs                        | `prune_samples(sample_sums(cid.phy)>=1000,cid.phy)`                                             |
 
 ``` r
 s <- get.samp(cid.phy,stats=TRUE)

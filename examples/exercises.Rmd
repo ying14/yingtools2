@@ -173,10 +173,6 @@ cid.patients %>%
 
 
 
-
-
-
-
 ### Q13
 Create a function called 'count.samples' which uses `cid.phy` to determine how many samples were collected, for patients (users input `Patient_ID`)
 
