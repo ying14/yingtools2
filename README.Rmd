@@ -54,11 +54,15 @@ Included is a de-identified microbiome dataset of stool samples collected from a
 
 `r datasets`
 
-## Code Examples
+## Self Help and Code Examples
+
 Below are various use coding examples using yingtools2.
 
-### Basics
-- [Exercises](examples/exercises.md)
+### Core Basics
+For those starting to learn R for data science
+
+- [Coding Curriculum](examples/curriculum.md). A run-through of the most important R coding skills to learn.
+- [Exercises](examples/exercises.md). These questions test your R skills and range from beginner to advanced.
 
 ### Microbiome plots
 

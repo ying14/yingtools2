@@ -24,7 +24,7 @@ vector), `state.division` (factor vector), `airquality` (data frame)
 | Test a vector for `NA` values                          | `is.na(airquality$Ozone)`                                                                                                                       |
 | Sort a variable                                        | `rivers[order(rivers)]` -or-</br>`sort(rivers)`                                                                                                 |
 | Count the number of distinct values                    | `length(unique(state.division))` -or-</br>`n_distinct(state.division)`                                                                          |
-| Search for text using regular expressions              | `grepl("dog&#124;cat",sentences)` -or-</br>`str_detect(sentences,"dog&#124;cat")`                                                               |
+| Search for text using regular expressions              | `grepl("dog",sentences)` -or-</br>`str_detect(sentences,"dog")`                                                                                 |
 | Split a character vector using a separator             | `str_split(sentences, pattern=" ")`                                                                                                             |
 | Tabulate a vector’s values                             | `tab(state.division)` -or-</br>`table(state.division)` -or-</br>`fct_count(state.division)`                                                     |
 
@@ -52,6 +52,7 @@ Datasets used here: `mtcars` (data frame), `band_members` (data frame),
 | Sort a data frame by a column               | `arrange(mtcars,mpg)` -or-</br>`mtcars[order(mtcars$mpg),]`                                                                                                                                                                                                                      |
 | Subset the rows based on column criteria    | (cars that have &gt;15 mpg and 6 cylinders)</br>`filter(mtcars,mpg>15,cyl==6)` -or-</br>`subset(mtcars,mpg>15 & cyl==6)` -or-</br>`mtcars[mtcars$mpg>15 & mtcars$cyl==6,]`                                                                                                       |
 | Select specific columns from a data frame   | `select(mtcars,mpg,cyl,disp)` -or-</br>`subset(mtcars,select=c(mpg,cyl,disp))` -or-</br>`mtcars[,c("mpg","cyl","disp")]` -or-</br>`mtcars[,1:3]`                                                                                                                                 |
+| Add/Modify a column                         | `mtcars %>% mutate(mpg2=mpg*2)` -or-</br>`mtcars$mpg2 <- mtcars$mpg * 2`                                                                                                                                                                                                         |
 | Tabulate a column                           | `mtcars %>% count(cyl)` -or-</br>`mtcars %>% group_by(cyl) %>% tally()` -or-</br>`mtcars %>% group_by(cyl) %>% summarize(n=n()) %>% ungroup()`                                                                                                                                   |
 | Inner join 2 data frames                    | (only keep rows that match)</br>`band_members %>% inner_join(band_instruments,by="name")`                                                                                                                                                                                        |
 | Left join 2 data frames                     | (keep all rows from band)</br>`band_members %>% left_join(band_instruments,by="name")`                                                                                                                                                                                           |
@@ -63,16 +64,18 @@ Datasets used here: `mtcars` (data frame), `band_members` (data frame),
 
 Dataset used here: `diamonds` (ggplot2 package)
 
-| Task                                | Code                                                                                                                 | Plot                                            |
-|:------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:------------------------------------------------|
-| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/ggplot_2-1.png) |
-| histogram with custom fixed colors  | `ggplot(diamonds, aes(x = price)) + geom_histogram(color = "black", fill = "pink")`                                  | ![](curriculum_files/figure-gfm/ggplot_2-2.png) |
-| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/ggplot_2-3.png) |
-| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/ggplot_2-4.png) |
-| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/ggplot_2-5.png) |
-| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/ggplot_2-6.png) |
-| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/ggplot_2-7.png) |
-| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/ggplot_2-8.png) |
+| Task                                | Code                                                                                                                 | Plot                                             |
+|:------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------|
+| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/ggplot_2-1.png)  |
+| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/ggplot_2-2.png)  |
+| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/ggplot_2-3.png)  |
+| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/ggplot_2-4.png)  |
+| barplot (stacked)                   | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar()`                                                        | ![](curriculum_files/figure-gfm/ggplot_2-5.png)  |
+| barplot (stacked, show proportion)  | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "fill")`                                       | ![](curriculum_files/figure-gfm/ggplot_2-6.png)  |
+| barplot (side-by-side)              | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "dodge")`                                      | ![](curriculum_files/figure-gfm/ggplot_2-7.png)  |
+| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/ggplot_2-8.png)  |
+| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/ggplot_2-9.png)  |
+| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/ggplot_2-10.png) |
 
 ### Phyloseq tasks
 
