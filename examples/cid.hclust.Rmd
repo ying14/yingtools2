@@ -56,5 +56,3 @@ I can put these together using `gg.stack`.
 gg.stack(g.hc,g.tax,heights=c(2,5))
 ```
 
-
-

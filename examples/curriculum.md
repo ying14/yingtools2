@@ -5,48 +5,78 @@ Curriculum
 library(tidyverse)
 library(yingtools2)
 library(phyloseq)
-library(scales)
-library(ggtree)
-library(survival)
 ```
 
-### R tasks to learn
+### Basic vector manipulations
 
 Datasets used here: `rivers` (numeric vector), `sentences` (character
-vector), `state.division` (factor vector)
+vector), `state.division` (factor vector), `airquality` (data frame)
 
-| Task                                                   | Code                                                                    |
-|:-------------------------------------------------------|:------------------------------------------------------------------------|
-| Length of a vector                                     | `length(rivers)`                                                        |
-| Subset a vector by index                               | `rivers[3]`                                                             |
-| Subset by logical condition                            | `rivers[rivers>700]`                                                    |
-| Count number of elements that meet a condition         | `sum(rivers>700)`                                                       |
-| Calculate proportion of elements that meet a condition | `mean(rivers>700)`                                                      |
-| Sort a variable                                        | `rivers[order(rivers)]; sort(rivers)`                                   |
-| Count the number of distinct values                    | `length(unique(state.division)); n_distinct(state.division)`            |
-| Relevel a factor based on frequency                    | `fct_infreq(state.division)`                                            |
-| Relevel a factor so that small groups are collapsed    | `fct_lump_n(state.division,5)`                                          |
-| Search for text using regular expressions              | `grepl("dog&#124;cat",sentences); str_detect(sentences,"dog&#124;cat")` |
-| Split sentences into a list of words                   | `str_split(sentences,pattern=" ")`                                      |
+| Task                                                   | Code                                                                                                                                            |
+|:-------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------|
+| Length of a vector                                     | `length(rivers)`                                                                                                                                |
+| First element of a vector                              | `rivers[1]` -or-</br>`first(rivers)`                                                                                                            |
+| Last element of a vector                               | `rivers[length(rivers)]` -or-</br>`last(rivers)`                                                                                                |
+| Subset by logical condition                            | `rivers[rivers>700]`                                                                                                                            |
+| Count number of elements that meet a condition         | `sum(rivers>700)`                                                                                                                               |
+| Calculate proportion of elements that meet a condition | `mean(rivers>700)`                                                                                                                              |
+| Extract a single column from a data frame              | `airquality$Ozone` -or-</br>`airquality[,1]` -or-</br>`airquality[,"Ozone"]` -or-</br>`airquality[["Ozone"]]` -or-</br>`pull(airquality,Ozone)` |
+| Test a vector for `NA` values                          | `is.na(airquality$Ozone)`                                                                                                                       |
+| Sort a variable                                        | `rivers[order(rivers)]` -or-</br>`sort(rivers)`                                                                                                 |
+| Count the number of distinct values                    | `length(unique(state.division))` -or-</br>`n_distinct(state.division)`                                                                          |
+| Search for text using regular expressions              | `grepl("dog&#124;cat",sentences)` -or-</br>`str_detect(sentences,"dog&#124;cat")`                                                               |
+| Split a character vector using a separator             | `str_split(sentences, pattern=" ")`                                                                                                             |
+| Tabulate a vector’s values                             | `tab(state.division)` -or-</br>`table(state.division)` -or-</br>`fct_count(state.division)`                                                     |
 
-### Data frames
+### Recoding variables
 
-Datasets used here: `starwars`
+Datasets used here: `state.division` (factor vector)
 
-| Task                                                | Code                                              |
-|:----------------------------------------------------|:--------------------------------------------------|
-| Left join                                           | `left_join(x,y,by="var")`                         |
-| Inner join                                          | `inner_join(x,y,by="var")`                        |
-| Read a CSV file                                     | `read_csv(...)`                                   |
-| Group by                                            | `data %>% group_by(...) %>% [code] %>% ungroup()` |
-| Melt                                                | `data %>% pivot_longer(...)`                      |
-| Cast                                                | `data %>% pivot_wider(...)`                       |
-| Split a column into several columns                 | `data %>% separate(...)`                          |
-| recode a character based on multiple regex criteria | `recode.grep(vec,c("abc"="def"))`                 |
+| Task                                                                            | Code                                                                                                                     |
+|:--------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------|
+| Reorder factor levels based on decreasing frequency                             | `fct_infreq(state.division)`                                                                                             |
+| Reorder factor levels based on another vector                                   | `fct_reorder(state.division,state.area,.fun=sum)`                                                                        |
+| Reorder factor levels based on its current order                                | `fct_inorder(state.division)` -or-</br>`factor(state.division,levels=unique(state.division))`                            |
+| Collapse less frequent factor levels into “other”                               | `fct_lump_n(state.division, 4)`                                                                                          |
+| Manually recode factor levels                                                   | `recode(state.division, "Middle Atlantic"="Mid Atl")` -or-</br>`fct_recode(state.division, "Mid Atl"="Middle Atlantic")` |
+| Recode a character based on multiple regular expression criteria (`yingtools2`) | `recode.grep(state.division, recodes=c("central"="Central", "atlantic&#124;new england"="Atlantic"))`                    |
+
+### Basic data frame manipulations
+
+Datasets used here: `mtcars` (data frame), `band_members` (data frame),
+`band_instruments` (data frame), `starwars` (data frame), `relig_income`
+(data frame), `us_rent_income` (data frame)
+
+| Task                                        | Code                                                                                                                                                                                                                                                                             |
+|:--------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Sort a data frame by a column               | `arrange(mtcars,mpg)` -or-</br>`mtcars[order(mtcars$mpg),]`                                                                                                                                                                                                                      |
+| Subset the rows based on column criteria    | (cars that have &gt;15 mpg and 6 cylinders)</br>`filter(mtcars,mpg>15,cyl==6)` -or-</br>`subset(mtcars,mpg>15 & cyl==6)` -or-</br>`mtcars[mtcars$mpg>15 & mtcars$cyl==6,]`                                                                                                       |
+| Select specific columns from a data frame   | `select(mtcars,mpg,cyl,disp)` -or-</br>`subset(mtcars,select=c(mpg,cyl,disp))` -or-</br>`mtcars[,c("mpg","cyl","disp")]` -or-</br>`mtcars[,1:3]`                                                                                                                                 |
+| Tabulate a column                           | `mtcars %>% count(cyl)` -or-</br>`mtcars %>% group_by(cyl) %>% tally()` -or-</br>`mtcars %>% group_by(cyl) %>% summarize(n=n()) %>% ungroup()`                                                                                                                                   |
+| Inner join 2 data frames                    | (only keep rows that match)</br>`band_members %>% inner_join(band_instruments,by="name")`                                                                                                                                                                                        |
+| Left join 2 data frames                     | (keep all rows from band)</br>`band_members %>% left_join(band_instruments,by="name")`                                                                                                                                                                                           |
+| Calculate summary statistics across a group | (average height/weight across all species)</br>`starwars %>% group_by(species) %>% summarize(mean.height=mean(height),mean.weight=mean(mass))`                                                                                                                                   |
+| Pivot Longer/Melt a data frame              | `relig_income %>% pivot_longer(!religion,names_to="income",values_to="count")` -or-</br>`relig_income %>% gather(key="income", value="count", -religion)` -or-</br>`relig_income %>% reshape2::melt(id.vars="religion",variable.name="income",value.name="count")`               |
+| Pivot Wider/Cast a data frame               | `us_rent_income %>% pivot_wider(id_cols = NAME, names_from = variable, values_from = estimate)` -or-</br>`us_rent_income %>% select(-moe,-GEOID) %>% spread(key=variable,value=estimate)` -or-</br>`us_rent_income %>% reshape2::dcast(NAME ~ variable, value.var = "estimate")` |
+
+### ggplot2 tasks
+
+Dataset used here: `diamonds` (ggplot2 package)
+
+| Task                                | Code                                                                                                                 | Plot                                            |
+|:------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:------------------------------------------------|
+| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/ggplot_2-1.png) |
+| histogram with custom fixed colors  | `ggplot(diamonds, aes(x = price)) + geom_histogram(color = "black", fill = "pink")`                                  | ![](curriculum_files/figure-gfm/ggplot_2-2.png) |
+| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/ggplot_2-3.png) |
+| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/ggplot_2-4.png) |
+| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/ggplot_2-5.png) |
+| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/ggplot_2-6.png) |
+| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/ggplot_2-7.png) |
+| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/ggplot_2-8.png) |
 
 ### Phyloseq tasks
 
-Datasets used here: `cid.phy`
+Datasets used here: `cid.phy` (yingtools2 package)
 
 | Task                                                            | Code                                                                                            |
 |:----------------------------------------------------------------|:------------------------------------------------------------------------------------------------|
@@ -54,25 +84,6 @@ Datasets used here: `cid.phy`
 | Get sample data and calculate alpha diversity                   | `get.samp(cid.phy,stats=TRUE)`                                                                  |
 | Get tax table (rows=taxa)                                       | `get.tax(cid.phy)`                                                                              |
 | Get combined long table of tax abundances (rows=samples x taxa) | `get.otu.melt(cid.phy)`                                                                         |
-| Collapse phyloseq by Genus                                      | `phy.collapse(cid.phy,taxranks=c("Superkingdom","Phylum","Class", "Order", "Family", "Genus"))` |
+| Collapse phyloseq by genus level                                | `phy.collapse(cid.phy,taxranks=c("Superkingdom","Phylum","Class", "Order", "Family", "Genus"))` |
 | Subset of samples with liquid consistency                       | `subset_samples(cid.phy,Consistency=="liquid")`                                                 |
 | Remove samples with fewer than 1000 seqs                        | `prune_samples(sample_sums(cid.phy)>=1000,cid.phy)`                                             |
-
-``` r
-s <- get.samp(cid.phy,stats=TRUE)
-```
-
-    ## # A tibble: 1 x 6
-    ##   yvar    xvar            term            n haz.ratio            p.value
-    ##   <chr>   <chr>           <chr>       <int> <chr>                <chr>  
-    ## 1 vre.bsi enterodom30(td) enterodom30    35 10.29 (2.30 - 46.12) 0.002
-
-| Task                                 | Code                                                                                                                                                                                                                                                                                          | Plot                                                |
-|:-------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------------|
-| scatterplot                          | `ggplot(s,aes(x=day,y=InvSimpson)) + geom_point()`                                                                                                                                                                                                                                            | ![](curriculum_files/figure-gfm/score_table2-1.png) |
-| scatterplot with smoother            | `ggplot(s,aes(x=day,y=InvSimpson)) + geom_point() + geom_smooth()`                                                                                                                                                                                                                            | ![](curriculum_files/figure-gfm/score_table2-2.png) |
-| histogram                            | `ggplot(s,aes(x=day)) + geom_histogram()`                                                                                                                                                                                                                                                     | ![](curriculum_files/figure-gfm/score_table2-3.png) |
-| Bar plot                             | `ggplot(s,aes(x=Consistency,fill=Consistency)) + geom_bar()`                                                                                                                                                                                                                                  | ![](curriculum_files/figure-gfm/score_table2-4.png) |
-| Phylogenetic tree                    | `tr <- phy_tree(cid.phy) ggtree(tr)`                                                                                                                                                                                                                                                          | ![](curriculum_files/figure-gfm/score_table2-5.png) |
-| Phylogenetic tree with circular tips | `tr <- phy_tree(cid.phy) ggtree(tr,layout="circular")`                                                                                                                                                                                                                                        | ![](curriculum_files/figure-gfm/score_table2-6.png) |
-| OTU heatmap                          | `otu <- cid.phy %>% phy.collapse(taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus")) %>% get.otu.melt(filter.zero=FALSE) %>% ggplot(aes(x=sample,y=otu,fill=pctseqs)) + geom_tile() + scale_fill_continuous(trans=log_epsilon_trans(0.0001)) + theme(axis.text=element_blank())` | ![](curriculum_files/figure-gfm/score_table2-7.png) |

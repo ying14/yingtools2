@@ -940,7 +940,6 @@ str_extract_all_quotes <- function(text,convert.text.quotes=TRUE) {
 
 
 
-
 fit <- function(x,width=100,copy.clipboard=TRUE) {
   #width=100;copy.clipboard=TRUE
   cr.pattern <- "(?<!\\\\)\\n"
@@ -2103,7 +2102,7 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
 #' bsi$org.short.5
 #' @author Ying Taur
 #' @export
-recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
+recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
   #var=met.meds$GENERIC_DRUG_NAME;regexp=TRUE;replace=FALSE;multi.hits=F;ignore.case=T;perl=F;useBytes=T;recodes=med.class.recodes;else.value="Other"
   if (is.null(names(recodes))) {
     stop("Variable recodes needs to be a named vector or list")
@@ -2113,7 +2112,8 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
     multi.hits <- TRUE
     regexp <- TRUE
   }
-  var.recode <- rep(NA,length(var)) #create NA vector
+  var.recode <- rep(NA_character_,length(var)) #create NA vector
+
   if (is.list(recodes)) { #if recodes is list, convert it to vector
     recodes <- unlist(lapply(names(recodes),function(n) {
       re <- recodes[[n]]
@@ -2134,26 +2134,31 @@ recode2 <- function(var,recodes,else.value,as.factor,regexp=FALSE,replace=FALSE,
       hit <- pattern==var[evals]
     }
     if (replace & regexp & multi.hits) { #replace, then substitute
-      var.recode <- ifelse(is.na(var.recode),var,var.recode) #should only run first time through
+      var.recode <- if_else(is.na(var.recode),as.character(var),var.recode) #should only run first time through
       var.recode[evals][hit] <- gsub(pattern,newname,var.recode[evals][hit],ignore.case=ignore.case,perl=perl,useBytes=useBytes)
     } else { #normal replacing
       var.recode[evals][hit] <- newname
     }
   }
+  #NA values kept as NA
+  var.recode[is.na(var)] <- NA_character_
+
   # names(var.recode) <- var #add names to result.
   #handling non-matches
-  if (missing(else.value)) {
+  if (is.null(else.value)) {
     #default is to use old value
-    var.recode <- ifelse(is.na(var.recode),var,var.recode)
+    var.recode <- if_else(is.na(var.recode),as.character(var),var.recode)
   } else {
-    var.recode <- ifelse(is.na(var.recode),else.value,var.recode)
+    var.recode <- if_else(is.na(var.recode),else.value,var.recode)
   }
-  if (missing(as.factor)) {
+  if (is.null(as.factor)) {
     as.factor <- is.factor(var)
   }
   if (as.factor) {
-    var.recode.levels <- c(unique(recodes),else.value)
-    var.recode <- factor(var.recode,levels=var.recode.levels)
+    old.lvls <- var %>% as.factor() %>% levels
+    kept.lvls <- intersect(old.lvls,var.recode)
+    new.lvls <- unique(c(recodes,kept.lvls,else.value))
+    var.recode <- factor(var.recode,levels=new.lvls)
   }
   return(var.recode)
 }

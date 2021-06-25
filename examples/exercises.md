@@ -1,14 +1,18 @@
 Exercises
 ================
 
+To complete these exercises, load the following these packages:
+
 ``` r
 library(tidyverse)
-library(yingtools2)
 library(phyloseq)
-library(scales)
+library(yingtools2)
 ```
 
-### Q1
+For each question, some output is shown from the correct answer in order
+to provide guidance.
+
+### Question 1
 
 Look at `cid.patients`. What percent of the patients were black race?
 What percent of black patients were female?
@@ -17,9 +21,9 @@ What percent of black patients were female?
 
     ## [1] 0.5
 
-6.4% of patients are black. 50.0% of black patients are female
+6.4% of patients are black. 50.0% of black patients are female.
 
-### Q2
+### Question 2
 
 What percent of the patients were black race? What percent of black
 patients were female? In the yingtools2::cid94::cid.bsi data, count the
@@ -28,9 +32,10 @@ use regular expression).
 
     ## [1] 7
 
-7 patients had Klebsiella bloodstream infection (the answer is not 9)
+7 patients had Klebsiella bloodstream infection (note: the answer is not
+9)
 
-### Q3
+### Question 3
 
 Start with the `cid.patients` data and make the following modifications:
 
@@ -64,7 +69,7 @@ Start with the `cid.patients` data and make the following modifications:
     ## 8 200            63 Female TRUE        56 FALSE       
     ## # ... with 2 more rows
 
-### Q4
+### Question 4
 
 In the `cid.bsi` data, addcolumns to the data in order to show age and
 sex for each row (hint: use left\_join).
@@ -82,7 +87,7 @@ sex for each row (hint: use left\_join).
     ## 8 152        CNST                         90     90     64 Female
     ## # ... with 130 more rows
 
-### Q5
+### Question 5
 
 In `cid.patients`, for each level of `disease.risk`: calculate the
 average age, average length of stay, and percent of patients above 60
@@ -95,7 +100,7 @@ years (hint: use group\_by).
     ## 2 Intermediate     47.2     39.6 0.0870
     ## 3 High             50.9     38.5 0.227
 
-### Q6
+### Question 6
 
 Modify `cid.cdiff` so that it lists whether or not the C.diff infection
 occurred during inpatient or outpatient.
@@ -113,7 +118,7 @@ occurred during inpatient or outpatient.
     ## 8 153           -1 PCR              inpatient 
     ## # ... with 29 more rows
 
-### Q7
+### Question 7
 
 Using `cid.bsi`, create a data frame that lists for each patient: (1)
 Patient\_ID, (2) age, (3) sex, (4) number of positive blood cultures,
@@ -135,7 +140,7 @@ state ‘<none>’.
     ## 8 153            62 Female             2      2 VRE,E. coli                                         
     ## # ... with 86 more rows
 
-### Q8
+### Question 8
 
 Create a data frame that lists the number of days each IV antibacterial
 drug was given, for each patient.
@@ -159,14 +164,14 @@ Using `cid.patients`, make a histogram of age.
 
 ![](exercises_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
-### Q10
+### Question 9
 
 Using `cid.patients`, make a bar plot of intensity (with different
 colors):
 
 ![](exercises_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
-### Q11
+### Question 10
 
 Using `cid.patients`, make a histogram of length of stay
 (`discharge.day-admit.day+1`) during the initial transplant
@@ -174,14 +179,14 @@ hospitalization, for each conditioning intensity
 
 ![](exercises_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
-### Q12
+### Question 11
 
 Using `cid.patients`, make a scatterplot of length of stay vs. age, and
 write ‘M’ for males and ‘F’ for females, and color by intensity.
 
 ![](exercises_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
-### Q13
+### Question 12
 
 Create a function called ‘count.samples’ which uses `cid.phy` to
 determine how many samples were collected, for patients (users input
@@ -211,7 +216,7 @@ count.samples(c("178","222","xxx","130"))
 
     ## [1]  7  6 NA  4
 
-### Q14
+### Question 13
 
 Create a function called `get.first.entero.abundance` which provides
 Enterococcus relative abundance in the first sample collected of a given
@@ -255,7 +260,7 @@ system.time({
 ```
 
     ##    user  system elapsed 
-    ##    6.66    0.42    4.61
+    ##    6.61    0.56    4.54
 
 ``` r
 system.time({
@@ -269,19 +274,21 @@ system.time({
     ##    user  system elapsed 
     ##    0.11    0.00    0.11
 
-### Q15
+### Question 14
 
 Using `cid.phy`, create Fig1 of CID94, which is a scatterplot of
 diversity (Shannon index) and transplant day, with a smoothed moving
 confidence interval. Make sure open circles are used to plot the data,
-just like in the paper. Bonus: Include a horizontal dashed line to
-indicate transplant day (day 0), and add shading to the points. Note
-that the shading within the points was 50% transparent in the final
-paper, so that readers can see overlapping data.
+just like in the paper (hint: to extract the data with alpha diversity
+calculations, use `get.samp(cid.phy,stats=TRUE)`). Bonus: Include a
+horizontal dashed line to indicate transplant day (day 0), and add
+shading to the points. Note that the shading within the points was 50%
+transparent in the final paper, so that readers can see overlapping
+data.
 
 ![](exercises_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
-### Q16
+### Question 15
 
 Write a function called `plot.patient` that draws timelines for a given
 patient, similar to Fig 2A of CID94. The function can make use of data

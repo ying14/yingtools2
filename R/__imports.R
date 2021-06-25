@@ -34,8 +34,6 @@ NULL
 NULL
 
 
-#check:
-
 if (FALSE) {
   # find functions used by the package
   scripts <- list.files(path=".",pattern="\\.R$",recursive=TRUE,ignore.case=TRUE)
