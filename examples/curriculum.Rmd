@@ -167,9 +167,6 @@ vec <- list(
 "histogram"=expr({
   ggplot(diamonds,aes(x=price)) + geom_histogram()
 }),
-"histogram with custom fixed colors"=expr({
-  ggplot(diamonds, aes(x=price)) + geom_histogram(color="black", fill="pink")
-}),
 "scatterplot"=expr({
   ggplot(diamonds,aes(x=carat, y=price)) + geom_point()
 }),
@@ -178,6 +175,15 @@ vec <- list(
 }),
 "barplot (height manually specified)"=expr({
   diamonds %>% count(cut) %>% ggplot(aes(x=cut, y=n)) +geom_col()
+}),
+"barplot (stacked)"=expr({
+  ggplot(diamonds, aes(x=clarity,fill=cut)) + geom_bar()
+}),
+"barplot (stacked, show proportion)"=expr({
+  ggplot(diamonds, aes(x=clarity,fill=cut)) + geom_bar(position="fill")
+}),
+"barplot (side-by-side)"=expr({
+  ggplot(diamonds, aes(x=clarity,fill=cut)) + geom_bar(position="dodge")
 }),
 "boxplot"=expr({
   ggplot(diamonds,aes(x=clarity, y=price)) + geom_boxplot()
@@ -203,9 +209,6 @@ vec.md <- vec %>% as.character() %>%
 
 glist <- lapply(vec,eval)
 ```
-
-
-
 
 ```{r ggplot_2, fig.show = "hide", echo = FALSE, fig.height=3, fig.width=5,echo=FALSE}
 

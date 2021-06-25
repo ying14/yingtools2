@@ -63,16 +63,18 @@ Datasets used here: `mtcars` (data frame), `band_members` (data frame),
 
 Dataset used here: `diamonds` (ggplot2 package)
 
-| Task                                | Code                                                                                                                 | Plot                                            |
-|:------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:------------------------------------------------|
-| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/ggplot_2-1.png) |
-| histogram with custom fixed colors  | `ggplot(diamonds, aes(x = price)) + geom_histogram(color = "black", fill = "pink")`                                  | ![](curriculum_files/figure-gfm/ggplot_2-2.png) |
-| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/ggplot_2-3.png) |
-| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/ggplot_2-4.png) |
-| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/ggplot_2-5.png) |
-| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/ggplot_2-6.png) |
-| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/ggplot_2-7.png) |
-| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/ggplot_2-8.png) |
+| Task                                | Code                                                                                                                 | Plot                                             |
+|:------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------|
+| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/ggplot_2-1.png)  |
+| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/ggplot_2-2.png)  |
+| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/ggplot_2-3.png)  |
+| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/ggplot_2-4.png)  |
+| barplot (stacked)                   | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar()`                                                        | ![](curriculum_files/figure-gfm/ggplot_2-5.png)  |
+| barplot (stacked, show proportion)  | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "fill")`                                       | ![](curriculum_files/figure-gfm/ggplot_2-6.png)  |
+| barplot (side-by-side)              | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "dodge")`                                      | ![](curriculum_files/figure-gfm/ggplot_2-7.png)  |
+| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/ggplot_2-8.png)  |
+| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/ggplot_2-9.png)  |
+| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/ggplot_2-10.png) |
 
 ### Phyloseq tasks
 
