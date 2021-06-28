@@ -53,7 +53,7 @@ t <- tibble(
     loc <- stringr::str_locate_all(.$text,.$pattern)
     hits <- map2(.$text,loc,~stringi::stri_sub(.x,.y))
     # hilight <- map(hits,~paste0("<b><font color=\"red\">",.,"</font></b>"))
-    hilight <- map(hits,~colorize(.,"red"))
+    hilight <- map(hits,~paste0("<b>",colorize(.,"red"),"</b>"))
     newtext <- pmap_chr(list(.$text,loc,hilight),function(t,l,h) {
       stringi::stri_sub_replace_all(t,l,replacement=h)
     })
@@ -61,7 +61,7 @@ t <- tibble(
   })
 )
 
-knitr::kable(t,format="html")
+knitr::kable(t)
 
 ```
 
