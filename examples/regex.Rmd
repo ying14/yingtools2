@@ -11,6 +11,15 @@ editor_options:
 source(here::here("common.R"))
 library(tidyverse)
 library(knitr)
+
+colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
 ```
 
 
@@ -43,7 +52,8 @@ t <- tibble(
   "Sample Hits"=map_chr(re.list,~{
     loc <- stringr::str_locate_all(.$text,.$pattern)
     hits <- map2(.$text,loc,~stringi::stri_sub(.x,.y))
-    hilight <- map(hits,~paste0("<b><font color=\"red\">",.,"</font></b>"))
+    # hilight <- map(hits,~paste0("<b><font color=\"red\">",.,"</font></b>"))
+    hilight <- map(hits,~colorize(.,"red"))
     newtext <- pmap_chr(list(.$text,loc,hilight),function(t,l,h) {
       stringi::stri_sub_replace_all(t,l,replacement=h)
     })

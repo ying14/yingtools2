@@ -2,20 +2,6 @@ Curriculum
 ================
 
 ``` r
-1+2
-```
-
-    ## [1] 3
-
-``` r
-3+4
-```
-
-    ## [1] 7
-
-`r <<yt>>`
-
-``` r
 library(tidyverse)
 library(yingtools2)
 library(phyloseq)
@@ -80,32 +66,32 @@ Dataset used here: `diamonds` (ggplot2 package)
 
 | Task                                | Code                                                                                                                 | Plot                                                    |
 |:------------------------------------|:---------------------------------------------------------------------------------------------------------------------|:--------------------------------------------------------|
-| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/unnamed-chunk-8-1.png)  |
-| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/unnamed-chunk-8-2.png)  |
-| text labels                         | `ggplot(diamonds, aes(x = carat, y = price, label = color)) + geom_text()`                                           | ![](curriculum_files/figure-gfm/unnamed-chunk-8-3.png)  |
-| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/unnamed-chunk-8-4.png)  |
-| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/unnamed-chunk-8-5.png)  |
-| barplot (stacked)                   | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar()`                                                        | ![](curriculum_files/figure-gfm/unnamed-chunk-8-6.png)  |
-| barplot (stacked proportion)        | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "fill")`                                       | ![](curriculum_files/figure-gfm/unnamed-chunk-8-7.png)  |
-| barplot (side-by-side)              | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "dodge")`                                      | ![](curriculum_files/figure-gfm/unnamed-chunk-8-8.png)  |
-| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/unnamed-chunk-8-9.png)  |
-| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/unnamed-chunk-8-10.png) |
-| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/unnamed-chunk-8-11.png) |
+| histogram                           | `ggplot(diamonds, aes(x = price)) + geom_histogram()`                                                                | ![](curriculum_files/figure-gfm/unnamed-chunk-6-1.png)  |
+| scatterplot                         | `ggplot(diamonds, aes(x = carat, y = price)) + geom_point()`                                                         | ![](curriculum_files/figure-gfm/unnamed-chunk-6-2.png)  |
+| text labels                         | `ggplot(diamonds, aes(x = carat, y = price, label = color)) + geom_text()`                                           | ![](curriculum_files/figure-gfm/unnamed-chunk-6-3.png)  |
+| barplot (height count)              | `ggplot(diamonds, aes(x = color)) + geom_bar()`                                                                      | ![](curriculum_files/figure-gfm/unnamed-chunk-6-4.png)  |
+| barplot (height manually specified) | `diamonds %>%`</br>`count(cut) %>%`</br>`ggplot(aes(x = cut, y = n)) + geom_col()`                                   | ![](curriculum_files/figure-gfm/unnamed-chunk-6-5.png)  |
+| barplot (stacked)                   | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar()`                                                        | ![](curriculum_files/figure-gfm/unnamed-chunk-6-6.png)  |
+| barplot (stacked proportion)        | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "fill")`                                       | ![](curriculum_files/figure-gfm/unnamed-chunk-6-7.png)  |
+| barplot (side-by-side)              | `ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar(position = "dodge")`                                      | ![](curriculum_files/figure-gfm/unnamed-chunk-6-8.png)  |
+| boxplot                             | `ggplot(diamonds, aes(x = clarity, y = price)) + geom_boxplot()`                                                     | ![](curriculum_files/figure-gfm/unnamed-chunk-6-9.png)  |
+| dotplot                             | `ggplot(diamonds, aes(x = cut, y = price)) + geom_dotplot(binaxis = "y", stackdir = "center", binwidth = 20)`        | ![](curriculum_files/figure-gfm/unnamed-chunk-6-10.png) |
+| heatmap                             | `d <- diamonds %>%`</br>`count(clarity, color)`</br>`ggplot(d, aes(x = clarity, y = color, fill = n)) + geom_tile()` | ![](curriculum_files/figure-gfm/unnamed-chunk-6-11.png) |
 
 ### ggplot2 tasks
 
 Dataset used here: `diamonds` (ggplot2 package)
 
-| Task                             | Code                                                                                                                                                      | Plot                                                    |
-|:---------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------|:--------------------------------------------------------|
-| Add Title                        | `gbar + labs(title = "Diamonds", tag = "Fig 1", caption = "N = 53,940")`                                                                                  | ![](curriculum_files/figure-gfm/unnamed-chunk-11-1.png) |
-| Specify Axis Title               | `gbar + scale_x_discrete("Clarity (GIA rated)")`</br>`gbar + labs(x = "Clarity (GIA rated)")`</br>`gbar + xlab("Clarity (GIA rated)")`                    | ![](curriculum_files/figure-gfm/unnamed-chunk-11-2.png) |
-| Manually define color palette    | `palette <- c(Fair = "red", Good = "blue",`Very Good`= "green", Premium = "#9ba744", Ideal = "#963695")`</br>`gbar + scale_fill_manual(values = palette)` | ![](curriculum_files/figure-gfm/unnamed-chunk-11-3.png) |
-| Faceted plot across a group      | `gbar + facet_wrap(~color)`                                                                                                                               | ![](curriculum_files/figure-gfm/unnamed-chunk-11-4.png) |
-| Change Axis Text Characteristics | `gbar + theme(axis.text.x = element_text(size = 20, color = "red", angle = 90))`                                                                          | ![](curriculum_files/figure-gfm/unnamed-chunk-11-5.png) |
-| Suppress Axis                    | `gbar + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.ticks.x = element_blank())`</br>`gbar + guides(fill = FALSE)`           | ![](curriculum_files/figure-gfm/unnamed-chunk-11-6.png) |
-| Alter axis bounds                | `gbar + coord_cartesian(ylim = c(0, 35000))`</br>`gbar + ylim(0, 35000)`</br>`gbar + scale_y_continuous(limits = c(0, 35000))`                            | ![](curriculum_files/figure-gfm/unnamed-chunk-11-7.png) |
-| Suppress legend                  | `gbar + theme(legend.position = "none")`                                                                                                                  | ![](curriculum_files/figure-gfm/unnamed-chunk-11-8.png) |
+| Task                             | Code                                                                                                                                                      | Plot                                                   |
+|:---------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------|
+| Add Title                        | `gbar + labs(title = "Diamonds", tag = "Fig 1", caption = "N = 53,940")`                                                                                  | ![](curriculum_files/figure-gfm/unnamed-chunk-9-1.png) |
+| Specify Axis Title               | `gbar + scale_x_discrete("Clarity (GIA rated)")`</br>`gbar + labs(x = "Clarity (GIA rated)")`</br>`gbar + xlab("Clarity (GIA rated)")`                    | ![](curriculum_files/figure-gfm/unnamed-chunk-9-2.png) |
+| Manually define color palette    | `palette <- c(Fair = "red", Good = "blue",`Very Good`= "green", Premium = "#9ba744", Ideal = "#963695")`</br>`gbar + scale_fill_manual(values = palette)` | ![](curriculum_files/figure-gfm/unnamed-chunk-9-3.png) |
+| Faceted plot across a group      | `gbar + facet_wrap(~color)`                                                                                                                               | ![](curriculum_files/figure-gfm/unnamed-chunk-9-4.png) |
+| Change Axis Text Characteristics | `gbar + theme(axis.text.x = element_text(size = 20, color = "red", angle = 90))`                                                                          | ![](curriculum_files/figure-gfm/unnamed-chunk-9-5.png) |
+| Suppress Axis                    | `gbar + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.ticks.x = element_blank())`</br>`gbar + guides(fill = FALSE)`           | ![](curriculum_files/figure-gfm/unnamed-chunk-9-6.png) |
+| Alter axis bounds                | `gbar + coord_cartesian(ylim = c(0, 35000))`</br>`gbar + ylim(0, 35000)`</br>`gbar + scale_y_continuous(limits = c(0, 35000))`                            | ![](curriculum_files/figure-gfm/unnamed-chunk-9-7.png) |
+| Suppress legend                  | `gbar + theme(legend.position = "none")`                                                                                                                  | ![](curriculum_files/figure-gfm/unnamed-chunk-9-8.png) |
 
 ### Phyloseq tasks
 

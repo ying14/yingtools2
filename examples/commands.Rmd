@@ -12,52 +12,19 @@ source(here::here("common.R"))
 library(tidyverse)
 library(knitr)
 
-
+colorize <- function(x, color) {
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{%s}{%s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, 
+      x)
+  } else x
+}
 
 
 ```
 
 
-
-
-
-
-```{r echo=FALSE}
-
-re.list <- list(
-  list(name="'cat' or 'dog'",pattern="cat|dog",text=c("cat bird dog","lizard giraffe","monkey dog")),
-  list(name="'James' at start of text",pattern="^James",text=c("James is here","I owe James 40 bucks")),
-  list(name="'Mary' at end of text",pattern="Mary$",text=c("It was Mary","Mary went there")),
-  list(name="'hi' followed by zero or more '!'",pattern="hi!*",text=c("hi there!","hi!!!","hello! hi!")),
-  list(name="'a' one or more times",pattern="a+",text=c("a b c aa bb cc","ccc aaa bbb eeeee aaaaa")),
-  list(name="'a' three to four times",pattern="a{3,4}",text=c("a b c aa bb cc","ccc aaa bbb eeeee aaaaa")),
-  list(name="'car' followed by an optional 's'",pattern="cars?",text=c("what car do you own?","how many cars?")),
-  list(name="'bear' followed by any character",pattern="bear.",text=c("one bear two bears","bear! teddy bear")),
-  list(name="'Captain' followed by any single word",pattern="Captain [A-Za-z]+",text=c("Captain America!","Call me Captain","Captain Phasma.")),
-  list(name="'diarrhea' preceded by 'no '</br>(positive look behind)",pattern="(?<=no )diarrhea",text=c("has diarrhea","no diarrhea","tons of diarrhea")),
-  list(name="'diarrhea' *not* preceded by 'no '</br>(negative look behind)",pattern="(?<!no )diarrhea",text=c("has diarrhea","no diarrhea","tons of diarrhea")),
-  list(name="'good' followed by ' night'</br>(positive look ahead)",pattern="good((?= night))",text=c("say good night","the good and the bad")),
-  list(name="'good' *not* followed by ' night'</br>(negative look ahead)",pattern="good(?! night)",text=c("say good night","the good and the bad")),
-  list(name="'cat' not part of any longer word",pattern="\\bcat\\b",text=c("my cat and dog","catatonic bobcat","my cat's toy","i love cats","cat-nap"))
-)
-
-t <- tibble(
-  "Pattern"=map_chr(re.list,~paste0("`",deparse(.$pattern),"`")) %>% str_replace_all("\\|","`|`"),
-  "Description"=map_chr(re.list,~.$name),
-  "Sample Hits"=map_chr(re.list,~{
-    loc <- stringr::str_locate_all(.$text,.$pattern)
-    hits <- map2(.$text,loc,~stringi::stri_sub(.x,.y))
-    hilight <- map(hits,~paste0("<b><font color=\"red\">",.,"</font></b>"))
-    newtext <- pmap_chr(list(.$text,loc,hilight),function(t,l,h) {
-      stringi::stri_sub_replace_all(t,l,replacement=h)
-    })
-    paste(newtext,collapse="</br>")
-  })
-)
-
-knitr::kable(t)
-
-```
 
 
 

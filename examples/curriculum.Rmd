@@ -63,12 +63,6 @@ git_color <- function(text,color) {
 #   })) %>%
 #   filter(check)
 
-
-mtcars
-
-
-
-
 ```
 
 
