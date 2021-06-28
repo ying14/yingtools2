@@ -47,7 +47,8 @@ re.list <- list(
 )
 
 t <- tibble(
-  "Pattern"=map_chr(re.list,~paste0("`",deparse(.$pattern),"`")),
+  # "Pattern"=map_chr(re.list,~paste0("`",deparse(.$pattern),"`")),
+  "Pattern"=map_chr(re.list,~paste0("`",deparse(.$pattern),"`")) %>% str_replace_all("\\|","`|`"),
   "Description"=map_chr(re.list,~.$name),
   "Sample Hits"=map_chr(re.list,~{
     loc <- stringr::str_locate_all(.$text,.$pattern)
