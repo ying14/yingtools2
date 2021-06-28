@@ -32,14 +32,20 @@ well as a variety of accompanying clinical metadata.
 -   `cid.bsi`: Bloodstream Infections (138 rows)
 -   `cid.cdiff`: C. diff results (37 rows)
 
-## Code Examples
+## Self Help and Code Examples
 
 Below are various use coding examples using yingtools2.
 
-### Basics
+### Core Basics
 
--   [Coding Curriculum](examples/curriculum.md).
--   [Exercises](examples/exercises.md).
+For those starting to learn R for data science
+
+-   [Coding Curriculum](examples/curriculum.md). A run-through of the
+    most important R coding skills to learn.
+-   [Regular Expressions](examples/regex.md). Lists basic regular
+    expression patterns.
+-   [Exercises](examples/exercises.md). These questions test your R
+    skills and range from beginner to advanced.
 
 ### Microbiome plots
 

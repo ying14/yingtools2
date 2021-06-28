@@ -62,6 +62,7 @@ Below are various use coding examples using yingtools2.
 For those starting to learn R for data science
 
 - [Coding Curriculum](examples/curriculum.md). A run-through of the most important R coding skills to learn.
+- [Regular Expressions](examples/regex.md). Lists basic regular expression patterns.
 - [Exercises](examples/exercises.md). These questions test your R skills and range from beginner to advanced.
 
 ### Microbiome plots

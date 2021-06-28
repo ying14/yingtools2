@@ -1,5 +1,5 @@
 ---
-title: "Commands"
+title: "Regular Expressions"
 output:
   github_document:
     df_print: tibble
@@ -11,10 +11,6 @@ editor_options:
 source(here::here("common.R"))
 library(tidyverse)
 library(knitr)
-
-
-
-
 ```
 
 
@@ -62,110 +58,3 @@ knitr::kable(t)
 
 
 
-
-```{r,message=FALSE}
-
-git_color <- function(text,color) {
-  str_glue("<span style=\"color: {color};\">{text}</span>")
-}
-
-
-
-join_show <- function(x,y,by=NULL) {
-  if (is.null(by)) {
-    by <- intersect(names(x),names(y))
-  }
-  if (is.null(names(by))) {
-    by.x <- by
-    by.y <- by
-  } else {
-    by.x <- names(by)
-    by.y <- by
-  }
-  x2 <- x %>% mutate(across(-c(!!!syms(by.x)),~git_color(.,"red"))) %>% rename_with(~git_color(.,"red"),.cols=-c(!!!syms(by.x)))
-  y2 <- y %>% mutate(across(-c(!!!syms(by.y)),~git_color(.,"blue"))) %>% rename_with(~git_color(.,"blue"),.cols=-c(!!!syms(by.y)))
-  left <- left_join(x2,y2,by=by)
-  inner <- inner_join(x2,y2,by=by)
-  right <- right_join(x2,y2,by=by)
-  full <- full_join(x2,y2,by=by)
-  list(x=x2,y=y2,left=left,right=right,inner=inner,full=full)
-}
-
-
-join_show_rows <- function(x,y,by=NULL) {
-  if (is.null(by)) {
-    by <- intersect(names(x),names(y))
-  }
-  if (is.null(names(by))) {
-    by.x <- by
-    by.y <- by
-  } else {
-    by.x <- names(by)
-    by.y <- by
-  }
-  values <- full_join(x,y,by=by) %>% select(!!!syms(by.x)) %>% distinct() %>% mutate(.color=scales::col_factor("RdYlBu",domain=NULL)(row_number()))
-  x2 <- x %>% left_join(values,by=by.x) %>% mutate(across(-.color,~map2_chr(.,.color,~git_color(.x,.y)))) %>% select(-.color)
-  y2 <- y %>% left_join(values,by=setNames(by.x,by.y)) %>% mutate(across(-.color,~map2_chr(.,.color,~git_color(.x,.y)))) %>% select(-.color)
-
-  left <- left_join(x2,y2,by=by)
-  inner <- inner_join(x2,y2,by=by)
-  right <- right_join(x2,y2,by=by)
-  full <- full_join(x2,y2,by=by)
-  list(x=x2,y=y2,left=left,right=right,inner=inner,full=full)
-}
-
-```
-
-
-
-```{r}
-library(yingtools2)
-t <- join_show_rows(band_members,band_instruments)
-
-
-
-knitr::kables(list(
-  kable(t$x,caption="x"),
-  kable(t$y,caption="y")
-))
-
-kable(t$left,caption="left_join")
-
-kable(t$right,caption="right_join")
-
-kable(t$inner,caption="inner_join")
-
-kable(t$full,caption="full_join")
-
-
-
-```
-
-
-
-
-
-
-
-
-```{r}
-
-t <- join_show(band_members,band_instruments)
-# t <- join_show(cid.patients,cid.cdiff)
-
-knitr::kables(list(
-  kable(t$x,caption="x"),
-  kable(t$y,caption="y")
-))
-
-kable(t$left,caption="left_join")
-
-kable(t$right,caption="right_join")
-
-kable(t$inner,caption="inner_join")
-
-kable(t$full,caption="full_join")
-
-
-
-```

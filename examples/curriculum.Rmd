@@ -23,27 +23,26 @@ git_color <- function(text,color) {
   str_glue("<span style=\"color: {color};\">{text}</span>")
 }
 
-#<span style=\"color: red;\">text</span>
 
 # library(tidyverse)
 # library(stringr)
 # library(DT)
 # 
-# # Function to catch the error for data that is not exported.
+# Function to catch the error for data that is not exported.
 # unexportedData <- function (x) {
 #   out <- tryCatch(class(eval(parse(text = x))), error = function(e) "NOT EXPORTED")
 #   return(out)
 # }
 # 
-# all_ds <- data(package = .packages(all.available = TRUE)) %>% 
+# all_ds <- data(package = .packages(all.available = TRUE)) %>%
 #   .$results %>%
 #   tibble::as_tibble() %>%
 #   dplyr::mutate(DataOrig = stringr::word(Item, 1)) %>%
-#   dplyr::mutate(pkgData = paste(Package, DataOrig, sep="::")) %>% 
-#   dplyr::arrange(pkgData) %>% 
-#   dplyr::mutate(Class = purrr::invoke_map(unexportedData, pkgData)) %>% 
-#   tidyr::unnest(Class) %>% 
-#   dplyr::filter(!str_detect(Class, "NOT EXPORTED")) %>% 
+#   dplyr::mutate(pkgData = paste(Package, DataOrig, sep="::")) %>%
+#   dplyr::arrange(pkgData) %>%
+#   dplyr::mutate(Class = purrr::invoke_map(unexportedData, pkgData)) %>%
+#   tidyr::unnest(Class) %>%
+#   dplyr::filter(!str_detect(Class, "NOT EXPORTED")) %>%
 #   dplyr::select(pkgData, Package, DataOrig, Title, Class) %>%
 #   dplyr::arrange(pkgData, Class) %>%
 #   dplyr::mutate(Val = Class) %>%
@@ -51,23 +50,29 @@ git_color <- function(text,color) {
 #   tidyr::unite(Classes, c(-pkgData, -Package, -DataOrig, -Title), sep= " ")
 # 
 # 
-# xx=all_ds %>% 
+# xx=all_ds %>%
 #   filter(grepl("data.frame",Classes,ignore.case=T),
 #          grepl("dplyr|ying|tidyr|ggplot2|rlang|datasets|util",Package)) %>%
 #   mutate(check=map_lgl(DataOrig,~{
 #     tryCatch({
-#       x <- get(.) %>% select_if(~(anyDuplicated(.)==0) & (is.character(.)|is.factor(.)))
+#       x <- get(.) %>% select_if(~(is.character(.)|is.factor(.)) & (n_distinct(.)<=5))
 #       ncol(x)>0
 #     },error=function(e) {
 #       NA
 #     })
 #   })) %>%
 #   filter(check)
-# 
-# 
+
+
+mtcars
+
+
 
 
 ```
+
+
+
 
 
 ```{r,message=FALSE}
@@ -81,6 +86,7 @@ library(phyloseq)
 
 
 ### Basic vector manipulations
+
 Datasets used here: `rivers` (numeric vector), `sentences` (character vector), `state.division` (factor vector), `airquality` (data frame)
 ```{r,echo=FALSE}
 
@@ -95,15 +101,15 @@ rows <- c(
   "Test a vector for `NA` values"="`is.na(airquality$Ozone)`",
   "Sort a variable"="`rivers[order(rivers)]` -or-\n`sort(rivers)`",
   "Count the number of distinct values"="`length(unique(state.division))` -or-\n`n_distinct(state.division)`",
-  "Search for text using regular expressions"="`grepl(\"dog\",sentences)` -or-\n`str_detect(sentences,\"dog\")`",
+  "Search for text using regular expressions"="`grepl(\"cat`|`dog\",sentences)` -or-\n`str_detect(sentences,\"cat`|`dog\")`",
   "Split a character vector using a separator"="`str_split(sentences, pattern=\" \")`",
   "Tabulate a vector's values"="`tab(state.division)` -or-\n`table(state.division)` -or-\n`fct_count(state.division)`")
-
 
 rows <- gsub("\n","</br>",rows)
 t <- tibble(Task=names(rows),Code=rows)
 knitr::kable(t)
 ```
+
 
 
 
@@ -118,7 +124,7 @@ rows <- c(
   "Reorder factor levels based on its current order"="`fct_inorder(state.division)` -or-\n`factor(state.division,levels=unique(state.division))`",
   "Collapse less frequent factor levels into \"other\""="`fct_lump_n(state.division, 4)`",
   "Manually recode factor levels"="`recode(state.division, \"Middle Atlantic\"=\"Mid Atl\")` -or-\n`fct_recode(state.division, \"Mid Atl\"=\"Middle Atlantic\")`",
-  "Recode a character based on multiple regular expression criteria (`yingtools2`)"="`recode.grep(state.division, recodes=c(\"central\"=\"Central\", \"atlantic|new england\"=\"Atlantic\"))`")
+  "Recode a character based on multiple regular expression criteria (`yingtools2`)"="`recode.grep(state.division, recodes=c(\"central\"=\"Central\", \"atlantic`|`new england\"=\"Atlantic\"))`")
 
 tbl <- function(x) {
   t <- table(x)
@@ -140,7 +146,7 @@ Datasets used here: `mtcars` (data frame), `band_members` (data frame), `band_in
 
 rows <- c(
   "Sort a data frame by a column"="`arrange(mtcars,mpg)` -or-\n`mtcars[order(mtcars$mpg),]`",
-  "Subset the rows based on column criteria"="(cars that have >15 mpg and 6 cylinders)\n`filter(mtcars,mpg>15,cyl==6)` -or-\n`subset(mtcars,mpg>15 & cyl==6)` -or-\n`mtcars[mtcars$mpg>15 & mtcars$cyl==6,]`",
+  "Subset the rows based on column criteria"="`filter(mtcars,mpg>15,cyl==6)` -or-\n`subset(mtcars,mpg>15 & cyl==6)` -or-\n`mtcars[mtcars$mpg>15 & mtcars$cyl==6,]`",
   "Select specific columns from a data frame"="`select(mtcars,mpg,cyl,disp)` -or-\n`subset(mtcars,select=c(mpg,cyl,disp))` -or-\n`mtcars[,c(\"mpg\",\"cyl\",\"disp\")]` -or-\n`mtcars[,1:3]`",
   "Add/Modify a column"="`mtcars %>% mutate(mpg2=mpg*2)` -or-\n`mtcars$mpg2 <- mtcars$mpg * 2`",
   "Tabulate a column"="`mtcars %>% count(cyl)` -or-\n`mtcars %>% group_by(cyl) %>% tally()` -or-\n`mtcars %>% group_by(cyl) %>% summarize(n=n()) %>% ungroup()`",  
@@ -160,14 +166,17 @@ knitr::kable(t)
 
 ### ggplot2 tasks
 Dataset used here: `diamonds` (ggplot2 package)
-```{r ggplot_1, fig.height=3, fig.show="hide", fig.width=5, include=FALSE}
+```{r fig.height=3, fig.show="hide", fig.width=5, include=FALSE}
 
 vec <- list(
 "histogram"=expr({
   ggplot(diamonds,aes(x=price)) + geom_histogram()
 }),
 "scatterplot"=expr({
-  ggplot(diamonds,aes(x=carat, y=price)) + geom_point()
+  ggplot(diamonds, aes(x = carat, y = price)) + geom_point()
+}),
+"text labels"=expr({
+  ggplot(diamonds,aes(x=carat,y=price,label=color)) + geom_text()
 }),
 "barplot (height count)"=expr({
   ggplot(diamonds, aes(x=color)) + geom_bar()
@@ -178,7 +187,7 @@ vec <- list(
 "barplot (stacked)"=expr({
   ggplot(diamonds, aes(x=clarity,fill=cut)) + geom_bar()
 }),
-"barplot (stacked, show proportion)"=expr({
+"barplot (stacked proportion)"=expr({
   ggplot(diamonds, aes(x=clarity,fill=cut)) + geom_bar(position="fill")
 }),
 "barplot (side-by-side)"=expr({
@@ -209,7 +218,78 @@ vec.md <- vec %>% as.character() %>%
 glist <- lapply(vec,eval)
 ```
 
-```{r ggplot_2, fig.show = "hide", echo = FALSE, fig.height=3, fig.width=5,echo=FALSE}
+```{r fig.show = "hide", echo = FALSE, fig.height=3, fig.width=5,echo=FALSE}
+
+invisible(lapply(glist, print))
+out <- cbind(names(vec),vec.md,sprintf("![](%s%s-%s.png)",
+                     opts_current$get("fig.path"),
+                     opts_current$get("label"),
+                     seq_along(glist)))
+
+kable(out,col.names=c("Task","Code","Plot"))
+```
+
+
+
+
+### ggplot2 tasks
+Dataset used here: `diamonds` (ggplot2 package)
+
+```{r include=FALSE}
+gbar <- ggplot(diamonds, aes(x = clarity, fill = cut)) + geom_bar()
+```
+
+
+
+```{r fig.height=3, fig.show="hide", fig.width=5, include=FALSE}
+
+vec <- list(
+"Add Title"=expr({
+  gbar + labs(title="Diamonds", tag="Fig 1", caption="N = 53,940")
+}),
+"Specify Axis Title"=expr({
+  gbar + scale_x_discrete("Clarity (GIA rated)")
+  gbar + labs(x="Clarity (GIA rated)")
+  gbar + xlab("Clarity (GIA rated)")
+}),
+"Manually define color palette"=expr({
+  palette <- c("Fair"="red", "Good"="blue", "Very Good"="green", "Premium"="#9ba744", "Ideal"="#963695")
+  gbar + scale_fill_manual(values=palette)
+}),
+"Faceted plot across a group"=expr({
+  gbar + facet_wrap(~color)
+}),
+"Change Axis Text Characteristics"=expr({
+  gbar + theme(axis.text.x=element_text(size=20,color="red",angle=90))
+}),
+"Suppress Axis"=expr({
+  gbar + theme(axis.text.x=element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank())
+  gbar + guides(fill=FALSE)
+}),
+"Alter axis bounds"=expr({
+  gbar + coord_cartesian(ylim=c(0,35000))
+  gbar + ylim(0,35000)
+  gbar + scale_y_continuous(limits = c(0,35000))
+}),
+"Suppress legend"=expr({
+  gbar + theme(legend.position="none")
+
+})
+)
+
+vec.md <- vec %>% as.character() %>% 
+  str_replace_all("^[{]\n?|\n?[}]$","") %>%
+  lapply(function(x) {
+    tidy <- formatR::tidy_source(text=x)
+    tidy$text.tidy %>% paste0("`",.,"`",collapse="\n")
+  }) %>%
+  str_replace_all("`?\n`?","`</br>`") %>% 
+  str_replace_all(" ","\\ ")
+
+glist <- lapply(vec,eval)
+```
+
+```{r fig.show = "hide", echo = FALSE, fig.height=3, fig.width=5,echo=FALSE}
 
 invisible(lapply(glist, print))
 out <- cbind(names(vec),vec.md,sprintf("![](%s%s-%s.png)",
