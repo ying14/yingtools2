@@ -53,3 +53,4 @@ For those starting to learn R for data science
 -   [Table 1, Characteristics of
     Patients](examples/cid.patient.characteristics.md)
 -   [Figure 3A, Hierarchical clustering](examples/cid.hclust.md)
+-   [PCOA and other ordination methods](examples/pcoa.md)
