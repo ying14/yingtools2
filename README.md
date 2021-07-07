@@ -47,10 +47,10 @@ For those starting to learn R for data science
 -   [Exercises](examples/exercises.md). These questions test your R
     skills and range from beginner to advanced.
 
-### Microbiome plots
+### Microbiome data
 
--   [Figure 1 Diversity plot](examples/cid.diversity.md)
--   [Table 1, Characteristics of
-    Patients](examples/cid.patient.characteristics.md)
--   [Figure 3A, Hierarchical clustering](examples/cid.hclust.md)
+-   [Hierarchical clustering](examples/cid.hclust.md) (Fig 3A of CID
+    paper)
 -   [PCOA and other ordination methods](examples/pcoa.md)
+-   [Phylogenetic Trees from Phyloseq](examples/phylotree.md)
+-   [Single sample barplot](examples/taxbar.md)

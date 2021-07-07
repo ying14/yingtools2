@@ -7,6 +7,8 @@ editor_options:
   chunk_output_type: inline
 ---
 
+
+Right now I'm using this as scrap.
 ```{r global_options, include=FALSE}
 source(here::here("common.R"))
 library(tidyverse)

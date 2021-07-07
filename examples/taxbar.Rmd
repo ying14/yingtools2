@@ -1,0 +1,42 @@
+---
+title: "Phylogenetic Trees"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+Here we will create a barplot for a composition of a single sample. 
+```{r}
+library(tidyverse)
+library(yingtools2)
+library(phyloseq)
+```
+
+
+Let's say I want to plot patient 301 from the `cid.phy` data. Start by subsetting the `cid.phy` object. 
+Whenever you subset, you may want to prune off the unused taxa (i.e. taxa that don't appear in the subsetted data).
+```{r}
+
+physub <- cid.phy %>% prune_samples("173A",.) %>% 
+  phy.collapse(taxranks="Genus") %>%
+  prune_taxa(taxa_sums(.)>0,.)
+otusub <- get.otu.melt(physub,filter.zero=FALSE)
+```
+
+
+```{r}
+ggplot(otusub,aes(x=Genus,y=pctseqs)) + geom_col()
+```
+
+
+```{r}
+ggplot(otusub,aes(x=Genus,y=pctseqs)) + geom_col() + scale_y_continuous(trans=log_epsilon_trans(0.001)) +
+  theme(axis.text.x=element_text(angle=-90))
+
+```

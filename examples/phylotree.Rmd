@@ -1,0 +1,95 @@
+---
+title: "Phylogenetic Trees"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+Here I am describing my workflow to create plots of phylogenetic trees. To make phylogenetic trees in R, the `ggtree` package is reasonably good and flexible for our purposes.
+```{r}
+library(tidyverse)
+library(yingtools2)
+library(phyloseq)
+library(ggtree)
+```
+
+
+Tree data is most commonly stored as a `phylo` object in R. These can be stored within `phyloseq` objects as a part of the data. 
+Using `cid.phy` data as an example, the `phylo` object can be extracted using `phy_tree()` function.  
+
+This works with the `phylo` object, which is the most common way to store phylogenetic trees in R.
+
+```{r}
+tr <- phy_tree(cid.phy)
+tr
+```
+
+Use the `ggtree()` function to create a `ggtree` object. This is essentially a custom `ggplot` object which can be further modified and tweaked with additional steps.
+```{r}
+ggtree(tr)
+```
+
+You can tweak the appearance by specifying `layout`:
+```{r,fig.show="hold", out.width="33%"}
+ggtree(tr,layout="circular") + ggtitle("circular")
+ggtree(tr,layout="dendrogram") + ggtitle("dendrogram")
+ggtree(tr,layout="ape") + ggtitle("ape")
+```
+
+You can assign useful taxonomic data to the `ggtree` object by using the `%<+%` operator, which is specific to the `ggtree` package. 
+Like other `ggplot` objects, there is actually a data frame stored within the `ggtree` object which can be used for plotting. 
+I like to save this as a separate object (`gd`), which makes downstream customizations a little easier. If you examine this, you'll start to understand what `ggtree` is doing.
+```{r}
+gt <- ggtree(tr) %<+% get.tax(cid.phy)
+gd <- gt$data
+gd
+```
+
+If I wanted to plot points at each tip, I can add the layer in usual ggplot2 fashion. 
+```{r}
+gt + geom_point(aes(color=Phylum))
+```
+
+Because I only want to plot the tips, I can use `geom_point2`, which simply allows subsetting of the data in a convenient way. 
+```{r}
+gt + geom_point2(aes(subset=isTip,color=Phylum))
+```
+
+Let's cover a few more details. 
+I'd like to plot where tips are at genus level (the one above was at OTU/ASV level), so use `phy.collapse` to create a genus-level tree. 
+There are too many Phylum level colors, collapse the small ones into "Other Phyla".
+```{r}
+phy.genus <- cid.phy %>% phy.collapse(taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus"))
+tr <- phy_tree(phy.genus)
+gt <- ggtree(tr) %<+% get.tax(phy.genus)
+gd <- gt$data %>% mutate(Phylum=fct_lump_n(Phylum,4))
+gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
+```
+
+```{r}
+otu <- phy.genus %>% get.otu.melt(filter.zero=TRUE)
+gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

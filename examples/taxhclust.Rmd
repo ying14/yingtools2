@@ -1,0 +1,50 @@
+---
+title: "Hierarchical clustering of taxa"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+Hierarchical clustering
+
+
+```{r}
+library(tidyverse)
+library(phyloseq)
+library(ape)
+library(ggtree)
+library(yingtools2)
+library(gridExtra)
+library(grid)
+
+s <- phy1 %>% get.samp()
+
+dist <- distance(cid.phy,"jsd")
+hc <- hclust(dist)
+lim <- range(hc$order) + c(-0.5,0.5)
+tr <- as.phylo(hc)
+gt <- ggtree(tr) + coord_flip(ylim=lim,expand=FALSE) + scale_x_reverse()
+
+otu <- phy.sub %>% get.otu.melt() %>%
+  tax.plot(data=TRUE) %>%
+  mutate(sample=factor(sample,levels=hc$labels[hc$order]))
+pal <- get.yt.palette2(otu)
+
+gtax <- ggplot(otu,aes(x=sample,y=pctseqs,fill=Species)) + 
+  geom_col(position="stack") + 
+  scale_fill_manual(values=pal) + 
+  theme(legend.position="none",axis.text=element_blank()) + 
+  coord_cartesian(xlim=lim,expand=FALSE)
+
+
+gg.stack(gt,gtax,heights=c(1,2))
+
+```
+
+
