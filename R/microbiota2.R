@@ -536,6 +536,85 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
 }
 
 
+
+
+
+#' Highlight a clade in ggtree
+#'
+#' @param gdata a data frame from a ggtree object.
+#' @param var the variable to be matched (unquoted).
+#' @param value the value that \code{var} needed for inclusion in the clade to be highlighted.
+#' @param ymin the min value of y in the clade.
+#' @param ymax the max value of y in the clade.
+#' @param label A \code{glue} expression for the clade label. Default is \code{"{value}\n({var})"}
+#' @param fill.color the clade fill color (default is \code{NA}, no fill)
+#' @param line.color the color of the outline around the clade (default \code{"dark gray"})
+#' @param alpha the alpha value of the fill color (default 1)
+#' @param xmax the x depth at which the edge of the clade is drawn (optional)
+#' @param xscalar if \code{xmax} is not specified, the x depth can be specified as a scaled factor of maximum x of all clade tips. Default is \code{1.5}
+#' @param fill.in whether to fill all gaps in the clade (default is \code{FALSE})
+#' @param font.size font size of the text (default is 4)
+#'
+#' @return
+#' @export
+#'
+#' @examples
+hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
+                          label="{value}\n({var})", fill.color=NA,line.color="dark gray",alpha=1,
+                          xmax=NULL,xscalar=1.5,fill.in=FALSE,font.size=4) {
+  requireNamespace("ggtree",quietly=TRUE)
+
+  if (is(gdata,"ggtree")) {
+    gdata <- gdata$data
+  }
+  if (!is(gdata,"tbl_tree")) {
+    stop("YTError: gdata is not a ggtree or tbl_tree (data frame) object!")
+  }
+  qvar <- enquo(var)
+  var <- quo_name(qvar)
+  value <- enquo(value)
+  .ymin <- ymin
+  .ymax <- ymax
+  if (!rlang::quo_is_null(qvar) & !rlang::quo_is_null(value)) {
+    criteria <- quo(!!qvar==!!value)
+  } else {
+    criteria <- TRUE
+  }
+  gdata <- gdata %>%
+    dplyr::mutate(.include=!!criteria & is.between(y,.ymin,.ymax) & isTip) %>%
+    dplyr::arrange(y)
+  ylow <- min(gdata$y[gdata$.include]) - 0.5
+  yhigh <- max(gdata$y[gdata$.include]) + 0.5
+  if (fill.in) {
+    gdata <- gdata %>% dplyr::mutate(.include=isTip & is.between(y,ylow,yhigh))
+  }
+  gdata.sub <- gdata %>% filter(.include)
+  if (nrow(gdata.sub)==0) stop("YTError: no tips found")
+
+  ymid <- (yhigh+ylow)/2
+  xmin1 <- dplyr::first(gdata.sub$x)
+  xmin2 <- dplyr::last(gdata.sub$x)
+  if (is.null(xmax)) {
+    xmax <- max(gdata.sub$x) * xscalar
+  }
+  if (grepl("\\{var\\}",label) & rlang::quo_is_null(qvar) | grepl("\\{value\\}",label) & is.null(value)) {
+    warning("YTWarning: clade label is probably incorrectly specified.")
+  }
+  glabel <- str_glue(label)
+
+  rect.list <- list(geom_rect(data=gdata.sub,aes(xmin=x,xmax=xmax,ymin=y-0.5,ymax=y+0.5),alpha=alpha,fill=fill.color))
+  segment.list <- list(
+    annotate("segment",x=xmin1,xend=xmax,y=ylow,yend=ylow,color=line.color),
+    annotate("segment",x=xmin2,xend=xmax,y=yhigh,yend=yhigh,color=line.color),
+    annotate("segment",x=xmax,xend=xmax,y=ylow,yend=yhigh,color=line.color),
+    annotate("text",x=xmax,y=ymid,label=glabel,lineheight=0.9,size=font.size))
+  return(c(rect.list,segment.list))
+}
+
+
+
+
+
 #' Hilight a set of ggtree tips.
 #'
 #' geom_hilight(aes(isTip=isTip,var=Genus,value="Blautia"))

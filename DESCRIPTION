@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.54
+Version: 0.0.1.55
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -36,5 +36,6 @@ Imports:
     pingr
 Suggests:
     phyloseq,
-    phytools
+    phytools,
+    ggtree
 RoxygenNote: 7.1.1
