@@ -8,8 +8,8 @@
 recode2(
   var,
   recodes,
-  else.value,
-  as.factor,
+  else.value = NULL,
+  as.factor = NULL,
   regexp = FALSE,
   replace = FALSE,
   multi.hits = FALSE,

@@ -101,16 +101,23 @@ gt + geom_point2(aes(subset=isTip,color=Phylum))
 ![](phylotree_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 Let’s cover a few more details. I’d like to plot where tips are at genus
-level, so use `phy.collapse` to create a genus-level tree. There are too
-many Phylum levels, collapse the small ones into “Other Phyla”.
+level (the one above was at OTU/ASV level), so use `phy.collapse` to
+create a genus-level tree. There are too many Phylum level colors,
+collapse the small ones into “Other Phyla”.
 
 ``` r
 phy.genus <- cid.phy %>% phy.collapse(taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus"))
 tr <- phy_tree(phy.genus)
 gt <- ggtree(tr) %<+% get.tax(phy.genus)
 gd <- gt$data %>% mutate(Phylum=fct_lump_n(Phylum,4))
-
 gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
 ```
 
 ![](phylotree_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+otu <- phy.genus %>% get.otu.melt(filter.zero=TRUE)
+gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
+```
+
+![](phylotree_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
