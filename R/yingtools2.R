@@ -2788,7 +2788,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 #' @export
 cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,
                 firth.opts=list(),formatted=TRUE) {
-  requireNamespace(c("broom","coxphf"),quietly=TRUE)
+  requireNamespace(c("broom","coxphf","scales"),quietly=TRUE)
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
   xvars <- quos(...)
@@ -2896,7 +2896,8 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
       extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
       return(extra)
     } else if (is.numeric(vec)) {
-      return(NULL)
+      extra <- tibble(xvar=quo_name(x),n=NA_real_) %>% mutate(term=xvar)
+      return(extra)
     } else {
       tbl <- table(vec)
       extra <- tibble(xvar=quo_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
@@ -2908,7 +2909,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   if (formatted) {
     tbl <- tbl %>%
       mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
-             p.value=pvalue(p.value)) %>%
+             p.value=scales::pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
@@ -3769,7 +3770,7 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
 #' @return by default, returns a formatted regression table
 #' @export
 logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted=TRUE) {
-  requireNamespace(c("broom","logistf"),quietly=TRUE)
+  requireNamespace(c("broom","logistf","scales"),quietly=TRUE)
   yvar <- enquo(yvar)
   xvars <- quos(...)
   xvarnames <- sapply(xvars,quo_name)
@@ -3802,24 +3803,27 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
            yvar=quo_name(yvar)) %>%
       select(yvar,xvar,term,everything())
 
+  #create 'n' column for categorical variables (factor, character, logical, 0-1)
   tbl.extra <- lapply(xvars,function(x) {
     vec <- data %>% pull(!!x)
     is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
     if (is.01(vec)) {
-      extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
+      extra <- tibble(xvar=quo_name(x),n=sum(vec)) %>% mutate(term=xvar)
       return(extra)
     } else if (is.numeric(vec)) {
-      return(NULL)
+      extra <- tibble(xvar=quo_name(x),n=NA_real_,term=xvar)
+      return(extra)
     } else {
       tbl <- table(vec)
       extra <- tibble(xvar=quo_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
       return(extra)
     }
   }) %>% bind_rows()
+
   tbl <- tbl %>% left_join(tbl.extra,by=c("xvar","term"))
   if (formatted) {
     tbl <- tbl %>%
-      mutate(p.value=pvalue(p.value)) %>%
+      mutate(p.value=scales::pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
