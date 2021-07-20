@@ -91,8 +91,9 @@ gt + geom_point(aes(color=Phylum))
 
 ![](phylotree_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
-Because I only want to plot the tips, I can use `geom_point2`, which
-simply allows subsetting of the data in a convenient way.
+…but because we only want the tips to be labelled (not the nodes), use
+`geom_point2`, which simply allows subsetting of the data in a
+convenient way.
 
 ``` r
 gt + geom_point2(aes(subset=isTip,color=Phylum))
@@ -115,9 +116,14 @@ gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
 
 ![](phylotree_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
+Use `hilight.clade()` to add layers representing clades, using the
+ggtree data. There are a lot parameters you can tweak to customize exact
+how you want it to look.
+
 ``` r
-otu <- phy.genus %>% get.otu.melt(filter.zero=TRUE)
-gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
+gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum)) +
+  hilight.clade(gt,Phylum,"Actinobacteria",ymin=101,ymax=155,fill.color="purple",alpha=0.1) +
+  hilight.clade(gd,Phylum,"Bacteroidetes",ymin=300,ymax=328,fill.color="light blue",alpha=0.3)
 ```
 
 ![](phylotree_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->

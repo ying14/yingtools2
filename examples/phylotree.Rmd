@@ -81,17 +81,3 @@ gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum)) +
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
