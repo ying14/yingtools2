@@ -562,20 +562,20 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
 hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
                           label="{value}\n({var})", fill.color=NA,line.color="dark gray",alpha=1,
                           xmax=NULL,xscalar=1.5,fill.in=FALSE,font.size=4) {
-  requireNamespace("ggtree",quietly=TRUE)
-
+  requireNamespace(c("ggtree","glue"),quietly=TRUE)
   if (is(gdata,"ggtree")) {
     gdata <- gdata$data
   }
-  if (!is(gdata,"tbl_tree")) {
-    stop("YTError: gdata is not a ggtree or tbl_tree (data frame) object!")
+  if (!is.data.frame(gdata)) {
+    stop("YTError: gdata is not a data frame from ggtree!")
   }
   qvar <- enquo(var)
   var <- quo_name(qvar)
-  value <- enquo(value)
+  qvalue <- enquo(value)
+  value <- quo_name(qvalue)
   .ymin <- ymin
   .ymax <- ymax
-  if (!rlang::quo_is_null(qvar) & !rlang::quo_is_null(value)) {
+  if (!rlang::quo_is_null(qvar) & !rlang::quo_is_null(qvalue)) {
     criteria <- quo(!!qvar==!!value)
   } else {
     criteria <- TRUE
@@ -597,11 +597,10 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
   if (is.null(xmax)) {
     xmax <- max(gdata.sub$x) * xscalar
   }
-  if (grepl("\\{var\\}",label) & rlang::quo_is_null(qvar) | grepl("\\{value\\}",label) & is.null(value)) {
+  if (grepl("\\{var\\}",label) & rlang::quo_is_null(qvar) | grepl("\\{value\\}",label) & rlang::quo_is_null(qvalue)) {
     warning("YTWarning: clade label is probably incorrectly specified.")
   }
-  glabel <- str_glue(label)
-
+  glabel <- glue::glue(label)
   rect.list <- list(geom_rect(data=gdata.sub,aes(xmin=x,xmax=xmax,ymin=y-0.5,ymax=y+0.5),alpha=alpha,fill=fill.color))
   segment.list <- list(
     annotate("segment",x=xmin1,xend=xmax,y=ylow,yend=ylow,color=line.color),
