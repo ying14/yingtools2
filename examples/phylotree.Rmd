@@ -79,5 +79,175 @@ gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum)) +
   hilight.clade(gd,Phylum,"Bacteroidetes",ymin=300,ymax=328,fill.color="light blue",alpha=0.3)
 ```
 
+```{r eval=FALSE, include=FALSE}
+
+geom_hilight <- function(mapping = NULL, data = NULL, stat = "identity",
+                         position = "identity", show.legend = NA,
+                         inherit.aes = TRUE, 
+                         na.rm = TRUE, opt1 = "option1", opt2 = ~option2, 
+                         ...) {
+  layer(
+    geom = GeomHilight,
+    stat = stat,
+    data = data,
+    mapping = mapping,
+    position = position,
+    params = list(na.rm = na.rm, opt1 = opt1, opt2 = opt2),
+    inherit.aes = inherit.aes,
+    check.aes = TRUE,
+    check.param = TRUE,
+    show.legend = show.legend,
+    key_glyph = NULL
+  )
+}
+
+
+GeomHilight <- ggproto("GeomHilight", Geom,
+                    draw_panel = function(self, data, panel_params, coord, opt1, opt2) {
+                      points <- data %>% select(x, y, PANEL, group, shape, colour, size, fill, alpha, stroke)
+                      cols <- data %>% #GeomCol$setup_data(panel_params) %>%
+                        select(PANEL, ymin, ymax, xmin, xmax, colour, fill, size, linetype, alpha)
+                      lines <- data %>% select(x, y, PANEL, group, colour, size, linetype, alpha)
+                      text <- data %>% select(x, y, label, PANEL, group, colour=fontcolour, size=fontsize,
+                                              angle, hjust, vjust,
+                                              alpha, family, fontface, lineheight)
+                      segments <- data %>% group_by(PANEL,colour,group,size,linetype,alpha) %>%
+                        summarize(xend=max(x),x=min(x)) %>%
+                        mutate(y=-5,yend=-5) %>%
+                        ungroup()
+                      grid::gList(
+                        GeomPoint$draw_panel(points, panel_params, coord),
+                        GeomLine$draw_panel(lines, panel_params, coord),
+                        GeomRect$draw_panel(cols, panel_params, coord),
+                        GeomCol$draw_panel(cols, panel_params, coord),
+                        GeomText$draw_panel(text, panel_params, coord),
+                        GeomSegment$draw_panel(segments, panel_params, coord),
+                        NULL
+                      )
+                    },
+                    draw_group = function(self, data, panel_params, coord, opt1, opt2) {},
+                    draw_key = draw_key_point,
+                    required_aes = c("x", "y", "label"),
+                    default_aes = aes(colour = "black", shape = 19, size = 1, fill = NA, alpha = NA, stroke = 0.5,
+                                      linetype=1, 
+                                      angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1, 
+                                      fontsize = 4, fontcolour="red",
+                                      lineheight = 1.2),
+
+                    non_missing_aes = NULL,
+                    optional_aes = NULL,
+                    extra_params = c("na.rm", "opt1", "opt2"),
+                    setup_data = GeomCol$setup_data #creates xmin/xmax
+                    # draw_layer = xxxx,
+)
+
+
+
+
+```
+
+
+```{r eval=FALSE, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+
+geom_xxxx <- function(mapping = NULL, data = NULL, stat = "identity",
+                         position = "identity", show.legend = NA,
+                         inherit.aes = TRUE, 
+                         na.rm = TRUE, opt1 = "option1", opt2 = ~option2, 
+                         ...) {
+  layer(
+    geom = GeomXXXX,
+    stat = stat,
+    data = data,
+    mapping = mapping,
+    position = position,
+    params = list(na.rm = na.rm, opt1 = opt1, opt2 = opt2),
+    inherit.aes = inherit.aes,
+    check.aes = TRUE,
+    check.param = TRUE,
+    show.legend = show.legend,
+    key_glyph = NULL
+  )
+}
+
+
+GeomXXXX <- ggproto("GeomXXXX", Geom,
+                    draw_panel = function(self, data, panel_params, coord, opt1, opt2) {
+                      points <- data %>% select(x, y, PANEL, group, shape, colour, size, fill, alpha, stroke)
+                      cols <- data %>% #GeomCol$setup_data(panel_params) %>%
+                        select(PANEL, ymin, ymax, xmin, xmax, colour, fill, size, linetype, alpha)
+                      lines <- data %>% select(x, y, PANEL, group, colour, size, linetype, alpha)
+                      text <- data %>% select(x, y, label, PANEL, group, colour=fontcolour, size=fontsize,
+                                              angle, hjust, vjust,
+                                              alpha, family, fontface, lineheight)
+                      segments <- data %>% group_by(PANEL,colour,group,size,linetype,alpha) %>%
+                        summarize(xend=max(x),x=min(x)) %>%
+                        mutate(y=-5,yend=-5) %>%
+                        ungroup()
+                      grid::gList(
+                        GeomPoint$draw_panel(points, panel_params, coord),
+                        GeomLine$draw_panel(lines, panel_params, coord),
+                        GeomRect$draw_panel(cols, panel_params, coord),
+                        GeomCol$draw_panel(cols, panel_params, coord),
+                        GeomText$draw_panel(text, panel_params, coord),
+                        GeomSegment$draw_panel(segments, panel_params, coord),
+                        NULL
+                      )
+                    },
+                    draw_group = function(self, data, panel_params, coord, opt1, opt2) {},
+                    draw_key = draw_key_point,
+                    required_aes = c("x", "y", "label"),
+                    default_aes = aes(colour = "black", shape = 19, size = 1, fill = NA, alpha = NA, stroke = 0.5,
+                                      linetype=1, 
+                                      angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1, 
+                                      fontsize = 4, fontcolour="red",
+                                      lineheight = 1.2),
+
+                    non_missing_aes = NULL,
+                    optional_aes = NULL,
+                    extra_params = c("na.rm", "opt1", "opt2"),
+                    setup_data = GeomCol$setup_data #creates xmin/xmax
+                    # draw_layer = xxxx,
+)
+
+
+ggplot(mtcars,aes(x=mpg,y=disp,label=cyl),fill="gray",size=1) + geom_xxxx()
+
+ggplot(mtcars,aes(x=mpg,y=disp,label=cyl)) + geom_text()
+
+GeomPoint %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomBar %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")} 
+GeomText %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomRect %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomSegment %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomSmooth %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomBar %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomCol %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomViolin %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomBoxplot %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomDotplot %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomBlank %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomCustomAnn %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomCrossbar %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+GeomErrorbar %>% {c(.$required_aes,names(.$default_aes),"group","PANEL")}
+
+
+# library(ggdebug)
+# GeomCol$setup_params
+# ggdebug(ggplot)
+# ggdebug(GeomRect$draw_panel)
+# ggdebug(GeomText$draw_panel)
+# ggdebug(GeomDotplot$draw_panel)
+# ggdebug(GeomXXXX$draw_group)
+# ggundebug_all()
+
+
+
+```
+
+
+
+
 
 
