@@ -8,6 +8,7 @@ lda.effect(
   phy,
   class,
   subclass = NULL,
+  subject = NULL,
   anova.alpha = 0.05,
   wilcoxon.alpha = 0.05,
   lda.cutoff = 2,
@@ -37,7 +38,7 @@ lda.effect(
 \item{one.against.one}{(for multiclass tasks) set whether the test is performed in a
 one-against-one (TRUE - more strict) or in a one-against-all setting (FALSE - less strict) (default FALSE)}
 
-\item{n_boots}{set the number of bootstrap iteration for LDA (default 30)}
+\item{n_boots}{set the number of bootstrap iteration for LDA (default 30). Set to NULL to skip bootstrapping altogether.}
 
 \item{min_c}{minimum number of samples per subclass for performing wilcoxon test (default 10)}
 
