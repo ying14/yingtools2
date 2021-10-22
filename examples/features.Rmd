@@ -1,0 +1,87 @@
+---
+title: "Testing Taxonomic Features"
+output:
+  github_document:
+    df_print: tibble
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r global_options, include=FALSE}
+source(here::here("common.R"))
+```
+
+Here is a workflow for testing taxonomic features using the Segata/Huttenhower tool, LEfSE.
+
+```{r}
+library(tidyverse)
+library(yingtools2)
+library(phyloseq)
+library(ggtree)
+```
+
+
+First create a phyloseq object with the predictors of interest, by adding variables from `cid.patients`.
+I am planning to test the microbiome changes associated with the antibiotic metronidazole.
+```{r}
+phy <- cid.phy
+s <- get.samp(phy) %>% left_join(cid.patients,by="Patient_ID") %>%
+  mutate(metronidazole=ifelse(metronidazole,"metronidazole","no metronidazole"))
+sample_data(phy) <- s %>% set.samp()
+```
+
+Use `lda.effect` to test the effect of the variable `metronidazole`. First it will perform Kruskal-Wallis testing of abundances for each taxonomic feature.
+Specify `subclass="sex"` to perform additional Wilcoxon testing of various subsets across `sex`. Finally, a linear discriminant analysis (LDA) is performed on taxonomic features selected by the above testing steps. From this, an effect size is calculated. 
+```{r}
+lda <- lda.effect(phy,class="metronidazole",subclass="sex")
+lda
+```
+
+
+A common way to display the data is to plot as horizontal bars:
+```{r fig.height=4, fig.width=10}
+lda.plot <- lda %>% filter(pass) %>%
+  mutate(lda=if_else(as.numeric(factor(direction))==2,-lda,lda)) %>%
+  arrange(lda) %>%
+  mutate(taxonomy=fct_inorder(taxonomy))
+
+ggplot(lda.plot,aes(x=taxonomy,y=lda,fill=direction)) + geom_col() + coord_flip()
+```
+
+You can also view the data in a cladogram.
+```{r fig.height=9, fig.width=9}
+lvls <- rank_names(phy)
+lda.tbl <- lda
+for (i in 1:length(lvls)) {
+  lvl <- lvls[i]
+  lda.tbl[[lvl]] <- str_split(lda.tbl$taxonomy,"\\|") %>% map_chr(~str_c(.[1:i],collapse="|"))
+}
+lefse.phy <- as.phylo.formula2(~Kingdom/Phylum/Class/Order/Family/Genus/taxon,data=lda.tbl)
+
+gt <- ggtree(lefse.phy,layout="circular")
+gd <- gt$data %>% left_join(lda,by=c("label"="taxonomy")) %>%
+  mutate(y.range=map(node,~{
+    end.tips <- get.offspring.tip(lefse.phy,.)
+    cur_data() %>% filter(label %in% end.tips) %>% pull(y)
+  }),
+  ymin=map_dbl(y.range,min),ymax=map_dbl(y.range,max),xmin=x,xmax=9+7-x,
+  ymid=(ymin+ymax)/2,
+  xtext=xmax-0.5,
+  angle.label=scales::rescale(ymid,from=range(y),to=c(0,360)),
+  angle.label=if_else(is.between(angle.label,0,180),angle.label-90,angle.label+90),
+  short.label=map_chr(str_split(label,"\\|"),last)
+)
+
+gt + geom_point(data=gd,aes(size=log.max),color="dark gray",fill="gray",shape=21) +
+  geom_point2(data=filter(gd,pass),aes(fill=direction,size=log.max),shape=21) +
+  geom_rect(data=filter(gd,pass),aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,fill=direction),alpha=0.2) + 
+  geom_text(data=filter(gd,pass),aes(x=xtext,y=ymid,label=short.label,angle=angle.label)) + 
+  theme(legend.position="right")
+```
+
+
+
+
+
+
+

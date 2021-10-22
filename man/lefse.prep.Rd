@@ -14,8 +14,10 @@ lefse.prep(
   lda.cutoff = 2,
   wilcoxon.within.subclass = FALSE,
   one.against.one = FALSE,
+  n_boots = 30,
+  min_c = 10,
+  f_boots = 0.67,
   mult.test.correction = 0,
-  make.lefse.plots = FALSE,
   by_otus = FALSE,
   levels = phyloseq::rank_names(phy)
 )

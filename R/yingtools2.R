@@ -1998,7 +1998,11 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @export
 coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
   vars <- quos(...)
-  varnames <- sapply(vars,quo_name)
+  # varnames <- sapply(vars,quo_name)
+  varnames <- map_chr(vars, quo_name)
+  labels <- names(vars)
+  labels <- unname(if_else(labels=="",varnames,labels))
+
   arglist <- list(...)
   len <- unique(sapply(arglist,length))
   if (length(len)!=1) {
@@ -2008,7 +2012,7 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
   output <- sapply(1:len,function(i) {
     row <- mat[i,]
     keep <- !is.na(row) & row
-    vec <- varnames[keep]
+    vec <- labels[keep]
     if (length(vec)==0) {
       return(else.value)
     } else {

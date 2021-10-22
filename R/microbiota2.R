@@ -907,18 +907,25 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 #' @examples
 #' lefse.tbl <- lefse(phy1,class="CDI",subclass="Sex")
 #' @export
-lefse.prep <- function(phy,class,subclass=NA,subject=NA,
-                  anova.alpha=0.05,wilcoxon.alpha=0.05,lda.cutoff=2.0,
-                  wilcoxon.within.subclass=FALSE,one.against.one=FALSE,
-                  mult.test.correction=0,
-                  make.lefse.plots=FALSE,by_otus=FALSE,
+lefse.prep <- function(phy,class,subclass=NA,
+                  subject=NA,
+                  anova.alpha = 0.05,
+                  wilcoxon.alpha = 0.05,
+                  lda.cutoff = 2,
+                  wilcoxon.within.subclass = FALSE,
+                  one.against.one = FALSE,
+                  n_boots = 30,
+                  min_c = 10,
+                  f_boots = 0.67,
+                  mult.test.correction = 0,
+                  by_otus=FALSE,
                   levels=phyloseq::rank_names(phy)) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
-  pkgs <- c("splines","stats4","survival","mvtnorm","modeltools","coin","MASS")
-  missing.pkgs <- setdiff(pkgs,installed.packages()[,"Package"])
-  if (length(missing.pkgs)>0) {
-    warning("YTWarning: R packages are needed for the LEFSE scripts to work: ",paste(missing.pkgs,collapse=", "))
-  }
+  # pkgs <- c("splines","stats4","survival","mvtnorm","modeltools","coin","MASS")
+  # missing.pkgs <- setdiff(pkgs,installed.packages()[,"Package"])
+  # if (length(missing.pkgs)>0) {
+  #   warning("YTWarning: R packages are needed for the LEFSE scripts to work: ",paste(missing.pkgs,collapse=", "))
+  # }
   warning("YTWarning: Please note that this function is deprecated, and only does the formatting step.
 Use this with Docker or Conda image, or consider using lda.effect.")
 
@@ -973,38 +980,10 @@ Use this with Docker or Conda image, or consider using lda.effect.")
                          "-l",lda.cutoff,
                          "-e",as.numeric(wilcoxon.within.subclass),
                          "-y",as.numeric(one.against.one),
+                         "-b",n_boots,
+                         "--min_c",min_c,
+                         "-f",f_boots,
                          "-s",mult.test.correction)
-  #system(lefse.command)
-  # print("Wrote lefse.res")
-  # lefse.out <- read.table("lefse.res",header=FALSE,sep="\t") %>% rename(taxon=V1,log.max.pct=V2,direction=V3,lda=V4,p.value=V5)
-  #   -a float        set the alpha value for the Anova test (default 0.05)
-  #   -w float        set the alpha value for the Wilcoxon test (default 0.05)
-  #   -l float        set the threshold on the absolute value of the logarithmic
-  #   LDA score (default 2.0)
-  #   --nlogs int     max log ingluence of LDA coeff
-  #   --verbose int   verbose execution (default 0)
-  #   --wilc int      wheter to perform the Wicoxon step (default 1)
-  #   -r str          select LDA or SVM for effect size (default LDA)
-  #   --svm_norm int  whether to normalize the data in [0,1] for SVM feature
-  #   waiting (default 1 strongly suggested)
-  #   -b int          set the number of bootstrap iteration for LDA (default 30)
-  #   -e int          set whether perform the wilcoxon test only among the
-  #   subclasses with the same name (default 0)
-  #   -c int          set whether perform the wilcoxon test ing the Curtis's
-  #                   approach [BETA VERSION] (default 0)
-  #   -f float        set the subsampling fraction value for each bootstrap
-  #                   iteration (default 0.66666)
-  #   -s {0,1,2}      set the multiple testing correction options. 0 no correction
-  #                   (more strict, default), 1 correction for independent
-  #                   comparisons, 2 correction for independent comparison
-  #   --min_c int     minimum number of samples per subclass for performing
-  #                   wilcoxon test (default 10)
-  #   -t str          set the title of the analysis (default input file without
-  #                   extension)
-  #   -y {0,1}        (for multiclass tasks) set whether the test is performed in
-  #                   a one-against-one ( 1 - more strict!) or in a one-against-
-  #                   all setting ( 0 - less strict) (default 0)
-
   message("Commands: ")
   message(format.command)
   message(lefse.command)
@@ -1055,24 +1034,22 @@ lda.effect <- function(phy,class,subclass=NULL,
                        min_c = 10,
                        f_boots = 0.67,
                        mult.test.correction = 0) {
-  # class="formed";subclass=NULL;anova.alpha = 0.05;wilcoxon.alpha = 0.05;lda.cutoff = 2;wilcoxon.within.subclass = FALSE;one.against.one = FALSE;mult.test.correction = 0;n_boots = 30;min_c = 10;f_boots = 0.67
-  # class="formed";subclass="period.2";anova.alpha = 0.5;wilcoxon.alpha = 0.4;lda.cutoff = 1.5;wilcoxon.within.subclass = TRUE;one.against.one = TRUE;mult.test.correction = 0;n_boots = 30;min_c = 10;f_boots = 0.67
-  # class="period.3";subclass="formed";anova.alpha = 0.6;wilcoxon.alpha = 0.7;lda.cutoff = 1;wilcoxon.within.subclass = FALSE;one.against.one = FALSE;mult.test.correction = 1;n_boots = 30;min_c = 10;f_boots = 0.67
-  # class="period.3";subclass=NULL;anova.alpha = 0.6;wilcoxon.alpha = 0.7;lda.cutoff = 1;wilcoxon.within.subclass = FALSE;one.against.one = TRUE;mult.test.correction = 1;n_boots = 30;min_c = 10;f_boots = 0.67
-  # class="Consistency";subclass="period.3";anova.alpha = 0.6;wilcoxon.alpha = 0.6;lda.cutoff = 1.0;wilcoxon.within.subclass = FALSE;one.against.one = FALSE;mult.test.correction = 2; n_boots = 30;min_c = 10;f_boots = 0.67
-  ranks <- rank_names(phy)
+
   requireNamespace(c("phyloseq","progress","MASS"),quietly=TRUE)
   if (!(mult.test.correction %in% c(0,1,2))) {stop("YTError: mult.test.correction should 0, 1, or 2.")}
+  ranks <- rank_names(phy)
+  if (is.null(subclass)) {
+    # add a meaningless non-varying subclass as placeholder, if it is not specified
+    subclass <- paste0(class,"_subclass")
+    sample_data(phy)[[subclass]] <- sample_data(phy)[[class]]
+  }
+  s <- suppressWarnings(get.samp(phy)) %>%
+    mutate(across(any_of(c(class,subclass)),as.character))
+  sample_data(phy) <- s %>% set.samp()
+
   # calculate totalseqs... need to recalculate pctseqs to avoid floating point errors.
   otu <- get.otu.melt(phy,filter.zero=FALSE) %>%
-    add_count(sample,wt=numseqs,name="totalseqs") %>%
-    mutate(across(any_of(c(class,subclass)),as.character))
-  # add a meaningless non-varying subclass as placeholder, if it is not specified
-  has.subclass <- !is.null(subclass)
-  if (!has.subclass) {
-    subclass <- "subclass_"
-    otu <- otu %>% mutate(!!subclass:="one")
-  }
+    add_count(sample,wt=numseqs,name="totalseqs")
   # create data for all tax levels for analysis
   otul <- lapply(1:length(ranks),function(x) {
     lvls <- ranks[1:x]
@@ -1083,120 +1060,118 @@ lda.effect <- function(phy,class,subclass=NULL,
       mutate(taxonomy=paste(!!!syms(lvls),sep="|"),rank=x)
   }) %>% bind_rows() %>%
     mutate(pctseqs=1000000*numseqs/totalseqs)
-
   class.levels <- unique(otu[[class]]) %>% as.character()
   subclass.levels <- unique(otu[[subclass]]) %>% as.character()
-  wilcox <- function(data) {
-    # data=y
-    if (n_distinct(data$class)<2) {
-      return(tibble(w.pvalue=NA_real_,direction=NA_character_,w.signif=FALSE,sizes=NA_character_,sizes.desc=NA_character_))
-    }
-    w <- suppressWarnings(wilcox.test(pctseqs ~ class, data=data))
-    highest.median <- data %>% group_by(class) %>%
-      summarize(median.pct=median(pctseqs),n=n(),.groups="drop") %>%
-      arrange(desc(median.pct)) %>%
-      summarize(highest=if_else(n_distinct(median.pct)==1,"[equal]",first(class)),
-                min.size=min(n),
-                # sizes.desc=paste0(class,"=",pretty_number(median.pct),"(",n,")",collapse=" vs. "),
-                sign=sign(median.pct[1]-median.pct[2]))
-    tbl <- tibble(w.pvalue=w$p.value,
-                  direction=highest.median$highest,
-                  small.size=highest.median$min.size<min_c,
-                  # sizes.desc=highest.median$sizes.desc,
-                  sign=highest.median$sign)
-    return(tbl)
-  }
 
   n.features <- n_distinct(otul$taxonomy)
   #create class and subclass comparisons. these can be inner joined to otul to get the correct comparison.
-  class.comparisons.list <- combn(class.levels,2,simplify=FALSE) %>%
-    imap(~tibble(!!class:=.x,class=.x,class.list=list(.x),class.id=.y,group.number=1:2,class.desc=paste(.x,collapse=" vs. ")))
-  class.comparisons <- class.comparisons.list %>% bind_rows()
-  subclass.comparisons.list <- cross2(subclass.levels,subclass.levels) %>% simplify_all() %>%
-    imap(~tibble(!!subclass:=.x,subclass=.x,subclass.list=list(.x),subclass.id=.y,group.number=1:2,subclass.desc=paste(.x,collapse=" vs. ")))
-  subclass.comparisons <- subclass.comparisons.list %>% bind_rows()
+  class.comparisons <- combn(class.levels,2,simplify=FALSE) %>%
+    imap_dfr(~tibble(!!class:=.x,class=.x,class.list=list(.x),class.id=.y,group.number=1:2,class.desc=paste(.x,collapse=" vs. ")))
+  subclass.comparisons <- cross2(subclass.levels,subclass.levels) %>% simplify_all() %>%
+    imap_dfr(~tibble(!!subclass:=.x,subclass=.x,subclass.list=list(.x),subclass.id=.y,group.number=1:2,subclass.desc=paste(.x,collapse=" vs. ")))
   if (wilcoxon.within.subclass) {
     subclass.comparisons <- subclass.comparisons %>%
       group_by(subclass.id) %>%
       filter(n_distinct(subclass)==1) %>%
       ungroup()
   }
-  # all.comparisons <- class.comparisons %>% inner_join(subclass.comparisons,by="group.number") %>% mutate(all.id=paste(class.id,subclass.id))
+  #determine all possible class/subclass combinations
+  s.levels <- s %>% count(!!sym(class),!!sym(subclass)) %>%
+    group_by(!!sym(class)) %>%
+    mutate(n.sublevels=n()) %>%
+    ungroup()
+  all.comparisons <- inner_join(class.comparisons,subclass.comparisons,by="group.number") %>%
+    inner_join(s.levels,by=c(class,subclass)) %>%
+    group_by(class.id,subclass.id) %>%
+    filter(n()==2) %>%
+    mutate(all.id=cur_group_id(),
+           wilcoxon.alpha.corrected=case_when(
+             mult.test.correction == 0 ~ wilcoxon.alpha,
+             mult.test.correction == 1 ~ 1-(1-wilcoxon.alpha)^(n.sublevels[1]*n.sublevels[2]),
+             mult.test.correction == 2 ~ wilcoxon.alpha * n.sublevels[1] * n.sublevels[2]
+           )) %>%
+    ungroup()
 
-  message(str_glue("class: {class} ({length(class.levels)} values)\nsubclass: {subclass} ({length(subclass.levels)} values)\ntax levels: {n.features} features"))
+  message(str_glue("class: {class} ({length(class.levels)} values)\nsubclass: {subclass} ({length(subclass.levels)} values)\nclass/subclass comparisons per tax level: {n_distinct(all.comparisons$all.id)}\ntax levels: {n.features} taxonomic features"))
 
   pb <- progress::progress_bar$new(total = n.features)
   pb$message(str_glue("Performing KW and W subclass testing ({n.features} tax features)"))
   results <- otul %>%
     group_by(taxonomy,rank) %>%
     group_modify(function(x,...) {
-      # x <- otul %>% filter(taxonomy=="Bacteria|Deferribacteres")
+      # x <- otul %>% filter(taxonomy=="Bacteria|Acidobacteria|Acidobacteria_Gp11")
       pb$tick()
       # kruskal test (class)
       kw <- kruskal.test(x[["pctseqs"]],as.factor(x[[class]]))
       kw.summary <- tibble(kw.pvalue=kw$p.value) %>%
-        mutate(kw.pass=!is.na(kw.pvalue) & (kw.pvalue<anova.alpha))
+        mutate(kw.pass=!is.na(kw.pvalue) & (kw.pvalue<anova.alpha),
+               kw.info=if_else(kw.pass,NA_character_,"KW: non-signif"))
       # wilcoxon test overall (class/subclass)
       if (!kw.summary$kw.pass) {
-        w.summary <- tibble(w.pass=NA)
+        w.summary <- tibble(w.pass=NA,w.info=NA_character_)
       } else { # do the wilcox subclass testing
-        w <- x %>% inner_join(class.comparisons,by=class) %>%
-          group_by(class.id,class.desc,class.list) %>%
+        w <- x %>% inner_join(all.comparisons,by=c(class,subclass)) %>%
+          group_by(all.id,class.list,class.id,class.desc,subclass.list,subclass.id,subclass.desc,wilcoxon.alpha.corrected) %>%
           group_modify(function(y,...) {
-            # y <- x %>% inner_join(class.comparisons,by=class) %>% filter(class.desc=="formed stool vs. liquid")
-            # overall.test <- wilcox(y)
-            subclasses.sizes <- y %>% group_by(class) %>%
-              summarize(n.subs=n_distinct(!!sym(subclass)))
-            length1 <- subclasses.sizes$n.subs[1]
-            length2 <- subclasses.sizes$n.subs[2]
-            if (mult.test.correction == 0) {
-              wilcoxon.alpha.corrected <- wilcoxon.alpha
-            } else if (mult.test.correction == 1) {
-              wilcoxon.alpha.corrected <- 1-(1-wilcoxon.alpha)^(length1*length2)
-            } else if (mult.test.correction == 2) {
-              wilcoxon.alpha.corrected <- wilcoxon.alpha * length1 * length2
+            # y <- x %>% inner_join(all.comparisons,by=c(class,subclass)) %>% filter(all.id==first(all.id)) %>% mutate(pctseqs=0)
+            if (n_distinct(y$pctseqs)==1) {
+              return(tibble(w.pvalue=NA_real_,
+                            direction=NA_character_,
+                            small.size=NA,
+                            all.same.value=TRUE))
             }
-            sub.tests <- y %>% inner_join(subclass.comparisons,by=c(subclass,"group.number")) %>%
-              group_by(subclass.id,subclass.desc,subclass.list) %>%
-              group_modify(function(z,...) {
-                w.subtest <- wilcox(z) %>%
-                  mutate(w.signif=!is.na(w.pvalue) & (w.pvalue<2*wilcoxon.alpha.corrected))
-                return(w.subtest)
-              }) %>%
-              ungroup()
-            sub.verdict <- sub.tests %>%
-              summarize(subclass.allsignif=all(w.signif | small.size,na.rm=TRUE),
-                        subclass.one.sign=(all(sign!=0,na.rm=TRUE) & (n_distinct(sign,na.rm=TRUE)==1)) | (n()==1),
-                        subclass.one.direction=((n_distinct(direction,na.rm=TRUE)==1) & all(direction!="[equal]",na.rm=TRUE)) | (n()==1),
-                        .groups="drop")
-            # bind_cols(overall.test,sub.verdict)
-            return(sub.verdict)
+            wilcox <- suppressWarnings(wilcox.test(pctseqs ~ class, data=y))
+            highest.median <- y %>% group_by(class) %>%
+              summarize(median.pct=median(pctseqs),n=n(),.groups="drop") %>%
+              arrange(desc(median.pct)) %>%
+              summarize(highest=if_else(n_distinct(median.pct)==1,"[equal]",first(class)),
+                        min.size=min(n))
+            tbl <- tibble(w.pvalue=wilcox$p.value,
+                          direction=highest.median$highest,
+                          small.size=highest.median$min.size<min_c,
+                          all.same.value=FALSE)
+            return(tbl)
           }) %>%
-          ungroup() %>%
-          mutate(w.pass=subclass.allsignif & subclass.one.sign & subclass.one.direction)
-        if (one.against.one) {
-          # one.against.one: pass if all class comparisons pass
-          w.summary <- w %>%
-            summarize(w.pass=all(w.pass))
-        } else {
-          # one.against.all: pass if all class comparisons within a certain class value pass.
-          # threshold <- length(class.levels)-1;w.summary <- w %>% filter(w.pass) %>% unnest(cols=class.list) %>% count(class.list) %>% summarize(w.pass=max(n)>=threshold)
-          w.summary <- w %>%
+          group_by(class.id,class.list,class.desc) %>%
+          mutate(w.signif=!is.na(w.pvalue) & (w.pvalue<2*wilcoxon.alpha.corrected),
+                 one.direction=(n_distinct(direction,na.rm=TRUE)==1),
+                 equal.median=(n()>1) & direction=="[equal]",
+                 subclass.pass=!all.same.value & (w.signif|small.size) & one.direction & !equal.median,
+                 subclass.info=coalesce_indicators("all.same.value"=all.same.value,
+                                                   "equal.medians"=equal.median,
+                                                   "not.signif"=!w.signif & !small.size,
+                                                   "different.direction"=!one.direction,
+                                                   first.hit.only=TRUE),
+                 NULL) %>%
+          ungroup()
+
+        w.class <- w %>%
+          group_by(class.id,class.list,class.desc) %>%
+          summarize(w.pass=all(subclass.pass,na.rm=TRUE),
+                    w.info=list(subclass.info),
+                    .groups="drop")
+
+        if (one.against.one) { # one.against.one: pass if all class comparisons pass
+          w.summary <- w.class %>%
+            summarize(w.pass=all(w.pass,na.rm=TRUE),
+                      w.info=paste(unique(sort(fct_infreq(unlist(w.info)))),collapse="|"))
+        } else { # one.against.all: pass if all class comparisons within a certain class value pass.
+          w.summary <- w.class %>%
             unnest(cols=class.list) %>%
             group_by(class.list) %>%
-            summarize(w.pass=all(w.pass),.groups="drop") %>%
-            summarize(w.pass=any(w.pass))
+            summarize(w.num.passed=sum(w.pass,na.rm=TRUE),.groups="drop",
+                      w.info=list(w.info)) %>%
+            mutate(w.pass=w.num.passed>=length(class.levels)-1) %>%
+            summarize(w.pass=any(w.pass,na.rm=TRUE),
+                      w.info=paste(unique(sort(fct_infreq(unlist(w.info)))),collapse="|"))
         }
+        w.summary <- w.summary %>% mutate(w.info=str_c("W: ",w.info))
       }
-
       summary <- bind_cols(kw.summary,w.summary) %>%
-        mutate(disc.feature=kw.pass & (is.na(w.pass) | w.pass))
+        mutate(disc.feature=kw.pass & (w.pass | is.na(w.pass)))
       return(summary)
-    }) %>% ungroup()
-
-  # %>%
-  #   mutate(#kw.pass=!is.na(kw.pvalue) & (kw.pvalue<anova.alpha),
-  #          disc.feature=kw.pass & w.pass)
+    }) %>%
+    ungroup()
 
   tax.features <- results %>% filter(disc.feature) %>% pull(taxonomy) %>% unique()
   direction <- otul %>%
@@ -1205,39 +1180,35 @@ lda.effect <- function(phy,class,subclass=NULL,
     group_by(taxonomy) %>%
     arrange(desc(pctseqs)) %>%
     summarize(direction=first(!!sym(class)),log.max=log10(first(pctseqs)),.groups="drop")
-
-  do.bootstrap <- !is.null(n_boots)
+  # do.bootstrap <- !is.null(n_boots)
   if (length(tax.features)==0) {
     message("No significant features found.")
     bootmeans <- tibble(taxonomy=NA_character_,lda=NA_real_)
   } else {
     otu.d <- otul %>% filter(taxonomy %in% tax.features) %>%
       pivot_wider(id_cols=c(sample,!!sym(class)),names_from=taxonomy,values_from=pctseqs)
-    otu.d.rnorm <- otu.d %>% mutate(across(all_of(tax.features),~{
-      map_dbl(.,~abs(.+rnorm(1,0,sd=pmax(.*0.05,0.01))))
-    }))
-    if (!do.bootstrap) {
-      n_boots <- 30
-      message("Skipping bootstrap step.")
-    }
+    otu.d.rnorm <- otu.d %>% group_by(!!sym(class)) %>% mutate(across(all_of(tax.features),~{
+      if (n_distinct(.)>length(.)*0.5) {
+        new.pcts <- .
+      } else {
+        new.pcts <- map_dbl(.,~abs(.+rnorm(1,0,sd=pmax(.*0.05,0.01))))
+      }
+      new.pcts
+    })) %>% ungroup()
     pb <- progress::progress_bar$new(total = n_boots)
     pb$message(str_glue("Bootstrapping LDA effect sizes ({n_boots} samples)..."))
-
     lda.bootstrap <- map_dfr(1:n_boots,~{
       pb$tick()
-      if (do.bootstrap) {
-        for (i in 1:1000) {
-          sub_d <- otu.d.rnorm %>% sample_frac(size=f_boots,replace=TRUE)
-          class.counts <- sub_d %>% count(!!sym(class))
-          all.classes.present <- nrow(class.counts)==length(class.levels)
-          all.counts.above.min <- all(class.counts$n>=min_c)
-          if (all.classes.present & all.counts.above.min) {
-            break
-          }
+      for (i in 1:1000) {
+        sub_d <- otu.d.rnorm %>% sample_frac(size=f_boots,replace=TRUE)
+        class.counts <- sub_d %>% count(!!sym(class))
+        all.classes.present <- nrow(class.counts)==length(class.levels)
+        all.counts.above.min <- all(class.counts$n>=min_c)
+        if (all.classes.present & all.counts.above.min) {
+          break
         }
-      } else {
-        sub_d <- otu.d.rnorm
       }
+      # sub_d <- otu.d.rnorm
       formula <- as.formula(paste0(class," ~ ",paste0("`",tax.features,"`",collapse=" + ")))
       z <- suppressWarnings(MASS::lda(formula,data=sub_d,tol=0.0000000001))
       w <- z$scaling[,1]
@@ -1271,13 +1242,17 @@ lda.effect <- function(phy,class,subclass=NULL,
     left_join(direction,by="taxonomy") %>%
     mutate(lda=abs(lda),
            lda.pass=lda>lda.cutoff,
-           pass=kw.pass & (is.na(w.pass) | w.pass) & (lda.pass & !is.na(lda.pass)))
-  # print("No features with significant differences between the two classes")
-  message(str_glue("Number of significantly discriminative features: {sum(final$disc.feature)} ( {sum(final$disc.feature)} ) before internal wilcoxon
-Number of discriminative features with abs LDA score > {lda.cutoff} : {sum(final$pass)}"))
-  return(final)
+           lda.info=ifelse(lda.pass,NA_character_,"LDA: below cutoff"),
+           pass=kw.pass & (is.na(w.pass) | w.pass) & (lda.pass & !is.na(lda.pass)),
+           info=coalesce(kw.info,w.info,lda.info),
+           info=paste2(ifelse(pass,"PASS","FAIL:"),info)) %>%
+    select(taxonomy,rank,pass,lda,direction,kw.pvalue,log.max,info)
 
+  message(str_glue("Number of significantly discriminative features: {length(tax.features)} ( {length(tax.features)} ) before internal wilcoxon
+                   Number of discriminative features with abs LDA score > {lda.cutoff} : {sum(final$pass)}"))
+  return(final)
 }
+
 
 
 #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
