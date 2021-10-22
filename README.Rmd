@@ -69,7 +69,7 @@ For those starting to learn R for data science
 - [Hierarchical clustering](examples/cid.hclust.md) (Fig 3A of CID paper)
 - [PCOA and other ordination methods](examples/pcoa.md)
 - [Phylogenetic Trees from Phyloseq](examples/phylotree.md)
-- [Testing taxonomic features (LDA effect size)](features/pcoa.md)
+- [Testing taxonomic features (LDA effect size)](examples/features.md)
 - [Single sample barplot](examples/taxbar.md)
 
 
