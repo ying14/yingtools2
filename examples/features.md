@@ -2,7 +2,7 @@ Testing Taxonomic Features
 ================
 
 Here is a workflow for testing taxonomic features using the
-Segata/Huttenhower tool, LEfSE.
+Segata/Huttenhower tool, LEfSe.
 
 ``` r
 library(tidyverse)
@@ -63,17 +63,17 @@ ggplot(lda.plot,aes(x=taxonomy,y=lda,fill=direction)) + geom_col() + coord_flip(
 You can also view the data in a cladogram.
 
 ``` r
+# Add columns to the LDA table listing separate taxonomic levels (Kingdom, Phylum, ...) in full form. 
+# This will lead to correct labelling of all nodes.
 lvls <- rank_names(phy)
-lda.tbl <- lda
 for (i in 1:length(lvls)) {
-  lvl <- lvls[i]
-  lda.tbl[[lvl]] <- str_split(lda.tbl$taxonomy,"\\|") %>% map_chr(~str_c(.[1:i],collapse="|"))
+  lda[[lvls[i]]] <- str_split(lda$taxonomy,"\\|") %>% map_chr(~str_c(.[1:i],collapse="|"))
 }
-
-lefse.phy <- as.phylo.formula2(~Kingdom/Phylum/Class/Order/Family/Genus/taxon,data=lda.tbl)
-
+# Use the newly create columns to create a new phylo object representing the taxonomic hierarchy.
+# Then plot with ggtree.
+lefse.phy <- as.phylo.formula2(as.formula(paste("~",paste(lvls,collapse="/"))),data=lda)
 gt <- ggtree(lefse.phy,layout="circular")
-
+# This recursive function calculates the range of y values for all descendants of a given node.
 get.children.yrange <- function(node,gd) {
   hits <- gd$node[gd$parent==node]
   if (length(hits)==0 | node %in% hits) {
@@ -82,11 +82,12 @@ get.children.yrange <- function(node,gd) {
     return(unlist(lapply(hits,get.children.yrange,gd)))
   }
 }
-
 gd <- gt$data %>% left_join(lda,by=c("label"="taxonomy")) %>%
   mutate(y.range=lapply(node,get.children.yrange,cur_data()),
-  ymin=map_dbl(y.range,min),
-  ymax=map_dbl(y.range,max),xmin=x,xmax=9+7-x,
+  ymin=map_dbl(y.range,min)-0.5,
+  ymax=map_dbl(y.range,max)+0.5,
+  xmin=x,
+  xmax=1+2*length(lvls)-x,
   ymid=(ymin+ymax)/2,
   xtext=xmax-0.5,
   angle.label=scales::rescale(ymid,from=range(y),to=c(0,360)),
@@ -94,8 +95,8 @@ gd <- gt$data %>% left_join(lda,by=c("label"="taxonomy")) %>%
   short.label=map_chr(str_split(label,"\\|"),last))
 
 gt + geom_point(data=gd,aes(size=log.max),color="dark gray",fill="gray",shape=21) +
-  geom_point2(data=filter(gd,pass),aes(fill=direction,size=log.max),shape=21) +
   geom_rect(data=filter(gd,pass),aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,fill=direction),color="dark gray",alpha=0.2) +
+  geom_point(data=filter(gd,pass),aes(fill=direction,size=log.max),shape=21) +
   geom_text(data=filter(gd,pass),aes(x=xtext,y=ymid,label=short.label,angle=angle.label)) + 
   theme(legend.position="right")
 ```
