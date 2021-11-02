@@ -996,11 +996,6 @@ Use this with Docker or Conda image, or consider using lda.effect.")
 }
 
 
-
-
-
-
-
 #' LDA Effect Size
 #'
 #' Given a phyloseq object and class variable, perform LDA Effect Size analysis.
@@ -1018,11 +1013,10 @@ Use this with Docker or Conda image, or consider using lda.effect.")
 #' @param f_boots set the subsampling fraction value for each bootstrap iteration (default 0.67)
 #' @param mult.test.correction set the multiple testing correction options. 0 no correction (more strict, default),
 #' 1 correction for independent comparisons, 2 correction for dependent comparison
-#'
 #' @return a table containing features tested and results.
-#' @export
-#'
 #' @examples
+#' lda <- lda.effect(cid.phy,class="Consistency")
+#' @export
 lda.effect <- function(phy,class,subclass=NULL,
                        subject=NULL,
                        anova.alpha = 0.05,
@@ -1035,17 +1029,17 @@ lda.effect <- function(phy,class,subclass=NULL,
                        f_boots = 0.67,
                        mult.test.correction = 0) {
 
-  requireNamespace(c("phyloseq","progress","MASS"),quietly=TRUE)
+  requireNamespace(c("phyloseq","progress","MASS","purrr"),quietly=TRUE)
   if (!(mult.test.correction %in% c(0,1,2))) {stop("YTError: mult.test.correction should 0, 1, or 2.")}
-  ranks <- rank_names(phy)
+  ranks <- phyloseq::rank_names(phy)
   if (is.null(subclass)) {
     # add a meaningless non-varying subclass as placeholder, if it is not specified
     subclass <- paste0(class,"_subclass")
-    sample_data(phy)[[subclass]] <- sample_data(phy)[[class]]
+    phyloseq::sample_data(phy)[[subclass]] <- phyloseq::sample_data(phy)[[class]]
   }
   s <- suppressWarnings(get.samp(phy)) %>%
     mutate(across(any_of(c(class,subclass)),as.character))
-  sample_data(phy) <- s %>% set.samp()
+  phyloseq::sample_data(phy) <- s %>% set.samp()
 
   # calculate totalseqs... need to recalculate pctseqs to avoid floating point errors.
   otu <- get.otu.melt(phy,filter.zero=FALSE) %>%
@@ -1057,18 +1051,19 @@ lda.effect <- function(phy,class,subclass=NULL,
     otu %>%
       group_by(!!!syms(vars)) %>%
       summarize(numseqs=sum(numseqs),.groups="drop") %>%
-      mutate(taxonomy=paste(!!!syms(lvls),sep="|"),rank=x)
+      mutate(taxonomy_=paste(!!!syms(lvls),sep="|"),rank=x)
   }) %>% bind_rows() %>%
     mutate(pctseqs=1000000*numseqs/totalseqs)
+
   class.levels <- unique(otu[[class]]) %>% as.character()
   subclass.levels <- unique(otu[[subclass]]) %>% as.character()
 
-  n.features <- n_distinct(otul$taxonomy)
+  n.features <- n_distinct(otul$taxonomy_)
   #create class and subclass comparisons. these can be inner joined to otul to get the correct comparison.
   class.comparisons <- combn(class.levels,2,simplify=FALSE) %>%
-    imap_dfr(~tibble(!!class:=.x,class=.x,class.list=list(.x),class.id=.y,group.number=1:2,class.desc=paste(.x,collapse=" vs. ")))
+    purrr::imap_dfr(~tibble(!!class:=.x,class=.x,class.list=list(.x),class.id=.y,group.number=1:2,class.desc=paste(.x,collapse=" vs. ")))
   subclass.comparisons <- cross2(subclass.levels,subclass.levels) %>% simplify_all() %>%
-    imap_dfr(~tibble(!!subclass:=.x,subclass=.x,subclass.list=list(.x),subclass.id=.y,group.number=1:2,subclass.desc=paste(.x,collapse=" vs. ")))
+    purrr::imap_dfr(~tibble(!!subclass:=.x,subclass=.x,subclass.list=list(.x),subclass.id=.y,group.number=1:2,subclass.desc=paste(.x,collapse=" vs. ")))
   if (wilcoxon.within.subclass) {
     subclass.comparisons <- subclass.comparisons %>%
       group_by(subclass.id) %>%
@@ -1092,14 +1087,14 @@ lda.effect <- function(phy,class,subclass=NULL,
            )) %>%
     ungroup()
 
-  message(str_glue("class: {class} ({length(class.levels)} values)\nsubclass: {subclass} ({length(subclass.levels)} values)\nclass/subclass comparisons per tax level: {n_distinct(all.comparisons$all.id)}\ntax levels: {n.features} taxonomic features"))
+  message(str_glue("class: {class} ({length(class.levels)} values)\nsubclass: {subclass} ({length(subclass.levels)} values)\nclass/subclass comparisons per tax level: {n_distinct(all.comparisons$all.id)}\nlevels: {n.features} taxonomic features (across {length(ranks)} levels: {paste(ranks,collapse=\"|\")})"))
 
   pb <- progress::progress_bar$new(total = n.features)
   pb$message(str_glue("Performing KW and W subclass testing ({n.features} tax features)"))
   results <- otul %>%
-    group_by(taxonomy,rank) %>%
+    group_by(taxonomy_,rank,!!!syms(ranks)) %>%
     group_modify(function(x,...) {
-      # x <- otul %>% filter(taxonomy=="Bacteria|Acidobacteria|Acidobacteria_Gp11")
+      # x <- otul %>% filter(taxonomy_=="Bacteria|Acidobacteria|Acidobacteria_Gp11")
       pb$tick()
       # kruskal test (class)
       kw <- kruskal.test(x[["pctseqs"]],as.factor(x[[class]]))
@@ -1141,8 +1136,7 @@ lda.effect <- function(phy,class,subclass=NULL,
                                                    "equal.medians"=equal.median,
                                                    "not.signif"=!w.signif & !small.size,
                                                    "different.direction"=!one.direction,
-                                                   first.hit.only=TRUE),
-                 NULL) %>%
+                                                   first.hit.only=TRUE)) %>%
           ungroup()
 
         w.class <- w %>%
@@ -1170,34 +1164,33 @@ lda.effect <- function(phy,class,subclass=NULL,
       summary <- bind_cols(kw.summary,w.summary) %>%
         mutate(disc.feature=kw.pass & (w.pass | is.na(w.pass)))
       return(summary)
-    }) %>%
-    ungroup()
+    }) %>% ungroup()
 
-  tax.features <- results %>% filter(disc.feature) %>% pull(taxonomy) %>% unique()
+  tax.features <- results %>% filter(disc.feature) %>% pull(taxonomy_) %>% unique()
   direction <- otul %>%
-    group_by(!!sym(class),taxonomy) %>%
+    group_by(!!sym(class),taxonomy_) %>%
     summarize(pctseqs=mean(pctseqs),.groups="drop") %>%
-    group_by(taxonomy) %>%
+    group_by(taxonomy_) %>%
     arrange(desc(pctseqs)) %>%
     summarize(direction=first(!!sym(class)),log.max=log10(first(pctseqs)),.groups="drop")
   # do.bootstrap <- !is.null(n_boots)
   if (length(tax.features)==0) {
     message("No significant features found.")
-    bootmeans <- tibble(taxonomy=NA_character_,lda=NA_real_)
+    bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
   } else {
-    otu.d <- otul %>% filter(taxonomy %in% tax.features) %>%
-      pivot_wider(id_cols=c(sample,!!sym(class)),names_from=taxonomy,values_from=pctseqs)
+    otu.d <- otul %>% filter(taxonomy_ %in% tax.features) %>%
+      pivot_wider(id_cols=c(sample,!!sym(class)),names_from=taxonomy_,values_from=pctseqs)
     otu.d.rnorm <- otu.d %>% group_by(!!sym(class)) %>% mutate(across(all_of(tax.features),~{
       if (n_distinct(.)>length(.)*0.5) {
         new.pcts <- .
       } else {
-        new.pcts <- map_dbl(.,~abs(.+rnorm(1,0,sd=pmax(.*0.05,0.01))))
+        new.pcts <- purrr::map_dbl(.,~abs(.+rnorm(1,0,sd=pmax(.*0.05,0.01))))
       }
       new.pcts
     })) %>% ungroup()
     pb <- progress::progress_bar$new(total = n_boots)
     pb$message(str_glue("Bootstrapping LDA effect sizes ({n_boots} samples)..."))
-    lda.bootstrap <- map_dfr(1:n_boots,~{
+    lda.bootstrap <- purrr::map_dfr(1:n_boots,~{
       pb$tick()
       for (i in 1:1000) {
         sub_d <- otu.d.rnorm %>% sample_frac(size=f_boots,replace=TRUE)
@@ -1227,28 +1220,34 @@ lda.effect <- function(phy,class,subclass=NULL,
       means <- (gm + coeff)*0.5
       means
     })
-    bootmeans <- lda.bootstrap %>% map(mean) %>%
-      map(~sign(.)*log10(1+abs(.))) %>%
+    bootmeans <- lda.bootstrap %>% purrr::map(mean) %>%
+      purrr::map(~sign(.)*log10(1+abs(.))) %>%
       # take max across pairs map()
-      map_dfr(~tibble(lda=.x),.id="taxonomy")
+      purrr::map_dfr(~tibble(lda=.x),.id="taxonomy_")
     if (nrow(bootmeans)==0) {
-      bootmeans <- tibble(taxonomy=NA_character_,lda=NA_real_)
+      bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
       message("No features significant!")
     }
   }
 
   final <- results %>%
-    left_join(bootmeans,by="taxonomy") %>%
-    left_join(direction,by="taxonomy") %>%
-    mutate(lda=abs(lda),
+    left_join(bootmeans,by="taxonomy_") %>%
+    left_join(direction,by="taxonomy_") %>%
+    rowwise() %>%
+    mutate(taxrank=purrr::map_chr(rank,~ranks[.]),
+           taxon_=c(!!!syms(ranks))[rank]) %>%
+    ungroup() %>%
+    mutate(taxon_=str_glue("{taxon_} ({taxrank})"),
+           taxon_=make.unique(taxon_),lda=abs(lda),
            lda.pass=lda>lda.cutoff,
            lda.info=ifelse(lda.pass,NA_character_,"LDA: below cutoff"),
            pass=kw.pass & (is.na(w.pass) | w.pass) & (lda.pass & !is.na(lda.pass)),
            info=coalesce(kw.info,w.info,lda.info),
            info=paste2(ifelse(pass,"PASS","FAIL:"),info)) %>%
-    select(taxonomy,rank,pass,lda,direction,kw.pvalue,log.max,info)
+    select(-disc.feature,-kw.info,-lda.info,-w.info,-all_of(ranks)) %>%
+    select(taxonomy=taxonomy_,taxon=taxon_,direction,lda,pass,kw.pass,w.pass,lda.pass,info,everything())
 
-  message(str_glue("Number of significantly discriminative features: {length(tax.features)} ( {length(tax.features)} ) before internal wilcoxon
+  message(str_glue("Number of significantly discriminative features: {length(tax.features)} ( {sum(results$kw.pass,na.rm=TRUE)} ) before internal wilcoxon
                    Number of discriminative features with abs LDA score > {lda.cutoff} : {sum(final$pass)}"))
   return(final)
 }
