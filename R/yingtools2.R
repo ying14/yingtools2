@@ -2107,23 +2107,32 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
 #' @author Ying Taur
 #' @export
 recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
-  #var=met.meds$GENERIC_DRUG_NAME;regexp=TRUE;replace=FALSE;multi.hits=F;ignore.case=T;perl=F;useBytes=T;recodes=med.class.recodes;else.value="Other"
   if (is.null(names(recodes))) {
     stop("Variable recodes needs to be a named vector or list")
   }
+
   if (replace & (!multi.hits | !regexp)) {
     warning("You specified replace=TRUE, setting regexp and multi.hits to TRUE.")
     multi.hits <- TRUE
     regexp <- TRUE
   }
-  var.recode <- rep(NA_character_,length(var)) #create NA vector
-
   if (is.list(recodes)) { #if recodes is list, convert it to vector
     recodes <- unlist(lapply(names(recodes),function(n) {
       re <- recodes[[n]]
       structure(rep(n,length(re)),names=re)
     }))
   }
+  rclass <- c(sapply(recodes,mode),mode(else.value)) %>% unique()
+  if (length(rclass)==1) {
+    na_value <- as(NA,rclass)
+  } else {
+    warning("YTWarning: different classes were specified in recodes and else.value. Result will be character.")
+    mode(recodes) <- "character"
+    mode(else.value) <- "character"
+    na_value <- NA_character_
+  }
+  var.recode <- rep(na_value,length(var)) #create NA vector
+
   for (i in 1:length(recodes)) {
     pattern <- names(recodes)[i]
     newname <- recodes[i]
@@ -2145,7 +2154,7 @@ recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,repl
     }
   }
   #NA values kept as NA
-  var.recode[is.na(var)] <- NA_character_
+  var.recode[is.na(var)] <- na_value
 
   # names(var.recode) <- var #add names to result.
   #handling non-matches
@@ -2166,6 +2175,7 @@ recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,repl
   }
   return(var.recode)
 }
+
 
 
 

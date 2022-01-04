@@ -414,35 +414,34 @@ read.uparse.data <- function(dirpath,
 #' @export
 read.blastn.file <- function(tax.file,tax_table=TRUE) {
   requireNamespace("data.table",quietly=TRUE)
-  #tax.file="uparse/total.5.repset.fasta.blastn.refseq_rna.txt";tax_table=TRUE;blastn.data=FALSE
-  t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
+  # t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
+  t <- read_tsv(tax.file,col_types=cols(sallgi=col_character(),staxids=col_character()))
   ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
   ranklevels <- stringr::str_to_title(make.names(ranklevels))
   t <- t %>%
     mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
            staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
            otu=qseqid,    # otu=sub(";?$",";",qseqid),
-           otu.number=as.numeric(str_extract(otu,"(?<=OTU_)[0-9]+"))) %>%
+           otu.number=as.numeric(str_extract(otu,"(?<=(OTU|ASV)_)[0-9]+"))) %>%
     separate(taxonomy,into=ranklevels,sep="\\|",remove=FALSE) %>%
+    arrange(otu.number,otu,evalue,staxid) %>%
     group_by(otu) %>%
-    arrange(evalue,staxid) %>%
-    filter(!duplicated(taxonomy)) %>%
+    # filter(!duplicated(taxonomy)) %>%
     mutate(evalue.rank=dense_rank(evalue)) %>%
-    select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything())
+    select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything()) %>%
+    ungroup()
   if (!tax_table) {
-    t <- t %>% ungroup() %>% arrange(otu.number)
     return(t)
   } else {
     t <- t %>%
+      group_by(otu) %>%
       # mutate(n.ties=sum(dense_rank(evalue)==1),blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
       filter(row_number()==1) %>%
       ungroup() %>%
-      arrange(otu.number) %>%
       select(otu,evalue,pident,!!!ranklevels)
     return(t)
   }
 }
-
 
 #' Read in mothur taxonomy file.
 #'
@@ -1173,7 +1172,26 @@ lda.effect <- function(phy,class,subclass=NULL,
     group_by(taxonomy_) %>%
     arrange(desc(pctseqs)) %>%
     summarize(direction=first(!!sym(class)),log.max=log10(first(pctseqs)),.groups="drop")
-  # do.bootstrap <- !is.null(n_boots)
+
+  calc.lda <- function(otudata,formula) {
+    z <- suppressWarnings(MASS::lda(formula,data=otudata,tol=0.0000000001))
+    w <- z$scaling[,1]
+    names(w) <- gsub("`","",names(w))
+    w.unit <- w/sqrt(sum(w^2))
+    xy.matrix <- otudata %>% select(-!!(sym(class)),-sample) %>% as.matrix()
+    LD <- xy.matrix %*% w.unit
+    p <- class.levels
+    effect.size <- abs(mean(LD[otudata[,class]==p[1]]) - mean(LD[otudata[,class]==p[2]]))
+    scal <- w.unit * effect.size
+    rres <- z$means
+    colnames(rres) <- gsub("`","",colnames(rres))
+    lenc <- length(colnames(rres))
+    coeff <- if_else(!is.na(scal),scal,0)
+    gm  <- apply(rres,2,function(x) abs(x[1]-x[2]))
+    means <- (gm + coeff)*0.5
+    means
+  }
+
   if (length(tax.features)==0) {
     message("No significant features found.")
     bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
@@ -1188,50 +1206,40 @@ lda.effect <- function(phy,class,subclass=NULL,
       }
       new.pcts
     })) %>% ungroup()
-    pb <- progress::progress_bar$new(total = n_boots)
-    pb$message(str_glue("Bootstrapping LDA effect sizes ({n_boots} samples)..."))
-    lda.bootstrap <- purrr::map_dfr(1:n_boots,~{
-      pb$tick()
-      for (i in 1:1000) {
-        sub_d <- otu.d.rnorm %>% sample_frac(size=f_boots,replace=TRUE)
-        class.counts <- sub_d %>% count(!!sym(class))
-        all.classes.present <- nrow(class.counts)==length(class.levels)
-        all.counts.above.min <- all(class.counts$n>=min_c)
-        if (all.classes.present & all.counts.above.min) {
-          break
+    formula <- as.formula(paste0(class," ~ ",paste0("`",tax.features,"`",collapse=" + ")))
+    if (!is.null(n_boots)) {
+      pb <- progress::progress_bar$new(total = n_boots)
+      pb$message(str_glue("Bootstrapping LDA effect sizes ({n_boots} samples)..."))
+      lda.bootstrap <- purrr::map_dfr(1:n_boots,~{
+        pb$tick()
+        for (i in 1:1000) {
+          sub_d <- otu.d.rnorm %>% sample_frac(size=f_boots,replace=TRUE)
+          class.counts <- sub_d %>% count(!!sym(class))
+          all.classes.present <- nrow(class.counts)==length(class.levels)
+          all.counts.above.min <- all(class.counts$n>=min_c)
+          if (all.classes.present & all.counts.above.min) {
+            break
+          }
         }
-      }
-      # sub_d <- otu.d.rnorm
-      formula <- as.formula(paste0(class," ~ ",paste0("`",tax.features,"`",collapse=" + ")))
-      z <- suppressWarnings(MASS::lda(formula,data=sub_d,tol=0.0000000001))
-      w <- z$scaling[,1]
-      names(w) <- gsub("`","",names(w))
-      w.unit <- w/sqrt(sum(w^2))
-      xy.matrix <- sub_d %>% select(-!!(sym(class)),-sample) %>% as.matrix()
-      LD <- xy.matrix %*% w.unit
-      p <- class.levels
-      effect.size <- abs(mean(LD[sub_d[,class]==p[1]]) - mean(LD[sub_d[,class]==p[2]]))
-      scal <- w.unit * effect.size
-      rres <- z$means
-      colnames(rres) <- gsub("`","",colnames(rres))
-      lenc <- length(colnames(rres))
-      coeff <- if_else(!is.na(scal),scal,0)
-      gm  <- apply(rres,2,function(x) abs(x[1]-x[2]))
-      means <- (gm + coeff)*0.5
-      means
-    })
-    bootmeans <- lda.bootstrap %>% purrr::map(mean) %>%
+        calc.lda(sub_d,formula)
+      })
+      bootmeans <- lda.bootstrap %>% purrr::map(mean)
+    } else {
+      message("Skipping bootstrap step.")
+      bootmeans <- calc.lda(otu.d.rnorm,formula)
+    }
+    log.bootmeans <- bootmeans %>%
       purrr::map(~sign(.)*log10(1+abs(.))) %>%
       # take max across pairs map()
       purrr::map_dfr(~tibble(lda=.x),.id="taxonomy_")
-    if (nrow(bootmeans)==0) {
-      bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
+    if (nrow(log.bootmeans)==0) {
+      log.bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
       message("No features significant!")
     }
   }
 
   final <- results %>%
-    left_join(bootmeans,by="taxonomy_") %>%
+    left_join(log.bootmeans,by="taxonomy_") %>%
     left_join(direction,by="taxonomy_") %>%
     rowwise() %>%
     mutate(taxrank=purrr::map_chr(rank,~ranks[.]),

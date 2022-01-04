@@ -53,3 +53,6 @@ a table containing features tested and results.
 \description{
 Given a phyloseq object and class variable, perform LDA Effect Size analysis.
 }
+\examples{
+lda <- lda.effect(cid.phy,class="Consistency")
+}
