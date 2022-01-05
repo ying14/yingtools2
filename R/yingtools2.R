@@ -2122,13 +2122,20 @@ recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,repl
       structure(rep(n,length(re)),names=re)
     }))
   }
-  rclass <- c(sapply(recodes,mode),mode(else.value)) %>% unique()
+  if (is.null(else.value)) {
+    else.class <- mode(var)
+  } else {
+    else.class <- mode(else.value)
+  }
+  rclass <- c(sapply(recodes,mode),else.class) %>% unique()
   if (length(rclass)==1) {
     na_value <- as(NA,rclass)
   } else {
     warning("YTWarning: different classes were specified in recodes and else.value. Result will be character.")
     mode(recodes) <- "character"
-    mode(else.value) <- "character"
+    if (!is.null(else.value)) {
+      mode(else.value) <- "character"
+    }
     na_value <- NA_character_
   }
   var.recode <- rep(na_value,length(var)) #create NA vector
