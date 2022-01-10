@@ -1468,14 +1468,17 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
 
   if (!rlang::quo_is_null(by)) {
     by.table <- lapply(allvars,function(var) {
+
       d %>% count(value=!!var,col=paste0(quo_name(by),"=",!!by)) %>%
         complete(value,col,fill=list(n=0)) %>%
+        group_by(col) %>%
         mutate(sum=sum(n),
                pct=n/sum,
                percent=scales::percent(pct,accuracy=0.1),
                var=quo_name(var),
                text=purrr::when(denom ~ str_glue("{n} ({percent})"),
                                 ~ str_glue("{n}/{sum} ({percent})"))) %>%
+        ungroup() %>%
         pivot_wider(id_cols=c(var,value),names_from=col,values_from=text)
     }) %>% bind_rows()
     tbl <- full_join(by.table,tbl,by=c("var","value"))
@@ -4047,6 +4050,34 @@ group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALS
 }
 
 
+#' Sample n groups from a grouped table
+#'
+#' @param grouped_df a grouped data frame to be sampled
+#' @param size number of groups to sample
+#' @param replace sample with or without replacement?
+#' @param weight sampling weights.
+#'
+#' @return a subset of the original grouped data frame
+#'
+#' @examples
+#' mtcars %>% group_by(gear) %>% sample_groups(2)
+#' @export
+sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
+  grp_var <- grouped_df %>%
+    groups %>%
+    unlist %>%
+    as.character
+  if (length(grp_var)==0) {
+    warning("YTWarning: no group detected.")
+  }
+  random_grp <- grouped_df %>%
+    summarise() %>%
+    sample_n(size, replace, weight) %>%
+    mutate(unique_id = 1:NROW(.))
+  grouped_df %>%
+    right_join(random_grp, by=grp_var) %>%
+    group_by_(grp_var)
+}
 
 
 #' Get Rows (optimized for timeline plots)
