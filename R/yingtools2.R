@@ -784,7 +784,6 @@ shell.exec <- function(file) {
   }
 }
 
-
 #' Copy to Clipboard
 #'
 #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
@@ -794,14 +793,17 @@ shell.exec <- function(file) {
 #' @param obj object to by copied. Can be data frame, matrix, table, vector.
 #' @author Ying Taur
 #' @export
-copy.to.clipboard <- function(x,...) UseMethod("copy.to.clipboard")
-#' @rdname copy.to.clipboard
-#' @export
-copy.to.clipboard.default <- function(obj) {
-  requireNamespace("clipr",quietly=TRUE)
-  clipr::write_clip(obj)
-  message("Copied to clipboard")
+copy.to.clipboard <- function(x) {
+  if (is(x,"gg")) {
+    copy.to.clipboard.gg(x)
+  } else {
+    requireNamespace("clipr",quietly=TRUE)
+    clipr::write_clip(x)
+    message("Copied to clipboard")
+  }
 }
+
+
 #' @rdname copy.to.clipboard
 #' @export
 copy.to.clipboard.gg <- function(obj,width=10,height=7,dpi=150,pointsize=12,rescale="R"){
@@ -814,11 +816,6 @@ copy.to.clipboard.gg <- function(obj,width=10,height=7,dpi=150,pointsize=12,resc
     error("YTError: don't yet know how to copy ggplot objects in non-windows R settings.")
   }
 }
-
-
-
-
-
 
 
 #' Read Clipboard
