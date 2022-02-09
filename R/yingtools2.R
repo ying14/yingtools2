@@ -806,14 +806,24 @@ copy.to.clipboard <- function(x) {
 
 #' @rdname copy.to.clipboard
 #' @export
-copy.to.clipboard.gg <- function(obj,width=10,height=7,dpi=150,pointsize=12,rescale="R"){
+copy.to.clipboard.gg <- function(obj,width=10,height=7,dpi=150,pointsize=12,rescale="R") {
   if (Sys.info()['sysname']=="Windows") {
     windows(width=width,height=height,pointsize=pointsize,xpinch=dpi,ypinch=dpi,rescale=rescale)
     print(obj)
     savePlot("clipboard",type="wmf")
     dev.off()
+    message("Copied image to clipboard (windows)")
+  } else if (Sys.info()['sysname']=="Linux") {
+    temp <- tempfile(fileext="png")
+    png(temp,width=10,height=7,pointsize=12,units="in",res=150)
+    print(obj)
+    dev.off()
+    system(str_glue("xclip -selection clipboard -t image/png -i {temp}"))
+    if (file.remove(temp)) {
+      message("Copied image to clipboard (linux-xclip)")
+    }
   } else {
-    error("YTError: don't yet know how to copy ggplot objects in non-windows R settings.")
+    error("YTError: don't yet know how to copy ggplot objects in this operating system.")
   }
 }
 

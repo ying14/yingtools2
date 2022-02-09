@@ -413,9 +413,9 @@ read.uparse.data <- function(dirpath,
 #' @author Ying Taur
 #' @export
 read.blastn.file <- function(tax.file,tax_table=TRUE) {
-  requireNamespace("data.table",quietly=TRUE)
+  requireNamespace(c("data.table","readr"),quietly=TRUE)
   # t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
-  t <- read_tsv(tax.file,col_types=cols(sallgi=col_character(),staxids=col_character()))
+  t <- readr::read_tsv(tax.file,col_types=readr::cols(sallgi=readr::col_character(),staxids=readr::col_character()))
   ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
   ranklevels <- stringr::str_to_title(make.names(ranklevels))
   t <- t %>%

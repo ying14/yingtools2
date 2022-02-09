@@ -2,9 +2,19 @@
 % Please edit documentation in R/yingtools2.R
 \name{copy.to.clipboard}
 \alias{copy.to.clipboard}
+\alias{copy.to.clipboard.gg}
 \title{Copy to Clipboard}
 \usage{
-copy.to.clipboard(obj)
+copy.to.clipboard(x)
+
+copy.to.clipboard.gg(
+  obj,
+  width = 10,
+  height = 7,
+  dpi = 150,
+  pointsize = 12,
+  rescale = "R"
+)
 }
 \arguments{
 \item{obj}{object to by copied. Can be data frame, matrix, table, vector.}
