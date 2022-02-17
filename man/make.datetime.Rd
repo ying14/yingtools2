@@ -15,5 +15,5 @@ make.datetime(date, time)
 Returns POSIXct object with date and time combined.
 }
 \description{
-Create Date-Time (POSIXct object)
+Note: The particular use is in ytdata::visits() function.
 }
