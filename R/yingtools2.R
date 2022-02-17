@@ -1706,9 +1706,11 @@ as.Date2 <- function(vec) {
 #'
 #' @param date Date object
 #' @param time character with time in it
+#' @param tz time zone to use. Default is "UTC"
+#'
 #' @return Returns POSIXct object with date and time combined.
 #' @export
-make.datetime <- function(date,time) {
+make.datetime <- function(date,time,tz="UTC") {
   if (all(is.na(date))) {
     return(as.POSIXct(date))
   }
@@ -1720,7 +1722,7 @@ make.datetime <- function(date,time) {
   }
   dt <- as.POSIXct(rep(NA,length(date)))
   convert <- !is.na(date) & !is.na(time)
-  dt[convert] <- as.POSIXct(paste(date[convert],time[convert]))
+  dt[convert] <- as.POSIXct(paste(date[convert],time[convert]),tz=tz)
   return(dt)
 }
 
