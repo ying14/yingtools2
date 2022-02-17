@@ -1704,6 +1704,7 @@ as.Date2 <- function(vec) {
 
 #' Create Date-Time (POSIXct object)
 #'
+#' Note: The particular use is in ytdata::visits() function.
 #' @param date Date object
 #' @param time character with time in it
 #'
@@ -1725,6 +1726,53 @@ make.datetime <- function(date,time) {
   dt <- lubridate::with_tz(dt,"UTC")
   return(dt)
 }
+
+
+
+
+
+
+#' Convert POSIXct to a fractional date
+#'
+#' This creates a fractional date. If you do as.Date(datetime), it removes the time part.
+#' @param datetime a POSIXct vector to be convered
+#'
+#' @return a Date column that contains fractional values.
+#' @export
+#'
+#' @examples
+as_date_fractional <- function(datetime) {
+  date <- as.Date(datetime)
+  time <- difftime(datetime,date,units="days")
+  date+as.numeric(time)
+}
+
+
+
+#' Get Midpoint
+#'
+#' For 2 vectors, get the center. Works with numeric, Date, POSIXct.
+#'
+#' This is useful when dealing with Date and POSIXct, since you can't just add them together and divide by 2.
+#' @param tstart the start value
+#' @param tstop the stop value
+#'
+#' @return a vector of values represent the midpoint between \code{tstart} and \code{tstop}.
+#' @export
+#'
+#' @examples
+midpoint <- function(tstart,tstop) {
+  if (lubridate::is.Date(tstart) | lubridate::is.POSIXct(tstart)) {
+    tstart+as.numeric(tstop-tstart)/2
+  } else if (is.numeric(tstart)) {
+    (tstart+tstop)/2
+  } else {
+    stop("YTError: invalid class!")
+  }
+}
+
+
+
 
 
 #' Extract Time
