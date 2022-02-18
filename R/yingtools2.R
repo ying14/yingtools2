@@ -2077,8 +2077,12 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
 
   arglist <- list(...)
   len <- unique(sapply(arglist,length))
-  if (length(len)!=1) {
+  if (length(len)>1) {
     stop("YTError: arguments are different lengths!")
+  }
+  #empty data, return empty character
+  if (length(len)==1 & len==0) {
+    return(character())
   }
   mat <- do.call(cbind,arglist)
   output <- sapply(1:len,function(i) {
