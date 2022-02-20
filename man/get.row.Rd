@@ -4,18 +4,27 @@
 \alias{get.row}
 \title{Get Rows (optimized for timeline plots)}
 \usage{
-get.row(start, stop, row, by = NULL, min.gap = Inf)
+get.row(
+  start,
+  stop,
+  row = NULL,
+  by = NULL,
+  no.row.overlap = FALSE,
+  min.gap = Inf
+)
 }
 \arguments{
 \item{start}{vector of event start times (numeric or Date).}
 
 \item{stop}{vector of event stop times (numeric or Date).}
 
-\item{row}{vector of event types. Can be original row assignments or event labels.}
+\item{row}{vector of event types. Can be a list of more than one vector.}
 
 \item{by}{optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}}
 
-\item{min.gap}{minimum allowable gap between two different event types, if they are to be placed on the same row. Default is \code{Inf}: no row merging, \code{0} tries to perform as much merging as possible.}
+\item{min.gap}{the minimum gap allowed before 2 different row values can be combined. Inf: different row values can never share the same row position. 0: fit different rows as much as possible.}
+
+\item{row.overlap}{whether or not the same row value can overlap. TRUE: each value is always one row FALSE: each row can occupy several rows if necessary}
 }
 \value{
 Returns a vector of row number assignments for each time event.
@@ -24,6 +33,33 @@ Returns a vector of row number assignments for each time event.
 Given timeline event data with event type labels and start/stop times, calculate rows.
 If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
 }
-\author{
-Ying Taur
+\examples{
+library(tidyverse)
+library(gridExtra)
+
+plot.meds <- function(data,title) {
+  ggplot(data) +
+    geom_rect(aes(xmin=startday-0.45,xmax=endday+0.45,ymin=row-0.45,ymax=row+0.45,fill=med.class),alpha=0.7) +
+    geom_text(aes(x=midpoint(startday,endday),y=row,label=med.clean)) +
+    ggtitle(title)
+}
+pt.meds <- cid.meds \%>\% filter(Patient_ID=="157")
+
+g1 <- pt.meds \%>\%
+  mutate(row=get.row(startday,endday,row=med.clean,by=med.class)) \%>\%
+  plot.meds("strictly one row per med\n(no.row.overlap=FALSE and min.gap=Inf), arranged by class")
+
+g2 <- pt.meds \%>\%
+  mutate(row=get.row(startday,endday,row=med.clean,by=med.class,no.row.overlap=TRUE)) \%>\%
+  plot.meds("same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)")
+
+g3 <- pt.meds \%>\%
+  mutate(row=get.row(startday,endday,row=med.clean,min.gap=1,by=med.class)) \%>\%
+  plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
+
+g4 <- pt.meds \%>\%
+  mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) \%>\%
+  plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)")
+
+gridExtra::grid.arrange(g1,g2,g3,g4)
 }

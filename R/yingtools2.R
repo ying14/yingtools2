@@ -4153,7 +4153,102 @@ sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
 }
 
 
+
+
+
+
 #' Get Rows (optimized for timeline plots)
+#'
+#' Given timeline event data with event type labels and start/stop times, calculate rows.
+#' If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
+#' @param start vector of event start times (numeric or Date).
+#' @param stop vector of event stop times (numeric or Date).
+#' @param row vector of event types. Can be a list of more than one vector.
+#' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}
+#' @param row.overlap whether or not the same row value can overlap. TRUE: each value is always one row FALSE: each row can occupy several rows if necessary
+#' @param min.gap the minimum gap allowed before 2 different row values can be combined. Inf: different row values can never share the same row position. 0: fit different rows as much as possible.
+#' @return Returns a vector of row number assignments for each time event.
+#'
+#' @examples
+#' library(tidyverse)
+#' library(gridExtra)
+#'
+#' plot.meds <- function(data,title) {
+#'   ggplot(data) +
+#'     geom_rect(aes(xmin=startday-0.45,xmax=endday+0.45,ymin=row-0.45,ymax=row+0.45,fill=med.class),alpha=0.7) +
+#'     geom_text(aes(x=midpoint(startday,endday),y=row,label=med.clean)) +
+#'     ggtitle(title)
+#' }
+#' pt.meds <- cid.meds %>% filter(Patient_ID=="157")
+#'
+#' g1 <- pt.meds %>%
+#'   mutate(row=get.row(startday,endday,row=med.clean,by=med.class)) %>%
+#'   plot.meds("strictly one row per med\n(no.row.overlap=FALSE and min.gap=Inf), arranged by class")
+#'
+#' g2 <- pt.meds %>%
+#'   mutate(row=get.row(startday,endday,row=med.clean,by=med.class,no.row.overlap=TRUE)) %>%
+#'   plot.meds("same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)")
+#'
+#' g3 <- pt.meds %>%
+#'   mutate(row=get.row(startday,endday,row=med.clean,min.gap=1,by=med.class)) %>%
+#'   plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
+#'
+#' g4 <- pt.meds %>%
+#'   mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) %>%
+#'   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)")
+#'
+#' gridExtra::grid.arrange(g1,g2,g3,g4)
+#' @export
+get.row <- function(start,stop,row=NULL,by=NULL,no.row.overlap=FALSE,min.gap=Inf) {
+  requireNamespace("IRanges",quietly=TRUE)
+  if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
+  get.distinct.row <- function(start,stop) {
+    if (any(is.infinite(start))|any(is.infinite(stop))) {return(seq_along(start))}
+    ir <- IRanges::IRanges(as.numeric(start),as.numeric(stop))
+    return(IRanges::disjointBins(ir))
+  }
+  combine.one.factor <- function(var) {
+    if (is.null(var)) {return(1)}
+    if (!is.list(var)) {
+      return(factor(var))
+    } else {
+      by.combined <- do.call(paste,c(var,list(sep="||")))
+      by.order <- do.call(order,var)
+      return(factor(by.combined,levels=unique(by.combined[by.order])))
+    }
+  }
+  by <- combine.one.factor(by)
+  row <- combine.one.factor(row)
+  t <- data.frame(start,stop,row,by) %>% mutate(i=row_number())
+  #arrange elements within each row (minimize number of rows)
+  if (no.row.overlap) {
+    t2 <- t %>% group_by(row,by) %>%
+      mutate(row1=get.distinct.row(start,stop)) %>%
+      ungroup()
+  } else {
+    t2 <- t %>% mutate(row1=1)
+  }
+  #now arrange rows within each by-value
+  pad <- min.gap / 2
+  t.row <- t %>% group_by(row,by) %>%
+    summarize(start=min(start),stop=max(stop),.groups="drop") %>%
+    group_by(by) %>%
+    mutate(row2=get.distinct.row(start-pad,stop+pad)) %>%
+    ungroup() %>%
+    select(-start,-stop)
+  # join together and create final row
+  t3 <- t2 %>% left_join(t.row,by=c("row","by")) %>%
+    arrange(by,row2,row1) %>%
+    mutate(finalrow=paste(by,row2,row1,sep=";;"),
+           finalrow=fct_inorder(finalrow),
+           finalrow=as.numeric(finalrow)) %>%
+    arrange(i)
+  return(t3$finalrow)
+}
+
+
+
+#' Get Rows (optimized for timeline plots) OLD
 #'
 #' Given timeline event data with event type labels and start/stop times, calculate rows.
 #' If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
@@ -4165,7 +4260,7 @@ sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
 #' @return Returns a vector of row number assignments for each time event.
 #' @author Ying Taur
 #' @export
-get.row <- function(start,stop,row,by=NULL,min.gap=Inf) {
+get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
   # start=medssub$start_day;stop=medssub$stop_day;row=medssub$y.row;by=list(medssub$abx_class,medssub$med_class3);min.gap=0
   if (min.gap<0) {
     stop("YTError: min.gap must be greater than 0")
@@ -4216,7 +4311,6 @@ get.row <- function(start,stop,row,by=NULL,min.gap=Inf) {
   newrow <- d.final$y.row3[match(d$row,d.final$row)]
   return(newrow)
 }
-
 
 #' Select 2
 #'
