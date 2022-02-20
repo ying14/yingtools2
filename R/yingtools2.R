@@ -2677,6 +2677,27 @@ overlaps <- function(start1,stop1,start2,stop2) {
   stop1>=start2 & stop2>=start1
 }
 
+
+
+
+
+#' Any overlap
+#'
+#' For a given set of intervals, determine whether any interval is overlapping.
+#' @param start vector specifying the start of the intervals
+#' @param stop vector specifying the end of the intervals
+#' @param na.rm whether to remove NA values (default is TRUE)
+#' @return whether or not at least one interval is overlapping.
+#' @export
+any.overlap <- function(start,stop,na.rm=TRUE) {
+  t <- tibble(start=start,stop=stop) %>%
+    arrange(start) %>%
+    mutate(diff = start - lag(stop))
+  return(any(t$diff[-1]<0,na.rm=na.rm))
+}
+
+
+
 #' Determines if x is between start and stop/
 #'
 #' Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
@@ -4202,6 +4223,7 @@ sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
 get.row <- function(start,stop,row=NULL,by=NULL,no.row.overlap=FALSE,min.gap=Inf) {
   requireNamespace("IRanges",quietly=TRUE)
   if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
+  if (length(start)==0) {return(integer())}
   get.distinct.row <- function(start,stop) {
     if (any(is.infinite(start))|any(is.infinite(stop))) {return(seq_along(start))}
     ir <- IRanges::IRanges(as.numeric(start),as.numeric(stop))
