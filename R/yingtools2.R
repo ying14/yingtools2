@@ -26,6 +26,19 @@
   as.numeric(difftime(x,y,units="days"))
 }
 
+
+#' Regular Expression Operator
+#'
+#' Shorthand operator for regular expression.
+#' @export
+"%like%" = function(x,y) {
+  grepl(y,x,ignore.case=TRUE)
+}
+
+
+
+
+
 #' Left Join Replace
 #'
 #' Like left_join, but replaces column names in x with new columns from y.
@@ -2132,7 +2145,6 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
     map_chr(~paste2(.,collapse=collapse))
   final
 }
-
 
 #' Ying's Recode
 #'
