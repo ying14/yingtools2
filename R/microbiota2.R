@@ -84,23 +84,23 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
     if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
     sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
   }
-  newvars <- "nseqs"
+
+  sdata.newcols <- tibble(nseqs=unname(phyloseq::sample_sums(phy)))
   if (stats) {
-    newvars <- c(newvars,measures)
+    stat.data <- phyloseq::estimate_richness(phy,measures=measures) %>% as_tibble()
+    sdata.newcols <- cbind(sdata.newcols,stat.data)
   }
-  names.exist <- intersect(newvars,names(sdata))
-  if (length(names.exist)>0) {
-    warning("YTWarning: sample data contains columns which will be overwritten: ",paste(names.exist,collapse=", "))
-    sdata <- sdata %>% select(-c(!!!rlang::syms(names.exist)))
+  names.exist <- intersect(names(sdata.newcols),names(sdata))
+  values.all.equal <- map_lgl(names.exist,~{
+    all(sdata.newcols[[.x]]==sdata[[.x]])
+  })
+  names.exist.and.different <- names.exist[!values.all.equal]
+  if (length(names.exist.and.different)>0) {
+    warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
   }
-  sdata$nseqs <- phyloseq::sample_sums(phy)
-  if (stats) {
-    sdata <- cbind(sdata,estimate_richness(phy,measures=measures)) %>% as_tibble()
-  }
+  sdata <- sdata %>% cbind(sdata.newcols)
   return(sdata)
 }
-
-
 
 
 #' Convert data frame to phyloseq sample_data
