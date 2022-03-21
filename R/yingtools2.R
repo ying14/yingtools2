@@ -1403,9 +1403,9 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
   }
   grobs <- grobs[keep]
   length.grobs <- length(grobs)
-  if (length.grobs<=1) {
-    stop("YTError: should have at least 2 grobs")
-  }
+  # if (length.grobs<=1) {
+  #   stop("YTError: should have at least 2 grobs")
+  # }
   if (is.null(heights)) {
     heights <- rep(1,length.grobs)
   }
