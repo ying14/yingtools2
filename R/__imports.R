@@ -18,9 +18,8 @@
 #' @import forcats
 #' @import stringr
 #' @importFrom lubridate is.Date is.POSIXct is.POSIXlt is.POSIXt
+#' @importFrom scales percent trans_new pvalue rescale
 #' @importFrom reshape2 dcast melt
-#' @importFrom readxl read_excel
-#' @importFrom scales percent
 #' @importFrom plyr adply
 NULL
 

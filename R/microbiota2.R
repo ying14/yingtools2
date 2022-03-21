@@ -92,13 +92,13 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
   }
   names.exist <- intersect(names(sdata.newcols),names(sdata))
   values.all.equal <- map_lgl(names.exist,~{
-    all(sdata.newcols[[.x]]==sdata[[.x]])
+    all(sdata.newcols[[.x]]==sdata[[.x]],na.rm=TRUE)
   })
   names.exist.and.different <- names.exist[!values.all.equal]
   if (length(names.exist.and.different)>0) {
     warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
   }
-  sdata <- sdata %>% cbind(sdata.newcols)
+  sdata <- sdata %>% select(-all_of(names.exist)) %>% cbind(sdata.newcols)
   return(sdata)
 }
 

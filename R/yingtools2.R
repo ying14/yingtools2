@@ -39,46 +39,93 @@
 
 
 
-#' Left Join Replace
+
+
+
+
+
+
+
+#' Inner/Left/Right/Full Join with Replace
 #'
-#' Like left_join, but replaces column names in x with new columns from y.
+#' Same as \code{inner_join}, \code{left_join}, \code{right_join}, and \code{full_join} in the \code{dplyr} package, except that variables with the
+#' same column name will not be renamed with the ".x" and ".y" suffix.
+#' Instead, the variables will be turned into one column if the variables are equal. If they are not equal, an error (or warning) is thrown.
 #'
-#' @param x, y tbls to join
-#' @param by a character vector of variables to join by.
-#' @param verbose whether to comment on rows altered (default \code{FALSE})
-#' @return Returns a joined data frame
-#' @author Ying Taur
+#' This is a convenience function that just avoids the renaming of columns.
+#' @param errorIfDifferent whether to throw an error if a difference is detected (default is \code{TRUE})
+#'
 #' @export
-left_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
-  replace.vars <- setdiff(intersect(names(x),names(y)),by)
-  keep.xvars <- setdiff(names(x),setdiff(names(y),by))
-  orig.x <- x %>% anti_join(y,by=by)
-  change.x <- x %>% select_(.dots=keep.xvars) %>% inner_join(y,by=by)
-  if (verbose) {
-    message(nrow(orig.x)," rows in x unchanged")
-    message(nrow(change.x)," rows in x updated")
-    message(length(replace.vars)," columns updated: ",paste(replace.vars,collapse=","))
+inner_join_replace <- function(x,y,by=NULL,errorIfDifferent=TRUE) {
+  requireNamespace("stringi",quietly=TRUE)
+
+  data <- inner_join(x,y,by=by)
+  x.vars0 <- str_extract_all(names(data),"(?<=^).+(?=\\.x$)") %>% unlist()
+  y.vars0 <- str_extract_all(names(data),"(?<=^).+(?=\\.y$)") %>% unlist()
+  overlap.vars <- intersect(x.vars0,y.vars0)
+  is.identical <- overlap.vars %>% map_lgl(~{
+    xvar <- stringi::stri_join(.x,".x")
+    yvar <- stringi::stri_join(.x,".y")
+    identical(data[[xvar]],data[[yvar]])
+  })
+  ident.vars <- overlap.vars[is.identical]
+  non.ident.vars <- overlap.vars[!is.identical]
+  ident.vars.x <- stringi::stri_join(ident.vars,".x")
+  ident.vars.y <- stringi::stri_join(ident.vars,".y")
+  non.ident.vars.x <- stringi::stri_join(non.ident.vars,".x")
+  non.ident.vars.y <- stringi::stri_join(non.ident.vars,".y")
+  if (length(non.ident.vars)>0) {
+    if (errorIfDifferent) {
+      stop(str_glue("YTError: overlapping variables do not match in value: {paste(non.ident.vars,collapse=\",\")}"))
+    } else {
+      warning(str_glue("YTWarning: overlapping variables have different values. These will be kept separate: {paste(sort(c(non.ident.vars.x,non.ident.vars.y)),collapse=\", \")}"))
+    }
+
   }
-  bind_rows(orig.x,change.x)
+  data2 <- data %>% select(-all_of(ident.vars.x)) %>%
+    rename(!!!rlang::syms(setNames(ident.vars.y,ident.vars)))
+  #double check names
+  old.names <- c(names(x),names(y))
+  new.names <- names(data2)
+  if (!setequal(old.names,new.names)) {
+    warning(str_glue("YTWarning: weird name change: {paste(setdiff(old.names,new.names),setdiff(new.names,old.names),sep=\", \")}"))
+  }
+  return(data2)
 }
 
-#' @rdname left_join
+
+
+#' @rdname inner_join_replace
 #' @export
-inner_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
-  replace.vars <- setdiff(intersect(names(x),names(y)),by)
-  keep.xvars <- setdiff(names(x),setdiff(names(y),by))
-  change.x <- x %>% select_(.dots=keep.xvars) %>% inner_join(y,by=by)
-  if (verbose) {
-    message(length(replace.vars)," columns updated: ",paste(replace.vars,collapse=","))
-  }
-  change.x
+left_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
+  data1 <- inner_join_replace(x,y,by=by,errorIfDifferent=errorIfDifferent)
+  data2 <- anti_join(x,y,by=by)
+  bind_rows(data1,data2)
 }
 
-#' @rdname left_join
+
+
+
+#' @rdname inner_join_replace
 #' @export
-right_join_replace <- function(x,y,by=NULL,verbose=FALSE) {
-  left_join_replace(y,x,by=by,verbose=verbose)
+right_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
+  left_join_replace(y,x,by=by,errorIfDifferent=errorIfDifferent)
 }
+
+
+
+
+#' @rdname inner_join_replace
+#' @export
+full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
+  data1 <- inner_join_replace(x,y,by=by,errorIfDifferent=errorIfDifferent)
+  data2 <- anti_join(x,y,by=by)
+  data3 <- anti_join(y,x,by=by)
+  bind_rows(data1,data2,data3)
+}
+
+
+
 
 
 #' Tabulate
@@ -1263,7 +1310,6 @@ log_epsilon_trans_breaks <- function(epsilon) {
 #' @author Ying Taur
 #' @export
 logistic_trans <- function(value1,value2,pct.value1=0.1,pct.value2=0.9) {
-  requireNamespace("scales",quietly=TRUE)
   inner.range <- c(value1,value2)
   percentiles <- c(pct.value1,pct.value2)
   a <- (inner.range[1]*log(1/percentiles[2]-1)-inner.range[2]*log(1/percentiles[1]-1))/(inner.range[1]-inner.range[2])
@@ -1276,8 +1322,7 @@ logistic_trans <- function(value1,value2,pct.value1=0.1,pct.value2=0.9) {
     y[y>=1] <- 1-.Machine$double.eps
     (log(1/y-1)-a) / b
   }
-  scales::trans_new("logistic",trans,inv,
-            breaks=logistic_trans_breaks(inner.range))
+  trans_new("logistic",trans,inv,breaks=logistic_trans_breaks(inner.range))
 }
 
 #' Breaks for Logistic Tranformation
@@ -1475,7 +1520,7 @@ age.years <- function(bdate,now) {
 #' @author Ying Taur
 #' @export
 make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
-  requireNamespace(c("rlang","scales","purrr"),quietly=TRUE)
+  requireNamespace(c("rlang","purrr"),quietly=TRUE)
   vars <- quos(...)
   by <- enquo(by)
   totalvar <- quo(total_)
@@ -1497,7 +1542,7 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
       complete(value,fill=list(n=0)) %>%
       mutate(sum=sum(n),
              pct=n/sum,
-             percent=scales::percent(pct,accuracy=0.1),
+             percent=percent(pct,accuracy=0.1),
              var=quo_name(var),
              text=purrr::when(denom ~ str_glue("{n} ({percent})"),
                               ~ str_glue("{n}/{sum} ({percent})"))) %>%
@@ -2613,7 +2658,7 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
     dtypes[match(names(col_types),names(dtypes))] <- col_types
     col_types <- dtypes
   }
-  xl <- read_excel(path=path,sheet=sheet,col_names=col_names,col_types=col_types,na=na,skip=skip)
+  xl <- readxl::read_excel(path=path,sheet=sheet,col_names=col_names,col_types=col_types,na=na,skip=skip)
   return(xl)
 }
 
@@ -3039,7 +3084,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   if (formatted) {
     tbl <- tbl %>%
       mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
-             p.value=scales::pvalue(p.value)) %>%
+             p.value=pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
@@ -3444,7 +3489,7 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
       results.table$lower.ci <- format(round(results.table$lower.ci,2),nsmall=2)
       results.table$upper.ci <- format(round(results.table$upper.ci,2),nsmall=2)
       results.table$p.value <- format(round(results.table$p.value,3),nsmall=3)
-      results.table <- adply(results.table,1,function(x) {
+      results.table <- plyr::adply(results.table,1,function(x) {
         x$haz.ratio <- paste0(x$haz.ratio," (",x$lower.ci," - ",x$upper.ci,")")
         return(x)
       })
@@ -3826,7 +3871,7 @@ logistic.formula <- function(formula, data=sys.parent(), firth=FALSE,formatted=T
     results.table$signif <- cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-"))
     numvars <- sapply(results.table,is.numeric)
     results.table[,numvars] <- sapply(results.table[,numvars],function(x) formatC(x,format="f",digits=digits))
-    results.table <- adply(results.table,1,function(x) {
+    results.table <- plyr::adply(results.table,1,function(x) {
       x$odds.ratio <- paste0(x$odds.ratio," (",x$lower.ci," - ",x$upper.ci,")")
       return(x)
     })
@@ -3953,7 +3998,7 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
   tbl <- tbl %>% left_join(tbl.extra,by=c("xvar","term"))
   if (formatted) {
     tbl <- tbl %>%
-      mutate(p.value=scales::pvalue(p.value)) %>%
+      mutate(p.value=pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
@@ -4324,7 +4369,7 @@ get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
     mutate(y.row1=row_number(stop),
            y.row2=row_number(start)-n())
 
-  d.row.test <- adply(0:(nrow(d.collapse)-1),1,function(overlap) {
+  d.row.test <- plyr::adply(0:(nrow(d.collapse)-1),1,function(overlap) {
     d.test <- d.collapse %>%
       mutate(y.row2=y.row2+overlap,
              y.row3=ifelse(y.row2>=1,y.row2,y.row1))
