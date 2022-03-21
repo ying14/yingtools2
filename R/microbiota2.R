@@ -247,6 +247,87 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 
 
 
+#' Calculate Abundance from Phyloseq
+#'
+#' Given a phyloseq, calculate relative abundance for each sample.
+#' @param phy phyloseq object to be analyzed
+#' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
+#' @param counts if \code{TRUE}, will return count rather than relative abundance
+#' @return a data frame containing sample identifier and abundance columns
+#'
+#' @examples
+#' get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
+#'
+#' @export
+get.abundance <- function(phy,..., counts=FALSE) {
+  requireNamespace("phyloseq",quietly=TRUE)
+
+  vars <- rlang::quos(...)
+  varnames <- names(vars)
+  novarname <- varnames==""
+  if (any(novarname)) {
+    default.name <- make.names(rep("pctseqs",sum(novarname)),unique=TRUE)
+    varnames[novarname] <- default.name
+  }
+  t <- get.tax(phy)
+  otu <- otu_table(phy,taxa_are_rows=FALSE)
+  seq.total <- sample_sums(phy)
+  n.zero.samps <- sum(seq.total==0)
+  if (n.zero.samps>0) {
+    warning("YTWarning: ",n.zero.samps," samples have zero sequences")
+  }
+  s <- tibble(sample=sample_names(phy))
+  for (i in 1:length(vars)) {
+    var <- vars[[i]]
+    varname <- varnames[i]
+    select.otus <- t %>% mutate(.criteria=!!var) %>% pull(.criteria)
+    if (all(!select.otus)) {
+      warning("YTWarning: no taxa meeting this criteria: ",quo_name(var))
+      tax.pctseqs <- 0
+    } else {
+      tax.sums <- otu[select.otus,,drop=FALSE] %>% apply(2,sum)
+      if (counts) {
+        tax.pctseqs <- tax.sums
+      } else {
+        tax.pctseqs <- tax.sums/seq.total
+      }
+    }
+    s <- s %>% mutate(!!varname:=unname(tax.pctseqs))
+  }
+  message("Created column(s): ",paste(varnames,collapse=", "))
+  return(s)
+}
+
+
+#' Add abundance to sample data
+#'
+#' @param sdata sample data to be modified
+#' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
+#' @param phy phyloseq object to be used for caluclation
+#' @param counts if \code{TRUE}, will return count rather than relative abundance
+#'
+#' @return returns \code{sdata}, with additional columns for abundance.
+#'
+#' @examples
+#' get.samp(cid.phy) %>% add.abundance(pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria",phy=cid.phy)
+#'
+#' @export
+add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
+  requireNamespace("phyloseq",quietly=TRUE)
+  s <- sdata %>% pull(sample) %>% prune_samples(phy) %>%
+    prune_taxa(taxa_sums(.)>0,.) %>%
+    get.abundance(...,counts=counts)
+  missing.samps <- setdiff(sdata$sample,s$sample)
+  if (length(missing.samps)>0) {
+    stop("YTError: ",length(missing.samps)," samples are missing from phyloseq object")
+  }
+  sdata %>% left_join(s,by="sample")
+}
+
+
+
+
+
 #' Collapse Phyloseq Into Taxonomy
 #'
 #' In a phyloseq object, combine OTUs of the same taxonomic classification.
