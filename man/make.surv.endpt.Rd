@@ -17,7 +17,7 @@ make.surv.endpt(data, newvar, primary, ..., censor = NULL, competing = FALSE)
 
 \item{censor}{variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.}
 
-\item{competing}{}
+\item{competing}{whether to code as competing. If FALSE, competing endpoints will be censored.}
 }
 \value{
 Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.

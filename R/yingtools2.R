@@ -127,6 +127,60 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 
 
 
+#' Compare data frames
+#'
+#' @param x table to be compared
+#' @param y table to be compared
+#' @param by varaible(s) to join by and compare
+#' @return a table from full_join(x,y,by). Contains columns .status and .diffs.
+#' @export
+compare <- function(x,y,by=NULL) {
+
+  if (is.null(by)) {
+    by <- intersect(names(x),names(y))
+  }
+  by.x <- names(by) %||% by
+  by.y <- unname(by)
+  x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
+  y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
+
+  if (by.x==by.y) {
+    by.x <- paste0(by.x,".x")
+    by.y <- paste0(by.y,".y")
+  }
+
+  # both <- inner_join_replace(x,y,by=by,errorIfDifferent = FALSE)
+  all <- full_join(x,y,by=by,keep=TRUE) %>%
+    mutate(.status=case_when(
+      !is.na(!!sym(by.x)) & !is.na(!!sym(by.y)) ~ "both x and y",
+      !is.na(!!sym(by.x)) & is.na(!!sym(by.y)) ~ "x only",
+      is.na(!!sym(by.x)) & !is.na(!!sym(by.y)) ~ "y only"
+    ))
+  x.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.x$)") %>% unlist()
+  y.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.y$)") %>% unlist()
+  overlap.vars <- intersect(x.vars0,y.vars0)
+
+  for (var in overlap.vars) {
+    var.x <- paste0(var,".x")
+    var.y <- paste0(var,".y")
+    diff <- all[[var.x]]!=all[[var.y]]
+    diff <- !is.na(diff) & diff
+  }
+
+  diffs <- map(overlap.vars,~{
+    var.x <- paste0(.x,".x")
+    var.y <- paste0(.x,".y")
+    diff <- all[[var.x]]!=all[[var.y]]
+    diff <- !is.na(diff) & diff
+    ifelse(diff,.x,NA_character_)
+  }) %>% set_names(overlap.vars) %>%
+    do.call(paste2,.)
+  all$.diffs <- diffs
+  message(str_glue("x: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
+  message(str_glue("y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
+  all %>% count(.status,.diffs) %>% print()
+  all
+}
 
 #' Tabulate
 #'
@@ -1218,26 +1272,27 @@ pretty_scientific <- function(l,parse=TRUE) {
 #' Use to abbreviate large numbers (e.g. 3450000 is '3.4M')
 #'
 #' @param x numeric vector to be formatted
-#' @param sig.digits number of signficant digits to use, if the number is abbreviated
+#' @param abbrev named vector specifying the log base 10 cutoff values and their assigned label. Default is \code{c(K=3,M=6,B=9)}.
+#' @param sig.digits number of signficant digits to use.
+#'
 #' @return character vector of formatted numbers
 #' @examples
-#' short_number(3.4*10^(-1:10))
+#' short_number(pi*10^(-1:10))
 #' @export
-short_number <- function(x,sig.digits=2) {
-  num <- c(3,6,9)
-  abbrev <- c("K","M","B")
-  sapply(x,function(val) {
-    if (is.na(val)) {return(NA_character_)}
-    for (i in length(num):1) {
-      pwr <- num[i]
-      abrv <- abbrev[i]
-      div <- val / 10^pwr
-      if (div>=1) {
-        root <- signif(div,sig.digits) %>% format(scientific=FALSE)
-        return(paste0(root,abrv))
-      }
+short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
+  abbrev <- c(abbrev,Inf) %>% sort()
+  cuts <- cut(log10(x),breaks=abbrev,right=FALSE,labels=FALSE)
+  map2_chr(x,cuts,~{
+    if (!is.na(.y)) {
+      abrv <- names(abbrev)[.y]
+      pwr <- abbrev[.y]
+      div <- .x / 10^pwr
+      root <- signif(div,sig.digits) %>% format(scientific=FALSE)
+      text <- str_c(root,abrv)
+    } else {
+      text <- signif(.x,sig.digits) %>% format(scientific=FALSE)
     }
-    return(format(val,scientific=FALSE))
+    return(text)
   })
 }
 
@@ -2828,7 +2883,7 @@ chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
 #' @param primary the original survival endpoint, to be converted to a competing endpoint
 #' @param ... columns representing competing endpoints.
 #' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.
-#' @param competing
+#' @param competing whether to code as competing. If FALSE, competing endpoints will be censored.
 #'
 #' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.
 #' \code{newvar} is the numeric indicator of the endpoint,

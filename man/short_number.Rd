@@ -4,12 +4,14 @@
 \alias{short_number}
 \title{Short number formatting}
 \usage{
-short_number(x, sig.digits = 2)
+short_number(x, abbrev = c(K = 3, M = 6, B = 9), sig.digits = 3)
 }
 \arguments{
 \item{x}{numeric vector to be formatted}
 
-\item{sig.digits}{number of signficant digits to use, if the number is abbreviated}
+\item{abbrev}{named vector specifying the log base 10 cutoff values and their assigned label. Default is \code{c(K=3,M=6,B=9)}.}
+
+\item{sig.digits}{number of signficant digits to use.}
 }
 \value{
 character vector of formatted numbers
@@ -18,5 +20,5 @@ character vector of formatted numbers
 Use to abbreviate large numbers (e.g. 3450000 is '3.4M')
 }
 \examples{
-short_number(3.4*10^(-1:10))
+short_number(pi*10^(-1:10))
 }

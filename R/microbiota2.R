@@ -1387,7 +1387,17 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
     if (length(f) > 1)
       f <- f[[2]]
   }
+  convert.text <- function(text) {
+    gsub(")","}}",text,fixed=TRUE)
+  }
+  convert.back <- function(text) {
+    gsub("}}",")",text,fixed=TRUE)
+  }
+
   taxo[[deparse(f)]] <- data[[deparse(f)]]
+
+  taxo <- taxo %>% map(convert.text)
+
   taxo.data <- as.data.frame(taxo) #tax data from species>kingdom
   if (distinct.tree) {
     taxo.data <- taxo.data %>% distinct()
@@ -1395,6 +1405,7 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
   if (full.taxonomy.only) {
     taxo.data <- taxo.data[!is.na(taxo.data[,1]),]
   }
+
   leaves.names <- as.character(taxo.data[, 1]) #species
   taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
   f.rec <- function(subtaxo) {
@@ -1420,6 +1431,10 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
     phy <- collapse.singles(phy)
   }
   phy$tip.label <- leaves.names[as.numeric(phy$tip.label)]
+
+  phy$tip.label <- phy$tip.label %>% convert.back()
+  phy$node.label <- phy$node.label %>% convert.back()
+
   return(phy)
 }
 
