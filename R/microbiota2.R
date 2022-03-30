@@ -1324,6 +1324,7 @@ lda.effect <- function(phy,class,subclass=NULL,
     left_join(direction,by="taxonomy_") %>%
     rowwise() %>%
     mutate(taxrank=purrr::map_chr(rank,~ranks[.]),
+           taxrank=factor(taxrank,levels=rank_names(phy)),
            taxon_=c(!!!syms(ranks))[rank]) %>%
     ungroup() %>%
     mutate(taxon_=str_glue("{taxon_} ({taxrank})"),
@@ -1335,13 +1336,112 @@ lda.effect <- function(phy,class,subclass=NULL,
            info=paste2(ifelse(pass,"PASS","FAIL:"),info)) %>%
     select(-disc.feature,-kw.info,-lda.info,-w.info,-all_of(ranks)) %>%
     select(taxonomy=taxonomy_,taxon=taxon_,direction,lda,pass,kw.pass,w.pass,lda.pass,info,everything())
-
   message(str_glue("Number of significantly discriminative features: {length(tax.features)} ( {sum(results$kw.pass,na.rm=TRUE)} ) before internal wilcoxon
                    Number of discriminative features with abs LDA score > {lda.cutoff} : {sum(final$pass)}"))
   return(final)
 }
 
 
+
+
+#' Plot LDA Results
+#' @param lda lda table from \code{lda.effect()}
+#' @param tax.label either "taxon" or "taxonomy"
+#'
+#' @return a ggplot of lda results
+#' @export
+#' @examples
+lda.plot <- function(lda,tax.label="taxon") {
+  if (n_distinct(lda$direction)==2) {
+    ldaplot <- lda %>% filter(pass) %>%
+      mutate(lda=if_else(as.numeric(factor(direction))==2,-lda,lda),
+             hjust=if_else(as.numeric(factor(direction))==2,0,1)) %>%
+      arrange(lda) %>%
+      mutate(tax.label=fct_inorder(!!sym(tax.label)))
+    limits <- max(lda$lda,na.rm=TRUE) * c(-1,1)
+  } else {
+    ldaplot <- lda %>% filter(pass) %>%
+      arrange(direction,lda) %>%
+      mutate(tax.label=fct_inorder(!!sym(tax.label)),
+             hjust=1)
+    limits <- c(0,max(lda$lda,na.rm=TRUE))
+  }
+  ggplot(ldaplot,aes(x=tax.label,y=lda,fill=direction)) +
+    geom_col() + geom_text(aes(y=0,label=tax.label,hjust=hjust)) + coord_flip() +
+    scale_y_continuous(limits=limits) +
+    theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),legend.position="top")
+}
+
+#' Plot LDA Results in Cladogram
+#'
+#' @param lda lda table from \code{lda.effect()}
+#' @param layout Either "cirular" or "rectangular"
+#' @param pad Determines the spacing of surrounding clade labels.
+#' @return ggplot of lda cladogram
+#' @export
+#'
+#' @examples
+lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE) {
+  # For each taxonomy, determine the individual level values. Make sure the values remain unique.
+  #   E.g. for taxonomy = Bacteria|Bacteroidetes|Bacteroidia :
+  #   Superkingdom = Bacteria
+  #   Phylum = Bacteria|Bacteroidetes
+  #   Class = Bacteria|Bacteroidetes|Bacteroidia
+  #   Order/Family/Genus/Species = NA
+  lda.tbl <- lda
+  split <- str_split(lda.tbl$taxonomy,"\\|")
+  max.n.levels <- split %>% map_int(length) %>% max()
+
+  if (is.factor(lda$taxrank)) {
+    lvls <- levels(lda$taxrank)
+  } else {
+    warning("YTWarning: taxrank is not a factor, rank levels may be missing")
+    lvls <- lda %>% arrange(rank) %>% pull(taxrank) %>% unique()
+  }
+  if (max.n.levels!=length(lvls)) {
+    stop(str_glue("YTError: taxonomy splits into {max.n.levels} levels, but {length(lvls)} were in taxrank. Consider converting taxrank to a factor containing all levels."))
+  }
+  for (i in 1:length(lvls)) {
+    lvl <- lvls[i]
+    lda.tbl[[lvl]] <- split %>% map_chr(~str_c(.[1:i],collapse="|"))
+  }
+  form <- as.formula(paste0("~",paste(lvls,collapse="/")))
+  lefse.phy <- as.phylo.formula2(form,data=lda.tbl,full.taxonomy.only=FALSE)
+  gt <- ggtree(lefse.phy,layout=layout)
+  get.children.yrange <- function(node,gd) {
+    hits <- gd$node[gd$parent==node]
+    if (length(hits)==0 | node %in% hits) {
+      return(gd$y[gd$node==node])
+    } else {
+      return(unlist(lapply(hits,get.children.yrange,gd)))
+    }
+  }
+  if (!all(lda$taxonomy %in% gt$data$label)) {
+    n.orphans <- setdiff(lda$taxonomy,gt$data$label) %>% length()
+    n.total <- length(lda$taxonomy)
+    stop(str_glue("YTError: not all taxonomy elements translated to phylo object! {n.orphans} out of {n.total} taxa not found."))
+  }
+  gd <- gt$data %>% left_join(lda,by=c("label"="taxonomy")) %>%
+    mutate(y.range=lapply(node,get.children.yrange,cur_data()),
+           ymin=map_dbl(y.range,min)-0.5,ymax=map_dbl(y.range,max)+0.5,ymid=(ymin+ymax)/2,
+           xmin=x,xmax=pad+2*length(lvls)-x,xtext=xmax-0.5,
+           short.label=map_chr(str_split(label,"\\|"),last)) %>%
+    arrange(pass,desc(ymax-ymin))
+  if (layout!="circular") {
+    gd <- gd %>% mutate(angle.label=0)
+  } else {
+    gd <- gd %>%
+      mutate(angle.label=scales::rescale(ymid,from=c(0,max(y)),to=c(0,360)),
+             angle.label=if_else(is.between(angle.label,0,180),angle.label-90,angle.label+90))
+  }
+  gt +
+    geom_point(data=gd,aes(size=log.max),color="dark gray",fill="gray",shape=21,alpha=0.75) +
+    geom_rect(data=filter(gd,pass),aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,fill=direction),color="dark gray",alpha=0.2) +
+    # geom_fit_text(data=filter(gd,pass),aes(xmin=xmax-1,xmax=xmax,ymin=ymin,ymax=ymax,label=short.label,fill=direction),color="dark gray",alpha=0.2,min.size = 0) +
+    geom_text(data=filter(gd,pass),aes(x=xtext,y=ymid,label=short.label,angle=angle.label),lineheight=0.75,check_overlap=check_overlap) +
+    geom_point(data=filter(gd,pass),aes(fill=direction,size=log.max),shape=21,alpha=0.75) +
+    theme(legend.position="right")
+}
 
 #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
 #'
@@ -1371,7 +1471,7 @@ lda.effect <- function(phy,class,subclass=NULL,
 #' plot(t2,edge.width=2,cex=0.6,no.margin=TRUE)
 #' @author Ying Taur
 #' @export
-as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=TRUE, ...){
+as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=FALSE, ...){
   requireNamespace("phytools",quietly=TRUE)
   err <- "Formula must be of the kind \"~A1/A2/.../An\"."
   if (length(x) != 2)
@@ -1387,17 +1487,10 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
     if (length(f) > 1)
       f <- f[[2]]
   }
-  convert.text <- function(text) {
-    gsub(")","}}",text,fixed=TRUE)
-  }
-  convert.back <- function(text) {
-    gsub("}}",")",text,fixed=TRUE)
-  }
-
   taxo[[deparse(f)]] <- data[[deparse(f)]]
-
-  taxo <- taxo %>% map(convert.text)
-
+  taxnames <- taxo %>% map(~unique(.[!is.na(.)])) %>% unlist(use.names=FALSE)
+  nodenames <- seq_along(taxnames) %>% paste0("v",.) %>% as.character()
+  taxo <- taxo %>% map(~nodenames[match(.,taxnames)])
   taxo.data <- as.data.frame(taxo) #tax data from species>kingdom
   if (distinct.tree) {
     taxo.data <- taxo.data %>% distinct()
@@ -1405,11 +1498,15 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
   if (full.taxonomy.only) {
     taxo.data <- taxo.data[!is.na(taxo.data[,1]),]
   }
-
-  leaves.names <- as.character(taxo.data[, 1]) #species
-  taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
+  # leaves.names <- as.character(taxo.data[, 1]) #species
+  # taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
   f.rec <- function(subtaxo) {
     u <- ncol(subtaxo) #number of ranks
+    all.na <- apply(subtaxo,1,function(x) all(is.na(x)))
+    subtaxo <- subtaxo[!all.na,,drop=FALSE]
+    if (nrow(subtaxo)==0) {
+      return(NULL)
+    }
     levels <- unique(subtaxo[, u]) #last column (bacteria,...,genus)
     if (u == 1) {
       if (length(levels) != nrow(subtaxo))
@@ -1420,7 +1517,11 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
     for (l in 1:length(levels)) { #for each taxon of the level
       #l=1
       x <- f.rec(subtaxo[subtaxo[, u] == levels[l], ][1:(u - 1)]) #subset of taxo.data for that level.
-      t[l] <- paste("(", paste(x, collapse = ","), ")",levels[l], sep = "")
+      if (is.null(x)) {
+        t[l] <- levels[l]
+      } else {
+        t[l] <- paste("(", paste(x,collapse=","), ")",levels[l], sep = "")
+      }
     }
     return(t)
   }
@@ -1430,11 +1531,8 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
   if (collapse.singles) {
     phy <- collapse.singles(phy)
   }
-  phy$tip.label <- leaves.names[as.numeric(phy$tip.label)]
-
-  phy$tip.label <- phy$tip.label %>% convert.back()
-  phy$node.label <- phy$node.label %>% convert.back()
-
+  phy$tip.label <- phy$tip.label %>% map_chr(~taxnames[match(.,nodenames)])
+  phy$node.label <- phy$node.label %>% map_chr(~coalesce(taxnames[match(.,nodenames)],.))
   return(phy)
 }
 

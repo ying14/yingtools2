@@ -37,13 +37,13 @@
 
 
 
-
-
-
-
-
-
-
+#' Find Regular Expression Operator
+#'
+#' Shorthand operator for finding a pattern.
+#' @export
+"%find%" = function(x,y) {
+  grep(y,x,ignore.case=TRUE,value=TRUE)
+}
 
 
 #' Inner/Left/Right/Full Join with Replace
@@ -135,7 +135,6 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 #' @return a table from full_join(x,y,by). Contains columns .status and .diffs.
 #' @export
 compare <- function(x,y,by=NULL) {
-
   if (is.null(by)) {
     by <- intersect(names(x),names(y))
   }
@@ -181,6 +180,7 @@ compare <- function(x,y,by=NULL) {
   all %>% count(.status,.diffs) %>% print()
   all
 }
+
 
 #' Tabulate
 #'

@@ -9,7 +9,7 @@ as.phylo.formula2(
   data = parent.frame(),
   collapse.singles = FALSE,
   distinct.tree = TRUE,
-  full.taxonomy.only = TRUE,
+  full.taxonomy.only = FALSE,
   ...
 )
 }
