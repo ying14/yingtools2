@@ -661,8 +661,8 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
     criteria <- TRUE
   }
   gdata <- gdata %>%
-    dplyr::mutate(.include=!!criteria & is.between(y,.ymin,.ymax) & isTip) %>%
-    dplyr::arrange(y)
+    mutate(.include=!!criteria & is.between(y,.ymin,.ymax) & isTip) %>%
+    arrange(y)
   ylow <- min(gdata$y[gdata$.include]) - 0.5
   yhigh <- max(gdata$y[gdata$.include]) + 0.5
   if (fill.in) {
@@ -672,8 +672,8 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
   if (nrow(gdata.sub)==0) stop("YTError: no tips found")
 
   ymid <- (yhigh+ylow)/2
-  xmin1 <- dplyr::first(gdata.sub$x)
-  xmin2 <- dplyr::last(gdata.sub$x)
+  xmin1 <- first(gdata.sub$x)
+  xmin2 <- last(gdata.sub$x)
   if (is.null(xmax)) {
     xmax <- max(gdata.sub$x) * xscalar
   }
@@ -713,7 +713,6 @@ geom_hilight <- function(mapping = NULL, data = NULL,
         params = list( na.rm = na.rm, ...)
   )
 }
-
 
 #' @export
 GeomHilight <- ggplot2::ggproto("GeomHilight", ggplot2::Geom,
