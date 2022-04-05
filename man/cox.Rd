@@ -12,6 +12,7 @@ cox(
   return.split.data = FALSE,
   return.model.obj = FALSE,
   firth = FALSE,
+  do.competing = NULL,
   firth.opts = list(),
   formatted = TRUE
 )
@@ -23,7 +24,7 @@ cox(
 
 \item{...}{predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.}
 
-\item{starttime}{optional parameter specifying analysis start time.}
+\item{starttime}{optional parameter specifying analysis start time. Use this for left censoring.... no need to use it for setting time zero.}
 
 \item{return.split.data}{if \code{TRUE}, returns the data frame after splitting rows that are time-dependent.}
 
@@ -35,10 +36,7 @@ cox(
 by default, returns a formatted regression table
 }
 \description{
-Run a Cox model
-}
-\details{
-If any of the \code{...}
+Run a Cox (or Fine-Gray) regression.
 }
 \examples{
 library(yingtools2)

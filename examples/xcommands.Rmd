@@ -112,7 +112,98 @@ kable(t$full,caption="full_join")
 
 
 
+```{r}
+#survival 
 
+
+
+library(survival)
+library(survminer)
+## kaplan meier
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+plot(fit)
+## kaplan meier (survminer)
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+ggsurvplot(fit,conf.int=FALSE,censor=FALSE,pval=TRUE)
+## kaplan meier #2 (old way)
+dd <- pt.surv %>% mutate(tstart=0)
+ggplot() + geom_kaplanmeier("cdiff","randomization_arm",data=dd,logrank=TRUE)
+
+## kaplan meier #3 (manual #1)
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+survdata <- survminer::surv_summary(fit) %>% survminer:::.connect2origin()
+ggplot(survdata,aes(x=time,y=surv,color=strata)) + geom_step()
+
+## kaplan meier #4 (manual #2)
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+survdata <- tibble(surv=fit$surv,time=fit$time,strata=rep(names(fit$strata),fit$strata),
+                   n.risk=fit$n.risk,n.event=fit$n.event,n.censor=fit$n.censor,std.err=fit$std.err,
+                   lower=fit$lower,upper=fit$upper) %>%
+  group_by(strata) %>% group_modify(~{
+    origin <- .x %>% slice(1) %>%
+      mutate(across(c(time,n.censor,std.err,n.event),~0),
+             across(c(surv,upper,lower),~1))
+    bind_rows(origin,.x)
+  })
+sd <- survdiff(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+logrank.pval <- 1 - pchisq(sd$chisq, length(sd$n) - 1)
+
+ggplot(survdata,aes(x=time,y=surv,color=strata)) + geom_step()
+
+
+
+
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+g1=ggsurvplot(fit,conf.int=FALSE,censor=FALSE,pval=TRUE)
+## kaplan meier #2 (old way)
+dd <- pt.surv %>% mutate(tstart=0)
+g2=ggplot() + geom_kaplanmeier("cdiff","randomization_arm",data=dd,logrank=TRUE)
+
+## kaplan meier #3 (manual #1)
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+survdata <- survminer::surv_summary(fit) %>% survminer:::.connect2origin()
+g3=ggplot(survdata,aes(x=time,y=surv,color=strata)) + geom_step()
+
+## kaplan meier #4 (manual #2)
+fit <- survfit(Surv(cdiff_day,cdiff)~randomization_arm,data=pt.surv)
+survdata <- tibble(surv=fit$surv,time=fit$time,strata=rep(names(fit$strata),fit$strata),
+                   n.risk=fit$n.risk,n.event=fit$n.event,n.censor=fit$n.censor,std.err=fit$std.err,
+                   lower=fit$lower,upper=fit$upper) %>%
+  group_by(strata) %>% group_modify(~{
+    origin <- .x %>% slice(1) %>%
+      mutate(across(c(time,n.censor,std.err,n.event),~0),
+             across(c(surv,upper,lower),~1))
+    bind_rows(origin,.x)
+  })
+g4=ggplot(survdata,aes(x=time,y=surv,color=strata)) + geom_step()
+
+
+
+## CIFs
+fit <- cuminc(pt.surv$bmtdead_day,pt.surv$bmtdead,group=pt.surv$randomization_arm)
+
+fg.pval <- fit$Tests["1","pv"]
+plot(fit)
+## CIFs #2
+fit <- cuminc(pt.surv$bmtdead_day,pt.surv$bmtdead,group=pt.surv$randomization_arm)
+ggcompetingrisks(fit,multiple_panels=FALSE)
+
+## CIFs #3 (manual)
+fit <- cuminc(pt.surv$bmtdead_day,pt.surv$bmtdead,group=pt.surv$randomization_arm)
+survdata <- fit %>% list_modify("Tests"=NULL) %>%
+  map_dfr(~.,.id="id") %>% filter(grepl(" 1$",id)) %>% 
+  mutate(id=sub(" 1$","",id))
+fg.pval <- fit$Tests["1","pv"]
+ggplot(survdata,aes(x=time,y=est,color=id)) +
+  geom_step()  +
+  annotate("text",x=100,y=0.5,label=str_glue("Fine-Gray P={scales::pvalue(fg.pval)}"))
+
+
+
+
+
+
+```
 
 
 

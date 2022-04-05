@@ -2600,15 +2600,13 @@ find.all.distinct.vars <- function(data, ...) {
 #' @export
 is.distinct <- function(data, ..., add.group.vars=TRUE) {
   vars <- quos(...)
-  row.tally <- data %>%
+  gvars <- data %>%
     group_by(!!!vars,.add=add.group.vars) %>%
-    summarize(n=n()) %>%
-    ungroup()
-  is.dist <- max(row.tally$n)==1
-  return(is.dist)
+    groups()
+
+  anydup <- data %>% select(!!!gvars) %>% anyDuplicated()
+  return(anydup==0)
 }
-
-
 
 #' Read Multiple Excel Sheets Into a List of Data Frames
 #'
@@ -2979,8 +2977,8 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
     summarize(.final_v=first(.varnum),
               .final_vd=first(.vd),
               .final_code=first(.var_label),
-              .final_info=paste(.info[.v==1],collapse=", ")) %>%
-    ungroup() %>%
+              .final_info=paste(.info[.v==1],collapse=", "),
+              .groups='drop') %>%
     arrange(.row)
 
   newdata <- data %>%
@@ -3000,13 +2998,11 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 
 #' Cox Proportional Hazard model
 #'
-#' Run a Cox model
-#'
-#' If any of the \code{...}
+#' Run a Cox (or Fine-Gray) regression.
 #' @param data the data frame containing the variables to be analyzed.
 #' @param yvar the time-to-event outcome (bare unquoted).
 #' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
-#' @param starttime optional parameter specifying analysis start time.
+#' @param starttime optional parameter specifying analysis start time. Use this for left censoring.... no need to use it for setting time zero.
 #' @param return.split.data if \code{TRUE}, returns the data frame after splitting rows that are time-dependent.
 #' @param return.model.obj if \code{TRUE}, returns the model object of the \code{coxph} command
 #' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
@@ -3016,9 +3012,10 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 #' library(yingtools2)
 #' cid.patients %>% cox(vre.bsi,enterodom30,starttime=firstsampday)
 #' @export
-cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,
+cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,
+                do.competing=NULL,
                 firth.opts=list(),formatted=TRUE) {
-  requireNamespace(c("broom","coxphf","scales"),quietly=TRUE)
+  requireNamespace(c("coxphf","scales","cmprsk"),quietly=TRUE)
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
   xvars <- quos(...)
@@ -3029,26 +3026,40 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     has_name(data,vardayname)
   }
   xvars.td <- xvars[sapply(xvars,is.td)]
+  xvarnames <- xvars %>% sapply(quo_name)
   if (length(xvars.td)>0) {
     xvarsdays.td <- xvars.td %>% sapply(quo_name) %>% paste0("_day") %>% syms()
   } else {
     xvarsdays.td <- syms(NULL)
   }
   timevars <- c(yvarday,xvarsdays.td)
-  data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
+  data <- data %>% mutate(across(c(!!yvar,!!!xvars.td),as.numeric))
+  ## shift time0 if needed, and deal with starttime.
+  ## shifting time0 is because some methods can't deal with negative times.
+  ## starttime is for left censoring.
+  ## note that td vars can be negative times that occur well before time0.
+  min.time <- data %>% select(!!yvarday,!!starttime) %>% min(na.rm=TRUE)
+  if (min.time>0) {
+    time0 <- 0
+  } else {
+    time0 <- min.time-1
+    message(str_glue("Negative times detected. Setting time zero as: {time0}"))
+  }
 
   if (rlang::quo_is_null(starttime)) {
-    # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
-    # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
-    mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
-    start <- min(mintime-1,0)
-    message("Setting start time as: ",start)
-    data <- data %>%
-      mutate(.y=!!yvar,.tstart=start,.tstop=!!yvarday) %>%
-      mutate_at(vars(.tstart,.tstop,!!!timevars),function(x) x-start)
+    data <- data %>% mutate(.y=!!yvar,.tstart=time0,.tstop=!!yvarday)
   } else {
+    message(str_glue("starttime specified as {quo_name(starttime)}."))
     data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
   }
+  #if time0 is not zero, this will shift everything.
+  data <- data %>% mutate(across(c(.tstart,.tstop,!!!timevars),~.x-time0))
+
+  n.left.censored <- sum(data$.tstart!=min(data$.tstart,na.rm=TRUE),na.rm=TRUE)
+  if (n.left.censored>0) {
+    message(str_glue("{n.left.censored} observations are left censored."))
+  }
+
   splitline <- function(data,xvar) {
     xvar <- enquo(xvar)
     xvarday <- quo_name(xvar) %>% paste0("_day") %>% sym()
@@ -3069,11 +3080,64 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   for (xvar in xvars.td) {
     data2 <- data2 %>% splitline(!!xvar)
   }
-  is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
   has.timevarying <- length(xvars.td)>0 & nrow(data2)>nrow(data)
-  leftside <- "Surv(.tstart,.tstop,.y)"
-  xvarnames <- xvars %>% sapply(quo_name)
-  rightside <- xvarnames %>% paste(collapse=" + ")
+  if (has.timevarying) {
+    message(str_glue("Time-varying X's detected: {paste(xvarnames,collapse=\",\")}. Transforming data from {nrow(data)} to {nrow(data2)} rows."))
+  }
+  if (return.split.data) {
+    fn <- ifelse(firth,"coxphf","coxph")
+    form <- deparse(formula)
+    message(str_glue("Returning split data. Can run as follows:\n{fn}({deparse(form)},data={{data}})"))
+    return(data2)
+  }
+  is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
+  if (is.null(do.competing)) {
+    if (is.competing) {
+      message("Competing endpoint detected. Performing competing risk regression.")
+    }
+    do.competing <- is.competing
+  }
+  if (!do.competing) {
+    ###### do cox regression (with or without firth)
+    leftside <- "survival::Surv(.tstart,.tstop,.y)"
+    rightside <- xvarnames %>% paste(collapse=" + ")
+    model <- paste(leftside,rightside,sep=" ~ ")
+    formula <- as.formula(model)
+    if (!firth) {
+      # message(str_glue("Running coxph: {model}"))
+      message(str_glue("Running coxph: {quo_name(yvar)} ~ {rightside}"))
+      result <- survival::coxph(formula,data=data2)
+    } else {
+      # message(str_glue("Running coxphf: {model}"))
+      message(str_glue("Running coxphf: {quo_name(yvar)} ~ {rightside}"))
+      result <- do.call(coxphf::coxphf,c(list(formula,data=data2),firth.opts))
+    }
+  } else {
+    ###### do fine gray
+    if (!all(data2$.tstart==0)) {
+      #this may never happen because of the time0 shifting code above.
+      stop("YTError: .tstart needs to be zero for competing risk regression!")
+    }
+    if (firth) {
+      stop("YTError: can't perform Firth correction for competing risk regression!")
+    }
+    if (has.timevarying) {
+      stop("YTError: I don't think we can do time-varying predictors for competing risk regression!")
+    }
+    rightside <- xvarnames %>% paste(collapse=" + ")
+    mm <- model.matrix(as.formula(paste0("~",rightside)),data=data2)
+    cols <- colnames(mm) %>% setdiff("(Intercept)")
+    cov1 <- mm[,cols,drop=FALSE]
+    ftime <- data2$.tstop
+    fstatus <- data2$.y
+    message(str_glue("Running crr: {quo_name(yvar)} ~ {rightside}"))
+    result <- cmprsk::crr(ftime=ftime,fstatus=fstatus,cov1=cov1)
+  }
+
+  if (return.model.obj) {
+    return(result)
+  }
+
   terms.to.varnames <- function(terms,vars,data) {
     dict <- lapply(xvarnames,function(var) {
       mm <- model.matrix(as.formula(paste0("~",var)),data=data)
@@ -3088,25 +3152,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     }
     dict[match(terms,names(dict))]
   }
-  model <- paste(leftside,rightside,sep=" ~ ")
-  formula <- as.formula(model)
-  if (is.competing) {
-    stop("YTError: can't handle competing endpoints in Cox.")
-  }
-  if (return.split.data) {
-    fn <- ifelse(firth,"coxphf","coxph")
-    form <- deparse(formula)
-    message(str_glue("Returning split data. Can run as follows:\n{fn}({deparse(form)},data={{data}})"))
-    return(data2)
-  }
-  if (!firth) {
-    result <- survival::coxph(formula,data=data2)
-  } else {
-    result <- do.call(coxphf::coxphf,c(list(formula,data=data2),firth.opts))
-  }
-  if (return.model.obj) {
-    return(result)
-  }
+
   tbl <- yt.tidy(result) %>%
     mutate(xvar=terms.to.varnames(term,xvarnames,data2),
            yvar=quo_name(yvar),
@@ -3116,7 +3162,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
     #time dependent
     if (quo_name(x) %in% sapply(xvars.td,quo_name)) {
       xday <- x %>% quo_name() %>% paste0("_day") %>% sym()
-      count <- data %>% summarize(count=sum((!!x==1) & (!!xday < !!yvarday))) %>% pull(count)
+      count <- data %>% summarize(count=sum((!!x==1) & (!!xday < !!yvarday),na.rm=TRUE)) %>% pull(count)
       extra <- tibble(xvar=quo_name(x),n=count) %>% mutate(term=xvar)
       return(extra)
     }
@@ -3139,7 +3185,7 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
   if (formatted) {
     tbl <- tbl %>%
       mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
-             p.value=pvalue(p.value)) %>%
+             p.value=scales::pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
@@ -3148,9 +3194,9 @@ cox <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,return
 
 
 
-
 yt.tidy <- function(x,...) UseMethod("yt.tidy")
 yt.tidy.coxph <- function(obj) {
+  requireNamespace("broom",quietly=TRUE)
   obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
 }
 yt.tidy.coxphf <- function(obj) {
@@ -3162,12 +3208,15 @@ yt.tidy.coxphf <- function(obj) {
          conf.low=obj$ci.lower,
          conf.high=obj$ci.upper)
 }
-
+yt.tidy.crr <- function(obj) {
+  requireNamespace("broom",quietly=TRUE)
+  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
+}
 yt.tidy.glm <- function(obj) {
+  requireNamespace("broom",quietly=TRUE)
   obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95) %>%
     filter(term!="(Intercept)")
 }
-
 yt.tidy.logistf <- function(obj) {
   tibble(term=obj$terms,
          estimate=exp(obj$coefficients),
