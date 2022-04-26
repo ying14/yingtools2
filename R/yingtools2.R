@@ -2779,11 +2779,16 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 #' @param stop1 stop times for interval 1
 #' @param start2 start times for interval 2
 #' @param stop2 stop times for interval 2
+#' @param check whether to check if start comes before stop.
 #'
 #' @export
-overlaps <- function(start1,stop1,start2,stop2) {
-  if (any(start1>stop1,na.rm=TRUE)) {stop("YTError: start1 is greater than stop1")}
-  if (any(start2>stop2,na.rm=TRUE)) {stop("YTError: start2 is greater than stop2")}
+overlaps <- function(start1,stop1,start2,stop2,check=TRUE) {
+  if (check) {
+    error1 <- any(start1>stop1,na.rm=TRUE)
+    error2 <- any(start2>stop2,na.rm=TRUE)
+    if (error1) {stop("YTError: start1 is greater than stop1")}
+    if (error2) {stop("YTError: start2 is greater than stop2")}
+  }
   stop1>=start2 & stop2>=start1
 }
 
@@ -2811,9 +2816,16 @@ any.overlap <- function(start,stop,na.rm=TRUE) {
 #' Determines if x is between start and stop/
 #'
 #' Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
+#' @param x vector of values to be checked
+#' @param start vector of start time(s)
+#' @param stop vector of stop time(s)
+#' @param check whether to check if start comes before stop.
+#'
 #' @export
-is.between <- function(x,start,stop) {
-  if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
+is.between <- function(x,start,stop,check=TRUE) {
+  if (check) {
+    if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
+  }
   overlaps(x,x,start,stop)
 }
 
@@ -4326,16 +4338,13 @@ sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
     warning("YTWarning: no group detected.")
   }
   random_grp <- grouped_df %>%
-    summarise() %>%
+    summarise(.groups="drop") %>%
     sample_n(size, replace, weight) %>%
-    mutate(unique_id = 1:NROW(.))
+    mutate(unique_id = 1:nrow(.))
   grouped_df %>%
     right_join(random_grp, by=grp_var) %>%
-    group_by_(grp_var)
+    group_by(!!!rlang::syms(grp_var))
 }
-
-
-
 
 
 

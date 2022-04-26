@@ -4,7 +4,16 @@
 \alias{is.between}
 \title{Determines if x is between start and stop/}
 \usage{
-is.between(x, start, stop)
+is.between(x, start, stop, check = TRUE)
+}
+\arguments{
+\item{x}{vector of values to be checked}
+
+\item{start}{vector of start time(s)}
+
+\item{stop}{vector of stop time(s)}
+
+\item{check}{whether to check if start comes before stop.}
 }
 \description{
 Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
