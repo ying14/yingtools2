@@ -1424,6 +1424,8 @@ show_linetypes <- function() {
     geom_segment(data=d, mapping=aes(x=0, xend=1, y=lt, yend=lt, linetype=lt))
 }
 
+
+
 #' Stack and line up ggplot objects in a column
 #'
 #' Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
@@ -1449,41 +1451,40 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
 
   grobs <- list(...)
   keep <- !sapply(grobs,is.null)
-
   if (!is.null(heights)) {
     if (length(grobs)!=length(heights)) {
       stop("YTError: number of grobs does not match the number of heights.")
     }
     heights <- heights[keep]
+  } else {
+    heights <- rep(1,length.out=length(grobs))
   }
   grobs <- grobs[keep]
   length.grobs <- length(grobs)
-  # if (length.grobs<=1) {
-  #   stop("YTError: should have at least 2 grobs")
-  # }
-  if (is.null(heights)) {
-    heights <- rep(1,length.grobs)
-  }
-
-  g.top <- grobs[[1]] + gg.extras
-  g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
-    g + gg.extras
-  })
-  g.bottom <- grobs[[length.grobs]] + gg.extras
-
-  if (adjust.themes) {
-    top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
-                       axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-    middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
-                          axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-    bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
-    g.top <- g.top + top.theme
-    g.middle.list <- lapply(g.middle.list,function(g) {
-      g + middle.theme
+  if (length.grobs>1) {
+    g.top <- grobs[[1]]
+    g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
+      g
     })
-    g.bottom <- g.bottom + bottom.theme
+    g.bottom <- grobs[[length.grobs]]
+
+    if (adjust.themes) {
+      top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
+                         axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+      middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
+                            axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
+      bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
+      g.top <- g.top + top.theme
+      g.middle.list <- lapply(g.middle.list,function(g) {
+        g + middle.theme
+      })
+      g.bottom <- g.bottom + bottom.theme
+    }
+    grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
+  } else {
+    grobs1 <- grobs
   }
-  grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
+
   #list of ggplotGrobs
   grobs2 <- lapply(grobs1,function(g) {
     gr <- ggplotGrob(g)
@@ -1504,16 +1505,15 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
   #normalize null heights to 1 within each plot. should be able to handle facets with varying heights.
   #then alter heights of null portion of each plot.
   grobs4 <- mapply(function(gr,ht) {
-    #gr=grobs3[[2]]
-    #gr$heights
     ht.char <- as.character(gr$heights)
     null.heights <- grep("null",ht.char)
     relative.heights <- as.numeric(sub("null","",ht.char[null.heights]))
     total.null.height <- sum(relative.heights)
     gr$heights[null.heights] <- gr$heights[null.heights] * (1/total.null.height) * ht
     return(gr)
-  },grobs3,heights)
+  },grobs3,heights,SIMPLIFY=FALSE)
   args <- c(grobs4,list(size="max"))
+
   gtable.final <- do.call(gridExtra::gtable_rbind,args)
 
   if (as.gtable) {
@@ -1525,6 +1525,9 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
     grid::grid.draw(gtable.final)
   }
 }
+
+
+
 
 #' Age in years
 #'
