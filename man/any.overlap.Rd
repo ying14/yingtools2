@@ -4,12 +4,14 @@
 \alias{any.overlap}
 \title{Any overlap}
 \usage{
-\method{any}{overlap}(start, stop, na.rm = TRUE)
+\method{any}{overlap}(start, stop, check = TRUE, na.rm = TRUE)
 }
 \arguments{
 \item{start}{vector specifying the start of the intervals}
 
 \item{stop}{vector specifying the end of the intervals}
+
+\item{check}{whether to check if start is greater than stop (default is \code{TRUE})}
 
 \item{na.rm}{whether to remove NA values (default is TRUE)}
 }

@@ -2802,12 +2802,19 @@ overlaps <- function(start1,stop1,start2,stop2,check=TRUE) {
 #' Any overlap
 #'
 #' For a given set of intervals, determine whether any interval is overlapping.
+#'
 #' @param start vector specifying the start of the intervals
 #' @param stop vector specifying the end of the intervals
+#' @param check whether to check if start is greater than stop (default is \code{TRUE})
 #' @param na.rm whether to remove NA values (default is TRUE)
+#'
 #' @return whether or not at least one interval is overlapping.
 #' @export
-any.overlap <- function(start,stop,na.rm=TRUE) {
+any.overlap <- function(start,stop,check=TRUE,na.rm=TRUE) {
+
+  if (check && any(start>stop,na.rm=TRUE)) {
+    stop("YTError: start is greater than stop!")
+  }
   t <- tibble(start=start,stop=stop) %>%
     arrange(start) %>%
     mutate(diff = start - lag(stop))
@@ -2829,7 +2836,7 @@ is.between <- function(x,start,stop,check=TRUE) {
   if (check) {
     if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
   }
-  overlaps(x,x,start,stop)
+  overlaps(x,x,start,stop,check=check)
 }
 
 
