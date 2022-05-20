@@ -7,6 +7,7 @@
 gg.stack(
   ...,
   heights = NULL,
+  align.xlim = TRUE,
   adjust.themes = TRUE,
   gg.extras = NULL,
   gap = 0,
@@ -20,6 +21,8 @@ gg.stack(
 \item{...}{ggplot objects to be stacked}
 
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
+
+\item{align.xlim}{logical, whether or not to alter the x-limits in each plot to match. Default is \code{TRUE}.}
 
 \item{adjust.themes}{logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.}
 

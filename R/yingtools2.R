@@ -967,72 +967,82 @@ read.clipboard <- function(...) {
   return(obj)
 }
 
-
-
 #' Convert object to R-code.
 #'
 #' Produces R-code that would create the object inputted. I use this if I have some data object that I obtained
 #' somehow but just want to declare it in the code.
 #'
+#' This is similar to \code{deparse()}, except output looks a little bit more normal, and you can specify \code{width=Inf}
 #' @param x object to be converted to R-code. Can be vector or data frame.
-#' @param fit whether to insert carriage returns, in order to fit code on the screen (default \code{TRUE})
-#' @param width max character width of each line, if \code{fit=TRUE}. Default is \code{getOption("width")-15}
-#' @param copy.clipboard logical, if \code{TRUE}, will copy the R-code to the Clipboard.
-#'
+#' @param width max character width of each line. Set to \code{Inf} to avoid text-wrapping.
 #' @return Returns the R-code.
 #' @examples
 #' x <- c("a","b","c")
 #' copy.as.Rcode(x)
 #' x <- tibble("a"=1:4,"_b"=c(T,F,T,F),"c c"=Sys.Date()+4:1,"d"=factor(LETTERS[1:4]))
-#' copy.as.Rcode(x)
+#' deparse2(x)
 #' @author Ying Taur
 #' @export
-copy.as.Rcode <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
+deparse2 <- function(x,width=Inf) {
+  deparse0 <- function(x) {
+    if (is.infinite(width)) {
+      deparse1(x)
+    } else {
+      deparse(x,width.cutoff=width)
+    }
+  }
   #converts x to R-code.
   if (is.atomic(x)) {
     if (is.Date(x)) {
-      x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
+      x.char <- deparse2(as.character(x),width=width)
       rcode <- paste0("as.Date(",x.char,")")
     } else if (is.POSIXlt(x)) { #these need to come before list, since these are lists.
-      x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+      x.char <- deparse2(as.character(x,usetz=TRUE),width=width)
       rcode <- paste0("as.POSIXlt(",x.char,")")
     } else if (is.POSIXct(x)) {
-      x.char <- copy.as.Rcode(as.character(x,usetz=TRUE),copy.clipboard=FALSE)
+      x.char <- deparse2(as.character(x,usetz=TRUE),width=width)
       rcode <- paste0("as.POSIXct(",x.char,")")
     } else if (is.factor(x)) {
-      x.char <- copy.as.Rcode(as.character(x),copy.clipboard=FALSE)
-      x.lvls <- copy.as.Rcode(as.character(levels(x)),copy.clipboard=FALSE)
+      x.char <- deparse2(as.character(x),width=width)
+      x.lvls <- deparse2(as.character(levels(x)),width=width)
       rcode <- paste0("factor(",x.char,",levels=",x.lvls,")")
     } else if (is.logical(x) | is.numeric(x) | is.character(x)){
-      rcode <- deparse(x) %>% paste(collapse="")
+      rcode <- deparse0(x) %>% paste(collapse="\n")
     }
   } else { ##### not atomic
     if (is.data.frame(x)) {
       df_names <- names(x)
-      df_names <- ifelse(df_names==make.names(df_names),df_names,paste0("\"",df_names,"\""))
-      x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
+      df_names <- if_else(df_names==make.names(df_names),df_names,paste0("\"",df_names,"\""))
+      x.cols <- sapply(x,deparse2,width=width)
       x.cols <- mapply(function(varname,var) paste0(varname,"=",var),df_names,x.cols)
       rcode <- paste(x.cols,collapse=",\n")
       rcode <- paste0("tibble(",rcode,")")
     } else if (is.list(x)) {
-      x.cols <- sapply(x,copy.as.Rcode,copy.clipboard=FALSE)
+      x.cols <- sapply(x,deparse2,width=width)
       x.cols <- mapply(function(varname,var) paste0("\"",varname,"\"=",var),names(x),x.cols)
       rcode <- paste(x.cols,collapse=",\n")
       rcode <- paste0("list(",rcode,")")
     } else {
-      rcode <- deparse(x)
+      rcode <- deparse0(x)
     }
-  }
-  if (fit) {
-    rcode <- fit(rcode,width=width,copy.clipboard=FALSE)
-  }
-  if (copy.clipboard) {
-    copy.to.clipboard(rcode)
   }
   return(rcode)
 }
 
 
+
+
+#' @rdname deparse2
+#' @param copy.clipboard whether or not to copy to clipboard. Default is \code{TRUE}
+#' @export
+copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
+  #converts x to R-code.
+  rcode <- deparse2(x,width=width)
+  if (copy.clipboard) {
+    copy.to.clipboard(rcode)
+  }
+  return(rcode)
+}
 
 
 
@@ -1079,6 +1089,8 @@ str_extract_all_quotes <- function(text,convert.text.quotes=TRUE) {
 
 
 
+
+#not sure I need this
 fit <- function(x,width=100,copy.clipboard=TRUE) {
   #width=100;copy.clipboard=TRUE
   cr.pattern <- "(?<!\\\\)\\n"
@@ -1426,6 +1438,98 @@ show_linetypes <- function() {
 
 
 
+
+
+
+#' Calculate axis limits
+#'
+#' Determines the actual limits of X and Y, for a given ggplot object. This is used by \code{gg.align.xlim}.
+#' @param gg the ggplot object
+#' @return a list containing inforation about limits for X and Y.
+#' @export
+gg.axis.limits <- function(gg) {
+  gb <- suppressMessages(ggplot_build(gg))
+  is.flipped <- is(gb$layout$coord,"CoordFlip")
+  expand <- gb$layout$coord$expand
+
+  get.axis <- function(panel_scales,lim.coord) {
+    lim <- panel_scales[[1]]$range$range
+    lim.fct <- panel_scales[[1]]$range_c$range
+    expansion <- panel_scales[[1]]$expand
+    transform <- panel_scales[[1]]$trans$transform
+    inverse <- panel_scales[[1]]$trans$inverse
+    lim.new <- lim.coord
+    if (length(lim.coord)>0) {
+      lim.new <- lim.coord
+    } else if (!is.null(lim.fct)) {
+      lim.new <- lim.fct
+    } else {
+      lim.new <- lim
+    }
+    range <- lim.new[2]-lim.new[1]
+    if (expand) {
+      if (length(expansion)==0) {
+        expansion <- expansion(mult=0.05)
+      }
+      lower.mult <- expansion[1]
+      lower.add <- expansion[2]
+      upper.mult <- expansion[3]
+      upper.add <- expansion[4]
+      mult <- c(-lower.mult*range, upper.mult*range)
+      add <- c(-lower.add, upper.add)
+      lim.new <- lim.new + mult + add
+    }
+
+    list(
+      lim=inverse(lim.new),
+      plot.limit=lim.new
+    )
+  }
+  x <- get.axis(panel_scales=gb$layout$panel_scales_x,
+                lim.coord=gb$layout$coord$limits$x)
+  y <- get.axis(panel_scales=gb$layout$panel_scales_y,
+                lim.coord=gb$layout$coord$limits$y)
+  if (is.flipped) {
+    temp <- x
+    x <- y
+    y <- temp
+  }
+  return(list(x=x,y=y,
+              xy.flipped=is.flipped))
+}
+
+
+
+#' Align X-Limits
+#'
+#' For a given list of ggplot objects, make the x-limits the same across all plots.
+#'
+#' This is useful when stacking plots like in gg.stack().
+#' @param glist a list of ggplot objects
+#'
+#' @return a modified list of ggplot objects, with modified x-limits
+#' @export
+gg.align.xlim <- function(glist) {
+  limits <- glist %>% map(gg.axis.limits)
+  xmin <- limits %>% map_dbl(~.$x$lim[1])
+  xmax <- limits %>% map_dbl(~.$x$lim[2])
+  new.xlim <- c(min(xmin),max(xmax))
+  new.limits <- limits %>% map(~{
+    list(xlim=new.xlim,ylim=.x$y$lim,xy.flipped=.x$xy.flipped)
+  })
+  glist.new <- suppressMessages(map2(glist,new.limits,~{
+    if (.y$xy.flipped) {
+      .x + coord_flip(xlim=.y$ylim,ylim=.y$xlim,expand=FALSE)
+    } else {
+      .x + coord_cartesian(xlim=.y$xlim,ylim=.y$ylim,expand=FALSE)
+    }
+  }))
+  glist.new
+}
+
+
+
+
 #' Stack and line up ggplot objects in a column
 #'
 #' Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
@@ -1435,18 +1539,22 @@ show_linetypes <- function() {
 #' (2) alters widths of each component so that the plots will line up nicely
 #' (3) calls \code{grid.arrange(...,ncol=1)}
 #' If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
+#'
 #' @param ... ggplot objects to be stacked
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
+#' @param align.xlim logical, whether or not to alter the x-limits in each plot to match. Default is \code{TRUE}.
 #' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.
 #' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
 #' @param gap size of gap between stacked plots. Default is 0
 #' @param margin size of the margin around the plots. Default is 5.5.
 #' @param units specifies units used for gap and margin. Default is "pt"
 #' @param newpage logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)
+
 #' @param as.gtable logical, whether or not to return as a gtable object (i.e. don't execute \code{grid.draw}). Default is \code{FALSE}. Do this if you want to do more arranging afterwards.
+#'
 #' @return plot of stacked ggplots
 #' @export
-gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
+gg.stack <- function(...,heights=NULL,align.xlim=TRUE,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
   requireNamespace(c("grid","gridExtra","gtable"),quietly=TRUE)
 
   grobs <- list(...)
@@ -1460,6 +1568,9 @@ gg.stack <- function(...,heights=NULL,adjust.themes=TRUE,gg.extras=NULL,gap=0,ma
     heights <- rep(1,length.out=length(grobs))
   }
   grobs <- grobs[keep]
+  if (align.xlim) {
+    grobs <- gg.align.xlim(grobs)
+  }
   length.grobs <- length(grobs)
   if (length.grobs>1) {
     g.top <- grobs[[1]]
