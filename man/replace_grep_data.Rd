@@ -6,8 +6,8 @@
 \usage{
 replace_grep_data(
   data,
-  recodes,
   var,
+  recodes,
   newvar = NULL,
   hits = NULL,
   ignore.case = TRUE,
@@ -17,9 +17,10 @@ replace_grep_data(
 \arguments{
 \item{data}{the data frame to be manipulated.}
 
-\item{recodes}{a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.}
-
 \item{var}{the bare character vector to be searched.}
+
+\item{recodes}{a vector of regular expressions. Can be named or unnamed; if named, will replace as: \code{c("replacement1"="pattern1", "replacement2"="pattern2", ...)}.
+If unnamed, will replace \code{c("pattern1","pattern2", ...)} with \code{""}.}
 
 \item{newvar}{bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.}
 
@@ -45,8 +46,8 @@ that didn't match, which saves time especially if most rows are not hits.
 }
 \examples{
 library(stringr)
-recodes <- c("<s-word>"="\\\\bs[a-z]+","<r-word>"="\\\\br[a-z]+")
 data <- tibble(text=stringr::sentences)
+recodes <- c("<s-word>"="\\\\bs[a-z]+","<r-word>"="\\\\br[a-z]+")
 data \%>\% replace_grep_data(recodes,text,new.sentence,hits)
 data \%>\% replace_grep_data(recodes,text,new.text,hits,collapse.fn=~paste(names(.),"=",.,collapse="; "))
 }

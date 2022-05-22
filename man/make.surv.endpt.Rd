@@ -39,7 +39,7 @@ If survival endpoints are specified, note that censored times may be ignored.
 }
 \examples{
 # create a combined endpoint
-cid.patients \%>\% make.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
+cid.patients \%>\% make.surv.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
 }
 \author{
 Ying Taur

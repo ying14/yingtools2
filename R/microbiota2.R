@@ -282,7 +282,7 @@ get.abundance <- function(phy,..., counts=FALSE) {
     varname <- varnames[i]
     select.otus <- t %>% mutate(.criteria=!!var) %>% pull(.criteria)
     if (all(!select.otus)) {
-      warning("YTWarning: no taxa meeting this criteria: ",quo_name(var))
+      warning("YTWarning: no taxa meeting this criteria: ",as_label(var))
       tax.pctseqs <- 0
     } else {
       tax.sums <- otu[select.otus,,drop=FALSE] %>% apply(2,sum)
@@ -650,9 +650,9 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
     stop("YTError: gdata is not a data frame from ggtree!")
   }
   qvar <- enquo(var)
-  var <- quo_name(qvar)
+  var <- as_label(qvar)
   qvalue <- enquo(value)
-  value <- quo_name(qvalue)
+  value <- as_label(qvalue)
   .ymin <- ymin
   .ymax <- ymax
   if (!rlang::quo_is_null(qvar) & !rlang::quo_is_null(qvalue)) {

@@ -1690,12 +1690,12 @@ age.years <- function(bdate,now) {
 #' @export
 make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
   requireNamespace(c("rlang","purrr"),quietly=TRUE)
-  vars <- quos(...)
+  vars <- enquos(...)
   by <- enquo(by)
   totalvar <- quo(total_)
   allvars <- append(vars,totalvar)
 
-  vars.by <- vars %>% append(by) %>% map(quo_name)
+  vars.by <- vars %>% append(by) %>% map(as_label)
   is.td <- vars.by %>% paste0("_day") %>% has_name(data,.)
   if (any(is.td)) {
     warning("YTWarning: possible time-dependent variables detected: ",paste(vars.by[is.td],collapse=","),". Consider carefully before incorporating these.")
@@ -1711,8 +1711,8 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
       complete(value,fill=list(n=0)) %>%
       mutate(sum=sum(n),
              pct=n/sum,
-             percent=percent(pct,accuracy=0.1),
-             var=quo_name(var),
+             percent=scales::percent(pct,accuracy=0.1),
+             var=as_name(var),
              text=purrr::when(denom ~ str_glue("{n} ({percent})"),
                               ~ str_glue("{n}/{sum} ({percent})"))) %>%
       select(var,value,all=text)
@@ -1721,13 +1721,13 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
   if (!rlang::quo_is_null(by)) {
     by.table <- lapply(allvars,function(var) {
 
-      d %>% count(value=!!var,col=paste0(quo_name(by),"=",!!by)) %>%
+      d %>% count(value=!!var,col=paste0(as_name(by),"=",!!by)) %>%
         complete(value,col,fill=list(n=0)) %>%
         group_by(col) %>%
         mutate(sum=sum(n),
                pct=n/sum,
                percent=scales::percent(pct,accuracy=0.1),
-               var=quo_name(var),
+               var=as_name(var),
                text=purrr::when(denom ~ str_glue("{n} ({percent})"),
                                 ~ str_glue("{n}/{sum} ({percent})"))) %>%
         ungroup() %>%
@@ -1746,13 +1746,14 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
         warning(e)
         return("error")
       })
-      tibble(var=quo_name(var),fisher.pvalue=pval)
+      tibble(var=as_name(var),fisher.pvalue=pval)
     }) %>% bind_rows()
     tbl <- tbl %>% left_join(f.tbl,by="var") %>%
       mutate(fisher.pvalue=if_else(duplicated(var),NA_character_,fisher.pvalue))
   }
   return(tbl)
 }
+
 
 
 #' Make Table
@@ -2284,6 +2285,7 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 
 
 
+
 #' Coalesce indicator variables into one summary variable.
 #'
 #' After providing multiple indicator variables, summarize them by creating a character vector.
@@ -2296,37 +2298,16 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @author Ying Taur
 #' @export
 coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
-  vars <- quos(...)
-  # varnames <- sapply(vars,quo_name)
-  varnames <- map_chr(vars, quo_name)
-  labels <- names(vars)
-  labels <- unname(if_else(labels=="",varnames,labels))
-
-  arglist <- list(...)
-  len <- unique(sapply(arglist,length))
-  if (length(len)>1) {
-    stop("YTError: arguments are different lengths!")
-  }
-  #empty data, return empty character
-  if (length(len)==1 & len==0) {
-    return(character())
-  }
-  mat <- do.call(cbind,arglist)
-  output <- sapply(1:len,function(i) {
-    row <- mat[i,]
-    keep <- !is.na(row) & row
-    vec <- labels[keep]
-    if (length(vec)==0) {
-      return(else.value)
-    } else {
-      if (!first.hit.only) { # collapse all
-        return(paste(vec,collapse="|"))
-      } else { # coalesce
-        return(vec[1])
-      }
-    }
-  })
-  return(output)
+  vars <- enquos(..., .named=TRUE)
+  text <- vars %>% map(eval_tidy) %>%
+    imap(function(value,lbl) {
+      keep <- !is.na(value) & value
+      if_else(keep,lbl,NA_character_)
+    }) %>% transpose() %>%
+    simplify_all() %>%
+    map_chr(~paste2(.x,collapse="|"))
+  text[is.na(text)] <- else.value
+  return(text)
 }
 
 
@@ -2340,24 +2321,19 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
 #' @param omit.na whether or not to remove variable in the case of NA.
 #' @return A character vector of same length as the variables, displaying variable names plus values.
 #' @export
-#'
 #' @examples
 coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
-  vars <- enquos(...)
-  varnames <- map_chr(vars, quo_name)
-  labels <- names(vars)
-  labels <- unname(if_else(labels=="",varnames,labels))
-  arglist <- list(...) %>% map(as.character)
-  arglist2 <- map2(labels,arglist,function(v,x) {
+  vars <- enquos(..., .named=TRUE)
+  # values <- vars %>% map(eval_tidy)
+  text <- vars %>% imap(function(quo,lbl) {
+    value <- eval_tidy(quo) %>% as.character()
     if (omit.na) {
-      ifelse(!is.na(x),paste0(v,sep,x),NA)
+      ifelse(!is.na(value),paste0(lbl,sep,value),NA)
     } else {
-      paste0(v,sep,x)
+      paste0(lbl,sep,value)
     }
-  })
-  final <- arglist2 %>% transpose() %>% simplify_all() %>%
-    map_chr(~paste2(.,collapse=collapse))
-  final
+  }) %>% transpose() %>% simplify_all() %>% map_chr(~paste2(.,collapse=collapse))
+  return(text)
 }
 
 #' Ying's Recode
@@ -2597,6 +2573,10 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
   return(newdata)
 }
 
+
+
+
+
 #' Replace and Extract Regular Expression Patterns for Data Frames
 #'
 #' For a given column of text, search for list of Regex patterns. Perform replacements and save the hits in another column.
@@ -2610,7 +2590,8 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #'
 #' @param data the data frame to be manipulated.
 #' @param var the bare character vector to be searched.
-#' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
+#' @param recodes a vector of regular expressions. Can be named or unnamed; if named, will replace as: \code{c("replacement1"="pattern1", "replacement2"="pattern2", ...)}.
+#' If unnamed, will replace \code{c("pattern1","pattern2", ...)} with \code{""}.
 #' @param newvar bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.
 #' @param hits bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}
 #' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
@@ -2618,14 +2599,14 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #' @return returns the data with the above replacement text and stored hits.
 #' @examples
 #' library(stringr)
-#' recodes <- c("<s-word>"="\\bs[a-z]+","<r-word>"="\\br[a-z]+")
 #' data <- tibble(text=stringr::sentences)
+#' recodes <- c("<s-word>"="\\bs[a-z]+","<r-word>"="\\br[a-z]+")
 #' data %>% replace_grep_data(recodes,text,new.sentence,hits)
 #' data %>% replace_grep_data(recodes,text,new.text,hits,collapse.fn=~paste(names(.),"=",.,collapse="; "))
 #' @export
-replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case=TRUE,collapse.fn=NULL) {
+replace_grep_data <- function(data,var,recodes,newvar=NULL,hits=NULL,ignore.case=TRUE,collapse.fn=NULL) {
   requireNamespace(c("rlang","stringi","purrr"),quietly=TRUE)
-  var <- enquo(var)
+  var <- ensym(var)
   newvar <- enquo(newvar)
   hits <- enquo(hits)
   get.hits <- !rlang::quo_is_null(hits)
@@ -2670,10 +2651,10 @@ replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case
     hitlist <- newhits
   }
   if (get.hits) {
-    data[[quo_name(hits)]] <- hitlist
+    data[[as_name(hits)]] <- hitlist
   }
   if (get.replace) {
-    data[[quo_name(newvar)]] <- var
+    data[[as_name(newvar)]] <- var
   }
   return(data)
 
@@ -2689,10 +2670,11 @@ replace_grep_data <- function(data,recodes,var,newvar=NULL,hits=NULL,ignore.case
 #' @return prints whether variables matching the groups or not.
 #' @export
 find.all.distinct.vars <- function(data, ...) {
-  id.vars <- quos(...)
-  id.varnames <- sapply(id.vars,quo_name)
+  id.vars <- ensyms(...)
+  id.varnames <- id.vars %>% map_chr(as_name)
   other.varnames <- setdiff(names(data),id.varnames)
   other.vars <- syms(other.varnames)
+
   data2 <- data %>% group_by(...) %>% summarize_all(function(x) length(unique(x))) %>% ungroup()
   data3 <- data2 %>% select(!!!other.vars) %>% summarize_all(function(x) all(x==1))
 
@@ -2700,9 +2682,11 @@ find.all.distinct.vars <- function(data, ...) {
   non.distinct.vars <- names(data3)[!t(data3)]
   distinct.vars.text <- paste0("[",paste(id.varnames,collapse=","),"],",paste(distinct.vars,collapse=","))
   non.distinct.vars.text <- paste0(non.distinct.vars,collapse=",")
-  message("distinct: ",distinct.vars.text,"\nnot distinct: ",non.distinct.vars.text,"\n")
+  message("distinct: ",distinct.vars.text,"\n\nnot distinct: ",non.distinct.vars.text,"\n")
 
 }
+
+
 
 #' Is Distinct
 #'
@@ -2713,14 +2697,14 @@ find.all.distinct.vars <- function(data, ...) {
 #' @return Logical indicating whether or not columns are distinct.
 #' @export
 is.distinct <- function(data, ..., add.group.vars=TRUE) {
-  vars <- quos(...)
   gvars <- data %>%
-    group_by(!!!vars,.add=add.group.vars) %>%
+    group_by(..., .add=add.group.vars) %>%
     groups()
 
   anydup <- data %>% select(!!!gvars) %>% anyDuplicated()
   return(anydup==0)
 }
+
 
 #' Read Multiple Excel Sheets Into a List of Data Frames
 #'
@@ -2766,6 +2750,8 @@ read_all_excel <- function( ... ,col_names=TRUE,keep.nested=FALSE,bare.filename=
   return(excellist)
 }
 
+
+
 #' Write multiple data frames to an Excel file
 #'
 #' @param ... objects to be written to the Excel file. Can be a data frames or lists of data frames.
@@ -2773,32 +2759,20 @@ read_all_excel <- function( ... ,col_names=TRUE,keep.nested=FALSE,bare.filename=
 #' @export
 write_all_excel <- function(..., file) {
   requireNamespace("xlsx",quietly=TRUE)
-  quolist <- quos(...)
-  sheetnames <- ifelse(names(quolist)!="",names(quolist),unname(sapply(quolist,quo_name)))
-  objlist <- list(...)
-  names(objlist) <- sheetnames
-  is.list.of.dataframes <- function(x) {
-    is.list(x) & all(sapply(x,is.data.frame))
-  }
-  sheetlist <- sapply(objlist,function(obj) {
-    if (is.list.of.dataframes(obj)) {
-      obj
-    } else if (is.data.frame(obj)) {
-      list(obj)
-    } else {
-      stop("YTError: arguments should be either a data frame or list of dataframes.")
-    }
-  }) %>% unlist(recursive=FALSE)
-  message("Writing ",length(sheetlist)," sheets.")
-
+  quolist <- enquos(..., .named=TRUE)
+  objlist <- quolist %>% map(eval_tidy)
   wb <- xlsx::createWorkbook()
-  for (i in 1:length(sheetlist)) {
-    sheet  <- xlsx::createSheet(wb,sheetName=names(sheetlist)[i])
-    xlsx::addDataFrame(sheetlist[[i]],sheet,row.names=FALSE)
+  for (i in 1:length(objlist)) {
+    data <- objlist[[i]] %>% as.data.frame() # doesn't handle tibble well, so convert to plain data.frame
+    sheetname <- names(objlist)[i]
+    if (!is.data.frame(data)) {
+      stop(st_glue("YTError: '{sheetname}' is not a dataframe."))
+    }
+    sheet  <- xlsx::createSheet(wb,sheetName=sheetname)
+    xlsx::addDataFrame(data,sheet,row.names=FALSE)
   }
-  saveWorkbook(wb,file)
+  xlsx::saveWorkbook(wb,file)
 }
-
 
 
 #' Read Excel File 2
@@ -2967,16 +2941,16 @@ is.between <- function(x,start,stop,check=TRUE) {
 #' @author Ying Taur
 #' @export
 chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
-  newvar <- enquo(newvar)
+  newvar <- ensym(newvar)
   oldvar <- enquo(oldvar)
-  oldvar_day <- paste0(quo_name(oldvar),"_day")
+  oldvar_day <- paste0(as_name(oldvar),"_day")
   oldvar_day <- sym(oldvar_day)
-  newvar <- quo_name(newvar)
-  newvar_day <- paste0(quo_name(newvar),"_day")
-  vars <- quos(...)
+  newvar <- as_name(newvar)
+  newvar_day <- paste0(as_name(newvar),"_day")
+  vars <- enquos(...)
   ov <- pull(data,!!oldvar)
   if (!is.logical(ov) & !all(ov %in% 0:1,na.rm=TRUE)) {stop("YTError: oldvar should be a logical or 0-1!")}
-  if (!has_name(data,quo_name(oldvar_day))) {stop("YTError: ",quo_name(oldvar_day)," does not exist!")}
+  if (!has_name(data,as_name(oldvar_day))) {stop("YTError: ",as_name(oldvar_day)," does not exist!")}
   ovd <- pull(data,!!oldvar_day)
   if (!is.numeric(ovd)) {stop("YTError: oldvar should be a logical or 0-1!")}
 
@@ -3024,21 +2998,21 @@ chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
 #' You would primarily use \code{newvar} and \code{newvar_day} with packages such as \code{cmprsk} for competing risk analysis.
 #' @examples
 #' # create a combined endpoint
-#' cid.patients %>% make.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
+#' cid.patients %>% make.surv.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
 #' @author Ying Taur
 #' @export
 make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=FALSE) {
-  newvar <- enquo(newvar)
-  newvar_day <- paste0(quo_name(newvar),"_day")
-  newvar_code <- paste0(quo_name(newvar),"_code")
-  newvar_info <- paste0(quo_name(newvar),"_info")
+  newvar <- ensym(newvar)
+  newvar_day <- paste0(as_name(newvar),"_day")
+  newvar_code <- paste0(as_name(newvar),"_code")
+  newvar_info <- paste0(as_name(newvar),"_info")
   primary <- enquo(primary)
   censor <- enquo(censor)
-  competing.vars <- quos(...)
+  competing.vars <- enquos(...)
 
   vartype <- function(data,var) {
     var <- enquo(var)
-    varday <- paste0(quo_name(var),"_day")
+    varday <- paste0(as_label(var),"_day")
     x <- data %>% mutate(.x=!!var) %>% pull(.x)
     has.day <- has_name(data,varday) && is.numeric(pull(data,!!sym(varday)))
     looks.logical <- is.logical(x) || all(x %in% c(0,1,NA))
@@ -3056,11 +3030,12 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 
   get.surv <- function(var) {
     var <- enquo(var)
-    varname <- quo_name(var)
-    varday <- paste0(quo_name(var),"_day")
+    varname <- as_label(var)
+    print(varname)
+    varday <- paste0(as_label(var),"_day")
     if (rlang::quo_is_null(var)) { #censor
       if (vartype(data,!!primary) %in% c("survival","competing")) {
-        primary_day <- paste0(quo_name(primary),"_day")
+        primary_day <- paste0(as_name(primary),"_day")
         data <- data %>% mutate(.v=1,.vd=!!sym(primary_day))
       } else {
         data <- data %>% mutate(.v=1,.vd=Inf)
@@ -3084,7 +3059,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
   }
 
   varlist <- c(primary,competing.vars,censor)
-  varnames <- sapply(varlist,quo_name)
+  varnames <- sapply(varlist,as_label)
   varnumbers <- c(seq_along(varnames)[-length(varnames)],0)
   if (!competing) {
     varnumbers <-ifelse(varnumbers>1,0,varnumbers)
@@ -3119,13 +3094,14 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
            !!newvar_day:=final$.final_vd,
            !!newvar_code:=final$.final_code,
            !!newvar_info:=final$.final_info)
-  message(vartype(newdata,!!newvar)," endpoint variable created: ",quo_name(newvar))
+  message(vartype(newdata,!!newvar)," endpoint variable created: ",as_name(newvar))
   na.count <- newdata %>% filter(is.na(!!newvar)|is.na(!!newvar_day)) %>% nrow()
   if (na.count>0) {
     message("note: ",na.count," NA values")
   }
   return(newdata)
 }
+
 
 
 
@@ -3151,17 +3127,17 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
   requireNamespace(c("coxphf","scales","cmprsk"),quietly=TRUE)
   yvar <- enquo(yvar)
   starttime <- enquo(starttime)
-  xvars <- quos(...)
-  yvarday <- quo_name(yvar) %>% paste0("_day") %>% sym()
+  xvars <- enquos(...)
+  yvarday <- as_name(yvar) %>% paste0("_day") %>% sym()
   is.td <- function(var) {
     var <- enquo(var)
-    vardayname <- quo_name(var) %>% paste0("_day")
+    vardayname <- as_name(var) %>% paste0("_day")
     has_name(data,vardayname)
   }
   xvars.td <- xvars[sapply(xvars,is.td)]
-  xvarnames <- xvars %>% sapply(quo_name)
+  xvarnames <- xvars %>% sapply(as_name)
   if (length(xvars.td)>0) {
-    xvarsdays.td <- xvars.td %>% sapply(quo_name) %>% paste0("_day") %>% syms()
+    xvarsdays.td <- xvars.td %>% sapply(as_name) %>% paste0("_day") %>% syms()
   } else {
     xvarsdays.td <- syms(NULL)
   }
@@ -3182,7 +3158,7 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
   if (rlang::quo_is_null(starttime)) {
     data <- data %>% mutate(.y=!!yvar,.tstart=time0,.tstop=!!yvarday)
   } else {
-    message(str_glue("starttime specified as {quo_name(starttime)}."))
+    message(str_glue("starttime specified as {as_label(starttime)}."))
     data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
   }
   #if time0 is not zero, this will shift everything.
@@ -3195,7 +3171,7 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
 
   splitline <- function(data,xvar) {
     xvar <- enquo(xvar)
-    xvarday <- quo_name(xvar) %>% paste0("_day") %>% sym()
+    xvarday <- as_name(xvar) %>% paste0("_day") %>% sym()
     data.nochange <- data %>% filter(!!xvar==0|is.na(!!xvar))
     data.split <- data %>% filter(!!xvar==1,.tstart<!!xvarday,!!xvarday<.tstop)
     data.xafter <- data %>% filter(!!xvar==1,.tstop<=!!xvarday)
@@ -3293,8 +3269,8 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
 
   tbl.extra <- lapply(xvars,function(x) {
     #time dependent
-    if (quo_name(x) %in% sapply(xvars.td,quo_name)) {
-      xday <- x %>% quo_name() %>% paste0("_day") %>% sym()
+    if (as_name(x) %in% sapply(xvars.td,as_name)) {
+      xday <- x %>% as_name() %>% paste0("_day") %>% sym()
       count <- data %>% summarize(count=sum((!!x==1) & (!!xday < !!yvarday),na.rm=TRUE)) %>% pull(count)
       extra <- tibble(xvar=quo_name(x),n=count) %>% mutate(term=xvar)
       return(extra)
@@ -3302,14 +3278,14 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     vec <- data %>% pull(!!x)
     is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
     if (is.01(vec)) {
-      extra <- tibble(xvar=quo_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
+      extra <- tibble(xvar=as_name(x),n=sum(vec,na.rm=TRUE)) %>% mutate(term=xvar)
       return(extra)
     } else if (is.numeric(vec)) {
-      extra <- tibble(xvar=quo_name(x),n=NA_real_) %>% mutate(term=xvar)
+      extra <- tibble(xvar=as_name(x),n=NA_real_) %>% mutate(term=xvar)
       return(extra)
     } else {
       tbl <- table(vec)
-      extra <- tibble(xvar=quo_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
+      extra <- tibble(xvar=as_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
       return(extra)
     }
   }) %>% bind_rows()
@@ -4170,8 +4146,6 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
 
 
 
-
-
 #' Logistic regression
 #' @param data the data frame containing the variables to be analyzed.
 #' @param yvar the outcome (bare unquoted).
@@ -4184,9 +4158,9 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
 logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted=TRUE) {
   requireNamespace(c("broom","logistf","scales"),quietly=TRUE)
   yvar <- enquo(yvar)
-  xvars <- quos(...)
-  xvarnames <- sapply(xvars,quo_name)
-  formula <- as.formula(paste0(quo_name(yvar),"~",paste(xvarnames,collapse="+")))
+  xvars <- enquos(...)
+  xvarnames <- sapply(xvars,as_name)
+  formula <- as.formula(paste0(as_name(yvar),"~",paste(xvarnames,collapse="+")))
   if (!firth) {
     result <- glm(formula,data=data,family="binomial")
   } else {
@@ -4235,12 +4209,14 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
   tbl <- tbl %>% left_join(tbl.extra,by=c("xvar","term"))
   if (formatted) {
     tbl <- tbl %>%
-      mutate(p.value=pvalue(p.value)) %>%
+      mutate(p.value=scales::pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
   }
   tbl
 }
+
+
 
 
 #' Univariate and Multivariate Cox Regression
@@ -4258,9 +4234,9 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
 #' @export
 univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,firth=FALSE,formatted=TRUE) {
   yvar <- enquo(yvar)
-  xvars <- quos(...)
+  xvars <- enquos(...)
   univariate.reglist <- lapply(xvars,function(x) {
-    message(quo_name(x))
+    message(as_name(x))
     logit(!!yvar,!!x,data=data,formatted=FALSE,firth=firth)
   })
   univariate.tbl <- univariate.reglist %>% bind_rows()
@@ -4364,7 +4340,7 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 #' @author Ying Taur
 #' @export
 group_by_all_distinct <- function(data, ...) {
-  id.vars <- quos(...)
+  id.vars <- enquos(...)
   id.varnames <- sapply(id.vars,quo_name)
   data2 <- data %>% group_by(...) %>% summarize_all(function(x) length(unique(x))) %>% ungroup() %>%
     select_if(function(x) all(x==1))
@@ -4391,7 +4367,7 @@ group_by_all_distinct <- function(data, ...) {
 #' @author Ying Taur
 #' @export
 group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
-  group_vars <- quos(...)
+  group_vars <- enquos(...)
   start <- enquo(start)
   stop <- enquo(stop)
   data %>% group_by(!!!group_vars,.add=add) %>%
@@ -4421,7 +4397,7 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALSE,add=FALSE) {
   time <- enquo(time)
   indicator <- enquo(indicator)
-  group_vars <- quos(...)
+  group_vars <- enquos(...)
 
 
   ind <- pull(data,!!indicator)
@@ -4636,7 +4612,7 @@ get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
 #' @export
 select2 <- function(data,...) {
   select_vars <- quos(...)
-  select_var_names <- sapply(select_vars,quo_name)
+  select_var_names <- sapply(select_vars,as_name)
   select_vars_keep <- select_vars[select_var_names %in% names(data)]
   data %>% select(!!!select_vars_keep)
 }
