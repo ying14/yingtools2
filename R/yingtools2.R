@@ -1446,57 +1446,78 @@ show_linetypes <- function() {
 #' Determines the actual limits of X and Y, for a given ggplot object. This is used by \code{gg.align.xlim}.
 #' @param gg the ggplot object
 #' @return a list containing inforation about limits for X and Y.
+#' @example
+#' g1 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram()
+#' g2 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
+#' g3 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram(bins=3) + coord_cartesian(expand=FALSE)
+#' g4 <- ggplot(mtcars,aes(x=mpg,y=disp)) + geom_point() + coord_cartesian(xlim=c(2,55),expand=TRUE)
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#'
+#' g1 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram() + scale_x_log10()
+#' g2 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point() + scale_x_log10()
+#' g3 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram(bins=3) + coord_cartesian(expand=FALSE) + scale_x_log10()
+#' g4 <- ggplot(mtcars,aes(x=mpg,y=disp)) + geom_point() + coord_cartesian(expand=FALSE,xlim=c(2,55)) + scale_x_log10()
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#'
+#' g1 <- ggplot(starwars,aes(x=eye_color)) + geom_bar()
+#' g2 <- ggplot(starwars,aes(x=eye_color,y=height)) + geom_boxplot()
+#' g3 <- ggplot(starwars,aes(x=eye_color,fill=species)) + geom_bar(width=3)
+#' g4 <- ggplot(starwars,aes(x=eye_color,y=height)) + geom_boxplot()
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#'
+#' g1 <- ggplot(presidential,aes(x=start)) + geom_histogram()
+#' g2 <- ggplot(presidential,aes(x=end)) + geom_histogram()
+#' g3 <- ggplot(presidential,aes(y=name,yend=name,x=start,xend=end)) + geom_segment(size=5)
+#' g4 <- ggplot(presidential,aes(y=name,yend=name,x=start,xend=end,fill=party)) + geom_segment(size=5)
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
 #' @export
 gg.axis.limits <- function(gg) {
   gb <- suppressMessages(ggplot_build(gg))
-  is.flipped <- is(gb$layout$coord,"CoordFlip")
-  expand <- gb$layout$coord$expand
-
-  get.axis <- function(panel_scales,lim.coord) {
-    lim <- panel_scales[[1]]$range$range
-    lim.fct <- panel_scales[[1]]$range_c$range
-    expansion <- panel_scales[[1]]$expand
-    transform <- panel_scales[[1]]$trans$transform
-    inverse <- panel_scales[[1]]$trans$inverse
-    lim.new <- lim.coord
-    if (length(lim.coord)>0) {
-      lim.new <- lim.coord
-    } else if (!is.null(lim.fct)) {
-      lim.new <- lim.fct
-    } else {
-      lim.new <- lim
-    }
-    range <- lim.new[2]-lim.new[1]
-    if (expand) {
-      if (length(expansion)==0) {
-        expansion <- expansion(mult=0.05)
-      }
-      lower.mult <- expansion[1]
-      lower.add <- expansion[2]
-      upper.mult <- expansion[3]
-      upper.add <- expansion[4]
-      mult <- c(-lower.mult*range, upper.mult*range)
-      add <- c(-lower.add, upper.add)
-      lim.new <- lim.new + mult + add
-    }
-
-    list(
-      lim=inverse(lim.new),
-      plot.limit=lim.new
-    )
+  coord_flip <- is(gb$layout$coord,"CoordFlip")
+  # expand <- gb$layout$coord$expand
+  x <- list(
+    lim = gb$layout$panel_params[[1]]$x.range, #****the ultimate plot limits, post transform, post expansion, post coord lim
+    # lim.fct = gb$layout$panel_scales_x[[1]]$range_c$range, #exists if categorical, and is numeric representation of lim
+    # lim2 = gb$layout$panel_scales_x[[1]]$range$range, #lim is the data limits, can be numeric or factor, pre-expansion, post-transform, if not overruled by coord.
+    # lim3 = gb$layout$panel_params[[1]]$x$limits, #basically same as lim
+    # lim4 = gb$layout$panel_params[[1]]$x$continuous_range,
+    # lim5 = gb$layout$panel_params[[1]]$x$get_limits(),
+    # lim.coord=gb$layout$coord$limits$x,
+    # expansion = gb$layout$panel_scales_x[[1]]$expand,
+    transform = gb$layout$panel_scales_x[[1]]$trans$transform,
+    inverse = gb$layout$panel_scales_x[[1]]$trans$inverse
+  )
+  y <- list(
+    lim = gb$layout$panel_params[[1]]$y.range,
+    transform = gb$layout$panel_scales_y[[1]]$trans$transform,
+    inverse = gb$layout$panel_scales_y[[1]]$trans$inverse
+  )
+  if (is.null(x$inverse)) {
+    x$coord_lim <- x$lim
+  } else {
+    x$coord_lim <- x$inverse(x$lim)
   }
-  x <- get.axis(panel_scales=gb$layout$panel_scales_x,
-                lim.coord=gb$layout$coord$limits$x)
-  y <- get.axis(panel_scales=gb$layout$panel_scales_y,
-                lim.coord=gb$layout$coord$limits$y)
-  if (is.flipped) {
-    temp <- x
-    x <- y
-    y <- temp
+
+  if (is.null(y$inverse)) {
+    y$coord_lim <- y$lim
+  } else {
+    y$coord_lim <- y$inverse(y$lim)
   }
-  return(list(x=x,y=y,
-              xy.flipped=is.flipped))
+  return(list(x=x,y=y,coord_flip=coord_flip))
 }
+
 
 
 
@@ -1510,24 +1531,28 @@ gg.axis.limits <- function(gg) {
 #' @return a modified list of ggplot objects, with modified x-limits
 #' @export
 gg.align.xlim <- function(glist) {
-  limits <- glist %>% map(gg.axis.limits)
-  xmin <- limits %>% map_dbl(~.$x$lim[1])
-  xmax <- limits %>% map_dbl(~.$x$lim[2])
-  new.xlim <- c(min(xmin),max(xmax))
-  new.limits <- limits %>% map(~{
-    list(xlim=new.xlim,ylim=.x$y$lim,xy.flipped=.x$xy.flipped)
-  })
-  glist.new <- suppressMessages(map2(glist,new.limits,~{
-    if (.y$xy.flipped) {
-      .x + coord_flip(xlim=.y$ylim,ylim=.y$xlim,expand=FALSE)
+  gg.limits <- glist %>% map(gg.axis.limits)
+  xlims <- gg.limits %>% map(~.x$x$coord_lim)
+  xmin <- xlims %>% map(~.x[1])
+  xmax <- xlims %>% map(~.x[2])
+  new.xlim <- c(xmin[[which.min(xmin)]],xmax[[which.max(xmax)]])
+  new.glist <- map2(glist,gg.limits,~{
+    if (.y$coord_flip) {
+      coord <- coord_flip(
+        xlim=.y$y$coord_lim,
+        ylim=new.xlim,
+        expand=FALSE)
     } else {
-      .x + coord_cartesian(xlim=.y$xlim,ylim=.y$ylim,expand=FALSE)
+      coord <- coord_cartesian(
+          xlim=new.xlim,
+          ylim=.y$y$coord_lim,
+          expand=FALSE,
+          default=TRUE)
     }
-  }))
-  glist.new
+    suppressWarnings({.x + coord})
+  })
+  return(new.glist)
 }
-
-
 
 
 #' Stack and line up ggplot objects in a column
@@ -1542,7 +1567,7 @@ gg.align.xlim <- function(glist) {
 #'
 #' @param ... ggplot objects to be stacked
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
-#' @param align.xlim logical, whether or not to alter the x-limits in each plot to match. Default is \code{TRUE}.
+#' @param align.xlim logical, whether or not to alter the x-limits in each plot to match. Default is \code{FALSE}. (Note this is experimental and can potentially fail in strange situations)
 #' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.
 #' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
 #' @param gap size of gap between stacked plots. Default is 0
@@ -1556,7 +1581,6 @@ gg.align.xlim <- function(glist) {
 #' @export
 gg.stack <- function(...,heights=NULL,align.xlim=TRUE,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
   requireNamespace(c("grid","gridExtra","gtable"),quietly=TRUE)
-
   grobs <- list(...)
   keep <- !sapply(grobs,is.null)
   if (!is.null(heights)) {
@@ -1595,7 +1619,6 @@ gg.stack <- function(...,heights=NULL,align.xlim=TRUE,adjust.themes=TRUE,gg.extr
   } else {
     grobs1 <- grobs
   }
-
   #list of ggplotGrobs
   grobs2 <- lapply(grobs1,function(g) {
     gr <- ggplotGrob(g)
@@ -1612,7 +1635,6 @@ gg.stack <- function(...,heights=NULL,align.xlim=TRUE,adjust.themes=TRUE,gg.extr
     }
     return(g)
   })
-
   #normalize null heights to 1 within each plot. should be able to handle facets with varying heights.
   #then alter heights of null portion of each plot.
   grobs4 <- mapply(function(gr,ht) {
@@ -1624,9 +1646,7 @@ gg.stack <- function(...,heights=NULL,align.xlim=TRUE,adjust.themes=TRUE,gg.extr
     return(gr)
   },grobs3,heights,SIMPLIFY=FALSE)
   args <- c(grobs4,list(size="max"))
-
   gtable.final <- do.call(gridExtra::gtable_rbind,args)
-
   if (as.gtable) {
     return(gtable.final)
   } else {

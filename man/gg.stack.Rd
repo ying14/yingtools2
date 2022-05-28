@@ -22,7 +22,7 @@ gg.stack(
 
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
 
-\item{align.xlim}{logical, whether or not to alter the x-limits in each plot to match. Default is \code{TRUE}.}
+\item{align.xlim}{logical, whether or not to alter the x-limits in each plot to match. Default is \code{FALSE}. (Note this is experimental and can potentially fail in strange situations)}
 
 \item{adjust.themes}{logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.}
 
