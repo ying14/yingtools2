@@ -33,8 +33,7 @@ black.pct.female
 `r scales::percent(pct.black,accuracy=0.1)` of patients are black. `r scales::percent(black.pct.female,accuracy=0.1)` of black patients are female.
 
 ### Question `r q<-q+1;q`
-What percent of the patients were black race? What percent of black patients were female?
-In the yingtools2::cid94::cid.bsi data, count the number of *patients* who had Klebsiella blood stream infections. (hint: use regular expression).
+In the `cid.bsi` data, count the number of *patients* who had Klebsiella bloodstream infections (hint: use regular expression).
 ```{r,echo=FALSE}
 #get subset of bloodstream infections that were Klebsiella
 kleb.bcx <- cid.bsi[grepl("Klebsiella",cid.bsi$organism),]
@@ -54,9 +53,9 @@ Start with the `cid.patients` data and make the following modifications:
 
 3. Create a column called `los` to represent of the hospital length of stay for each patient. This is calculated as `discharge.day-admit.day+1`.
 
-4. Create a column called `has.leukemia` which is `TRUE` the patient's primary diagnosis is leukemia, and `FALSE` otherwise.
+4. Create a column called `has.leukemia` which is `TRUE` if the patient's primary diagnosis is leukemia, and `FALSE` otherwise.
 
-5. Keep these columns: `Patient_ID`, `agebmt`, `sex`, `bmt.cord`, `los`, `has.leukemia` ... remove everything else.
+5. Keep these columns: `Patient_ID`, `agebmt`, `sex`, `bmt.cord`, `los`, and `has.leukemia` ... remove everything else.
 
 ```{r,echo=FALSE}
 cid.patients %>% 
@@ -70,7 +69,7 @@ cid.patients %>%
 
 
 ### Question `r q<-q+1;q`
-In the `cid.bsi` data, addcolumns to the data in order to show age and sex for each row (hint: use left_join).
+In the `cid.bsi` data, add columns to the data in order to show age and sex for each row (hint: use `left_join`).
 ```{r,echo=FALSE}
 cid.bsi %>% left_join(select(cid.patients,Patient_ID,agebmt,sex),by="Patient_ID")
 ```
@@ -78,7 +77,7 @@ cid.bsi %>% left_join(select(cid.patients,Patient_ID,agebmt,sex),by="Patient_ID"
 
 ### Question `r q<-q+1;q`
 In `cid.patients`, for each level of `disease.risk`: calculate the average age, average length of stay,
-and percent of patients above 60 years (hint: use group_by).
+and percent of patients above 60 years (hint: use `group_by`).
 
 ```{r,echo=FALSE}
 cid.patients %>% group_by(disease.risk) %>%
@@ -89,7 +88,7 @@ cid.patients %>% group_by(disease.risk) %>%
 
 
 ### Question `r q<-q+1;q`
-Modify `cid.cdiff` so that it lists whether or not the C.diff infection occurred during inpatient or outpatient.
+Modify `cid.cdiff` so that it lists whether or not the C.diff infection occurred during inpatient or outpatient. You will need to get the necessary info from `cid.hosp`.
 ```{r,echo=FALSE}
 cid.cdiff %>%
   left_join(cid.hosp,by="Patient_ID") %>%
@@ -132,7 +131,7 @@ cid.meds %>% filter(med.class=="Antibacterials",route=="IV") %>%
 
 
 
-### Q9
+### Question `r q<-q+1;q`
 Using `cid.patients`, make a histogram of age.
 
 ```{r,echo=FALSE}
@@ -258,7 +257,7 @@ Using `cid.phy`, create Fig1 of CID94, which is a scatterplot of diversity (Shan
 just like in the paper (hint: to extract the data with alpha diversity calculations, use `get.samp(cid.phy,stats=TRUE)`).
 Bonus: Include a horizontal dashed line to indicate transplant day (day 0),
 and add shading to the points. Note that the shading within the points was 50% transparent in the
-final paper, so that readers can see overlapping data.
+final paper, so that readers can see more clearly see overlapping data.
 
 ```{r,echo=FALSE}
 s <- get.samp(cid.phy,stats=TRUE)
@@ -277,6 +276,7 @@ ggplot(s,aes(x=day,y=Shannon)) + geom_smooth() +
 Write a function called `plot.patient` that draws timelines for a given patient, similar to Fig 2A of CID94. The function 
 can make use of data from `cid.patients`, `cid.phy`, and `cid.meds`
 It should include: timeline of medications administered, stacked barplot showing taxon abundance, with title showing primary diagnosis. Should use the original 'cid.colors' palette. For medications, write the name of the medication on the bar.
+
 Bonus:
 (1) make sure the medication colors and are the same for every plot
 (2) make the medication bars the same height in all plots
@@ -343,8 +343,16 @@ plot.patient <- function(id) {
 
 ```
 
-```{r}
+```{r,fig.width=10}
 plot.patient("301")
 ```
+
+
+
+```{r,fig.width=10}
+plot.patient("153")
+```
+
+
 
 

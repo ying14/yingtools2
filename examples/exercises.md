@@ -25,10 +25,8 @@ What percent of black patients were female?
 
 ### Question 2
 
-What percent of the patients were black race? What percent of black
-patients were female? In the yingtools2::cid94::cid.bsi data, count the
-number of *patients* who had Klebsiella blood stream infections. (hint:
-use regular expression).
+In the `cid.bsi` data, count the number of *patients* who had Klebsiella
+bloodstream infections (hint: use regular expression).
 
     ## [1] 7
 
@@ -48,11 +46,11 @@ Start with the `cid.patients` data and make the following modifications:
     stay for each patient. This is calculated as
     `discharge.day-admit.day+1`.
 
-4.  Create a column called `has.leukemia` which is `TRUE` the patient’s
-    primary diagnosis is leukemia, and `FALSE` otherwise.
+4.  Create a column called `has.leukemia` which is `TRUE` if the
+    patient’s primary diagnosis is leukemia, and `FALSE` otherwise.
 
 5.  Keep these columns: `Patient_ID`, `agebmt`, `sex`, `bmt.cord`,
-    `los`, `has.leukemia` … remove everything else.
+    `los`, and `has.leukemia` … remove everything else.
 
 <!-- -->
 
@@ -71,8 +69,8 @@ Start with the `cid.patients` data and make the following modifications:
 
 ### Question 4
 
-In the `cid.bsi` data, addcolumns to the data in order to show age and
-sex for each row (hint: use left\_join).
+In the `cid.bsi` data, add columns to the data in order to show age and
+sex for each row (hint: use `left_join`).
 
     ## # A tibble: 138 x 6
     ##   Patient_ID organism               startday endday agebmt sex   
@@ -91,7 +89,7 @@ sex for each row (hint: use left\_join).
 
 In `cid.patients`, for each level of `disease.risk`: calculate the
 average age, average length of stay, and percent of patients above 60
-years (hint: use group\_by).
+years (hint: use `group_by`).
 
     ## # A tibble: 3 x 4
     ##   disease.risk mean.age mean.los over60
@@ -103,7 +101,8 @@ years (hint: use group\_by).
 ### Question 6
 
 Modify `cid.cdiff` so that it lists whether or not the C.diff infection
-occurred during inpatient or outpatient.
+occurred during inpatient or outpatient. You will need to get the
+necessary info from `cid.hosp`.
 
     ## # A tibble: 37 x 4
     ##   Patient_ID   day method           inpatient 
@@ -121,15 +120,15 @@ occurred during inpatient or outpatient.
 ### Question 7
 
 Using `cid.bsi`, create a data frame that lists for each patient: (1)
-Patient\_ID, (2) age, (3) sex, (4) number of positive blood cultures,
-(5) number of distinct organisms, (6) a character listing each distinct
+Patient_ID, (2) age, (3) sex, (4) number of positive blood cultures, (5)
+number of distinct organisms, (6) a character listing each distinct
 bloodstream organism seen, separated by commas and listed in the order
 they first occurred. If a patient did not have positive blood cultures,
 state ‘<none>’.
 
     ## # A tibble: 94 x 6
     ##   Patient_ID agebmt sex    n.poscultures n.orgs org.list                                            
-    ##   <chr>       <dbl> <chr>          <dbl>  <dbl> <chr>                                               
+    ##   <chr>       <dbl> <chr>          <int>  <int> <chr>                                               
     ## 1 112            37 Male               1      1 Bacillus species                                    
     ## 2 114            61 Male               3      3 Fusobacterium species,Leptotrichia trevisanii,Staph~
     ## 3 121            50 Male               2      2 CNST,Staphylococcus aureus oxacillin resistant      
@@ -158,20 +157,20 @@ drug was given, for each patient.
     ## 8 309                58            29    62       19             0            0         0         5
     ## # ... with 81 more rows
 
-### Q9
+### Question 9
 
 Using `cid.patients`, make a histogram of age.
 
 ![](exercises_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
 
-### Question 9
+### Question 10
 
 Using `cid.patients`, make a bar plot of intensity (with different
 colors):
 
 ![](exercises_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
 
-### Question 10
+### Question 11
 
 Using `cid.patients`, make a histogram of length of stay
 (`discharge.day-admit.day+1`) during the initial transplant
@@ -179,14 +178,14 @@ hospitalization, for each conditioning intensity
 
 ![](exercises_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
 
-### Question 11
+### Question 12
 
 Using `cid.patients`, make a scatterplot of length of stay vs. age, and
 write ‘M’ for males and ‘F’ for females, and color by intensity.
 
 ![](exercises_files/figure-gfm/unnamed-chunk-13-1.png)<!-- -->
 
-### Question 12
+### Question 13
 
 Create a function called ‘count.samples’ which uses `cid.phy` to
 determine how many samples were collected, for patients (users input
@@ -216,7 +215,7 @@ count.samples(c("178","222","xxx","130"))
 
     ## [1]  7  6 NA  4
 
-### Question 13
+### Question 14
 
 Create a function called `get.first.entero.abundance` which provides
 Enterococcus relative abundance in the first sample collected of a given
@@ -260,7 +259,7 @@ system.time({
 ```
 
     ##    user  system elapsed 
-    ##    6.61    0.56    4.54
+    ##    7.36    0.39    4.78
 
 ``` r
 system.time({
@@ -272,9 +271,9 @@ system.time({
 ```
 
     ##    user  system elapsed 
-    ##    0.11    0.00    0.11
+    ##    0.12    0.00    0.13
 
-### Question 14
+### Question 15
 
 Using `cid.phy`, create Fig1 of CID94, which is a scatterplot of
 diversity (Shannon index) and transplant day, with a smoothed moving
@@ -283,12 +282,12 @@ just like in the paper (hint: to extract the data with alpha diversity
 calculations, use `get.samp(cid.phy,stats=TRUE)`). Bonus: Include a
 horizontal dashed line to indicate transplant day (day 0), and add
 shading to the points. Note that the shading within the points was 50%
-transparent in the final paper, so that readers can see overlapping
-data.
+transparent in the final paper, so that readers can see more clearly see
+overlapping data.
 
 ![](exercises_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
 
-### Question 15
+### Question 16
 
 Write a function called `plot.patient` that draws timelines for a given
 patient, similar to Fig 2A of CID94. The function can make use of data
@@ -296,16 +295,24 @@ from `cid.patients`, `cid.phy`, and `cid.meds` It should include:
 timeline of medications administered, stacked barplot showing taxon
 abundance, with title showing primary diagnosis. Should use the original
 ‘cid.colors’ palette. For medications, write the name of the medication
-on the bar. Bonus: (1) make sure the medication colors and are the same
-for every plot (2) make the medication bars the same height in all plots
-(3) the order of the taxonomy legend and stacking order should be in
-order of most abundant to least abundant (but Other Firmicutes, Other
+on the bar.
+
+Bonus: (1) make sure the medication colors and are the same for every
+plot (2) make the medication bars the same height in all plots (3) the
+order of the taxonomy legend and stacking order should be in order of
+most abundant to least abundant (but Other Firmicutes, Other
 Bacteroidetes, and Other Bacteria should be at the bottom no matter
-what) (4) if relative abundance is &gt;30%, display the name of the
-taxon in the middle of the stacked bar.
+what) (4) if relative abundance is \>30%, display the name of the taxon
+in the middle of the stacked bar.
 
 ``` r
 plot.patient("301")
 ```
 
 ![](exercises_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+
+``` r
+plot.patient("153")
+```
+
+![](exercises_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
