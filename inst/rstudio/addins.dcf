@@ -1,0 +1,7 @@
+
+Name: Format selection to stay under 4096 chars
+Description: Keeps code under 4096 chars per line.
+Binding: style_selection_4096
+Interactive: false
+
+

@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.94
+Version: 0.0.1.95
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -11,7 +11,6 @@ LazyData: TRUE
 Imports:
     reshape2,
     ape,
-    data.table,
     coxphf,
     cmprsk,
     logistf,
@@ -34,9 +33,12 @@ Imports:
     gridExtra,
     shiny,
     callr,
-    pingr
+    pingr,
+    rstudioapi,
+    styler
 Suggests:
+    data.table,
     phyloseq,
     phytools,
     ggtree
-RoxygenNote: 7.1.1
+RoxygenNote: 7.2.0
