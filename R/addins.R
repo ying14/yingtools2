@@ -1,5 +1,14 @@
 
 
+convert_winpath <- function() {
+  context <- rstudioapi::getActiveDocumentContext()
+  text <- context$selection[[1]]$text
+  if (text=="") {
+    text <- suppressMessages(read.clipboard())
+  }
+  newtext <- gsub("\\\\","/",text)
+  rstudioapi::insertText(newtext)
+}
 
 set_line_break_after_comma_if_4096_chars <- function(pd_flat) {
   pd2 <- pd_flat %>%
