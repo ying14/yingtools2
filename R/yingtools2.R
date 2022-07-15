@@ -2319,7 +2319,7 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @export
 coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
   vars <- enquos(..., .named=TRUE)
-  text <- vars %>% map(eval_tidy) %>%
+  text <- vars %>% map(rlang::eval_tidy) %>%
     imap(function(value,lbl) {
       keep <- !is.na(value) & value
       if_else(keep,lbl,NA_character_)
@@ -2346,7 +2346,7 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
   vars <- enquos(..., .named=TRUE)
   # values <- vars %>% map(eval_tidy)
   text <- vars %>% imap(function(quo,lbl) {
-    value <- eval_tidy(quo) %>% as.character()
+    value <- rlang::eval_tidy(quo) %>% as.character()
     if (omit.na) {
       ifelse(!is.na(value),paste0(lbl,sep,value),NA)
     } else {
