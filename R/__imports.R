@@ -17,6 +17,7 @@
 #' @import ggplot2
 #' @import forcats
 #' @import stringr
+#' @import rlang
 #' @importFrom lubridate is.Date is.POSIXct is.POSIXlt is.POSIXt
 #' @importFrom scales percent trans_new pvalue rescale
 #' @importFrom reshape2 dcast melt

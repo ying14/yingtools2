@@ -83,7 +83,7 @@ inner_join_replace <- function(x,y,by=NULL,errorIfDifferent=TRUE) {
 
   }
   data2 <- data %>% select(-all_of(ident.vars.x)) %>%
-    rename(!!!rlang::syms(setNames(ident.vars.y,ident.vars)))
+    rename(!!!syms(setNames(ident.vars.y,ident.vars)))
   #double check names
   old.names <- c(names(x),names(y))
   new.names <- names(data2)
@@ -362,7 +362,7 @@ kill_port_process <- function(port) {
 get.code.info <- function(expr,text=NULL,fn=NULL,envir=parent.frame()) {
   expr <- enquo(expr)
   if (is.null(text)) {
-    text <- rlang::quo_text(expr)
+    text <- quo_text(expr)
   }
   if (!is.null(fn)) {
     text <- deparse(body(fn))
@@ -422,7 +422,7 @@ get.code.info <- function(expr,text=NULL,fn=NULL,envir=parent.frame()) {
 #' @examples
 run_r <- function(expr,envir=parent.frame()) {
   requireNamespace("callr",quietly=TRUE)
-  expr <- rlang::enexpr(expr)
+  expr <- enexpr(expr)
   call.arglist <- run_r_callargs(!!expr,envir=envir)
   do.call(r,call.arglist)
 }
@@ -431,7 +431,7 @@ run_r <- function(expr,envir=parent.frame()) {
 #' @export
 run_r_bg <- function(expr,envir=parent.frame()) {
   requireNamespace("callr",quietly=TRUE)
-  expr <- rlang::enexpr(expr)
+  expr <- enexpr(expr)
   call.arglist <- run_r_callargs(!!expr,envir=envir)
   do.call(callr::r_bg,call.arglist)
 }
@@ -440,8 +440,8 @@ run_r_bg <- function(expr,envir=parent.frame()) {
 #' @export
 run_r_callargs <- function(expr,envir=parent.frame()) {
   requireNamespace(c("stringr","callr"),quietly=TRUE)
-  expr <- rlang::enexpr(expr)
-  text <- rlang::quo_text(expr)
+  expr <- enexpr(expr)
+  text <- quo_text(expr)
   info <- get.code.info(text=text,envir=envir)
   argline <- paste(info$locals,collapse=",")
   newtext <- info$parsedata %>% group_by(line1) %>%
@@ -809,7 +809,7 @@ pivot_wider_partial <- function(data,
   values_from <- enquo(values_from)
   criteria <- enquo(criteria)
 
-  if (rlang::quo_is_null(id_cols)) {
+  if (quo_is_null(id_cols)) {
     name_cols <- tidyselect::eval_select(names_from,data) %>% names()
     value_cols <- tidyselect::eval_select(values_from,data) %>% names()
     by_vars <- setdiff(names(data),c(name_cols,value_cols))
@@ -1738,7 +1738,7 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
       select(var,value,all=text)
   }) %>% bind_rows()
 
-  if (!rlang::quo_is_null(by)) {
+  if (!quo_is_null(by)) {
     by.table <- lapply(allvars,function(var) {
 
       d %>% count(value=!!var,col=paste0(as_name(by),"=",!!by)) %>%
@@ -1755,7 +1755,7 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
     }) %>% bind_rows()
     tbl <- full_join(by.table,tbl,by=c("var","value"))
   }
-  if (fisher & !rlang::quo_is_null(by)) {
+  if (fisher & !quo_is_null(by)) {
     f.tbl <- lapply(vars,function(var) {
       x <- pull(d,!!var)
       y <- pull(d,!!by)
@@ -2319,7 +2319,7 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @export
 coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
   vars <- enquos(..., .named=TRUE)
-  text <- vars %>% map(rlang::eval_tidy) %>%
+  text <- vars %>% map(eval_tidy) %>%
     imap(function(value,lbl) {
       keep <- !is.na(value) & value
       if_else(keep,lbl,NA_character_)
@@ -2346,7 +2346,7 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
   vars <- enquos(..., .named=TRUE)
   # values <- vars %>% map(eval_tidy)
   text <- vars %>% imap(function(quo,lbl) {
-    value <- rlang::eval_tidy(quo) %>% as.character()
+    value <- eval_tidy(quo) %>% as.character()
     if (omit.na) {
       ifelse(!is.na(value),paste0(lbl,sep,value),NA)
     } else {
@@ -2629,8 +2629,8 @@ replace_grep_data <- function(data,var,recodes,newvar=NULL,hits=NULL,ignore.case
   var <- ensym(var)
   newvar <- enquo(newvar)
   hits <- enquo(hits)
-  get.hits <- !rlang::quo_is_null(hits)
-  get.replace <- !rlang::quo_is_null(newvar)
+  get.hits <- !quo_is_null(hits)
+  get.replace <- !quo_is_null(newvar)
   if (!get.hits & !get.replace) {stop("YTError: you should specify a variable name for newvar, hits, or both.")}
   if (!get.hits & !is.null(collapse.fn)) {warning("YTWarning: you specified collapse.fn, but hits are not being stored. The collapse.fn will not be used.")}
 
@@ -3053,7 +3053,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
     varname <- as_label(var)
     print(varname)
     varday <- paste0(as_label(var),"_day")
-    if (rlang::quo_is_null(var)) { #censor
+    if (quo_is_null(var)) { #censor
       if (vartype(data,!!primary) %in% c("survival","competing")) {
         primary_day <- paste0(as_name(primary),"_day")
         data <- data %>% mutate(.v=1,.vd=!!sym(primary_day))
@@ -3175,7 +3175,7 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     message(str_glue("Negative times detected. Setting time zero as: {time0}"))
   }
 
-  if (rlang::quo_is_null(starttime)) {
+  if (quo_is_null(starttime)) {
     data <- data %>% mutate(.y=!!yvar,.tstart=time0,.tstop=!!yvarday)
   } else {
     message(str_glue("starttime specified as {as_label(starttime)}."))
@@ -3442,7 +3442,7 @@ cox.old <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,ar
   timevars <- c(yvarday,xvarsdays.td)
   data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
 
-  if (rlang::quo_is_null(starttime)) {
+  if (quo_is_null(starttime)) {
     # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
     # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
     mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
@@ -4460,7 +4460,7 @@ sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
     mutate(unique_id = 1:nrow(.))
   grouped_df %>%
     right_join(random_grp, by=grp_var) %>%
-    group_by(!!!rlang::syms(grp_var))
+    group_by(!!!syms(grp_var))
 }
 
 
