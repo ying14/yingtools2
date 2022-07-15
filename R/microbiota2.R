@@ -262,7 +262,7 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 get.abundance <- function(phy,..., counts=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
 
-  vars <- rlang::quos(...)
+  vars <- quos(...)
   varnames <- names(vars)
   novarname <- varnames==""
   if (any(novarname)) {
@@ -343,7 +343,7 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 #' @export
 phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
-  taxranks <- rlang::syms(taxranks)
+  taxranks <- syms(taxranks)
   otudt <- as(phyloseq::otu_table(phy),"matrix") %>% data.table::data.table()
   taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% select(!!!taxranks)
   indices_ <- taxdt %>% group_indices(!!!taxranks)
@@ -655,7 +655,7 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
   value <- as_label(qvalue)
   .ymin <- ymin
   .ymax <- ymax
-  if (!rlang::quo_is_null(qvar) & !rlang::quo_is_null(qvalue)) {
+  if (!quo_is_null(qvar) & !quo_is_null(qvalue)) {
     criteria <- quo(!!qvar==!!value)
   } else {
     criteria <- TRUE
@@ -677,7 +677,7 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
   if (is.null(xmax)) {
     xmax <- max(gdata.sub$x) * xscalar
   }
-  if (grepl("\\{var\\}",label) & rlang::quo_is_null(qvar) | grepl("\\{value\\}",label) & rlang::quo_is_null(qvalue)) {
+  if (grepl("\\{var\\}",label) & quo_is_null(qvar) | grepl("\\{value\\}",label) & quo_is_null(qvalue)) {
     warning("YTWarning: clade label is probably incorrectly specified.")
   }
   glabel <- glue::glue(label)
