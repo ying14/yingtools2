@@ -6,9 +6,6 @@
 \usage{
 style_selection_4096()
 }
-\value{
-
-}
 \description{
 Formats the highlighted selection such that no line exceeds 4096 characters.
 }

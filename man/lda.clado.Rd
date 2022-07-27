@@ -4,7 +4,14 @@
 \alias{lda.clado}
 \title{Plot LDA Results in Cladogram}
 \usage{
-lda.clado(lda, layout = "circular", pad = 2, check_overlap = TRUE)
+lda.clado(
+  lda,
+  layout = "circular",
+  pad = 2,
+  check_overlap = TRUE,
+  font.size = 3.88,
+  clade.label.height = 1
+)
 }
 \arguments{
 \item{lda}{lda table from \code{lda.effect()}}
@@ -12,6 +19,12 @@ lda.clado(lda, layout = "circular", pad = 2, check_overlap = TRUE)
 \item{layout}{Either "cirular" or "rectangular"}
 
 \item{pad}{Determines the spacing of surrounding clade labels.}
+
+\item{check_overlap}{Only write clade labels if they do not overlap each other. Default is \code{TRUE}. This is passed to \code{geom_text}.}
+
+\item{font.size}{Font size of clade labels. Default is 3.88.}
+
+\item{clade.label.height}{Height of clade labels, relative to the size of the concentric tax levels. Default is 1 ()}
 }
 \value{
 ggplot of lda cladogram

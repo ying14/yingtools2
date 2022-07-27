@@ -385,6 +385,26 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
 }
 
 
+
+
+
+#' Prune Unused Taxa from a phyloseq object
+#'
+#' In a phyloseq object, remove any taxa that are not used in the samples.
+#' @param phy phyloseq object
+#'
+#' @return a phyloseq object, with empty taxa removed.
+#' @export
+#' @examples
+prune_unused_taxa <- function(phy) {
+  requireNamespace("phyloseq",quietly=TRUE)
+  keep <- taxa_sums(phy)>0
+  message(str_glue("Prune unused taxa: {length(keep)} to {sum(keep)} taxa"))
+  prune_taxa(keep,phy)
+}
+
+
+
 #' Import UPARSE pipeline data and create phyloseq
 #'
 #' Reads folder and looks for key files used to create phyloseq object.
@@ -1371,16 +1391,22 @@ lda.plot <- function(lda,tax.label="taxon") {
     theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),legend.position="top")
 }
 
+
 #' Plot LDA Results in Cladogram
 #'
 #' @param lda lda table from \code{lda.effect()}
 #' @param layout Either "cirular" or "rectangular"
+#' @param check_overlap Only write clade labels if they do not overlap each other. Default is \code{TRUE}. This is passed to \code{geom_text}.
+#' @param font.size Font size of clade labels. Default is 3.88.
+#' @param clade.label.height Height of clade labels, relative to the size of the concentric tax levels. Default is 1 ()
 #' @param pad Determines the spacing of surrounding clade labels.
 #' @return ggplot of lda cladogram
 #' @export
 #'
 #' @examples
-lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE) {
+lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE,
+                      font.size=3.88,
+                      clade.label.height=1) {
   # For each taxonomy, determine the individual level values. Make sure the values remain unique.
   #   E.g. for taxonomy = Bacteria|Bacteroidetes|Bacteroidia :
   #   Superkingdom = Bacteria
@@ -1423,7 +1449,10 @@ lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE) {
   gd <- gt$data %>% left_join(lda,by=c("label"="taxonomy")) %>%
     mutate(y.range=lapply(node,get.children.yrange,cur_data()),
            ymin=map_dbl(y.range,min)-0.5,ymax=map_dbl(y.range,max)+0.5,ymid=(ymin+ymax)/2,
-           xmin=x,xmax=pad+2*length(lvls)-x,xtext=xmax-0.5,
+           xmin=x,
+           # xmax=pad+2*length(lvls)-x,
+           xmax=(1 + length(lvls)) + clade.label.height*(1 + length(lvls)-x),
+           xtext=xmax-clade.label.height*0.5,
            short.label=map_chr(str_split(label,"\\|"),last)) %>%
     arrange(pass,desc(ymax-ymin))
   if (layout!="circular") {
@@ -1437,9 +1466,9 @@ lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE) {
     geom_point(data=gd,aes(size=log.max),color="dark gray",fill="gray",shape=21,alpha=0.75) +
     geom_rect(data=filter(gd,pass),aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,fill=direction),color="dark gray",alpha=0.2) +
     # geom_fit_text(data=filter(gd,pass),aes(xmin=xmax-1,xmax=xmax,ymin=ymin,ymax=ymax,label=short.label,fill=direction),color="dark gray",alpha=0.2,min.size = 0) +
-    geom_text(data=filter(gd,pass),aes(x=xtext,y=ymid,label=short.label,angle=angle.label),lineheight=0.75,check_overlap=check_overlap) +
+    geom_text(data=filter(gd,pass),aes(x=xtext,y=ymid,label=short.label,angle=angle.label),lineheight=0.75,check_overlap=check_overlap,size=font.size) +
     geom_point(data=filter(gd,pass),aes(fill=direction,size=log.max),shape=21,alpha=0.75) +
-    theme(legend.position="right")
+    theme(legend.position="right",legend.title=element_blank())
 }
 
 #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
