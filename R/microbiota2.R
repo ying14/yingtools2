@@ -1387,8 +1387,12 @@ lda.plot <- function(lda,tax.label="taxon") {
   }
   ggplot(ldaplot,aes(x=tax.label,y=lda,fill=direction)) +
     geom_col() + geom_text(aes(y=0,label=tax.label,hjust=hjust)) + coord_flip() +
-    scale_y_continuous(limits=limits) +
-    theme(axis.text.y=element_blank(),axis.ticks.y=element_blank(),legend.position="top")
+    scale_fill_discrete("Group") +
+    scale_y_continuous("LDA score (log10)",limits=limits) +
+    theme(axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.title.y=element_blank(),
+          legend.position="top")
 }
 
 
@@ -1468,7 +1472,9 @@ lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE,
     # geom_fit_text(data=filter(gd,pass),aes(xmin=xmax-1,xmax=xmax,ymin=ymin,ymax=ymax,label=short.label,fill=direction),color="dark gray",alpha=0.2,min.size = 0) +
     geom_text(data=filter(gd,pass),aes(x=xtext,y=ymid,label=short.label,angle=angle.label),lineheight=0.75,check_overlap=check_overlap,size=font.size) +
     geom_point(data=filter(gd,pass),aes(fill=direction,size=log.max),shape=21,alpha=0.75) +
-    theme(legend.position="right",legend.title=element_blank())
+    scale_size_continuous("Max Abund (Log10)") +
+    scale_fill_discrete("Group") +
+    theme(legend.position="right")
 }
 
 #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
