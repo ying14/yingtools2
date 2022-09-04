@@ -2,9 +2,15 @@
 % Please edit documentation in R/yingtools2.R
 \name{compare}
 \alias{compare}
+\alias{compare.character}
+\alias{compare.data.frame}
 \title{Compare data frames}
 \usage{
-compare(x, y, by = NULL)
+compare(x, ...)
+
+\method{compare}{character}(x, y)
+
+\method{compare}{data.frame}(x, y, by = NULL)
 }
 \arguments{
 \item{x}{table to be compared}

@@ -134,26 +134,99 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 #' @param by varaible(s) to join by and compare
 #' @return a table from full_join(x,y,by). Contains columns .status and .diffs.
 #' @export
-compare <- function(x,y,by=NULL) {
+compare <- function(x,...) UseMethod("compare")
+
+
+#' @rdname compare
+#' @export
+compare.character <- function(x,y) {
+  stopifnot("x and y are not vectors"=is.vector(x) && is.vector(y))
+  # x=s1
+  # y=s2
+  x.length <- length(x)
+  y.length <- length(y)
+  x.ndistinct <- n_distinct(x)
+  y.ndistinct <- n_distinct(y)
+  x.is.distinct <- x.length==x.ndistinct
+  y.is.distinct <- y.length==y.ndistinct
+  x.range <- table(x) %>% range()
+  y.range <- table(y) %>% range()
+  xy.samelength <- x.length==y.length
+  xy.identical <- xy.samelength && all(x==y)
+  xy.identical.difforder <- xy.samelength && all(sort(x)==sort(y))
+  x.not.y <- setdiff(x,y)
+  y.not.x <- setdiff(y,x)
+  x.and.y <- intersect(x,y)
+  setequal.xy <- length(x.not.y)==0 && length(y.not.x)==0
+  x.subsetof.y <-length(x.not.y)==0 && length(y.not.x)>0
+  y.subsetof.x <-length(y.not.x)==0 && length(x.not.y)>0
+  xy.nooverlap <- length(x.and.y)==0
+
+  if (x.is.distinct) {
+    x.message <- str_glue("x is distinct (N={x.length})")
+  } else {
+    x.message <- str_glue("x is non-distinct (N={x.length}, {x.ndistinct} distinct values up to {x.range[2]} times")
+  }
+
+  if (y.is.distinct) {
+    y.message <- str_glue("y is distinct (N={y.length})")
+  } else {
+    y.message <- str_glue("y is non-distinct (N={y.length}, {y.ndistinct} distinct values up to {y.range[2]} times")
+  }
+  message(x.message)
+  message(y.message)
+
+  if (xy.identical) {
+    message("x and y are identical")
+  } else if (xy.identical.difforder) {
+    message("x and y are identical, but in different order")
+  } else if (setequal.xy) {
+    message("x and y are different but setequal")
+  } else if (x.subsetof.y) {
+    message(str_glue("x is a subset of y ({x.ndistinct} out of {y.ndistinct})"))
+  } else if (y.subsetof.x) {
+    message(str_glue("y is a subset of x ({y.ndistinct} out of {x.ndistinct})"))
+  } else if (xy.nooverlap) {
+    message("x and y do not overlap")
+  } else {
+    message(str_glue("partial overlap: {length(x.not.y)} values both x and y, {length(y.not.x)} values in y only, {length(x.and.y)} values in x only"))
+  }
+
+  tbl <- bind_rows(tibble(value=x,source="x"),tibble(value=y,source="y")) %>%
+    count(value,source) %>%
+    pivot_wider(id_cols=value,names_from=source,values_from=n,values_fill=0) %>%
+    select(value,x,y) %>%
+    mutate(.status=case_when(
+      x>0 & y>0 ~ "both x and y",
+      x>0 & y==0 ~ "x not y",
+      x==0 & y>0 ~ "y not x"
+    ))
+  invisible(tbl)
+}
+
+
+
+#' @rdname compare
+#' @export
+compare.data.frame <- function(x,y,by=NULL) {
   if (is.null(by)) {
     by <- intersect(names(x),names(y))
   }
+
   by.x <- names(by) %||% by
   by.y <- unname(by)
   x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
   y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
-
-  if (by.x==by.y) {
+  if (all(by.x==by.y)) {
     by.x <- paste0(by.x,".x")
     by.y <- paste0(by.y,".y")
   }
-
   # both <- inner_join_replace(x,y,by=by,errorIfDifferent = FALSE)
   all <- full_join(x,y,by=by,keep=TRUE) %>%
     mutate(.status=case_when(
-      !is.na(!!sym(by.x)) & !is.na(!!sym(by.y)) ~ "both x and y",
-      !is.na(!!sym(by.x)) & is.na(!!sym(by.y)) ~ "x only",
-      is.na(!!sym(by.x)) & !is.na(!!sym(by.y)) ~ "y only"
+      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "both x and y",
+      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ "x only",
+      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "y only"
     ))
   x.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.x$)") %>% unlist()
   y.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.y$)") %>% unlist()
@@ -178,9 +251,8 @@ compare <- function(x,y,by=NULL) {
   message(str_glue("x: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
   message(str_glue("y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
   all %>% count(.status,.diffs) %>% print()
-  all
+  invisible(all)
 }
-
 
 #' Tabulate
 #'
