@@ -727,6 +727,7 @@ paste2 <- function(...,sep=" ",collapse=NULL) {
   #similar to paste except that NAs are not converted to text.
   #if all fields are NA, then return NA if collapse is specified.
   #data=list(as.character(x$Value));sep=" ";collapse=";"
+  # data <- lapply(varlist,as.character)
   data <- lapply(list(...),as.character)
   data <- do.call(cbind,data)
   p.text <- apply(data,1,function(x) {
