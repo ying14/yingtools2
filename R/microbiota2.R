@@ -1256,7 +1256,7 @@ lda.effect <- function(phy,class,subclass=NULL,
                       w.info=list(w.info)) %>%
             mutate(w.pass=w.num.passed>=length(class.levels)-1) %>%
             summarize(w.pass=any(w.pass,na.rm=TRUE),
-                      w.info=paste(unique(sort(fct_infreq(unlist(w.info)))),collapse="|"))
+                      w.info=paste2(unique(sort(fct_infreq(unlist(w.info)))),collapse="|"))
         }
         w.summary <- w.summary %>% mutate(w.info=str_c("W: ",w.info))
       }
