@@ -7,7 +7,7 @@
 gg.stack(
   ...,
   heights = NULL,
-  align.xlim = TRUE,
+  align.xlim = FALSE,
   adjust.themes = TRUE,
   gg.extras = NULL,
   gap = 0,

@@ -307,6 +307,29 @@ sample_n_groups <- function(grouped_df, size) {
 }
 
 
+
+
+#' Split data frame into named list
+#'
+#' Same as \code{dplyr::group_split()}, except that the list of tables is named rather than unnamed.
+#' Another minor difference is that it keeps previous grouping (\code{group_split()} wants all grouping vars to be stated at once).
+#' @param .tbl A table
+#' @param ... Grouping specification
+#' @param .keep Should the grouping columns be kept
+#' @param sep If multiple grouping vars are specified, separate the values with this character separator.
+#'
+#' @return A list of tibbles, broken up by grouping.
+#' @export
+#'
+#' @examples
+#' group_split_named(iris,Species)
+group_split_named <- function(.tbl, ..., .keep = TRUE, sep = " / ") {
+  grouped <- group_by(.tbl, ..., .add = TRUE)
+  names <- rlang::inject(paste(!!!group_keys(grouped), sep=sep))
+  grouped %>% group_split(.keep=.keep) %>% rlang::set_names(names)
+}
+
+
 #' Ying's DT view
 #'
 #' Use to peruse a dataframe within RStudio. Utilizes \code{DT} package.
@@ -1652,7 +1675,7 @@ gg.align.xlim <- function(glist) {
 #'
 #' @return plot of stacked ggplots
 #' @export
-gg.stack <- function(...,heights=NULL,align.xlim=TRUE,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
+gg.stack <- function(...,heights=NULL,align.xlim=FALSE,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
   requireNamespace(c("grid","gridExtra","gtable"),quietly=TRUE)
   grobs <- list(...)
   keep <- !sapply(grobs,is.null)
