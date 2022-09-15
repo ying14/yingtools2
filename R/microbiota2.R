@@ -163,7 +163,7 @@ get.otu <- function(phy,as.matrix=FALSE) {
 }
 
 
-#' Convert otu table to phyloseq otu_table
+#' Convert OTU table to phyloseq otu_table
 #'
 #' Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".
 #' @param odata otu table (matrix or dataframe with 'otu' column) to be converted back to otu_table.
@@ -243,6 +243,70 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   mdt <- mdt %>% as_tibble() %>% select(sample,otu,everything())
   return(mdt)
 }
+
+
+
+
+
+#' Convert melted OTU table to phyloseq object
+#'
+#' @param otu.melt table of taxa x sample abundances, similar to output of \code{get.otu.melt}
+#' @param sample_id sample ID variable. Default \code{"sample"}.
+#' @param taxa_id taxa/OTU ID variable. Default \code{"otu"}.
+#' @param abundance_var abundance variable, used to fill \code{otu_table()}. Default \code{"sample"}.
+#' @param taxranks vector of taxonomic ranks to be included in \code{tax_table()}.
+#' @param sample_vars vector of sample variables to be included in \code{sample_data()}. If \code{NULL}, will attempt to determine sample vars automatically (vars that are distinct along with \code{sample_id}).
+#'
+#' @return phyloseq object, generated from the \code{otu.melt} data.
+#' @export
+#'
+#' @examples
+#' phy <- cid.phy
+#' ranks <- rank_names(phy)
+#' otu <- get.otu.melt(cid.phy)
+#' phy2 <- get.phyloseq.from.melt(otu,taxranks=ranks)
+get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="numseqs",taxa_id="otu",
+                                   taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                                   sample_vars=NULL) {
+  sample_vars <- setdiff(sample_vars,sample_id)
+  otu <- otu.melt %>%
+    transmute(otu=as.character(!!sym(taxa_id)),sample=as.character(!!sym(sample_id)),numseqs=!!sym(abundance_var)) %>%
+    pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fill=0)
+  tax <- otu.melt %>% select(otu=!!sym(taxa_id),!!!syms(taxranks)) %>% distinct()
+
+  if (is.null(sample_vars)) {
+    message("Attempting to determine sample vars...\n")
+    distinct_sample_vars <- otu.melt %>% select(-all_of(c(taxa_id,taxranks,abundance_var))) %>%
+      group_by(!!sym(sample_id)) %>%
+      summarize(across(.fns=n_distinct,.groups="drop")) %>%
+      summarize(across(-all_of(sample_id),.fns=~all(.==1))) %>%unlist() %>% {names(.)[.]}
+    sample_vars <- distinct_sample_vars
+  }
+  if (length(sample_vars)==0) {
+    samp <- NULL
+  } else {
+    samp <- otu.melt %>% select(sample=!!sym(sample_id),!!!syms(sample_vars)) %>% distinct()
+  }
+  if (anyDuplicated(tax$otu)!=0) {stop("YTError: taxranks are not distinct over taxa_id!")}
+  if (anyDuplicated(samp$sample)!=0) {stop("YTError: sample vars are not distinct over sample!")}
+  leftover.vars <- setdiff(names(otu.melt),c(abundance_var,sample_id,taxa_id,taxranks,sample_vars))
+  message(str_glue("sample vars: [{sample_id}]; {paste(sample_vars,collapse=\", \")}"))
+  message(str_glue("tax vars: [{taxa_id}]; {paste(taxranks,collapse=\", \")}"))
+  message(str_glue("abundance var: [{abundance_var}]"))
+  if (length(leftover.vars)>0) {
+    message(str_glue("(vars not used: {paste(leftover.vars,collapse=\", \")})"))
+  }
+  phy <- phyloseq(set.otu(otu),set.tax(tax))
+  if (ncol(samp)>1) {
+    sample_data(phy) <- samp %>% set.samp()
+  }
+  return(phy)
+}
+
+
+
+
+
 
 
 

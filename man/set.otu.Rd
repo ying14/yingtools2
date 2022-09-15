@@ -2,7 +2,7 @@
 % Please edit documentation in R/microbiota2.R
 \name{set.otu}
 \alias{set.otu}
-\title{Convert otu table to phyloseq otu_table}
+\title{Convert OTU table to phyloseq otu_table}
 \usage{
 set.otu(odata)
 }
