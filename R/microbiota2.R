@@ -268,7 +268,12 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="numseqs",taxa_id="otu",
                                    taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
                                    sample_vars=NULL) {
+
   sample_vars <- setdiff(sample_vars,sample_id)
+  rows.are.distinct <- is.distinct(otu.melt, !!sym(taxa_id), !!sym(sample_id))
+  if (!rows.are.distinct) {
+    stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
+  }
   otu <- otu.melt %>%
     transmute(otu=as.character(!!sym(taxa_id)),sample=as.character(!!sym(sample_id)),numseqs=!!sym(abundance_var)) %>%
     pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fill=0)
