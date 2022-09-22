@@ -887,6 +887,70 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
 }
 
 
+
+
+#' Pivot data from long to wide, with recoding
+#'
+#' Somewhat similar to \code{tidyr::pivot_wider}, where but where the names_from column is recoded using \code{recode.grep},
+#' prior to pivotting. This is primarily useful for restructuring data that comes in long format (name-value pairs).
+#'
+#' In addition to recoding, there are other changes:
+#' 1. The names_from column is recoded using
+#' 2. asdf
+#'
+#' @param data data to be pivotted.
+#' @param id_cols \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> columns that identify each observation. Used in \code{pivot_wider}.
+#' @param names_from \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> column names to be pivotted. Used in \code{pivot_wider}.
+#' @param values_from \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> column values to be pivotted. Used in \code{pivot_wider}.
+#' @param names_recodes recodes to be done on \code{names_from} prior to pivotting. Used in \code{recode.grep}.
+#' @param names_else.value default value of recoding. Used in \code{recode.grep}.
+#' @param names_sort whether to sort columns by order of recode.grep. Default is \code{TRUE}
+#' @param values_sep character separator between name and value. Default is '::'
+#' @param values_fill value used when value is missing. Used in \code{pivot_wider}.
+#' @param values_fn How multiple values are combined. Default is ~paste(.x,collapse="|"), which collapses into a single string. Used in \code{pivot_wider}.
+#' @param unused_fn A function performed on unused columns. Default is \code{NULL}.
+#'
+#' @return Pivotted data
+#' @export
+#'
+#' @examples
+pivot_wider_recode <- function(data,
+                               id_cols = NULL,
+                               names_from = name,
+                               values_from = value,
+                               names_recodes,
+                               names_else.value = "other",
+                               names_sort = TRUE,
+                               values_sep = "::",
+                               values_fill = NULL,
+                               values_fn = ~paste(.x,collapse="|"),
+                               unused_fn = NULL) {
+  id_cols <- enquo(id_cols)
+  names_from <- enquo(names_from)
+  values_from <- enquo(values_from)
+
+  data2 <- data %>%
+    mutate(name_=recode.grep(!!names_from,recodes=names_recodes,else.value=names_else.value,as.factor=TRUE),
+           value_=ifelse(name_!=names_else.value,!!values_from,paste(!!names_from,!!values_from,sep=values_sep)),
+           placeholder_=TRUE) %>%
+    complete(name_) %>%
+    select(-!!names_from,-!!values_from)
+
+  data3 <- data2 %>%
+    pivot_wider(id_cols=c(!!id_cols,placeholder_),
+                names_from=name_,
+                values_from=value_,
+                names_sort=names_sort,
+                values_fill=values_fill,
+                values_fn=values_fn,
+                unused_fn=unused_fn) %>%
+    filter(!is.na(placeholder_)) %>% select(-placeholder_)
+  return(data3)
+}
+
+
+
+
 pivot_wider_partial <- function(data,
                                 id_cols = NULL,
                                 names_from = name,
@@ -2777,6 +2841,11 @@ replace_grep_data <- function(data,var,recodes,newvar=NULL,hits=NULL,ignore.case
 }
 
 
+
+
+
+
+
 #' Find All Distinct Variables
 #'
 #' Find Distinct
@@ -4465,6 +4534,134 @@ group_by_all_distinct <- function(data, ...) {
   message("Grouping by [",length(all.dist.vars),"]: ",paste(all.dist.vars,collapse=", "))
   message("[Not grouped by [",length(not.grouped),"]: ",paste(not.grouped,collapse=", "),"]")
   data %>% group_by(!!!syms(all.dist.vars))
+}
+
+
+
+#' Test data for additional identifiers across groups.
+#'
+#' @description
+#' In a data frame that can be grouped based on one or more column identifier(s), use these functions to test if
+#' other columns do not vary within each group. In other words, it tests if additional columns can be added
+#' to the grouping definition and would not alter the grouping structure.
+#' This can be useful as a way to determine additional identifiers to include,
+#' when performing reshaping operations such as \code{group_by}/\code{summarize} or \code{pivot_wider}.
+#'
+#' * `test_if_nonvarying_by_group()` returns testing results in the form of a named logical vector.
+#'
+#' * `group_suggest_additional_vars()` prints out the testing results and copies nonvarying vars to clipboard.
+#' Use primarily as an aide during coding.
+#'
+#' * `assert_grouping_vars` performs testing and passes the original data frame if all tested
+#' columns pass (are nonvarying across groups). If a column fails, a warning or error will be issued.
+#' Use this for error checking within pipelines.
+#'
+#' @param data data to be tested.
+#' @param id_vars \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> ID vars that define the nonvarying
+#' groups. Default is to use the grouping variables (from \code{dplyr::group_by})
+#' @param test_vars \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> variables to be tested. Default is all columns not specified in \code{id_vars}.
+#' @param verbose whether or not to display messages about the testing results
+#' @export
+#' @examples
+#' otu <- get.otu.melt(cid.phy)
+#'
+#' #Returns output of testing results
+#' otu %>% test_if_nonvarying_by_group(id_vars=sample,
+#'                                     test_vars=c(Sample_ID,Patient_ID,Family,Genus))
+#'
+#' #Copies variables that passed to clipboard
+#' otu %>% group_by(otu) %>% group_suggest_additional_vars()
+#'
+#' #Issues warning that
+#' otu %>%
+#' assert_grouping_vars(id_vars=sample,test_vars=c(Sample_ID,Consistency,Family,Phylum)) %>%
+#'   group_by(sample,Sample_ID,Consistency,Family,Phylum) %>%
+#'   summarize(totalseqs=sum(numseqs))
+test_if_nonvarying_by_group <- function(data,
+                                      id_vars = all_of(group_vars(data)),
+                                      test_vars = everything(),
+                                      verbose = FALSE) {
+  id_vars <- enquo(id_vars)
+  test_vars <- enquo(test_vars)
+  id_vars_ts <- tidyselect::eval_select(id_vars, data=data)
+  test_vars_ts <- tidyselect::eval_select(test_vars, data=data)
+  test_vars_ts <- test_vars_ts[!(test_vars_ts %in% id_vars_ts)]
+  id_var_names <- names(id_vars_ts)
+  test_var_names <- names(test_vars_ts)
+  if (length(id_vars)==0) {
+    warning("YTWarning: no groups detected")
+  }
+  data.rootgroup <- setNames(rep_along(id_var_names,TRUE),id_var_names)
+  data.testing <- data %>% ungroup() %>%
+    group_by(!!!syms(id_var_names)) %>%
+    summarize(across(.cols=all_of(test_var_names), .fns=n_distinct), .groups="drop") %>%
+    summarize(across(.cols=all_of(test_var_names), .fns=~all(.x==1))) %>%
+    unlist()
+
+  if (verbose) {
+    test_var_names_cangroup <- names(data.testing)[data.testing]
+    test_var_names_cannotgroup <- names(data.testing)[!data.testing]
+    message(str_glue("* ID grouping var(s): {paste(id_var_names,collapse=',')}"))
+    message(str_glue("* Additional nonvarying grouping vars: {paste(test_var_names_cangroup,collapse=',')}"))
+    message(str_glue("* Varying non-grouping vars: {paste(test_var_names_cannotgroup,collapse=',')}"))
+  }
+  test <- c(data.rootgroup,data.testing)
+  test
+}
+
+#' @rdname test_if_nonvarying_by_group
+#' @export
+group_suggest_additional_vars <- function(data,
+                                        id_vars = all_of(group_vars(data)),
+                                        test_vars = everything()) {
+  id_vars <- enquo(id_vars)
+  test_vars <- enquo(test_vars)
+  test <- test_if_nonvarying_by_group(data, id_vars=!!id_vars, test_vars=!!test_vars, verbose=TRUE)
+  cangroup.vars <- names(test)[test]
+  if (length(cangroup.vars)>1) {
+    id.text <- paste(cangroup.vars, collapse=",")
+    message("\nCopying vars to clipboard (ID vars plus additional nonvarying vars)...")
+    copy.to.clipboard(id.text)
+  } else {
+    message("No additional ID vars found.")
+  }
+}
+
+#' @rdname test_if_nonvarying_by_group
+#' @param stopIfTRUE Whether to raise error is test fails. Default is \code{FALSE}: issue warning only.
+#' @export
+assert_grouping_vars <- function(data,
+                                 id_vars = all_of(group_vars(data)),
+                                 test_vars = everything(),
+                                 stopIfTRUE = FALSE) {
+  id_vars <- enquo(id_vars)
+  test_vars <- enquo(test_vars)
+  test <- test_if_nonvarying_by_group(data,id_vars=!!id_vars,test_vars=!!test_vars)
+  if (any(!test)) {
+    non.grouping.vars <- names(test)[!test]
+    non.grouping.text <- paste(non.grouping.vars,collapse=",")
+    id.group.vars <- tidyselect::eval_select(id_vars, data=data) %>% names()
+    id.var.text <- id.group.vars %>% paste(collapse="+")
+    ngroups.orig <- data %>% group_by(!!!syms(id.group.vars)) %>% n_groups()
+
+    msg1 <- str_glue("Detected vars that vary across {id.var.text}: {non.grouping.text}")
+    msg2 <- str_glue("-group = {id.var.text}: {ngroups.orig} groups (defined groups)")
+    msg3 <- non.grouping.vars %>%
+      map_chr(~{
+        new.grouping <- c(id.group.vars,.x)
+        newgroup.var.text <- new.grouping %>% paste(collapse="+")
+        ngroups.new <- data %>% group_by(!!!syms(new.grouping)) %>% n_groups()
+        str_glue("-group = {newgroup.var.text}: {ngroups.new} groups")
+      }) %>% paste(collapse="\n")
+    msg <- paste(msg1,msg2,msg3,sep="\n")
+
+    if (stopIfTRUE) {
+      stop(str_glue("YTError: {msg}"))
+    } else {
+      warning(str_glue("***YTWarning: {msg}"))
+    }
+  }
+  return(data)
 }
 
 
