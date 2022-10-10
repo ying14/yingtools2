@@ -4,7 +4,7 @@
 \alias{set.otu}
 \title{Convert OTU table to phyloseq otu_table}
 \usage{
-set.otu(odata)
+set.otu(odata, taxa_are_rows = TRUE)
 }
 \arguments{
 \item{odata}{otu table (matrix or dataframe with 'otu' column) to be converted back to otu_table.}

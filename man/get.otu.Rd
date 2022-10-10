@@ -4,7 +4,7 @@
 \alias{get.otu}
 \title{Extract Phyloseq otu_table}
 \usage{
-get.otu(phy, as.matrix = FALSE)
+get.otu(phy, as.matrix = TRUE)
 }
 \arguments{
 \item{phy}{phyloseq object containing otu_data}

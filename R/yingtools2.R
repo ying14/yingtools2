@@ -1052,7 +1052,7 @@ shell.exec <- function(file) {
     file <- gsub(" ","\\\\ ",file)
     system(paste("xdg-open",file),wait=FALSE)
   } else if (Sys.info()['sysname']=="Windows") {
-    base::shell.exec(file)
+    base::shell.exec(normalizePath(file))
   } else {
     stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
   }
@@ -2889,6 +2889,31 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
   anydup <- data %>% select(!!!gvars) %>% anyDuplicated()
   return(anydup==0)
 }
+
+
+
+
+#' Test if X and Y are one-to-one
+#'
+#' @param x first vector
+#' @param y second vector
+#'
+#' @return logical value as to whether or not the vectors are one-to-one.
+#' @export
+#'
+#' @examples
+is.one.to.one <- function(x,y) {
+  t <- tibble(x=x,y=y)
+  tx <- t %>% group_by(x) %>%
+    summarize(n.y=n_distinct(y),.groups="drop") %>%
+    summarize(max.n.y=max(n.y),.groups="drop") %>% pull(max.n.y)
+  ty <- t %>% group_by(y) %>%
+    summarize(n.x=n_distinct(x),.groups="drop") %>%
+    summarize(max.n.x=max(n.x),.groups="drop") %>% pull(max.n.x)
+  return(tx==1 && ty==1)
+}
+
+
 
 
 #' Read Multiple Excel Sheets Into a List of Data Frames

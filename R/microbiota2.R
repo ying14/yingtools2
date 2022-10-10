@@ -152,14 +152,20 @@ set.tax <- function(tdata) {
 #' @param as.matrix if \code{TRUE}, return matrix (instead of data frame with otu as column)
 #' @return Dataframe containing otu table
 #' @export
-get.otu <- function(phy,as.matrix=FALSE) {
+get.otu <- function(phy,as.matrix=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
-  otu <- phy %>% phyloseq::otu_table(taxa_are_rows=TRUE) %>% as.matrix()
+
+  if (phyloseq::taxa_are_rows(phy)) {
+    otu <- phyloseq::otu_table(phy) %>% t() %>% as.matrix()
+  } else {
+    otu <- phyloseq::otu_table(phy) %>% as.matrix()
+  }
   if (as.matrix) {
     return(otu)
+  } else {
+    otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
+    return(otu.df)
   }
-  otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
-  return(otu.df)
 }
 
 
@@ -169,12 +175,15 @@ get.otu <- function(phy,as.matrix=FALSE) {
 #' @param odata otu table (matrix or dataframe with 'otu' column) to be converted back to otu_table.
 #' @return formatted tax_table.
 #' @export
-set.otu <- function(odata) {
+set.otu <- function(odata,taxa_are_rows=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
-  if (is.data.frame(odata) & ("otu" %in% colnames(odata))) {
+  if (is.data.frame(odata)) {
+    if (("otu" %in% colnames(odata))) {
+      stop("YTError: got a data frame without 'otu' as a column!")
+    }
     odata <- odata %>% column_to_rownames("otu") %>% as.matrix()
   }
-  odata %>% phyloseq::otu_table(taxa_are_rows=TRUE)
+  odata %>% phyloseq::otu_table(taxa_are_rows=taxa_are_rows)
 }
 
 #' Convert Phyloseq to Melted OTU x Sample Data
