@@ -722,6 +722,7 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
 #' @param gdata a data frame from a ggtree object.
 #' @param var the variable to be matched (unquoted).
 #' @param value the value that \code{var} needed for inclusion in the clade to be highlighted.
+#' @param criteria an expression that evaluates to logical, can use as an alternative (or in addition to) var/value,
 #' @param ymin the min value of y in the clade.
 #' @param ymax the max value of y in the clade.
 #' @param label A \code{glue} expression for the clade label. Default is \code{"{value}\n({var})"}
@@ -737,8 +738,12 @@ read.oligos <- function(oligo.file,remove.commented=TRUE) {
 #' @export
 #'
 #' @examples
-hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
-                          label="{value}\n({var})", fill.color=NA,line.color="dark gray",alpha=1,
+hilight.clade <- function(gdata, var=NULL, value=NULL,
+                          criteria=NULL,
+                          ymin=-Inf,ymax=Inf,
+                          label="{value}\n({var})",
+                          fill.color=NA,line.color="dark gray",
+                          alpha=1,
                           xmax=NULL,xscalar=1.5,fill.in=FALSE,font.size=4) {
   requireNamespace(c("ggtree","glue"),quietly=TRUE)
   if (is(gdata,"ggtree")) {
@@ -750,33 +755,38 @@ hilight.clade <- function(gdata, var=NULL, value=NULL, ymin=-Inf,ymax=Inf,
   qvar <- enquo(var)
   var <- as_label(qvar)
   qvalue <- enquo(value)
-  value <- as_label(qvalue)
+  value <- eval_tidy(qvalue)
+  criteria <- enquo(criteria)
   .ymin <- ymin
   .ymax <- ymax
-  if (!quo_is_null(qvar) & !quo_is_null(qvalue)) {
-    criteria <- quo(!!qvar==!!value)
+  # if (!quo_is_null(qvar) && !quo_is_null(qvalue)) {
+  if (!quo_is_null(qvar) && !quo_is_null(qvalue)) {
+    var.value.criteria <- expr(!!qvar==!!qvalue)
   } else {
+    var.value.criteria <- TRUE
+  }
+  if (quo_is_null(criteria)) {
     criteria <- TRUE
   }
   gdata <- gdata %>%
-    mutate(.include=!!criteria & is.between(y,.ymin,.ymax) & isTip) %>%
+    mutate(.include=!!var.value.criteria & !!criteria & is.between(y,.ymin,.ymax) & isTip) %>%
+    replace_na(list(.include=FALSE)) %>%
     arrange(y)
+  if (sum(gdata$.include)==0) {
+    warning(str_glue("YTWarning: no tips found for {var}={value}"))
+    return(NULL)
+  }
   ylow <- min(gdata$y[gdata$.include]) - 0.5
   yhigh <- max(gdata$y[gdata$.include]) + 0.5
   if (fill.in) {
     gdata <- gdata %>% dplyr::mutate(.include=isTip & is.between(y,ylow,yhigh))
   }
   gdata.sub <- gdata %>% filter(.include)
-  if (nrow(gdata.sub)==0) stop("YTError: no tips found")
-
   ymid <- (yhigh+ylow)/2
-  xmin1 <- first(gdata.sub$x)
-  xmin2 <- last(gdata.sub$x)
+  xmin1 <- dplyr::first(gdata.sub$x)
+  xmin2 <- dplyr::last(gdata.sub$x)
   if (is.null(xmax)) {
     xmax <- max(gdata.sub$x) * xscalar
-  }
-  if (grepl("\\{var\\}",label) & quo_is_null(qvar) | grepl("\\{value\\}",label) & quo_is_null(qvalue)) {
-    warning("YTWarning: clade label is probably incorrectly specified.")
   }
   glabel <- glue::glue(label)
   rect.list <- list(geom_rect(data=gdata.sub,aes(xmin=x,xmax=xmax,ymin=y-0.5,ymax=y+0.5),alpha=alpha,fill=fill.color))

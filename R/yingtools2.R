@@ -140,6 +140,8 @@ compare <- function(x,...) UseMethod("compare")
 #' @rdname compare
 #' @export
 compare.character <- function(x,y) {
+  x.name <- quo_name(enquo(x))
+  y.name <- quo_name(enquo(y))
   stopifnot("x and y are not vectors"=is.vector(x) && is.vector(y))
   # x=s1
   # y=s2
@@ -163,33 +165,33 @@ compare.character <- function(x,y) {
   xy.nooverlap <- length(x.and.y)==0
 
   if (x.is.distinct) {
-    x.message <- str_glue("x is distinct (N={x.length})")
+    x.message <- str_glue("x ({x.name}) is distinct (N={x.length})")
   } else {
-    x.message <- str_glue("x is non-distinct (N={x.length}, {x.ndistinct} distinct values up to {x.range[2]} times")
+    x.message <- str_glue("x ({x.name}) is non-distinct (N={x.length}, {x.ndistinct} distinct values up to {x.range[2]} times")
   }
 
   if (y.is.distinct) {
-    y.message <- str_glue("y is distinct (N={y.length})")
+    y.message <- str_glue("y ({y.name}) is distinct (N={y.length})")
   } else {
-    y.message <- str_glue("y is non-distinct (N={y.length}, {y.ndistinct} distinct values up to {y.range[2]} times")
+    y.message <- str_glue("y ({y.name}) is non-distinct (N={y.length}, {y.ndistinct} distinct values up to {y.range[2]} times")
   }
   message(x.message)
   message(y.message)
 
   if (xy.identical) {
-    message("x and y are identical")
+    message("x ({x.name}) and y ({y.name}) are identical")
   } else if (xy.identical.difforder) {
-    message("x and y are identical, but in different order")
+    message("x ({x.name}) and y ({y.name}) are identical, but in different order")
   } else if (setequal.xy) {
-    message("x and y are different but setequal")
+    message("x ({x.name}) and y ({y.name}) are different but setequal")
   } else if (x.subsetof.y) {
-    message(str_glue("x is a subset of y ({x.ndistinct} out of {y.ndistinct})"))
+    message(str_glue("x ({x.name}) is a subset of y ({y.name}) ({x.ndistinct} out of {y.ndistinct})"))
   } else if (y.subsetof.x) {
-    message(str_glue("y is a subset of x ({y.ndistinct} out of {x.ndistinct})"))
+    message(str_glue("y ({y.name}) is a subset of x ({x.name}) ({y.ndistinct} out of {x.ndistinct})"))
   } else if (xy.nooverlap) {
-    message("x and y do not overlap")
+    message(str_glue("x ({x.name}) and y ({y.name}) do not overlap"))
   } else {
-    message(str_glue("partial overlap: {length(x.not.y)} values both x and y, {length(y.not.x)} values in y only, {length(x.and.y)} values in x only"))
+    message(str_glue("partial overlap: {length(x.not.y)} values both x ({x.name}) and y ({y.name}), {length(y.not.x)} values in y ({y.name}) only, {length(x.and.y)} values in x ({x.name}) only"))
   }
 
   tbl <- bind_rows(tibble(value=x,source="x"),tibble(value=y,source="y")) %>%
@@ -197,14 +199,12 @@ compare.character <- function(x,y) {
     pivot_wider(id_cols=value,names_from=source,values_from=n,values_fill=0) %>%
     select(value,x,y) %>%
     mutate(.status=case_when(
-      x>0 & y>0 ~ "both x and y",
-      x>0 & y==0 ~ "x not y",
-      x==0 & y>0 ~ "y not x"
+      x>0 & y>0 ~ str_glue("both x ({x.name}) and y ({y.name})"),
+      x>0 & y==0 ~ str_glue("x ({x.name}) not y ({y.name})"),
+      x==0 & y>0 ~ str_glue("y ({y.name}) not x ({x.name})")
     ))
   invisible(tbl)
 }
-
-
 
 #' @rdname compare
 #' @export

@@ -8,6 +8,7 @@ hilight.clade(
   gdata,
   var = NULL,
   value = NULL,
+  criteria = NULL,
   ymin = -Inf,
   ymax = Inf,
   label = "{value}\\n({var})",
@@ -26,6 +27,8 @@ hilight.clade(
 \item{var}{the variable to be matched (unquoted).}
 
 \item{value}{the value that \code{var} needed for inclusion in the clade to be highlighted.}
+
+\item{criteria}{an expression that evaluates to logical, can use as an alternative (or in addition to) var/value,}
 
 \item{ymin}{the min value of y in the clade.}
 
