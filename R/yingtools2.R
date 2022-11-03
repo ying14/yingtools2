@@ -1360,6 +1360,53 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
 
 
 
+#' File activity status
+#'
+#' Given filepath(s), detect changes in file sizes to see if it is actively changing.
+#' @param paths the filepath(s) to be read.
+#' @param wait.time amount of time in seconds to wait between reads. Default is 1 second.
+#'
+#' @return table describing files and their activity
+#' @export
+#'
+#' @examples
+file_activity_status <- function(paths,wait.time=1)  {
+  get_files <- function(paths,tvar) {
+    tvar <- enquo(tvar)
+    paths %>% map_dfr(~{
+      if (dir.exists(.x)) {
+        tibble(dir=.x,file=list.files(.x,recursive=TRUE,full.names=TRUE))
+      } else if (file.exists(.x))  {
+        .x <- normalizePath(.x)
+        tibble(dir=dirname(.x),file=.x)
+      } else  {
+        stop("YTError: file/dir not found!")
+      }
+    }) %>% mutate(!!tvar:=file.size(file))
+  }
+
+  d1 <- get_files(paths,size1)
+  Sys.sleep(wait.time)
+  d2 <- get_files(paths,size2)
+
+  d <- full_join(d1,d2,by=c("dir","file")) %>%
+    mutate(diff=size2-size1,
+           file=basename(file))
+
+
+  files.inactive <- all(!is.na(d$diff) & d$diff==0)
+  if (files.inactive) {
+    message("files are inactive.")
+  } else {
+    message("files are active.")
+  }
+  return(d)
+}
+
+
+
+
+
 #' Display sizes of objects in memory
 #'
 #' Use this to see what is occupying memory
