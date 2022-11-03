@@ -1206,6 +1206,41 @@ copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
 
 
 
+#' Copy to clipboard as tribble
+#'
+#' @param tbl a data frame to be copied
+#' @param spaces number of spaces between columns
+#'
+#' @return
+#' @export
+#'
+#' @examples
+copy.as.tribble <- function(tbl,spaces=1) {
+  if (!is.data.frame(tbl)) {
+    stop("YTError: tbl is not a data frame")
+  }
+  convert <- function(x,name) {
+    header <- paste0("~",name)
+    values <- map_chr(x,deparse1)
+    col <- paste0(c(header,values),",")
+    char.width <- max(nchar(col)) + spaces
+    fmtcol <- str_pad(col,char.width,side="right")
+    return(fmtcol)
+  }
+  tab <- "\t"
+  fmttbl <- tbl %>% imap(convert)
+  lastcol <- fmttbl[[length(fmttbl)]] %>% str_trim()
+  lastcol[length(lastcol)] <- lastcol[length(lastcol)] %>% str_replace(",$","")
+  fmttbl[[length(fmttbl)]] <- lastcol
+  fmttbl.transpose <- fmttbl %>% transpose()
+
+  fmttbl.lines <- fmttbl.transpose %>% map_chr(~paste(.x,collapse="")) %>% paste0(tab,.,collapse="\n")
+  rcode <- paste("tribble(",fmttbl.lines,")",sep="\n")
+  rcode %>% copy.to.clipboard()
+  invisible(rcode)
+}
+
+
 #' Extract any text within quotes.
 #'
 #' Works like \code{str_extract_all}, but is used to extract quoted text within text. This comes for example text a character string contains code itself, like a python list.
@@ -3125,9 +3160,19 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 #' @param start2 start times for interval 2
 #' @param stop2 stop times for interval 2
 #' @param check whether to check if start comes before stop.
+#' @param start_NA start value if NA. Default is to leave as NA.
+#' @param stop_NA stop value if NA. Default is to leave as NA.
 #'
 #' @export
-overlaps <- function(start1,stop1,start2,stop2,check=TRUE) {
+overlaps <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA) {
+  if (!is.na(start_NA)) {
+    start1 <- coalesce(start1,start_NA)
+    start2 <- coalesce(start2,start_NA)
+  }
+  if (!is.na(stop_NA)) {
+    stop1 <- coalesce(stop1,stop_NA)
+    stop2 <- coalesce(stop2,stop_NA)
+  }
   if (check) {
     error1 <- any(start1>stop1,na.rm=TRUE)
     error2 <- any(start2>stop2,na.rm=TRUE)
