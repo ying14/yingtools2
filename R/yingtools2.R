@@ -1221,7 +1221,7 @@ copy.as.tribble <- function(tbl,spaces=1) {
   }
   convert <- function(x,name) {
     header <- paste0("~",name)
-    values <- map_chr(x,deparse1)
+    values <- map_chr(x,deparse2)
     col <- paste0(c(header,values),",")
     char.width <- max(nchar(col)) + spaces
     fmtcol <- str_pad(col,char.width,side="right")
