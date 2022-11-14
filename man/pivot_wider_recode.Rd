@@ -47,3 +47,15 @@ In addition to recoding, there are other changes:
 1. The names_from column is recoded using
 2. asdf
 }
+\examples{
+library(tidyverse)
+cid.bsi \%>\%
+  pivot_wider_recode(
+    id_cols=Patient_ID,
+    names_from=organism,
+    values_from=organism,
+    names_recodes=c("klebs|coli|serratia|pseudomonas|bacter|acineto|steno|lepto|neiss"="gram.neg",
+                    "staphylococcus|CNST|VRE|enterococcus|bacillus|micrococc"="gram.pos",
+                    "clostridium|fusobact|bacteroides"="anaerobe"),
+    values_fill="<none>")
+}

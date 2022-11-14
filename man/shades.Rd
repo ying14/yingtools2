@@ -24,13 +24,13 @@ Use this as a convenience function when creating your plots.
 }
 \examples{
 sh1 <- shades("red",5)
-show_col(sh1)
+scales::show_col(sh1)
 
 sh2 <- shades("red",20)
-show_col(sh2)
+scales::show_col(sh2)
 
 sh3 <- shades("red",20,variation=0.5)
-show_col(sh3)
+scales::show_col(sh3)
 }
 \author{
 Ying Taur

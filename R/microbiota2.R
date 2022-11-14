@@ -74,15 +74,17 @@ read.otu.table <- function(otu.file,row.names="OTUId") {
 #' @param stats logical, whether or not to include summary statistics of samples. Stores \code{nseqs}, and diversity metrics.
 #' @param measures diversity measures to calculate, if stats is TRUE. Default: c("Observed","InvSimpson","Shannon")
 #' @return Data frame containing \code{sample_data} data.
+#' @examples
+#' get.samp(cid.phy)
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
   requireNamespace("phyloseq",quietly=TRUE)
   if (is.null(sample_data(phy,FALSE))) {
     #if no sample_data, return single data frame with sample column
-    sdata <- tibble(sample=sample_names(phy))
+    sdata <- tibble(sample=phyloseq::sample_names(phy))
   } else {
     if ("sample" %in% phyloseq::sample_variables(phy)) {stop("YTError: phyloseq sample_data already contains the reserved variable name \"sample\"")}
-    sdata <- sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
+    sdata <- phyloseq::sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
   }
 
   sdata.newcols <- tibble(nseqs=unname(phyloseq::sample_sums(phy)))
@@ -415,7 +417,7 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 #' (b) requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
 #' (c) the new OTU names will specify old OTU names separated by '|'
 #' @param phy A phylsoeq object.
-#' @param taxranks tax levels to collapse by. Default is \code{c("Kingdom","Phylum","Class","Order","Family","Genus","Species")}.
+#' @param taxranks tax levels to collapse by. Default is \code{c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")}.
 #' @param short_taxa_names How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.
 #' @return A phyloseq object with OTUs collapsed.
 #' @export
@@ -1381,8 +1383,8 @@ lda.effect <- function(phy,class,subclass=NULL,
   }
 
   if (length(tax.features)==0) {
-    message("No significant features found.")
-    bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
+    # message("No significant features found.")
+    log.bootmeans <- tibble(taxonomy_=NA_character_,lda=NA_real_)
   } else {
     otu.d <- otul %>% filter(taxonomy_ %in% tax.features) %>%
       pivot_wider(id_cols=c(sample,!!sym(class)),names_from=taxonomy_,values_from=pctseqs)

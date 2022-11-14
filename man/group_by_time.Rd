@@ -28,6 +28,32 @@ Given data frame with start and stop times, group times by non-overlapping start
 \details{
 This is like running \code{group_by}, but creates a new grouping variable called \code{index_} that is created from times.
 }
+\examples{
+library(tidyverse)
+data <- tribble(
+  ~subject, ~start, ~stop,
+  "A",      1,      2,
+  "A",      3,      4,
+  "A",      5,      6,
+  "A",      14,     15,
+  "A",      16,     19,
+  "A",      23,     30,
+  "B",      3,      4,
+  "B",      5,      6,
+  "B",      7,      8,
+  "B",      18,     19,
+  "B",      21,     22,
+  "B",      27,     29
+)
+grouped.data <- data \%>\%
+  group_by_time(start,stop,subject,gap=2) \%>\%
+  mutate(timegroup=factor(cur_group_id()))
+# data is grouped based on start/stop times
+grouped.data \%>\%  arrange(subject,start)
+grouped.data \%>\%
+  ggplot(aes(x=start-0.45,xend=stop+0.45,y=subject,yend=subject,color=timegroup))  +
+  geom_segment(size=4) + xlab("time")
+}
 \author{
 Ying Taur
 }

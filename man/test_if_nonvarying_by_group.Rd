@@ -52,14 +52,14 @@ Use this for error checking within pipelines.
 \examples{
 otu <- get.otu.melt(cid.phy)
 
-#Returns output of testing results
+# Returns output of testing results
 otu \%>\% test_if_nonvarying_by_group(id_vars=sample,
                                     test_vars=c(Sample_ID,Patient_ID,Family,Genus))
 
-#Copies variables that passed to clipboard
+# Copies variables that passed to clipboard
 otu \%>\% group_by(otu) \%>\% group_suggest_additional_vars()
 
-#Issues warning that
+# Issues warning that `test_vars` varies across `sample`
 otu \%>\%
 assert_grouping_vars(id_vars=sample,test_vars=c(Sample_ID,Consistency,Family,Phylum)) \%>\%
   group_by(sample,Sample_ID,Consistency,Family,Phylum) \%>\%

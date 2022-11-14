@@ -6,6 +6,17 @@
 \usage{
 x \%-\% y
 }
+\arguments{
+\item{x}{vector to subtract from}
+
+\item{y}{vector to subtract}
+}
+\value{
+vector representing `x - y`
+}
 \description{
 Returns number of days.
+}
+\examples{
+Sys.Date() \%-\% as.Date("1975-02-21")
 }

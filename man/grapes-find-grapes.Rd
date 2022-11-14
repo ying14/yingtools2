@@ -9,3 +9,6 @@ x \%find\% y
 \description{
 Shorthand operator for finding a pattern.
 }
+\examples{
+sentences \%find\% "fish"
+}

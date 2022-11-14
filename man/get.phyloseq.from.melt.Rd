@@ -9,8 +9,7 @@ get.phyloseq.from.melt(
   sample_id = "sample",
   abundance_var = "numseqs",
   taxa_id = "otu",
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
-    "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
   sample_vars = NULL
 )
 }

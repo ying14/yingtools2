@@ -9,3 +9,6 @@ x \%like\% y
 \description{
 Shorthand operator for regular expression.
 }
+\examples{
+sentences \%like\% "fish"
+}

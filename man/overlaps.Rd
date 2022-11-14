@@ -4,7 +4,15 @@
 \alias{overlaps}
 \title{Determines if 2 sets of time intervals overlap.}
 \usage{
-overlaps(start1, stop1, start2, stop2, check = TRUE)
+overlaps(
+  start1,
+  stop1,
+  start2,
+  stop2,
+  check = TRUE,
+  start_NA = NA,
+  stop_NA = NA
+)
 }
 \arguments{
 \item{start1}{start times for interval 1}
@@ -16,6 +24,10 @@ overlaps(start1, stop1, start2, stop2, check = TRUE)
 \item{stop2}{stop times for interval 2}
 
 \item{check}{whether to check if start comes before stop.}
+
+\item{start_NA}{start value if NA. Default is to leave as NA.}
+
+\item{stop_NA}{stop value if NA. Default is to leave as NA.}
 }
 \description{
 Determines if 2 sets of time intervals overlap.

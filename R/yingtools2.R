@@ -21,16 +21,28 @@
 #' Subtract Dates
 #'
 #' Returns number of days.
+#'
+#' @param x vector to subtract from
+#' @param y vector to subtract
+#' @return vector representing `x - y`
+#'
+#'
 #' @export
+#' @examples
+#' Sys.Date() %-% as.Date("1975-02-21")
 "%-%" = function(x,y) {
   as.numeric(difftime(x,y,units="days"))
 }
+
+
 
 
 #' Regular Expression Operator
 #'
 #' Shorthand operator for regular expression.
 #' @export
+#' @examples
+#' sentences %like% "fish"
 "%like%" = function(x,y) {
   grepl(y,x,ignore.case=TRUE)
 }
@@ -41,6 +53,8 @@
 #'
 #' Shorthand operator for finding a pattern.
 #' @export
+#' @examples
+#' sentences %find% "fish"
 "%find%" = function(x,y) {
   grep(y,x,ignore.case=TRUE,value=TRUE)
 }
@@ -125,8 +139,6 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 }
 
 
-
-
 #' Compare data frames
 #'
 #' @param x table to be compared
@@ -134,14 +146,19 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 #' @param by varaible(s) to join by and compare
 #' @return a table from full_join(x,y,by). Contains columns .status and .diffs.
 #' @export
-compare <- function(x,...) UseMethod("compare")
+compare <- function(x,...) {
+  UseMethod("compare")
+}
 
 
 #' @rdname compare
 #' @export
 compare.character <- function(x,y) {
-  x.name <- quo_name(enquo(x))
-  y.name <- quo_name(enquo(y))
+  #using deparse1(substitute) because as_label doesn't seem to work in UseMethod situations, for some reason.
+  x.name <- deparse1(substitute(x))
+  y.name <- deparse1(substitute(y))
+  # x.name <- as_label(enquo(x))
+  # y.name <- as_label(enquo(y))
   stopifnot("x and y are not vectors"=is.vector(x) && is.vector(y))
   # x=s1
   # y=s2
@@ -165,33 +182,33 @@ compare.character <- function(x,y) {
   xy.nooverlap <- length(x.and.y)==0
 
   if (x.is.distinct) {
-    x.message <- str_glue("x ({x.name}) is distinct (N={x.length})")
+    x.message <- str_glue("{x.name}(x) is distinct (N={x.length})")
   } else {
-    x.message <- str_glue("x ({x.name}) is non-distinct (N={x.length}, {x.ndistinct} distinct values up to {x.range[2]} times")
+    x.message <- str_glue("{x.name}(x) is non-distinct (N={x.length}, {x.ndistinct} distinct values up to {x.range[2]} times")
   }
 
   if (y.is.distinct) {
-    y.message <- str_glue("y ({y.name}) is distinct (N={y.length})")
+    y.message <- str_glue("{y.name}(y) is distinct (N={y.length})")
   } else {
-    y.message <- str_glue("y ({y.name}) is non-distinct (N={y.length}, {y.ndistinct} distinct values up to {y.range[2]} times")
+    y.message <- str_glue("{y.name}(y) is non-distinct (N={y.length}, {y.ndistinct} distinct values up to {y.range[2]} times")
   }
   message(x.message)
   message(y.message)
 
   if (xy.identical) {
-    message("x ({x.name}) and y ({y.name}) are identical")
+    message(str_glue("{x.name}(x) and {y.name}(y) are identical"))
   } else if (xy.identical.difforder) {
-    message("x ({x.name}) and y ({y.name}) are identical, but in different order")
+    message(str_glue("{x.name}(x) and {y.name}(y) are identical, but in different order"))
   } else if (setequal.xy) {
-    message("x ({x.name}) and y ({y.name}) are different but setequal")
+    message(str_glue("{x.name}(x) and {y.name}(y) are different but setequal"))
   } else if (x.subsetof.y) {
-    message(str_glue("x ({x.name}) is a subset of y ({y.name}) ({x.ndistinct} out of {y.ndistinct})"))
+    message(str_glue("{x.name}(x) is a subset of {y.name}(y) ({x.ndistinct} out of {y.ndistinct})"))
   } else if (y.subsetof.x) {
-    message(str_glue("y ({y.name}) is a subset of x ({x.name}) ({y.ndistinct} out of {x.ndistinct})"))
+    message(str_glue("{y.name}(y) is a subset of {x.name}(x) ({y.ndistinct} out of {x.ndistinct})"))
   } else if (xy.nooverlap) {
-    message(str_glue("x ({x.name}) and y ({y.name}) do not overlap"))
+    message(str_glue("{x.name}(x) and {y.name}(y) do not overlap"))
   } else {
-    message(str_glue("partial overlap: {length(x.not.y)} values both x ({x.name}) and y ({y.name}), {length(y.not.x)} values in y ({y.name}) only, {length(x.and.y)} values in x ({x.name}) only"))
+    message(str_glue("partial overlap: {length(x.not.y)} values both {x.name}(x) and {y.name}(y), {length(y.not.x)} values in {y.name}(y) only, {length(x.and.y)} values in {x.name}(x) only"))
   }
 
   tbl <- bind_rows(tibble(value=x,source="x"),tibble(value=y,source="y")) %>%
@@ -199,16 +216,22 @@ compare.character <- function(x,y) {
     pivot_wider(id_cols=value,names_from=source,values_from=n,values_fill=0) %>%
     select(value,x,y) %>%
     mutate(.status=case_when(
-      x>0 & y>0 ~ str_glue("both x ({x.name}) and y ({y.name})"),
-      x>0 & y==0 ~ str_glue("x ({x.name}) not y ({y.name})"),
-      x==0 & y>0 ~ str_glue("y ({y.name}) not x ({x.name})")
+      x>0 & y>0 ~ str_glue("both {x.name}(x) and {y.name}(y)"),
+      x>0 & y==0 ~ str_glue("{x.name}(x) not {y.name}(y)"),
+      x==0 & y>0 ~ str_glue("{y.name}(y) not {x.name}(x)")
     ))
   invisible(tbl)
 }
 
+
 #' @rdname compare
 #' @export
 compare.data.frame <- function(x,y,by=NULL) {
+  # x.name <- as_label(enquo(x))
+  # y.name <- as_label(enquo(y))
+  x.name <- deparse1(substitute(x))
+  y.name <- deparse1(substitute(y))
+
   if (is.null(by)) {
     by <- intersect(names(x),names(y))
   }
@@ -224,9 +247,9 @@ compare.data.frame <- function(x,y,by=NULL) {
   # both <- inner_join_replace(x,y,by=by,errorIfDifferent = FALSE)
   all <- full_join(x,y,by=by,keep=TRUE) %>%
     mutate(.status=case_when(
-      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "both x and y",
-      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ "x only",
-      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "y only"
+      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ str_glue("both {x.name}(x) and {y.name}(y)"),
+      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ str_glue("{x.name}(x) only"),
+      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ str_glue("{y.name}(y) only")
     ))
   x.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.x$)") %>% unlist()
   y.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.y$)") %>% unlist()
@@ -248,11 +271,14 @@ compare.data.frame <- function(x,y,by=NULL) {
   }) %>% set_names(overlap.vars) %>%
     do.call(paste2,.)
   all$.diffs <- diffs
-  message(str_glue("x: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
-  message(str_glue("y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
+  message(str_glue("{x.name}(x): {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
+  message(str_glue("{y.name}(y): {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
   all %>% count(.status,.diffs) %>% print()
   invisible(all)
 }
+
+
+
 
 #' Tabulate
 #'
@@ -288,26 +314,58 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 }
 
 
+
+
+#' Sample n groups from a grouped table
+#'
+#' @param grouped_df a grouped data frame to be sampled
+#' @param size number of groups to sample
+#' @param weight sampling weights. Can be any expression that can be used in `summarize()` to calculate a valid weight.
+#' @param replace sample with or without replacement? Default is `FALSE`
+#' @return a subset of the original grouped data frame
+#'
+#' @examples
+#' mtcars %>% group_by(gear) %>% sample_groups(2)
+#' mtcars %>% group_by(gear) %>% sample_groups(5,weight=mean(mpg),replace=TRUE)
+#' @export
+sample_groups = function(grouped_df,size,weight=NULL,replace=FALSE) {
+  weight <- enquo(weight)
+  grp_var <- grouped_df %>% group_vars()
+  if (length(grp_var)==0) {
+    warning("YTWarning: no group detected.")
+  }
+  if (quo_is_null(weight)) {
+    random_grp <- grouped_df %>%
+      summarise(.groups="drop") %>%
+      slice_sample(n=size, replace=replace)
+  } else {
+    random_grp <- grouped_df %>%
+      summarise(weight_=!!weight,
+                .groups="drop") %>%
+      slice_sample(n=size, weight_by=weight_, replace=replace) %>% select(-weight_)
+  }
+  grouped_df %>%
+    right_join(random_grp, by=grp_var) %>%
+    group_by(!!!syms(grp_var))
+}
+
+
 #' Sample N Groups
 #'
 #' Sample groups from a grouped data frame
 #' @param grouped_df the grouped data frame to be sampled
 #' @param size number of groups to sample
 #' @return a subset of the grouped data frame
-#' @export
 #' @examples
 #' gdf <- mtcars %>% group_by(gear,carb)
 #' sample_n_groups(gdf,3)
-sample_n_groups <- function(grouped_df, size) {
+sample_n_groups_OLD <- function(grouped_df, size) {
   dplyr::group_data(grouped_df) %>%
     dplyr::sample_n(size) %>%
     dplyr::select(-.rows) %>%
     dplyr::inner_join(grouped_df,by=dplyr::group_vars(grouped_df)) %>%
     dplyr::group_by(!!!groups(grouped_df))
 }
-
-
-
 
 #' Split data frame into named list
 #'
@@ -430,7 +488,6 @@ kill_port_process <- function(port) {
     }
   }
 }
-
 
 
 
@@ -888,7 +945,6 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
 
 
 
-
 #' Pivot data from long to wide, with recoding
 #'
 #' Somewhat similar to \code{tidyr::pivot_wider}, where but where the names_from column is recoded using \code{recode.grep},
@@ -912,8 +968,17 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
 #'
 #' @return Pivotted data
 #' @export
-#'
 #' @examples
+#' library(tidyverse)
+#' cid.bsi %>%
+#'   pivot_wider_recode(
+#'     id_cols=Patient_ID,
+#'     names_from=organism,
+#'     values_from=organism,
+#'     names_recodes=c("klebs|coli|serratia|pseudomonas|bacter|acineto|steno|lepto|neiss"="gram.neg",
+#'                     "staphylococcus|CNST|VRE|enterococcus|bacillus|micrococc"="gram.pos",
+#'                     "clostridium|fusobact|bacteroides"="anaerobe"),
+#'     values_fill="<none>")
 pivot_wider_recode <- function(data,
                                id_cols = NULL,
                                names_from = name,
@@ -1012,13 +1077,13 @@ pivot_wider_partial <- function(data,
 #' @return Produces a character vector of colors, corresponding to shades of the specified color.
 #' @examples
 #' sh1 <- shades("red",5)
-#' show_col(sh1)
+#' scales::show_col(sh1)
 #'
 #' sh2 <- shades("red",20)
-#' show_col(sh2)
+#' scales::show_col(sh2)
 #'
 #' sh3 <- shades("red",20,variation=0.5)
-#' show_col(sh3)
+#' scales::show_col(sh3)
 #' @author Ying Taur
 #' @export
 shades <- function(color,ncolor=3,variation=1) {
@@ -1032,8 +1097,6 @@ shades <- function(color,ncolor=3,variation=1) {
   pal <- pal[c(-1,-length(pal))]
   return(pal)
 }
-
-
 
 
 
@@ -1144,6 +1207,13 @@ read.clipboard <- function(...) {
 #' @author Ying Taur
 #' @export
 deparse2 <- function(x,width=Inf) {
+  r.version <- strsplit(version[['version.string']], ' ')[[1]][3]
+  r.too.low <- utils::compareVersion(r.version,"4.0")==-1
+  if (r.too.low) {
+    deparse1 <- function (expr, collapse = " ", width.cutoff = 500L, ...) {
+      paste(deparse(expr, width.cutoff, ...), collapse = collapse)
+    }
+  }
   deparse0 <- function(x) {
     if (is.infinite(width)) {
       deparse1(x)
@@ -1188,9 +1258,6 @@ deparse2 <- function(x,width=Inf) {
   }
   return(rcode)
 }
-
-
-
 
 #' @rdname deparse2
 #' @param copy.clipboard whether or not to copy to clipboard. Default is \code{TRUE}
@@ -1427,8 +1494,6 @@ file_activity_status <- function(paths,wait.time=1)  {
   d <- full_join(d1,d2,by=c("dir","file")) %>%
     mutate(diff=size2-size1,
            file=basename(file))
-
-
   files.inactive <- all(!is.na(d$diff) & d$diff==0)
   if (files.inactive) {
     message("files are inactive.")
@@ -1441,7 +1506,6 @@ file_activity_status <- function(paths,wait.time=1)  {
 
 
 
-
 #' Display sizes of objects in memory
 #'
 #' Use this to see what is occupying memory
@@ -1449,6 +1513,16 @@ file_activity_status <- function(paths,wait.time=1)  {
 #' @return a data frame showing objects and the object size, in Mb.
 #' @export
 ls.object.sizes <- function(envir=.GlobalEnv) {
+  # recursive function to deal with environments
+  get.size <- function(obj) {
+    if (is_environment(obj)) {
+      subobj.list <- ls(obj)
+      size <- subobj.list %>% map(~get(.,envir=obj)) %>% map_dbl(get.size) %>% sum()
+    } else {
+      size <- object.size(obj) %>% as.numeric()
+    }
+    return(size)
+  }
   objects <- ls(envir=envir)
   if (length(objects)==0) {
     message("No objects found.")
@@ -1456,11 +1530,11 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
   }
   dsize <- lapply(objects,function(objname) {
     obj <- get(objname)
-    size <- object.size(obj)
-    bytes <- as.numeric(size)
-    mb <- format(size,units="Mb")
+    bytes <- get.size(obj)
+    # mb <- format(size,units="Mb")
+    size <- utils:::format.object_size(bytes, "auto")
     class <- class(obj)[1]
-    tibble(obj=objname,class,bytes,mb)
+    tibble(obj=objname,class,size,bytes)
   }) %>% bind_rows() %>% arrange(desc(bytes)) %>% select(-bytes)
   return(dsize)
 }
@@ -3516,11 +3590,11 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     formula <- as.formula(model)
     if (!firth) {
       # message(str_glue("Running coxph: {model}"))
-      message(str_glue("Running coxph: {quo_name(yvar)} ~ {rightside}"))
+      message(str_glue("Running coxph: {as_label(yvar)} ~ {rightside}"))
       result <- survival::coxph(formula,data=data2)
     } else {
       # message(str_glue("Running coxphf: {model}"))
-      message(str_glue("Running coxphf: {quo_name(yvar)} ~ {rightside}"))
+      message(str_glue("Running coxphf: {as_label(yvar)} ~ {rightside}"))
       result <- do.call(coxphf::coxphf,c(list(formula,data=data2),firth.opts))
     }
   } else {
@@ -3541,7 +3615,7 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     cov1 <- mm[,cols,drop=FALSE]
     ftime <- data2$.tstop
     fstatus <- data2$.y
-    message(str_glue("Running crr: {quo_name(yvar)} ~ {rightside}"))
+    message(str_glue("Running crr: {as_label(yvar)} ~ {rightside}"))
     result <- cmprsk::crr(ftime=ftime,fstatus=fstatus,cov1=cov1)
   }
 
@@ -3566,15 +3640,15 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
 
   tbl <- yt.tidy(result) %>%
     mutate(xvar=terms.to.varnames(term,xvarnames,data2),
-           yvar=quo_name(yvar),
-           time.dependent=xvar %in% sapply(xvars.td,quo_name))
+           yvar=as_label(yvar),
+           time.dependent=xvar %in% sapply(xvars.td,as_label))
 
   tbl.extra <- lapply(xvars,function(x) {
     #time dependent
     if (as_name(x) %in% sapply(xvars.td,as_name)) {
       xday <- x %>% as_name() %>% paste0("_day") %>% sym()
       count <- data %>% summarize(count=sum((!!x==1) & (!!xday < !!yvarday),na.rm=TRUE)) %>% pull(count)
-      extra <- tibble(xvar=quo_name(x),n=count) %>% mutate(term=xvar)
+      extra <- tibble(xvar=as_label(x),n=count) %>% mutate(term=xvar)
       return(extra)
     }
     vec <- data %>% pull(!!x)
@@ -3658,7 +3732,7 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
   starttime <- enquo(starttime)
   xvars <- quos(...)
   univariate.reglist <- lapply(xvars,function(x) {
-    message(quo_name(x))
+    message(as_label(x))
     cox(!!yvar,!!x,starttime=!!starttime,data=data,firth=firth,formatted=FALSE)
   })
   univariate.tbl <- univariate.reglist %>% bind_rows()
@@ -4488,7 +4562,7 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
   tbl <- yt.tidy(result)
   tbl <- tbl %>%
     mutate(xvar=terms.to.varnames(term,xvarnames,data),
-           yvar=quo_name(yvar)) %>%
+           yvar=as_label(yvar)) %>%
       select(yvar,xvar,term,everything())
 
   #create 'n' column for categorical variables (factor, character, logical, 0-1)
@@ -4496,14 +4570,14 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
     vec <- data %>% pull(!!x)
     is.01 <- function(v) {is.numeric(v) & all(v %in% c(0,1),na.rm=TRUE)}
     if (is.01(vec)) {
-      extra <- tibble(xvar=quo_name(x),n=sum(vec)) %>% mutate(term=xvar)
+      extra <- tibble(xvar=as_label(x),n=sum(vec)) %>% mutate(term=xvar)
       return(extra)
     } else if (is.numeric(vec)) {
-      extra <- tibble(xvar=quo_name(x),n=NA_real_,term=xvar)
+      extra <- tibble(xvar=as_label(x),n=NA_real_,term=xvar)
       return(extra)
     } else {
       tbl <- table(vec)
-      extra <- tibble(xvar=quo_name(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
+      extra <- tibble(xvar=as_label(x),n=as.vector(tbl)) %>% mutate(term=paste0(xvar,names(tbl)))
       return(extra)
     }
   }) %>% bind_rows()
@@ -4643,7 +4717,7 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
 #' @export
 group_by_all_distinct <- function(data, ...) {
   id.vars <- enquos(...)
-  id.varnames <- sapply(id.vars,quo_name)
+  id.varnames <- sapply(id.vars,as_name)
   data2 <- data %>% group_by(...) %>% summarize_all(function(x) length(unique(x))) %>% ungroup() %>%
     select_if(function(x) all(x==1))
   all.dist.vars <- unique(c(id.varnames,names(data2)))
@@ -4682,14 +4756,14 @@ group_by_all_distinct <- function(data, ...) {
 #' @examples
 #' otu <- get.otu.melt(cid.phy)
 #'
-#' #Returns output of testing results
+#' # Returns output of testing results
 #' otu %>% test_if_nonvarying_by_group(id_vars=sample,
 #'                                     test_vars=c(Sample_ID,Patient_ID,Family,Genus))
 #'
-#' #Copies variables that passed to clipboard
+#' # Copies variables that passed to clipboard
 #' otu %>% group_by(otu) %>% group_suggest_additional_vars()
 #'
-#' #Issues warning that
+#' # Issues warning that `test_vars` varies across `sample`
 #' otu %>%
 #' assert_grouping_vars(id_vars=sample,test_vars=c(Sample_ID,Consistency,Family,Phylum)) %>%
 #'   group_by(sample,Sample_ID,Consistency,Family,Phylum) %>%
@@ -4725,6 +4799,9 @@ test_if_nonvarying_by_group <- function(data,
   test <- c(data.rootgroup,data.testing)
   test
 }
+
+
+
 
 #' @rdname test_if_nonvarying_by_group
 #' @export
@@ -4782,6 +4859,7 @@ assert_grouping_vars <- function(data,
 }
 
 
+
 #' Group by Time
 #'
 #' Given data frame with start and stop times, group times by non-overlapping start and stop times.
@@ -4796,6 +4874,31 @@ assert_grouping_vars <- function(data,
 #' @return Returns \code{data}, but grouped by times and other variables.
 #' @author Ying Taur
 #' @export
+#' @examples
+#' library(tidyverse)
+#' data <- tribble(
+#'   ~subject, ~start, ~stop,
+#'   "A",      1,      2,
+#'   "A",      3,      4,
+#'   "A",      5,      6,
+#'   "A",      14,     15,
+#'   "A",      16,     19,
+#'   "A",      23,     30,
+#'   "B",      3,      4,
+#'   "B",      5,      6,
+#'   "B",      7,      8,
+#'   "B",      18,     19,
+#'   "B",      21,     22,
+#'   "B",      27,     29
+#' )
+#' grouped.data <- data %>%
+#'   group_by_time(start,stop,subject,gap=2) %>%
+#'   mutate(timegroup=factor(cur_group_id()))
+#' # data is grouped based on start/stop times
+#' grouped.data %>%  arrange(subject,start)
+#' grouped.data %>%
+#'   ggplot(aes(x=start-0.45,xend=stop+0.45,y=subject,yend=subject,color=timegroup))  +
+#'   geom_segment(size=4) + xlab("time")
 group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
   group_vars <- enquos(...)
   start <- enquo(start)
@@ -4813,7 +4916,9 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 #' Group time data by consecutive streaks of a certain indicator variable.
 #'
 #' Similar to \code{group_by_time}, but for a different purpose. This function groups by consecutive values of the indicator variable.
-#' This is to measure how long the indicator remains in the same state.
+#' This is to measure how long the indicator remains in the same state. One situation where I use this is calculating
+#' when BMT engraftment has occurred. It is defined as the first day on which absolute neutrophil count is >500
+#' for at least three consecutive measurements on at least three consecutive days.
 #' @param data data frame
 #' @param time time variable
 #' @param indicator variable to group consecutive streaks
@@ -4824,6 +4929,22 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 #' @return Returns \code{data}, but grouped by time streaks
 #' @author Ying Taur
 #' @export
+#' @examples
+#' library(tidyverse)
+#' data <- tribble(
+#'   ~time, ~indicator,
+#'   1,     TRUE,
+#'   2,     FALSE,
+#'   3,     TRUE,
+#'   4,     FALSE,
+#'   5,     TRUE,
+#'   6,     TRUE,
+#'   7,     TRUE,
+#'   8,     FALSE,
+#'   9,     FALSE,
+#'   10,    FALSE
+#' )
+#' data %>% group_by_time_streaks(time,indicator)
 group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALSE,add=FALSE) {
   time <- enquo(time)
   indicator <- enquo(indicator)
@@ -4844,34 +4965,7 @@ group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALS
 }
 
 
-#' Sample n groups from a grouped table
-#'
-#' @param grouped_df a grouped data frame to be sampled
-#' @param size number of groups to sample
-#' @param replace sample with or without replacement?
-#' @param weight sampling weights.
-#'
-#' @return a subset of the original grouped data frame
-#'
-#' @examples
-#' mtcars %>% group_by(gear) %>% sample_groups(2)
-#' @export
-sample_groups = function(grouped_df,size,replace=FALSE,weight=NULL) {
-  grp_var <- grouped_df %>%
-    groups %>%
-    unlist %>%
-    as.character
-  if (length(grp_var)==0) {
-    warning("YTWarning: no group detected.")
-  }
-  random_grp <- grouped_df %>%
-    summarise(.groups="drop") %>%
-    sample_n(size, replace, weight) %>%
-    mutate(unique_id = 1:nrow(.))
-  grouped_df %>%
-    right_join(random_grp, by=grp_var) %>%
-    group_by(!!!syms(grp_var))
-}
+
 
 
 
@@ -4978,7 +5072,6 @@ get.row <- function(start,stop,row=NULL,by=NULL,no.row.overlap=FALSE,min.gap=Inf
 #' @param min.gap minimum allowable gap between two different event types, if they are to be placed on the same row. Default is \code{Inf}: no row merging, \code{0} tries to perform as much merging as possible.
 #' @return Returns a vector of row number assignments for each time event.
 #' @author Ying Taur
-#' @export
 get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
   # start=medssub$start_day;stop=medssub$stop_day;row=medssub$y.row;by=list(medssub$abx_class,medssub$med_class3);min.gap=0
   if (min.gap<0) {

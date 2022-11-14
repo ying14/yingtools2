@@ -6,15 +6,14 @@
 \usage{
 phy.collapse(
   phy,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
-    "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
   short_taxa_names = TRUE
 )
 }
 \arguments{
 \item{phy}{A phylsoeq object.}
 
-\item{taxranks}{tax levels to collapse by. Default is \code{c("Kingdom","Phylum","Class","Order","Family","Genus","Species")}.}
+\item{taxranks}{tax levels to collapse by. Default is \code{c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")}.}
 
 \item{short_taxa_names}{How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.}
 }

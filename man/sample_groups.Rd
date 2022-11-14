@@ -4,16 +4,16 @@
 \alias{sample_groups}
 \title{Sample n groups from a grouped table}
 \usage{
-sample_groups(grouped_df, size, replace = FALSE, weight = NULL)
+sample_groups(grouped_df, size, weight = NULL, replace = FALSE)
 }
 \arguments{
 \item{grouped_df}{a grouped data frame to be sampled}
 
 \item{size}{number of groups to sample}
 
-\item{replace}{sample with or without replacement?}
+\item{weight}{sampling weights. Can be any expression that can be used in `summarize()` to calculate a valid weight.}
 
-\item{weight}{sampling weights.}
+\item{replace}{sample with or without replacement? Default is `FALSE`}
 }
 \value{
 a subset of the original grouped data frame
@@ -23,4 +23,5 @@ Sample n groups from a grouped table
 }
 \examples{
 mtcars \%>\% group_by(gear) \%>\% sample_groups(2)
+mtcars \%>\% group_by(gear) \%>\% sample_groups(5,weight=mean(mpg),replace=TRUE)
 }

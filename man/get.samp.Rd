@@ -27,3 +27,6 @@ This basically is similar to the function \code{phyloseq::sample_data}, but does
 This function is the opposite of \code{set.samp}, which converts the data frame back into a \code{sample_data}.
 Note that if the \code{phyloseq} object does not contain \code{sample_data}, a data frame containing a single column, \code{sample}, is returned.
 }
+\examples{
+get.samp(cid.phy)
+}

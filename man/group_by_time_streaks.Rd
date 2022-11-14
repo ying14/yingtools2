@@ -37,7 +37,26 @@ Group time data by consecutive streaks of a certain indicator variable.
 }
 \details{
 Similar to \code{group_by_time}, but for a different purpose. This function groups by consecutive values of the indicator variable.
-This is to measure how long the indicator remains in the same state.
+This is to measure how long the indicator remains in the same state. One situation where I use this is calculating
+when BMT engraftment has occurred. It is defined as the first day on which absolute neutrophil count is >500
+for at least three consecutive measurements on at least three consecutive days.
+}
+\examples{
+library(tidyverse)
+data <- tribble(
+  ~time, ~indicator,
+  1,     TRUE,
+  2,     FALSE,
+  3,     TRUE,
+  4,     FALSE,
+  5,     TRUE,
+  6,     TRUE,
+  7,     TRUE,
+  8,     FALSE,
+  9,     FALSE,
+  10,    FALSE
+)
+data \%>\% group_by_time_streaks(time,indicator)
 }
 \author{
 Ying Taur
