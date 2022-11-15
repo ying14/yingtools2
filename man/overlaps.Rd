@@ -32,3 +32,21 @@ overlaps(
 \description{
 Determines if 2 sets of time intervals overlap.
 }
+\examples{
+times <- tribble(
+  ~subj, ~startA, ~stopA, ~startB, ~stopB,
+  1,     1,       2,      3,       4,
+  2,     1,       3,      2,       4,
+  3,     1,       4,      2,       3,
+  4,     2,       3,      1,       4,
+  5,     2,       4,      1,       3,
+  6,     3,       4,      1,       2
+)
+times <- times \%>\%
+  mutate(overlaps=overlaps(startA,stopA,startB,stopB))
+times
+ggplot() +
+  geom_segment(data=times,aes(x=startA,xend=stopA,y=subj,yend=subj,color="A"),size=1) +
+  geom_segment(data=times,aes(x=startB,xend=stopB,y=subj+0.1,yend=subj+0.1,color="B"),size=1) +
+  geom_text(data=times,aes(x=0.5,y=subj,label=overlaps))
+}

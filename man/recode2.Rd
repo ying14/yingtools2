@@ -50,33 +50,31 @@ A vector consisting of the recoded values of \code{var}
 Recode a variable
 }
 \examples{
-data(cid)
-
 # Recode if field matches exactly.
 recodes1 <- c("Pseudomonas aeruginosa"="P. aeruginosa","Staphylococcus aureus oxacillin resistant"="MRSA")
-bsi$org.short.1 <- recode2(bsi$org.short,recodes1)
+bsi$org.short.1 <- recode2(cid.bsi$org.short,recodes1)
 bsi$org.short.1
 
 # Recode if there is a regular expression pattern match.
 recodes2 <- c("Pseud.+aerug"="P. aeruginosa","oxacill.+resist"="MRSA")
-bsi$org.short.2 <- recode2(bsi$org.short,recodes2,regexp=TRUE)
+bsi$org.short.2 <- recode2(cid.$org.short,recodes2,regexp=TRUE)
 bsi$org.short.2
 
 # Instead of recoding, find and replace text.
 recodes3 <- c("Pseudomonas"="P.","Staphylococcus"="S.")
-bsi$org.short.3 <- recode2(bsi$org.short,recodes3,replace=TRUE,multi.hits=TRUE)
+bsi$org.short.3 <- recode2(cid.$org.short,recodes3,replace=TRUE,multi.hits=TRUE)
 bsi$org.short.3
 
 # Recode via regular expressions to merge groups.
 recodes4 <- c("enterococcus|staph|streptococcus|cnst|vre"="gram positive",
               "klebs|coli|serrat|pseudo|steno|citro|acinet|enterobact"="gram negative")
-bsi$org.short.4 <- recode2(bsi$org.short,recodes4,regexp=TRUE,else.value="Other Bacteria")
+bsi$org.short.4 <- recode2(cid.$org.short,recodes4,regexp=TRUE,else.value="Other Bacteria")
 bsi$org.short.4
 
 # if recodes are in list object, vectors of possible hits can be listed. This will do the same thing as #4.
 recodes5 <- list("gram positive"=c("entero","staph","strep","cnst","vre"),
                  "gram negative"=c("klebs","coli","serrat","pseudo","steno","citro","acinet","enterobact"))
-bsi$org.short.5 <- recode2(bsi$org.short,recodes5,regexp=TRUE,else.value="Other Bacteria")
+bsi$org.short.5 <- recode2(cid.$org.short,recodes5,regexp=TRUE,else.value="Other Bacteria")
 bsi$org.short.5
 }
 \author{

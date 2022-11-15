@@ -12,7 +12,7 @@ x \%-\% y
 \item{y}{vector to subtract}
 }
 \value{
-vector representing `x - y`
+vector representing \code{x - y}
 }
 \description{
 Returns number of days.

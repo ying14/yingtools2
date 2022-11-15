@@ -23,10 +23,10 @@ values <- c(0,10^(-10:0))
 d <- data.frame(x=1:length(values),y=values)
 g <- ggplot(d,aes(x=x,y=y,label=y)) + geom_point() + geom_line() + geom_text()
 g1 <- g + scale_y_continuous(breaks=values) + ggtitle("untransformed")
-g2 <- g + scale_y_continuous(trans=log1_trans(0.0001)) + ggtitle("scale_trans, epsilon=0.0001")
-g3 <- g + scale_y_continuous(trans=log1_trans(10^-6.)) + ggtitle("scale_trans, epsilon=0.0000001")
-g4 <- g + scale_y_continuous(trans=log1_trans(10^-10)) + ggtitle("scale_trans, epsilon=0.0000000001")
-print(arrangeGrob(g1,g2,g3,g4,nrow=2))
+g2 <- g + scale_y_continuous(trans=log_epsilon_trans(0.0001)) + ggtitle("scale_trans, epsilon=0.0001")
+g3 <- g + scale_y_continuous(trans=log_epsilon_trans(10^-6.)) + ggtitle("scale_trans, epsilon=0.0000001")
+g4 <- g + scale_y_continuous(trans=log_epsilon_trans(10^-10)) + ggtitle("scale_trans, epsilon=0.0000000001")
+gridExtra::grid.arrange(g1,g2,g3,g4,nrow=2)
 }
 \author{
 Ying Taur

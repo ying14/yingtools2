@@ -1,63 +1,10 @@
-
-#need this for get.otu.melt to work in package.
+# need this for get.otu.melt to work in package.
+# This tells data.table that you as a package developer have designed your code to intentionally
+# rely on data.table functionality even though it may not be obvious from inspecting your NAMESPACE file.
 .datatable.aware = TRUE
 
+# phyloseq manipulation ---------------------------------------------------
 
-#' The color scheme used in CID manuscript.
-#' @author Ying Taur
-#' @export
-cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f69ea0",
-                "Bacteroides"="#2dbfc2","Lactobacillus"="#3b51a3","Dorea"="#a9853e",
-                "Staphylococcus"="#f1eb25","Coprobacillus"="#b53572",
-                "unclassified_Firmicutes"="#79449a","unclassified_Lachnospiraceae"="#afd7db",
-                "Roseburia"="#9ba744","Parabacteroides"="#329982","Coprococcus"="#663939",
-                "Spracetigenium"="#72b443","Veillonella"="#653f99","Lactococcus"="#51a546",
-                "Granulicatella"="#a5a7aa","Proteobacteria"="#ed2024","Other Bacteroidetes"="#963695",
-                "Other Firmicutes"="#929497","Other Bacteria"="#6d6e70")
-
-#' Read Tree File (Label-Fix)
-#'
-#' Read in tree file created by uparse pipeline.
-#'
-#' Functions like \code{read.tree} have trouble reading uparse-generated trees, because the OTU names contain semicolons(;), e.g. "\code{'OTU_2080;size=5;'}". This function temporarily replaces \code{;} with \code{__}, reads in successfully, and reverts back to names with semicolons. Also, removes the single quotes (\code{\'}) from the name. If read in this way, the tree can be quickly merged into a phyloseq object.
-#'
-#' @param tree.file Newick-formatted text file
-#' @return Returns a \code{phylo} object, with original labels.
-#' @examples
-#' b <- import_biom("uparse/total.8.otu-tax.biom")
-#' tr <- read.tree.uparse("uparse/total.10.tree")
-#' phy <- merge_phyloseq(b,tr)
-#' @author Ying Taur
-#' @export
-read.tree.uparse <- function(tree.file) {
-  tree.text <- scan(tree.file,what=character(),quiet=TRUE)
-  #replace ; with __, and place single quotes around, if not already there. (qiime places quotes, mothur does not)
-  new.tree.text <- gsub("'?(OTU_[0-9]+);(size=[0-9]+);'?","'\\1__\\2__'",tree.text)
-  #new.tree.text <- gsub("(OTU_[0-9]+);(size=[0-9]+);","\\1__\\2__",tree.text)
-  tr <- ape::read.tree(text=new.tree.text)
-  tr$tip.label <- gsub("(OTU_[0-9]+)__(size=[0-9]+)__","\\1;\\2;",tr$tip.label)
-  tr$node.label <- gsub("(OTU_[0-9]+)__(size=[0-9]+)__","\\1;\\2;",tr$node.label)
-  #tr$tip.label <- gsub("'?(OTU_[0-9]+)__(size=[0-9]+)__'?","\\1;\\2;",tr$tip.label)
-  #tr$node.label <- gsub("'?(OTU_[0-9]+)__(size=[0-9]+)__'?","\\1;\\2;",tr$node.label)
-  return(tr)
-}
-
-
-
-#' Read OTU table from text file
-#'
-#' Used for uparse pipeline to read in otu table.
-#'
-#' Assumes tab-delimited file, with 'OTUID' to specify otu column.
-#' @param otu.file text file to be read, containing otu table data
-#' @param otu.row.names specify column listing OTU names. This is passed to \code{read.delim}; i.e. can be vector of accual row names, single number of column, or character string name of the column.
-#' @return Dataframe containing otu table
-#' @export
-read.otu.table <- function(otu.file,row.names="OTUId") {
-  otu <- read.delim(otu.file,header=TRUE,check.names=FALSE,row.names=row.names) %>%
-    rownames_to_column("otu")
-  return(otu)
-}
 
 
 #' Extract Phyloseq sample_data
@@ -201,6 +148,9 @@ set.otu <- function(odata,taxa_are_rows=TRUE) {
 #' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
 #' @return Data frame melted OTU data
 #' @export
+#' @examples
+#' library(phyloseq)
+#' get.otu.melt(cid.phy)
 get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   # supports "naked" otu_table as `phy` input.
@@ -257,8 +207,6 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 
 
 
-
-
 #' Convert melted OTU table to phyloseq object
 #'
 #' @param otu.melt table of taxa x sample abundances, similar to output of \code{get.otu.melt}
@@ -272,14 +220,17 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
 #' @export
 #'
 #' @examples
+#' library(phyloseq)
 #' phy <- cid.phy
 #' ranks <- rank_names(phy)
 #' otu <- get.otu.melt(cid.phy)
 #' phy2 <- get.phyloseq.from.melt(otu,taxranks=ranks)
+#' phy
+#' phy2
 get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="numseqs",taxa_id="otu",
                                    taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
                                    sample_vars=NULL) {
-
+  requireNamespace("phyloseq",quietly=TRUE)
   sample_vars <- setdiff(sample_vars,sample_id)
   rows.are.distinct <- is.distinct(otu.melt, !!sym(taxa_id), !!sym(sample_id))
   if (!rows.are.distinct) {
@@ -312,19 +263,12 @@ get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="nu
   if (length(leftover.vars)>0) {
     message(str_glue("(vars not used: {paste(leftover.vars,collapse=\", \")})"))
   }
-  phy <- phyloseq(set.otu(otu),set.tax(tax))
+  phy <- phyloseq::phyloseq(set.otu(otu),set.tax(tax))
   if (ncol(samp)>1) {
-    sample_data(phy) <- samp %>% set.samp()
+    phyloseq::sample_data(phy) <- samp %>% set.samp()
   }
   return(phy)
 }
-
-
-
-
-
-
-
 
 
 #' Calculate Abundance from Phyloseq
@@ -336,8 +280,8 @@ get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="nu
 #' @return a data frame containing sample identifier and abundance columns
 #'
 #' @examples
+#' library(phyloseq)
 #' get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
-#'
 #' @export
 get.abundance <- function(phy,..., counts=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
@@ -381,6 +325,7 @@ get.abundance <- function(phy,..., counts=FALSE) {
 
 #' Add abundance to sample data
 #'
+#'
 #' @param sdata sample data to be modified
 #' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
 #' @param phy phyloseq object to be used for caluclation
@@ -389,8 +334,11 @@ get.abundance <- function(phy,..., counts=FALSE) {
 #' @return returns \code{sdata}, with additional columns for abundance.
 #'
 #' @examples
-#' get.samp(cid.phy) %>% add.abundance(pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria",phy=cid.phy)
-#'
+#' library(phyloseq)
+#' get.samp(cid.phy) %>%
+#'   add.abundance(pct.entero=Genus=="Enterococcus",
+#'                 pct.proteo=Phylum=="Proteobacteria",
+#'                 phy=cid.phy)
 #' @export
 add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
@@ -403,9 +351,6 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
   }
   sdata %>% left_join(s,by="sample")
 }
-
-
-
 
 
 #' Collapse Phyloseq Into Taxonomy
@@ -421,6 +366,11 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 #' @param short_taxa_names How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.
 #' @return A phyloseq object with OTUs collapsed.
 #' @export
+#' @examples
+#' library(phyloseq)
+#' cid.phy.family <- phy.collapse(cid.phy,taxranks=c("Kingdom", "Phylum", "Class", "Order", "Family"))
+#' cid.phy
+#' cid.phy.family
 phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   taxranks <- syms(taxranks)
@@ -465,17 +415,20 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
 }
 
 
-
-
-
 #' Prune Unused Taxa from a phyloseq object
 #'
 #' In a phyloseq object, remove any taxa that are not used in the samples.
+#' Consider using this after subsetting the samples.
 #' @param phy phyloseq object
-#'
 #' @return a phyloseq object, with empty taxa removed.
 #' @export
 #' @examples
+#' library(phyloseq)
+#' physub <- cid.phy %>%
+#'   subset_samples(Patient_ID=="301")
+#' physub.clean <- prune_unused_taxa(physub)
+#' physub
+#' physub.clean
 prune_unused_taxa <- function(phy) {
   requireNamespace("phyloseq",quietly=TRUE)
   keep <- taxa_sums(phy)>0
@@ -485,236 +438,158 @@ prune_unused_taxa <- function(phy) {
 
 
 
-#' Import UPARSE pipeline data and create phyloseq
-#'
-#' Reads folder and looks for key files used to create phyloseq object.
-#'
-#' @param dirpath directory path (character) specifying folder where uparse data is.
-#' @param otu.file otu table file. Default is 'total.6.otu-table.txt'
-#' @param tax.file tax file (blastn). Default is 'total.5.repset.fasta.blastn.refseq_rna.txt'. Specify \code{NULL} to skip.
-#' @param repseq.file rep seq file (fasta format). Defaul is 'total.5.repset.fasta' Specify \code{NULL} to skip.
-#' @param tree.file phylo tree file (newick file). Default is 'total.10.tree' Specify \code{NULL} to skip.
-#' @return phyloseq object containing the specified UPARSE data.
+
+
+
+
+
+# stacked taxplot functions -----------------------------------------------
+
+
+
+
+#' Get YT Palette
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
 #' @author Ying Taur
 #' @export
-read.uparse.data <- function(dirpath,
-                             otu.file="total.6.otu-table.txt",
-                             tax.file="total.5.repset.fasta.blastn.refseq_rna.txt",
-                             repseq.file="total.5.repset.fasta",
-                             tree.file="total.10.tree") {
-  requireNamespace("phyloseq",quietly=TRUE)
-  # dirpath="uparse";otu.file="total.6.otu-table.txt";tax.file="total.5.repset.fasta.blastn.refseq_rna.txt";repseq.file="total.5.repset.fasta";tree.file="total.10.tree"
-  if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
-  # dirpath="uparse"
-  otu.file <- file.path(dirpath,otu.file)
-  if (!file.exists(otu.file)) stop("YTError not found: ",otu.file)
-  phy <- read.otu.table(otu.file) %>% set.otu()
-  if (!is.null(tax.file)) {
-    tax.file <- file.path(dirpath,tax.file)
-    if (!file.exists(tax.file)) stop("YTError not found: ",tax.file)
-    tax <- read.blastn.file(tax.file) %>% set.tax()
-    phy <- merge_phyloseq(phy,tax)
+get.yt.palette <- function(tax,use.cid.colors=TRUE) {
+  if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
+    tax <- get.tax(tax.obj)
   }
-  if (!is.null(repseq.file)) {
-    repseq.file <- file.path(dirpath,repseq.file)
-    if (!file.exists(repseq.file)) stop("YTError not found: ",repseq.file)
-    repseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
-    phy <- merge_phyloseq(phy,repseq)
+  ranks <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
+  if (!all(ranks %in% names(tax))) {
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species")
   }
-  if (!is.null(tree.file)) {
-    tree.file <- file.path(dirpath,tree.file)
-    if (!file.exists(tree.file)) stop("YTError not found: ",tree.file)
-    tree <- read.tree.uparse(tree.file)
-    phy <- merge_phyloseq(phy,tree)
+  tax.dict <- tax[,ranks] %>% distinct()
+  #bacteria are shades of gray by default
+  tax.dict$color <- rep(shades("gray"),length.out=nrow(tax.dict))
+  #proteobacteria: red
+  proteo <- tax.dict$Phylum=="Proteobacteria"
+  tax.dict$color[proteo] <- rep(shades("red",variation=0.4),length.out=sum(proteo))
+  #bacteroidetes: cyan
+  bacteroidetes <- tax.dict$Phylum=="Bacteroidetes"
+  tax.dict$color[bacteroidetes] <- rep(shades("#2dbfc2",variation=0.4),length.out=sum(bacteroidetes))
+  #actinobacteria: purple
+  actino <- tax.dict$Phylum=="Actinobacteria"
+  tax.dict$color[actino] <- rep(shades("purple",variation=0.4),length.out=sum(actino))
+  #firmicutes:
+  firm <- tax.dict$Phylum=="Firmicutes"
+  tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
+  #within firmicutes, color bacilli
+  bacilli <- tax.dict$Class=="Bacilli"
+  tax.dict$color[bacilli] <- rep(shades("#3b51a3",variation=0.2),length.out=sum(bacilli))
+  #within firmicutes, color blautia
+  blautia <- tax.dict$Genus=="Blautia"
+  tax.dict$color[blautia] <- rep(shades("#f69ea0",variation=0.2),length.out=sum(blautia))
+  if (use.cid.colors) {
+    cid.colors.new <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Staphylococcus"="#f1eb25")
+    cid <- cid.colors.new[match(tax.dict$Genus,names(cid.colors.new))]
+    tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
   }
-  return(phy)
+  tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$Species))
+  tax.palette
 }
 
-#' Read in tax file from blastn output
-#'
-#' This reads in the file created by the YT python script, blastn.py
-#'
-#' Chooses one taxonomy from the hits, also listing runner-up taxonomy.
-#' qseqid: Query Seq-id
-#' qgi: Query GI
-#' qacc: Query accesion
-#' qaccver: Query accesion.version
-#' qlen: Query sequence length
-#' sseqid: Subject Seq-id
-#' sallseqid: All subject Seq-id(s), separated by a ';'
-#' sgi: Subject GI
-#' sallgi: All subject GIs
-#' sacc: Subject accession
-#' saccver: Subject accession.version
-#' sallacc: All subject accessions
-#' slen: Subject sequence length
-#' qstart: Start of alignment in query
-#' qend: End of alignment in query
-#' sstart: Start of alignment in subject
-#' send: End of alignment in subject
-#' qseq: Aligned part of query sequence
-#' sseq: Aligned part of subject sequence
-#' evalue: Expect value. Describes the number of hits one can "expect" to see by chance when searching a database of a particular size.
-#'   It decreases exponentially as the Score (S) of the match increases. Essentially, the E value describes the random background noise.
-#'   For example, an E value of 1 assigned to a hit can be interpreted as meaning that in a database of the current size one might
-#'   expect to see 1 match with a similar score simply by chance.
-#' bitscore: Bit score
-#' score: Raw score
-#' length: Alignment length
-#' pident: Percentage of identical matches
-#' nident: Number of identical matches
-#' mismatch: Number of mismatches
-#' positive: Number of positive-scoring matches
-#' gapopen: Number of gap openings
-#' gaps: Total number of gaps
-#' ppos: Percentage of positive-scoring matches
-#' frames: Query and subject frames separated by a '/'
-#' qframe: Query frame
-#' sframe: Subject frame
-#' btop: Blast traceback operations (BTOP)
-#' staxid: Subject Taxonomy ID
-#' ssciname: Subject Scientific Name
-#' scomname: Subject Common Name
-#' sblastname: Subject Blast Name
-#' sskingdom: Subject Super Kingdom
-#' staxids: unique Subject Taxonomy ID(s), separated by a ';' (in numerical order)
-#' sscinames: unique Subject Scientific Name(s), separated by a ';'
-#' scomnames: unique Subject Common Name(s), separated by a ';'
-#' sblastnames: unique Subject Blast Name(s), separated by a ';' (in alphabetical order)
-#' sskingdoms: unique Subject Super Kingdom(s), separated by a ';' (in alphabetical order)
-#' stitle: Subject Title
-#' salltitles: All Subject Title(s), separated by a '<>'
-#' sstrand: Subject Strand
-#' qcovs: Query Coverage Per Subject
-#' qcovhsp: Query Coverage Per HSP
-#' qcovus: Query Coverage Per Unique Subject (blastn only)
-#' @param tax Taxonomy data from blastn, either as the file or a data frame.
-#' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq tax_table object. If FALSE, returns data frame with all hits and associated data.
-#' @return Data from the blastn data file.
+
+
+#' Get YT Palette 2
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
 #' @author Ying Taur
 #' @export
-read.blastn.file <- function(tax.file,tax_table=TRUE) {
-  requireNamespace(c("data.table","readr"),quietly=TRUE)
-  # t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
-  t <- readr::read_tsv(tax.file,col_types=readr::cols(sallgi=readr::col_character(),staxids=readr::col_character()))
-  ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
-  ranklevels <- stringr::str_to_title(make.names(ranklevels))
-  t <- t %>%
-    mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
-           staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
-           otu=qseqid,    # otu=sub(";?$",";",qseqid),
-           otu.number=as.numeric(str_extract(otu,"(?<=(OTU|ASV)_)[0-9]+"))) %>%
-    separate(taxonomy,into=ranklevels,sep="\\|",remove=FALSE) %>%
-    arrange(otu.number,otu,evalue,staxid) %>%
-    group_by(otu) %>%
-    # filter(!duplicated(taxonomy)) %>%
-    mutate(evalue.rank=dense_rank(evalue)) %>%
-    select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything()) %>%
-    ungroup()
-  if (!tax_table) {
+get.yt.palette2 <- function (tax) {
+  if (class(tax)[1] %in% c("phyloseq", "taxonomyTable")) {
+    tax <- get.tax(tax.obj)
+  }
+  ranks <- c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  if (!all(ranks %in% names(tax))) {
+    missing.vars <- setdiff(ranks,names(tax))
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species; missing: ",paste(missing.vars,collapse=","))
+  }
+  tax.dict <- tax[, ranks] %>% distinct()
+  tax.dict$color <- rep(shades("gray", variation=0.25),length.out = nrow(tax.dict))
+  proteo <- tax.dict$Phylum == "Proteobacteria"
+  tax.dict$color[proteo] <- rep(shades("red", variation = 0.4), length.out = sum(proteo))
+  actino <- tax.dict$Phylum == "Actinobacteria"
+  tax.dict$color[actino] <- rep(shades("#A77097", variation = 0.25), length.out = sum(actino))
+  bacteroidetes <- tax.dict$Phylum == "Bacteroidetes"
+  tax.dict$color[bacteroidetes] <- rep(shades("#51AB9B", variation = 0.25), length.out = sum(bacteroidetes))
+  clost <- tax.dict$Order == "Clostridiales"
+  tax.dict$color[clost] <- rep(shades("#9C854E", variation = 0.25), length.out = sum(clost))
+  lachno <- tax.dict$Family == "Lachnospiraceae"
+  tax.dict$color[lachno] <- rep(shades("#EC9B96", variation = 0.25), length.out = sum(lachno))
+  rumino <- tax.dict$Family == "Ruminococcaceae"
+  tax.dict$color[rumino] <- rep(shades("#9AAE73", variation = 0.25), length.out = sum(rumino))
+  cid.colors.new <- c(Enterococcus = "#129246", Streptococcus = "#9FB846", Staphylococcus = "#f1eb25" , Lactobacillus="#3b51a3")
+  cid <- cid.colors.new[match(tax.dict$Genus, names(cid.colors.new))]
+  tax.dict$color <- ifelse(is.na(cid), tax.dict$color, cid)
+  tax.palette <- structure(tax.dict$color, names = as.character(tax.dict$Species))
+  tax.palette
+}
+
+#' Plot tax
+#'
+#' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
+#' @param xvar xvar by which to plot data
+#' @param data whether to return data frame
+#' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
+#' @param cid.colors whether to use conventional cid colors.
+#' @return either ggplot2 object, or data frame.
+#' @examples
+#' @author Ying Taur
+#' @export
+tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
+  #t=get.otu.melt(phy.species)
+  tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
+  vars <- c("sample","pctseqs",tax.levels)
+  if (!all(vars %in% names(t))) {
+    missing.vars <- setdiff(vars,names(t))
+    stop("YTError: missing var:",paste(missing.vars,collapse=","))
+  }
+  t <- t %>% arrange(Superkingdom,Phylum,Class,Order,Family,Genus,Species) %>%
+    mutate(Species=fct_inorder(Species)) %>%
+    group_by(sample) %>% arrange(Species) %>%
+    mutate(cum.pct=cumsum(pctseqs),
+           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
+           y.text=1-y.text) %>%
+    ungroup() %>%
+    select(-cum.pct) %>%
+    mutate(tax.label=ifelse(pctseqs>=label.pct.cutoff,as.character(Species),""))
+  pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
+  attr(t,"pal") <- pal
+  if (data) {
     return(t)
   } else {
-    t <- t %>%
-      group_by(otu) %>%
-      # mutate(n.ties=sum(dense_rank(evalue)==1),blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
-      filter(row_number()==1) %>%
-      ungroup() %>%
-      select(otu,evalue,pident,!!!ranklevels)
-    return(t)
+    g <- ggplot() +
+      geom_bar(data=t,aes_string(x=xvar,y="pctseqs",fill="Species"),stat="identity",position="fill") +
+      geom_text(data=t,aes_string(x=xvar,y="y.text",label="tax.label"),angle=-90,lineheight=0.9) +
+      scale_fill_manual(values=attr(t,"pal")) +
+      theme(legend.position="none")
+    return(g)
   }
 }
 
-#' Read in mothur taxonomy file.
-#'
-#' @param tax.file mothur taxonomy file to be read.
-#' @return Returns a data frame containing taxonomy
+
+#' The color scheme used in CID manuscript.
 #' @author Ying Taur
 #' @export
-read.mothur.taxfile <- function(tax.file) {
-  taxlevels <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
-  tbl <- read.delim(tax.file,header=FALSE,row.names=NULL) %>% rename(otu=V1,taxonomy=V2) %>%
-    mutate(taxonomy=sub(";$","",taxonomy)) %>%
-    separate(taxonomy,taxlevels,sep=";",remove=FALSE)
-  for (lvl in taxlevels) {
-    pctvar <- paste0(lvl,".pid")
-    tbl[[pctvar]] <- as.numeric(str_extract(tbl[[lvl]],middle.pattern("\\(","[0-9.]+","\\)")))
-    tbl[[lvl]] <- sub("\\([0-9.]+\\)","",tbl[[lvl]])
-    tbl[[lvl]] <- sub("[kpcofgs]_+","",tbl[[lvl]])
-  }
-  return(tbl)
-}
+cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f69ea0",
+                "Bacteroides"="#2dbfc2","Lactobacillus"="#3b51a3","Dorea"="#a9853e",
+                "Staphylococcus"="#f1eb25","Coprobacillus"="#b53572",
+                "unclassified_Firmicutes"="#79449a","unclassified_Lachnospiraceae"="#afd7db",
+                "Roseburia"="#9ba744","Parabacteroides"="#329982","Coprococcus"="#663939",
+                "Spracetigenium"="#72b443","Veillonella"="#653f99","Lactococcus"="#51a546",
+                "Granulicatella"="#a5a7aa","Proteobacteria"="#ed2024","Other Bacteroidetes"="#963695",
+                "Other Firmicutes"="#929497","Other Bacteria"="#6d6e70")
 
 
-#' Read in oligos file.
-#'
-#' Reads in oligos file, listing pertinent information
-#'
-#' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
-#' @param remove.commented logical indicating whether or not to remove commented lines (default TRUE)
-#' @return Returns a data frame containing oligo information
-#' @author Ying Taur
-#' @export
-read.oligos <- function(oligo.file,remove.commented=TRUE) {
-  if (!file.exists(oligo.file)) {
-    stop("YTError: file/directory not found: ",oligo.file)
-  }
-  if (dir.exists(oligo.file)) {
-    oligo.files <- list.files(oligo.file,pattern="\\.oligos$",recursive=TRUE,full.names=TRUE)
-    if (length(oligo.files)==0) {
-      stop("YTError: no oligo files found in dir: ",oligo.file)
-    }
-    out <- bind_rows(lapply(oligo.files,read.oligos,remove.commented=remove.commented))
-    return(out)
-  }
 
-  d <- tibble(line=scan(oligo.file,what=character(),sep="\n",quiet=TRUE)) %>%
-    mutate(line=sub("[\t ]+$","",line),
-           row=1:n(),
-           info=recode2(line,c("^(primer|forward)\t"="primer",
-                            "^#?barcode\t"="barcode",
-                            "^#"="comment"),regexp=TRUE,else.value="error"))
-  if (any(d$info=="error")) {
-    stop("YTError: Did not understand one of the lines in the oligos file!\nFile: ",oligo.file,"\nLine: ",d$line[d$info=="error"][1])
-  }
-
-  p <- d %>% filter(info=="primer") %>%
-    mutate(primer=sub("^(primer|forward)\t","",line))
-  primer <- p$primer[1]
-  b <- d %>% filter(info=="barcode") %>%
-    mutate(line0=line,
-           fields=str_split(line,"\t"),
-           n.fields=sapply(fields,length),
-           sample=sapply(fields,last),
-                  barcode.commented=substr(line,1,1)=="#",
-                  barcode=sapply(fields,function(x) paste(x[c(-1,-length(x))],collapse="\t")))
-  if (!(all(b$n.fields==3)|all(b$n.fields==4))) {
-    stop("YTError: barcode line did not contain 3 or 4 fields!")
-  }
-  # b <- b %>% select(-fields,-n.fields)
-  cmt <- d %>% filter(info=="comment")
-  pool <- sub("\\.oligos$","",basename(oligo.file),ignore.case=TRUE)
-  if (is.na(pool)) {
-    stop("YTError: Could not extract pool name from file!")
-  }
-  n.primers <- nrow(p)
-  two.golay.barcodes <- all(grepl("[ACGT]{12}\t[ACGT]{12}",b$barcode))
-  one.454.barcode <- all(grepl("[ACGT]{5,7}",b$barcode))
-  if (n.primers==2 & two.golay.barcodes) {
-    platform <- "miseq"
-  } else if (n.primers==1 & one.454.barcode) {
-    platform <- "454"
-  } else {
-    stop("YTError: Not sure what platform!")
-  }
-
-  out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
-    select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,row,line=line0)
-  if (remove.commented) {
-    out <- out %>% filter(!barcode.commented)
-  }
-  return(out)
-}
-
+# tree drawing/manipulation functions --------------------------------------------------
 
 
 
@@ -911,278 +786,123 @@ fan.angle <- function(angle,hjust=FALSE,right=FALSE) {
 }
 
 
-#' Get YT Palette
-#' @param tax either a data.frame, phyloseq, or tax_table
-#' @param use.cid.colors whether to use classic CID colors
-#' @return a color palette that can be used in \code{ggplot2}
-#' @examples
-#' @author Ying Taur
-#' @export
-get.yt.palette <- function(tax,use.cid.colors=TRUE) {
-  if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
-    tax <- get.tax(tax.obj)
-  }
-  ranks <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
-  if (!all(ranks %in% names(tax))) {
-    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species")
-  }
-  tax.dict <- tax[,ranks] %>% distinct()
-  #bacteria are shades of gray by default
-  tax.dict$color <- rep(shades("gray"),length.out=nrow(tax.dict))
-  #proteobacteria: red
-  proteo <- tax.dict$Phylum=="Proteobacteria"
-  tax.dict$color[proteo] <- rep(shades("red",variation=0.4),length.out=sum(proteo))
-  #bacteroidetes: cyan
-  bacteroidetes <- tax.dict$Phylum=="Bacteroidetes"
-  tax.dict$color[bacteroidetes] <- rep(shades("#2dbfc2",variation=0.4),length.out=sum(bacteroidetes))
-  #actinobacteria: purple
-  actino <- tax.dict$Phylum=="Actinobacteria"
-  tax.dict$color[actino] <- rep(shades("purple",variation=0.4),length.out=sum(actino))
-  #firmicutes:
-  firm <- tax.dict$Phylum=="Firmicutes"
-  tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
-  #within firmicutes, color bacilli
-  bacilli <- tax.dict$Class=="Bacilli"
-  tax.dict$color[bacilli] <- rep(shades("#3b51a3",variation=0.2),length.out=sum(bacilli))
-  #within firmicutes, color blautia
-  blautia <- tax.dict$Genus=="Blautia"
-  tax.dict$color[blautia] <- rep(shades("#f69ea0",variation=0.2),length.out=sum(blautia))
-  if (use.cid.colors) {
-    cid.colors.new <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Staphylococcus"="#f1eb25")
-    cid <- cid.colors.new[match(tax.dict$Genus,names(cid.colors.new))]
-    tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
-  }
-  tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$Species))
-  tax.palette
-}
 
 
-
-#' Get YT Palette 2
-#' @param tax either a data.frame, phyloseq, or tax_table
-#' @param use.cid.colors whether to use classic CID colors
-#' @return a color palette that can be used in \code{ggplot2}
-#' @examples
-#' @author Ying Taur
-#' @export
-get.yt.palette2 <- function (tax) {
-  if (class(tax)[1] %in% c("phyloseq", "taxonomyTable")) {
-    tax <- get.tax(tax.obj)
-  }
-  ranks <- c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
-  if (!all(ranks %in% names(tax))) {
-    missing.vars <- setdiff(ranks,names(tax))
-    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species; missing: ",paste(missing.vars,collapse=","))
-  }
-  tax.dict <- tax[, ranks] %>% distinct()
-  tax.dict$color <- rep(shades("gray", variation=0.25),length.out = nrow(tax.dict))
-  proteo <- tax.dict$Phylum == "Proteobacteria"
-  tax.dict$color[proteo] <- rep(shades("red", variation = 0.4), length.out = sum(proteo))
-  actino <- tax.dict$Phylum == "Actinobacteria"
-  tax.dict$color[actino] <- rep(shades("#A77097", variation = 0.25), length.out = sum(actino))
-  bacteroidetes <- tax.dict$Phylum == "Bacteroidetes"
-  tax.dict$color[bacteroidetes] <- rep(shades("#51AB9B", variation = 0.25), length.out = sum(bacteroidetes))
-  clost <- tax.dict$Order == "Clostridiales"
-  tax.dict$color[clost] <- rep(shades("#9C854E", variation = 0.25), length.out = sum(clost))
-  lachno <- tax.dict$Family == "Lachnospiraceae"
-  tax.dict$color[lachno] <- rep(shades("#EC9B96", variation = 0.25), length.out = sum(lachno))
-  rumino <- tax.dict$Family == "Ruminococcaceae"
-  tax.dict$color[rumino] <- rep(shades("#9AAE73", variation = 0.25), length.out = sum(rumino))
-  cid.colors.new <- c(Enterococcus = "#129246", Streptococcus = "#9FB846", Staphylococcus = "#f1eb25" , Lactobacillus="#3b51a3")
-  cid <- cid.colors.new[match(tax.dict$Genus, names(cid.colors.new))]
-  tax.dict$color <- ifelse(is.na(cid), tax.dict$color, cid)
-  tax.palette <- structure(tax.dict$color, names = as.character(tax.dict$Species))
-  tax.palette
-}
-
-#' Plot tax
+#' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
 #'
-#' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
-#' @param xvar xvar by which to plot data
-#' @param data whether to return data frame
-#' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
-#' @param cid.colors whether to use conventional cid colors.
-#' @return either ggplot2 object, or data frame.
+#' Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
+#' Modified from a version from Liam J. Revell, University of Massachusetts, \link{https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html}
+#'
+#' Here are the changes:
+#' (1) Corrected branch lengths. The original ape::as.phylo.formula does not work well because it uses ape::read.tree to read in data,
+#' which can only read Newick trees without singleton branches. This uses read.newick instead, which can handle the singleton branches.
+#' (2) Single branches are not automatically collapsed. This is so you can plot all levels of taxonomy.
+#' (3) All nodes are labeled.
+#' @param x a right-side formula describing the taxonomic relationship: ~C1/C2/.../Cn.
+#' @param data the data.frame where to look for the variables (default to environment).
+#' @param collapse.singles whether or not to collapse singleton nodes. Default is FALSE.
+#' @param ... further arguments to be passed from other methods.
+#' @return An object of class phylo.
 #' @examples
+#' library(ggtree)
+#' library(ggplot)
+#' t <- tribble (
+#'   ~Superkingdom,  ~Phylum,          ~Class,                ~Order,               ~Family,               ~Genus,                   ~Species,
+#'   "Bacteria",     "Firmicutes",     "Bacilli",             "Lactobacillales",    "Enterococcaceae",     "Enterococcus",           "Enterococcus faecium",
+#'   "Bacteria",     "Firmicutes",     "Bacilli",             "Lactobacillales",    "Streptococcaceae",    "Streptococcus",          "Streptococcus salivarius",
+#'   "Bacteria",     "Firmicutes",     "Erysipelotrichia",    "Erysipelotrichales", "Erysipelotrichaceae", "Erysipelatoclostridium", "Erysipelatoclostridium ramosum",
+#'   "Bacteria",     "Firmicutes",     "Erysipelotrichia",    "Erysipelotrichales", "Erysipelotrichaceae", "Erysipelatoclostridium", "Erysipelatoclostridium ramosum",
+#'   "Bacteria",     "Firmicutes",     "Erysipelotrichia",    "Erysipelotrichales", NA_character_,         NA_character_,            NA_character_,
+#'   "Bacteria",     "Proteobacteria", "Gammaproteobacteria", "Enterobacterales",   "Enterobacteriaceae",  "Escherichia",            "Escherichia coli",
+#'   "Bacteria",     "Actinobacteria", NA_character_,         NA_character_,        NA_character_,         NA_character_,            NA_character_)
+#' phy <- as.phylo.formula2(~Superkingdom/Phylum/Class/Order/Family/Genus/Species,data=t)
+#' gt <- ggtree(phy,layout="rectangular")
+#' gt + geom_text(aes(label=label))
+#'
+#' #levels are not same level.
+#' library(ape)
+#' data(carnivora)
+#' t1 <- as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
+#' par(lend=2)
+#' plot(t1,edge.width=2,cex=0.6,no.margin=TRUE)
+#' #this is correct.
+#' t2 <- as.phylo.formula2(~SuperFamily/Family/Genus/Species, data=carnivora)
+#' par(lend=2)
+#' plot(t2,edge.width=2,cex=0.6,no.margin=TRUE)
 #' @author Ying Taur
 #' @export
-tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
-  #t=get.otu.melt(phy.species)
-  tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
-  vars <- c("sample","pctseqs",tax.levels)
-  if (!all(vars %in% names(t))) {
-    missing.vars <- setdiff(vars,names(t))
-    stop("YTError: missing var:",paste(missing.vars,collapse=","))
+as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=FALSE, ...){
+  requireNamespace("phytools",quietly=TRUE)
+  err <- "Formula must be of the kind \"~A1/A2/.../An\"."
+  if (length(x) != 2)
+    stop(err)
+  if (x[[1]] != "~")
+    stop(err)
+  f <- x[[2]]
+  taxo <- list() #list of vectors, from species->phylum
+  while (length(f) == 3) {
+    if (f[[1]] != "/")
+      stop(err)
+    taxo[[deparse(f[[3]])]] <- data[[deparse(f[[3]])]]
+    if (length(f) > 1)
+      f <- f[[2]]
   }
-  t <- t %>% arrange(Superkingdom,Phylum,Class,Order,Family,Genus,Species) %>%
-    mutate(Species=fct_inorder(Species)) %>%
-    group_by(sample) %>% arrange(Species) %>%
-    mutate(cum.pct=cumsum(pctseqs),
-           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
-           y.text=1-y.text) %>%
-    ungroup() %>%
-    select(-cum.pct) %>%
-    mutate(tax.label=ifelse(pctseqs>=label.pct.cutoff,as.character(Species),""))
-  pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
-  attr(t,"pal") <- pal
-  if (data) {
+  taxo[[deparse(f)]] <- data[[deparse(f)]]
+  taxnames <- taxo %>% map(~unique(.[!is.na(.)])) %>% unlist(use.names=FALSE)
+  nodenames <- seq_along(taxnames) %>% paste0("v",.) %>% as.character()
+  taxo <- taxo %>% map(~nodenames[match(.,taxnames)])
+  taxo.data <- as.data.frame(taxo) #tax data from species>kingdom
+  if (distinct.tree) {
+    taxo.data <- taxo.data %>% distinct()
+  }
+  if (full.taxonomy.only) {
+    taxo.data <- taxo.data[!is.na(taxo.data[,1]),]
+  }
+  # leaves.names <- as.character(taxo.data[, 1]) #species
+  # taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
+  f.rec <- function(subtaxo) {
+    u <- ncol(subtaxo) #number of ranks
+    all.na <- apply(subtaxo,1,function(x) all(is.na(x)))
+    subtaxo <- subtaxo[!all.na,,drop=FALSE]
+    if (nrow(subtaxo)==0) {
+      return(NULL)
+    }
+    levels <- unique(subtaxo[, u]) #last column (bacteria,...,genus)
+    if (u == 1) {
+      if (length(levels) != nrow(subtaxo))
+        warning("Error, leaves names are not unique.")
+      return(as.character(subtaxo[, 1]))
+    }
+    t <- character(length(levels))
+    for (l in 1:length(levels)) { #for each taxon of the level
+      #l=1
+      x <- f.rec(subtaxo[subtaxo[, u] == levels[l], ][1:(u - 1)]) #subset of taxo.data for that level.
+      if (is.null(x)) {
+        t[l] <- levels[l]
+      } else {
+        t[l] <- paste("(", paste(x,collapse=","), ")",levels[l], sep = "")
+      }
+    }
     return(t)
-  } else {
-    g <- ggplot() +
-      geom_bar(data=t,aes_string(x=xvar,y="pctseqs",fill="Species"),stat="identity",position="fill") +
-      geom_text(data=t,aes_string(x=xvar,y="y.text",label="tax.label"),angle=-90,lineheight=0.9) +
-      scale_fill_manual(values=attr(t,"pal")) +
-      theme(legend.position="none")
-    return(g)
   }
-}
-
-
-
-#' Plot Principal Components Analysis
-#'
-#' Plots PCA from distance matrix data.
-#'
-#' @param dist distance matrix to be plotted.
-#' @param data logical, if \code{TRUE}, returns a data frame of PCA axes instead of the plot. Default is \code{FALSE}.
-#' @param prefix character, an optional prefix text for PCA variable names. E.g. if \code{"unifrac"} is used, \code{"PCA1"} becomes \code{"unifrac.PCA1"}.
-#' @return Returns a \code{ggplot2} graph of PCA1 and PCA2.
-#' @examples
-#' @author Ying Taur
-#' @export
-pca.plot <- function(dist,data=FALSE,prefix=NA) {
-  pca <- prcomp(dist)
-  pca.axes <- data.frame(pca$x,stringsAsFactors=FALSE)
-  pca.loadings <- summary(pca)$importance["Proportion of Variance",]
-  pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",percent(pca.loadings)," variation explained)")
-  for (i in 1:length(pca.labels)) {
-    label(pca.axes[,i]) <- pca.labels[i]
+  string <- paste("(", paste(f.rec(taxo.data), collapse = ","),");", sep = "")
+  phy <- phytools::read.newick(text = string) ## so that singles will be read without error
+  phy$edge.length <- rep(1,nrow(phy$edge))
+  if (collapse.singles) {
+    phy <- collapse.singles(phy)
   }
-  pca.axes$sample <- row.names(pca.axes)
-  if (data) {
-    names(pca.axes) <- sub("^PC",paste2(prefix,"PCA",sep="."),names(pca.axes))
-    return(pca.axes)
-  } else {
-    g <- ggplot(pca.axes) +
-      geom_point(aes(x=PC1,y=PC2,color=sample,size=3)) +
-      geom_text(aes(x=PC1,y=PC2,label=sample),size=3,vjust=1.4) +
-      theme(aspect.ratio=1)
-    return(g)
-  }
+  phy$tip.label <- phy$tip.label %>% map_chr(~taxnames[match(.,nodenames)])
+  phy$node.label <- phy$node.label %>% map_chr(~coalesce(taxnames[match(.,nodenames)],.))
+  return(phy)
 }
 
 
 
 
-#' LEfSe prep
-#'
-#' Create the initial file needed for LEfSe (LDA Effect Size) analysis.
-#'
-#' This function performs the analysis using the following steps.
-#' (1) Creates lefse.txt from phyloseq data, a tab-delimited file in the format input required by LEfSe.
-#' (2) Provides the command line for running the analysis, assuming you have the scripts locally.
-#' @param phy the phyloseq object containing data
-#' @param class variable to be tested by LEfSe. This must be a variable in sample_data(phy)
-#' @param subclass variable to perform subclass testing. This step is skipped if it is not specified.
-#' @param subject variable referring to the subject level designation. This is only necessary if multiple samples per subject.
-#' @param anova.alpha alpha level of the kruskal-wallis testing. Default is 0.05
-#' @param wilcoxon.alpha alpha level at which to perform wilcoxon testing of subclass testing. Default is 0.05.
-#' @param lda.cutoff Cutoff LDA to be reported. Default is 2.0.
-#' @param wilcoxon.within.subclass Set whether to perform Wilcox test only among subclasses with the same name (Default FALSE)
-#' @param mult.test.correction Can be {0,1,2}. Set the multiple testing correction options. 0 no correction (more strict, default), 1 correction for independent comparisons, 2 correction for independent comparison
-#' @param one.against.one for multiclass tasks, sets whether testing is performed one-against-one (TRUE - more strict) or one-against-all (FALSE - less strict)
-#' @param levels Taxonomic levels to be tested. Default is to test all levels: rank_names(phy)
-#' @return Returns data
-#' @examples
-#' lefse.tbl <- lefse(phy1,class="CDI",subclass="Sex")
-#' @export
-lefse.prep <- function(phy,class,subclass=NA,
-                  subject=NA,
-                  anova.alpha = 0.05,
-                  wilcoxon.alpha = 0.05,
-                  lda.cutoff = 2,
-                  wilcoxon.within.subclass = FALSE,
-                  one.against.one = FALSE,
-                  n_boots = 30,
-                  min_c = 10,
-                  f_boots = 0.67,
-                  mult.test.correction = 0,
-                  by_otus=FALSE,
-                  levels=phyloseq::rank_names(phy)) {
-  requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
-  # pkgs <- c("splines","stats4","survival","mvtnorm","modeltools","coin","MASS")
-  # missing.pkgs <- setdiff(pkgs,installed.packages()[,"Package"])
-  # if (length(missing.pkgs)>0) {
-  #   warning("YTWarning: R packages are needed for the LEFSE scripts to work: ",paste(missing.pkgs,collapse=", "))
-  # }
-  warning("YTWarning: Please note that this function is deprecated, and only does the formatting step.
-Use this with Docker or Conda image, or consider using lda.effect.")
 
-  keepvars <- c(class,subclass,subject,"sample")
-  keepvars <- unique(keepvars[!is.na(keepvars)])
-  samp <- get.samp(phy)[,keepvars]
-  if (by_otus) { #perform by otu only
-    otu <- get.otu.melt(phy,sample_data=FALSE)
-    otu.levels <- otu %>% mutate(taxon=otu) %>%
-      group_by(sample,taxon) %>% summarize(pctseqs=sum(pctseqs)) %>%
-      mutate(taxon=gsub(" ","_",taxon))
-  } else { #divide by taxonomy
-    otu <- get.otu.melt(phy,sample_data=FALSE)
-    otu.list <- lapply(1:length(levels),function(i) {
-      lvls <- levels[1:i]
-      lvl <- levels[i]
-      otu.level <- otu
-      otu.level$taxon <- do.call(paste,c(lapply(lvls,function(l) otu[[l]]),sep="|"))
-      otu.level$rank <- lvl
-      otu.level2 <- otu.level %>% group_by(sample,taxon,rank) %>% summarize(pctseqs=sum(pctseqs)) %>% ungroup()
-      return(otu.level2)
-    })
-    otu.levels <- bind_rows(otu.list) %>%
-      mutate(taxon=gsub(" ","_",taxon))
-  }
-  otu.tbl <- otu.levels %>%
-    dcast(sample~taxon,value.var="pctseqs",fill=0) %>%
-    left_join(samp,by="sample") %>%
-    select_(.dots=c(keepvars,lazyeval::interp(~everything())))
-  if (is.na(subject) | subject!="sample") {
-    otu.tbl <- otu.tbl %>% select(-sample)
-  }
-  tbl <- otu.tbl %>% t()
-  write.table(tbl,"lefse.txt",quote=FALSE,sep="\t",col.names=FALSE)
 
-  opt.class <- paste("-c",which(keepvars %in% class))
-  opt.subclass <- ifelse(is.na(subclass),"",paste("-s",which(keepvars %in% subclass)))
-  opt.subject <-ifelse(is.na(subject),"",paste("-u",which(keepvars %in% subject)))
-  format.command <- paste("format_input.py lefse.txt lefse.in",opt.class,opt.subclass,opt.subject,"-o 1000000")
-  # system(format.command)
-  #   -m {f,s}              set the policy to adopt with missin values: f removes
-  #   the features with missing values, s removes samples
-  #   with missing values (default f)
-  #   -n int                set the minimum cardinality of each subclass
-  #   (subclasses with low cardinalities will be grouped
-  #   together, if the cardinality is still low, no pairwise
-  #   comparison will be performed with them)
+# lefse functions ---------------------------------------------------------
 
-  lefse.command <- paste("run_lefse.py lefse.in lefse.res",
-                         "-a",anova.alpha,
-                         "-w",wilcoxon.alpha,
-                         "-l",lda.cutoff,
-                         "-e",as.numeric(wilcoxon.within.subclass),
-                         "-y",as.numeric(one.against.one),
-                         "-b",n_boots,
-                         "--min_c",min_c,
-                         "-f",f_boots,
-                         "-s",mult.test.correction)
-  message("Commands: ")
-  message(format.command)
-  message(lefse.command)
-  message("plot_res.py lefse.res lefse_lda.png")
-  message("plot_cladogram.py lefse.res lefse_clado.pdf --format pdf")
-  return(list(format=format.command,
-              lefse=lefse.command,
-              plot1="plot_res.py lefse.res lefse_lda.png",
-              plot2="plot_cladogram.py lefse.res lefse_clado.pdf --format pdf"))
-}
 
 
 #' LDA Effect Size
@@ -1567,114 +1287,184 @@ lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE,
     theme(legend.position="right")
 }
 
-#' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
+
+
+
+
+# seq pipeline functions --------------------------------------------------
+
+
+
+
+#' Read in tax file from blastn output
 #'
-#' Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
-#' Modified from a version from Liam J. Revell, University of Massachusetts, \link{https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html}
+#' This reads in the file created by the YT python script, blastn.py
 #'
-#' Here are the changes:
-#' (1) Corrected branch lengths. The original ape::as.phylo.formula does not work well because it uses ape::read.tree to read in data,
-#' which can only read Newick trees without singleton branches. This uses read.newick instead, which can handle the singleton branches.
-#' (2) Single branches are not automatically collapsed. This is so you can plot all levels of taxonomy.
-#' (3) All nodes are labeled.
-#' @param x a right-side formula describing the taxonomic relationship: ~C1/C2/.../Cn.
-#' @param data the data.frame where to look for the variables (default to environment).
-#' @param collapse.singles whether or not to collapse singleton nodes. Default is FALSE.
-#' @param ... further arguments to be passed from other methods.
-#' @return An object of class phylo.
-#' @examples
-#' library(ggtree)
-#' library(ggplot)
-#' t <- tribble (
-#'   ~Superkingdom,  ~Phylum,          ~Class,                ~Order,               ~Family,               ~Genus,                   ~Species,
-#'   "Bacteria",     "Firmicutes",     "Bacilli",             "Lactobacillales",    "Enterococcaceae",     "Enterococcus",           "Enterococcus faecium",
-#'   "Bacteria",     "Firmicutes",     "Bacilli",             "Lactobacillales",    "Streptococcaceae",    "Streptococcus",          "Streptococcus salivarius",
-#'   "Bacteria",     "Firmicutes",     "Erysipelotrichia",    "Erysipelotrichales", "Erysipelotrichaceae", "Erysipelatoclostridium", "Erysipelatoclostridium ramosum",
-#'   "Bacteria",     "Firmicutes",     "Erysipelotrichia",    "Erysipelotrichales", "Erysipelotrichaceae", "Erysipelatoclostridium", "Erysipelatoclostridium ramosum",
-#'   "Bacteria",     "Firmicutes",     "Erysipelotrichia",    "Erysipelotrichales", NA_character_,         NA_character_,            NA_character_,
-#'   "Bacteria",     "Proteobacteria", "Gammaproteobacteria", "Enterobacterales",   "Enterobacteriaceae",  "Escherichia",            "Escherichia coli",
-#'   "Bacteria",     "Actinobacteria", NA_character_,         NA_character_,        NA_character_,         NA_character_,            NA_character_)
-#' phy <- as.phylo.formula2(~Superkingdom/Phylum/Class/Order/Family/Genus/Species,data=t)
-#' gt <- ggtree(phy,layout="rectangular")
-#' gt + geom_text(aes(label=label))
-#'
-#' #levels are not same level.
-#' library(ape)
-#' data(carnivora)
-#' t1 <- as.phylo.formula(~SuperFamily/Family/Genus/Species, data=carnivora)
-#' par(lend=2)
-#' plot(t1,edge.width=2,cex=0.6,no.margin=TRUE)
-#' #this is correct.
-#' t2 <- as.phylo.formula2(~SuperFamily/Family/Genus/Species, data=carnivora)
-#' par(lend=2)
-#' plot(t2,edge.width=2,cex=0.6,no.margin=TRUE)
+#' Chooses one taxonomy from the hits, also listing runner-up taxonomy.
+#' qseqid: Query Seq-id
+#' qgi: Query GI
+#' qacc: Query accesion
+#' qaccver: Query accesion.version
+#' qlen: Query sequence length
+#' sseqid: Subject Seq-id
+#' sallseqid: All subject Seq-id(s), separated by a ';'
+#' sgi: Subject GI
+#' sallgi: All subject GIs
+#' sacc: Subject accession
+#' saccver: Subject accession.version
+#' sallacc: All subject accessions
+#' slen: Subject sequence length
+#' qstart: Start of alignment in query
+#' qend: End of alignment in query
+#' sstart: Start of alignment in subject
+#' send: End of alignment in subject
+#' qseq: Aligned part of query sequence
+#' sseq: Aligned part of subject sequence
+#' evalue: Expect value. Describes the number of hits one can "expect" to see by chance when searching a database of a particular size.
+#'   It decreases exponentially as the Score (S) of the match increases. Essentially, the E value describes the random background noise.
+#'   For example, an E value of 1 assigned to a hit can be interpreted as meaning that in a database of the current size one might
+#'   expect to see 1 match with a similar score simply by chance.
+#' bitscore: Bit score
+#' score: Raw score
+#' length: Alignment length
+#' pident: Percentage of identical matches
+#' nident: Number of identical matches
+#' mismatch: Number of mismatches
+#' positive: Number of positive-scoring matches
+#' gapopen: Number of gap openings
+#' gaps: Total number of gaps
+#' ppos: Percentage of positive-scoring matches
+#' frames: Query and subject frames separated by a '/'
+#' qframe: Query frame
+#' sframe: Subject frame
+#' btop: Blast traceback operations (BTOP)
+#' staxid: Subject Taxonomy ID
+#' ssciname: Subject Scientific Name
+#' scomname: Subject Common Name
+#' sblastname: Subject Blast Name
+#' sskingdom: Subject Super Kingdom
+#' staxids: unique Subject Taxonomy ID(s), separated by a ';' (in numerical order)
+#' sscinames: unique Subject Scientific Name(s), separated by a ';'
+#' scomnames: unique Subject Common Name(s), separated by a ';'
+#' sblastnames: unique Subject Blast Name(s), separated by a ';' (in alphabetical order)
+#' sskingdoms: unique Subject Super Kingdom(s), separated by a ';' (in alphabetical order)
+#' stitle: Subject Title
+#' salltitles: All Subject Title(s), separated by a '<>'
+#' sstrand: Subject Strand
+#' qcovs: Query Coverage Per Subject
+#' qcovhsp: Query Coverage Per HSP
+#' qcovus: Query Coverage Per Unique Subject (blastn only)
+#' @param tax Taxonomy data from blastn, either as the file or a data frame.
+#' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq tax_table object. If FALSE, returns data frame with all hits and associated data.
+#' @return Data from the blastn data file.
 #' @author Ying Taur
 #' @export
-as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE, distinct.tree=TRUE, full.taxonomy.only=FALSE, ...){
-  requireNamespace("phytools",quietly=TRUE)
-  err <- "Formula must be of the kind \"~A1/A2/.../An\"."
-  if (length(x) != 2)
-    stop(err)
-  if (x[[1]] != "~")
-    stop(err)
-  f <- x[[2]]
-  taxo <- list() #list of vectors, from species->phylum
-  while (length(f) == 3) {
-    if (f[[1]] != "/")
-      stop(err)
-    taxo[[deparse(f[[3]])]] <- data[[deparse(f[[3]])]]
-    if (length(f) > 1)
-      f <- f[[2]]
-  }
-  taxo[[deparse(f)]] <- data[[deparse(f)]]
-  taxnames <- taxo %>% map(~unique(.[!is.na(.)])) %>% unlist(use.names=FALSE)
-  nodenames <- seq_along(taxnames) %>% paste0("v",.) %>% as.character()
-  taxo <- taxo %>% map(~nodenames[match(.,taxnames)])
-  taxo.data <- as.data.frame(taxo) #tax data from species>kingdom
-  if (distinct.tree) {
-    taxo.data <- taxo.data %>% distinct()
-  }
-  if (full.taxonomy.only) {
-    taxo.data <- taxo.data[!is.na(taxo.data[,1]),]
-  }
-  # leaves.names <- as.character(taxo.data[, 1]) #species
-  # taxo.data[, 1] <- 1:nrow(taxo.data) #replace species with node numbers
-  f.rec <- function(subtaxo) {
-    u <- ncol(subtaxo) #number of ranks
-    all.na <- apply(subtaxo,1,function(x) all(is.na(x)))
-    subtaxo <- subtaxo[!all.na,,drop=FALSE]
-    if (nrow(subtaxo)==0) {
-      return(NULL)
-    }
-    levels <- unique(subtaxo[, u]) #last column (bacteria,...,genus)
-    if (u == 1) {
-      if (length(levels) != nrow(subtaxo))
-        warning("Error, leaves names are not unique.")
-      return(as.character(subtaxo[, 1]))
-    }
-    t <- character(length(levels))
-    for (l in 1:length(levels)) { #for each taxon of the level
-      #l=1
-      x <- f.rec(subtaxo[subtaxo[, u] == levels[l], ][1:(u - 1)]) #subset of taxo.data for that level.
-      if (is.null(x)) {
-        t[l] <- levels[l]
-      } else {
-        t[l] <- paste("(", paste(x,collapse=","), ")",levels[l], sep = "")
-      }
-    }
+read.blastn.file <- function(tax.file,tax_table=TRUE) {
+  requireNamespace(c("data.table","readr"),quietly=TRUE)
+  # t <- data.table::fread(tax.file,colClasses=c("sallgi"="character","staxids"="character"),quote="") %>% tbl_df()
+  t <- readr::read_tsv(tax.file,col_types=readr::cols(sallgi=readr::col_character(),staxids=readr::col_character()))
+  ranklevels <- unlist(str_extract_all(t$taxonomy[1],middle.pattern("\\[","[a-z ]+","\\]")))
+  ranklevels <- stringr::str_to_title(make.names(ranklevels))
+  t <- t %>%
+    mutate(taxonomy=gsub("\\[[a-z ]+\\]","",taxonomy),
+           staxid=as.numeric(sapply(strsplit(staxids,split=";"),first)),
+           otu=qseqid,    # otu=sub(";?$",";",qseqid),
+           otu.number=as.numeric(str_extract(otu,"(?<=(OTU|ASV)_)[0-9]+"))) %>%
+    separate(taxonomy,into=ranklevels,sep="\\|",remove=FALSE) %>%
+    arrange(otu.number,otu,evalue,staxid) %>%
+    group_by(otu) %>%
+    # filter(!duplicated(taxonomy)) %>%
+    mutate(evalue.rank=dense_rank(evalue)) %>%
+    select(otu,Phylum,Family,Species,evalue,staxid,evalue.rank,pident,length,everything()) %>%
+    ungroup()
+  if (!tax_table) {
+    return(t)
+  } else {
+    t <- t %>%
+      group_by(otu) %>%
+      # mutate(n.ties=sum(dense_rank(evalue)==1),blast.data=paste0(Species," (eval=",evalue,",pid=",pident,")",collapse=";")) %>%
+      filter(row_number()==1) %>%
+      ungroup() %>%
+      select(otu,evalue,pident,!!!ranklevels)
     return(t)
   }
-  string <- paste("(", paste(f.rec(taxo.data), collapse = ","),");", sep = "")
-  phy <- phytools::read.newick(text = string) ## so that singles will be read without error
-  phy$edge.length <- rep(1,nrow(phy$edge))
-  if (collapse.singles) {
-    phy <- collapse.singles(phy)
-  }
-  phy$tip.label <- phy$tip.label %>% map_chr(~taxnames[match(.,nodenames)])
-  phy$node.label <- phy$node.label %>% map_chr(~coalesce(taxnames[match(.,nodenames)],.))
-  return(phy)
 }
 
+
+
+
+
+#' Read in oligos file.
+#'
+#' Reads in oligos file, listing pertinent information
+#'
+#' Oligos files are formatted for use in mothur. We are still using this format, despite the fact that
+#' we no longer use mothur in our pipeline.
+#' @param oligo.file oligo file to be read. If oligo.file is a directory, all oligo files (*.oligos) will be read in.
+#' @param remove.commented logical indicating whether or not to remove commented lines (default TRUE)
+#' @return Returns a data frame containing oligo information
+#' @author Ying Taur
+#' @export
+read.oligos <- function(oligo.file,remove.commented=TRUE) {
+  if (!file.exists(oligo.file)) {
+    stop("YTError: file/directory not found: ",oligo.file)
+  }
+  if (dir.exists(oligo.file)) {
+    oligo.files <- list.files(oligo.file,pattern="\\.oligos$",recursive=TRUE,full.names=TRUE)
+    if (length(oligo.files)==0) {
+      stop("YTError: no oligo files found in dir: ",oligo.file)
+    }
+    out <- bind_rows(lapply(oligo.files,read.oligos,remove.commented=remove.commented))
+    return(out)
+  }
+
+  d <- tibble(line=scan(oligo.file,what=character(),sep="\n",quiet=TRUE)) %>%
+    mutate(line=sub("[\t ]+$","",line),
+           row=1:n(),
+           info=recode2(line,c("^(primer|forward)\t"="primer",
+                               "^#?barcode\t"="barcode",
+                               "^#"="comment"),regexp=TRUE,else.value="error"))
+  if (any(d$info=="error")) {
+    stop("YTError: Did not understand one of the lines in the oligos file!\nFile: ",oligo.file,"\nLine: ",d$line[d$info=="error"][1])
+  }
+
+  p <- d %>% filter(info=="primer") %>%
+    mutate(primer=sub("^(primer|forward)\t","",line))
+  primer <- p$primer[1]
+  b <- d %>% filter(info=="barcode") %>%
+    mutate(line0=line,
+           fields=str_split(line,"\t"),
+           n.fields=sapply(fields,length),
+           sample=sapply(fields,last),
+           barcode.commented=substr(line,1,1)=="#",
+           barcode=sapply(fields,function(x) paste(x[c(-1,-length(x))],collapse="\t")))
+  if (!(all(b$n.fields==3)|all(b$n.fields==4))) {
+    stop("YTError: barcode line did not contain 3 or 4 fields!")
+  }
+  # b <- b %>% select(-fields,-n.fields)
+  cmt <- d %>% filter(info=="comment")
+  pool <- sub("\\.oligos$","",basename(oligo.file),ignore.case=TRUE)
+  if (is.na(pool)) {
+    stop("YTError: Could not extract pool name from file!")
+  }
+  n.primers <- nrow(p)
+  two.golay.barcodes <- all(grepl("[ACGT]{12}\t[ACGT]{12}",b$barcode))
+  one.454.barcode <- all(grepl("[ACGT]{5,7}",b$barcode))
+  if (n.primers==2 & two.golay.barcodes) {
+    platform <- "miseq"
+  } else if (n.primers==1 & one.454.barcode) {
+    platform <- "454"
+  } else {
+    stop("YTError: Not sure what platform!")
+  }
+
+  out <- data.frame(b,primer,oligo.file,pool,platform,comment=paste(cmt$line,collapse="\n"),stringsAsFactors=FALSE) %>%
+    select(pool,sample,primer,barcode,oligo.file,platform,barcode.commented,comment,row,line=line0)
+  if (remove.commented) {
+    out <- out %>% filter(!barcode.commented)
+  }
+  return(out)
+}
 
 
 

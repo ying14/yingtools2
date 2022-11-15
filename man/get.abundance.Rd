@@ -20,6 +20,6 @@ a data frame containing sample identifier and abundance columns
 Given a phyloseq, calculate relative abundance for each sample.
 }
 \examples{
+library(phyloseq)
 get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
-
 }

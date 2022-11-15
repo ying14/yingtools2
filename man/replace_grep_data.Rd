@@ -48,6 +48,15 @@ that didn't match, which saves time especially if most rows are not hits.
 library(stringr)
 data <- tibble(text=stringr::sentences)
 recodes <- c("<s-word>"="\\\\bs[a-z]+","<r-word>"="\\\\br[a-z]+")
-data \%>\% replace_grep_data(recodes,text,new.sentence,hits)
-data \%>\% replace_grep_data(recodes,text,new.text,hits,collapse.fn=~paste(names(.),"=",.,collapse="; "))
+data \%>\%
+  replace_grep_data(var = text,
+                    recodes = recodes,
+                    newvar = new.sentence,
+                    hits = hits)
+data \%>\%
+  replace_grep_data(var = text,
+                    recodes = recodes,
+                    newvar = new.text,
+                    hits = hits,
+                    collapse.fn = ~ paste(names(.), "=", ., collapse = "; "))
 }

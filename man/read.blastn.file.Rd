@@ -39,9 +39,9 @@ send: End of alignment in subject
 qseq: Aligned part of query sequence
 sseq: Aligned part of subject sequence
 evalue: Expect value. Describes the number of hits one can "expect" to see by chance when searching a database of a particular size.
-  It decreases exponentially as the Score (S) of the match increases. Essentially, the E value describes the random background noise.
-  For example, an E value of 1 assigned to a hit can be interpreted as meaning that in a database of the current size one might
-  expect to see 1 match with a similar score simply by chance.
+It decreases exponentially as the Score (S) of the match increases. Essentially, the E value describes the random background noise.
+For example, an E value of 1 assigned to a hit can be interpreted as meaning that in a database of the current size one might
+expect to see 1 match with a similar score simply by chance.
 bitscore: Bit score
 score: Raw score
 length: Alignment length

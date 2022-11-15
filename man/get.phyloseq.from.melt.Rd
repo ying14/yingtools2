@@ -33,8 +33,11 @@ phyloseq object, generated from the \code{otu.melt} data.
 Convert melted OTU table to phyloseq object
 }
 \examples{
+library(phyloseq)
 phy <- cid.phy
 ranks <- rank_names(phy)
 otu <- get.otu.melt(cid.phy)
 phy2 <- get.phyloseq.from.melt(otu,taxranks=ranks)
+phy
+phy2
 }

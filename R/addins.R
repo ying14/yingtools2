@@ -1,5 +1,10 @@
 
 
+
+# custom Rstudio addins.
+# these need to be declared in /inst/rstudio/addins.dcf.
+
+
 convert_winpath <- function() {
   context <- rstudioapi::getActiveDocumentContext()
   text <- context$selection[[1]]$text

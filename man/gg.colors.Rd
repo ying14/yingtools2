@@ -9,7 +9,7 @@ gg.colors(n = 6, h = c(0, 360) + 15)
 \arguments{
 \item{n}{number of colors to display}
 
-\item{h}{The hue of the color specified as an angle in the range [0,360]. 0 yields red, 120 yields green 240 yields blue, etc.}
+\item{h}{The hue of the color specified as an angle in the range \link{0,360}. 0 yields red, 120 yields green 240 yields blue, etc.}
 }
 \value{
 A color palette that would have been used by ggplot2 by default
@@ -18,7 +18,8 @@ A color palette that would have been used by ggplot2 by default
 The color palette that ggplot2 uses by default.
 }
 \examples{
-gg.colors(6)
+colors <- gg.colors(6)
+scales::show_col(colors)
 }
 \author{
 Ying Taur

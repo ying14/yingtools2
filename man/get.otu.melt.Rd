@@ -25,3 +25,7 @@ Adds sample and taxonomy table data as columns. Uses the following reserved varn
 Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
 The \code{get.otu.melt} now works by performing operations via data table, making it about 30x faster than before.
 }
+\examples{
+library(phyloseq)
+get.otu.melt(cid.phy)
+}

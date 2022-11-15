@@ -19,3 +19,7 @@ Logical indicating whether or not columns are distinct.
 \description{
 Determine if specified columns within data are distinct for individual rows.
 }
+\examples{
+cid.patients \%>\% is.distinct(Patient_ID)
+cid.cdiff \%>\% is.distinct(Patient_ID)
+}

@@ -15,11 +15,11 @@ age.years(bdate, now)
 Returns the age in years.
 }
 \description{
-Calculates REAL age.
+Calculates REAL age in years.
 }
 \details{
 Some people calculate age by taking age in days and dividing by 365.25. That approach can be inaccurate
-because of leap years. That's weak!
+because of leap years (that's weak!).
 }
 \examples{
 age.years(as.Date("1975-02-21"),Sys.Date())

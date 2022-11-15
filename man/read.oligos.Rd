@@ -17,6 +17,10 @@ Returns a data frame containing oligo information
 \description{
 Reads in oligos file, listing pertinent information
 }
+\details{
+Oligos files are formatted for use in mothur. We are still using this format, despite the fact that
+we no longer use mothur in our pipeline.
+}
 \author{
 Ying Taur
 }

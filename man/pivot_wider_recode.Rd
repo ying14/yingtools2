@@ -44,8 +44,10 @@ prior to pivotting. This is primarily useful for restructuring data that comes i
 }
 \details{
 In addition to recoding, there are other changes:
-1. The names_from column is recoded using
-2. asdf
+\enumerate{
+\item The names_from column is recoded using
+\item asdf
+}
 }
 \examples{
 library(tidyverse)

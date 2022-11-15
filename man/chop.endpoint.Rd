@@ -25,7 +25,8 @@ For a given survival endpoint, censor at earlier timepoints, if they occur.
 }
 \examples{
 # create a endpoint(dead30d), which represents death within 30 days or discharge.
-new.pt.cid94 <- cid.patients \%>\% chop.endpoint(dead30d,dead,30,discharge.day)
+new.pt <- cid.patients \%>\% chop.endpoint(dead30d,dead,30,discharge.day)
+new.pt \%>\% select(dead30d, dead30d_day,dead, dead_day, discharge.day) \%>\% head(10)
 }
 \author{
 Ying Taur

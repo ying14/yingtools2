@@ -29,3 +29,9 @@ Similar to \code{phyloseq::tax_glom}, but with the following differences:
 (b) requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
 (c) the new OTU names will specify old OTU names separated by '|'
 }
+\examples{
+library(phyloseq)
+cid.phy.family <- phy.collapse(cid.phy,taxranks=c("Kingdom", "Phylum", "Class", "Order", "Family"))
+cid.phy
+cid.phy.family
+}

@@ -24,7 +24,7 @@ Produces SQL code for a vector of values.
 }
 \examples{
 values <- c("35171234","35507574")
-copy.as.sql(values)
+copy.as.sql(values) \%>\% cat()
 }
 \author{
 Ying Taur

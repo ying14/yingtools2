@@ -1,0 +1,1329 @@
+
+# from microbiota.R -------------------------------------------------------
+
+
+
+
+
+#' Read OTU table from text file
+#'
+#' Used for uparse pipeline to read in otu table.
+#'
+#' Assumes tab-delimited file, with 'OTUID' to specify otu column.
+#' @param otu.file text file to be read, containing otu table data
+#' @param otu.row.names specify column listing OTU names. This is passed to \code{read.delim}; i.e. can be vector of accual row names, single number of column, or character string name of the column.
+#' @return Dataframe containing otu table
+#' @export
+read.otu.table <- function(otu.file,row.names="OTUId") {
+  warning("YTWarning: Please note that this function is deprecated, uparse/mothur functions have been taken offsite.")
+  otu <- read.delim(otu.file,header=TRUE,check.names=FALSE,row.names=row.names) %>%
+    rownames_to_column("otu")
+  return(otu)
+}
+
+#' Read Tree File (Label-Fix)
+#'
+#' Read in tree file created by uparse pipeline.
+#'
+#' Functions like \code{read.tree} have trouble reading uparse-generated trees, because the OTU names contain semicolons(;), e.g. "\code{'OTU_2080;size=5;'}". This function temporarily replaces \code{;} with \code{__}, reads in successfully, and reverts back to names with semicolons. Also, removes the single quotes (\code{\'}) from the name. If read in this way, the tree can be quickly merged into a phyloseq object.
+#'
+#' @param tree.file Newick-formatted text file
+#' @return Returns a \code{phylo} object, with original labels.
+#' @examples
+#' b <- import_biom("uparse/total.8.otu-tax.biom")
+#' tr <- read.tree.uparse("uparse/total.10.tree")
+#' phy <- merge_phyloseq(b,tr)
+#' @author Ying Taur
+#' @export
+read.tree.uparse <- function(tree.file) {
+  warning("YTWarning: Please note that this function is deprecated, uparse/mothur functions have been taken offsite.")
+
+  tree.text <- scan(tree.file,what=character(),quiet=TRUE)
+  #replace ; with __, and place single quotes around, if not already there. (qiime places quotes, mothur does not)
+  new.tree.text <- gsub("'?(OTU_[0-9]+);(size=[0-9]+);'?","'\\1__\\2__'",tree.text)
+  #new.tree.text <- gsub("(OTU_[0-9]+);(size=[0-9]+);","\\1__\\2__",tree.text)
+  tr <- ape::read.tree(text=new.tree.text)
+  tr$tip.label <- gsub("(OTU_[0-9]+)__(size=[0-9]+)__","\\1;\\2;",tr$tip.label)
+  tr$node.label <- gsub("(OTU_[0-9]+)__(size=[0-9]+)__","\\1;\\2;",tr$node.label)
+  #tr$tip.label <- gsub("'?(OTU_[0-9]+)__(size=[0-9]+)__'?","\\1;\\2;",tr$tip.label)
+  #tr$node.label <- gsub("'?(OTU_[0-9]+)__(size=[0-9]+)__'?","\\1;\\2;",tr$node.label)
+  return(tr)
+}
+
+
+#' Read in mothur taxonomy file.
+#'
+#' @param tax.file mothur taxonomy file to be read.
+#' @return Returns a data frame containing taxonomy
+#' @author Ying Taur
+#' @export
+read.mothur.taxfile <- function(tax.file) {
+  warning("YTWarning: Please note that this function is deprecated, uparse/mothur functions have been taken offsite.")
+  taxlevels <- c("Kingdom","Phylum","Class","Order","Family","Genus","Species")
+  tbl <- read.delim(tax.file,header=FALSE,row.names=NULL) %>% rename(otu=V1,taxonomy=V2) %>%
+    mutate(taxonomy=sub(";$","",taxonomy)) %>%
+    separate(taxonomy,taxlevels,sep=";",remove=FALSE)
+  for (lvl in taxlevels) {
+    pctvar <- paste0(lvl,".pid")
+    tbl[[pctvar]] <- as.numeric(str_extract(tbl[[lvl]],middle.pattern("\\(","[0-9.]+","\\)")))
+    tbl[[lvl]] <- sub("\\([0-9.]+\\)","",tbl[[lvl]])
+    tbl[[lvl]] <- sub("[kpcofgs]_+","",tbl[[lvl]])
+  }
+  return(tbl)
+}
+
+#' Import UPARSE pipeline data and create phyloseq
+#'
+#' Reads folder and looks for key files used to create phyloseq object.
+#'
+#' @param dirpath directory path (character) specifying folder where uparse data is.
+#' @param otu.file otu table file. Default is 'total.6.otu-table.txt'
+#' @param tax.file tax file (blastn). Default is 'total.5.repset.fasta.blastn.refseq_rna.txt'. Specify \code{NULL} to skip.
+#' @param repseq.file rep seq file (fasta format). Defaul is 'total.5.repset.fasta' Specify \code{NULL} to skip.
+#' @param tree.file phylo tree file (newick file). Default is 'total.10.tree' Specify \code{NULL} to skip.
+#' @return phyloseq object containing the specified UPARSE data.
+#' @author Ying Taur
+#' @export
+read.uparse.data <- function(dirpath,
+                             otu.file="total.6.otu-table.txt",
+                             tax.file="total.5.repset.fasta.blastn.refseq_rna.txt",
+                             repseq.file="total.5.repset.fasta",
+                             tree.file="total.10.tree") {
+  requireNamespace("phyloseq",quietly=TRUE)
+  warning("YTWarning: Please note that this function is deprecated, uparse/mothur functions have been taken offsite.")
+  # dirpath="uparse";otu.file="total.6.otu-table.txt";tax.file="total.5.repset.fasta.blastn.refseq_rna.txt";repseq.file="total.5.repset.fasta";tree.file="total.10.tree"
+  if (!dir.exists(dirpath)) stop("YTError: This directory doesn't exist: ",dirpath)
+  # dirpath="uparse"
+  otu.file <- file.path(dirpath,otu.file)
+  if (!file.exists(otu.file)) stop("YTError not found: ",otu.file)
+  phy <- read.otu.table(otu.file) %>% set.otu()
+  if (!is.null(tax.file)) {
+    tax.file <- file.path(dirpath,tax.file)
+    if (!file.exists(tax.file)) stop("YTError not found: ",tax.file)
+    tax <- read.blastn.file(tax.file) %>% set.tax()
+    phy <- merge_phyloseq(phy,tax)
+  }
+  if (!is.null(repseq.file)) {
+    repseq.file <- file.path(dirpath,repseq.file)
+    if (!file.exists(repseq.file)) stop("YTError not found: ",repseq.file)
+    repseq <- phyloseq::import_qiime(refseqfilename=repseq.file)
+    phy <- merge_phyloseq(phy,repseq)
+  }
+  if (!is.null(tree.file)) {
+    tree.file <- file.path(dirpath,tree.file)
+    if (!file.exists(tree.file)) stop("YTError not found: ",tree.file)
+    tree <- read.tree.uparse(tree.file)
+    phy <- merge_phyloseq(phy,tree)
+  }
+  return(phy)
+}
+
+
+
+
+#' Plot Principal Components Analysis
+#'
+#' Plots PCA from distance matrix data.
+#'
+#' @param dist distance matrix to be plotted.
+#' @param data logical, if \code{TRUE}, returns a data frame of PCA axes instead of the plot. Default is \code{FALSE}.
+#' @param prefix character, an optional prefix text for PCA variable names. E.g. if \code{"unifrac"} is used, \code{"PCA1"} becomes \code{"unifrac.PCA1"}.
+#' @return Returns a \code{ggplot2} graph of PCA1 and PCA2.
+#' @examples
+#' @author Ying Taur
+#' @export
+pca.plot <- function(dist,data=FALSE,prefix=NA) {
+  pca <- prcomp(dist)
+  pca.axes <- data.frame(pca$x,stringsAsFactors=FALSE)
+  pca.loadings <- summary(pca)$importance["Proportion of Variance",]
+  pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",percent(pca.loadings)," variation explained)")
+  for (i in 1:length(pca.labels)) {
+    label(pca.axes[,i]) <- pca.labels[i]
+  }
+  pca.axes$sample <- row.names(pca.axes)
+  if (data) {
+    names(pca.axes) <- sub("^PC",paste2(prefix,"PCA",sep="."),names(pca.axes))
+    return(pca.axes)
+  } else {
+    g <- ggplot(pca.axes) +
+      geom_point(aes(x=PC1,y=PC2,color=sample,size=3)) +
+      geom_text(aes(x=PC1,y=PC2,label=sample),size=3,vjust=1.4) +
+      theme(aspect.ratio=1)
+    return(g)
+  }
+}
+
+
+
+
+#' LEfSe prep
+#'
+#' Create the initial file needed for LEfSe (LDA Effect Size) analysis.
+#'
+#' This function performs the analysis using the following steps.
+#' (1) Creates lefse.txt from phyloseq data, a tab-delimited file in the format input required by LEfSe.
+#' (2) Provides the command line for running the analysis, assuming you have the scripts locally.
+#' @param phy the phyloseq object containing data
+#' @param class variable to be tested by LEfSe. This must be a variable in sample_data(phy)
+#' @param subclass variable to perform subclass testing. This step is skipped if it is not specified.
+#' @param subject variable referring to the subject level designation. This is only necessary if multiple samples per subject.
+#' @param anova.alpha alpha level of the kruskal-wallis testing. Default is 0.05
+#' @param wilcoxon.alpha alpha level at which to perform wilcoxon testing of subclass testing. Default is 0.05.
+#' @param lda.cutoff Cutoff LDA to be reported. Default is 2.0.
+#' @param wilcoxon.within.subclass Set whether to perform Wilcox test only among subclasses with the same name (Default FALSE)
+#' @param mult.test.correction Can be {0,1,2}. Set the multiple testing correction options. 0 no correction (more strict, default), 1 correction for independent comparisons, 2 correction for independent comparison
+#' @param one.against.one for multiclass tasks, sets whether testing is performed one-against-one (TRUE - more strict) or one-against-all (FALSE - less strict)
+#' @param levels Taxonomic levels to be tested. Default is to test all levels: rank_names(phy)
+#' @return Returns data
+#' @examples
+#' lefse.tbl <- lefse(phy1,class="CDI",subclass="Sex")
+#' @export
+lefse.prep <- function(phy,class,subclass=NA,
+                       subject=NA,
+                       anova.alpha = 0.05,
+                       wilcoxon.alpha = 0.05,
+                       lda.cutoff = 2,
+                       wilcoxon.within.subclass = FALSE,
+                       one.against.one = FALSE,
+                       n_boots = 30,
+                       min_c = 10,
+                       f_boots = 0.67,
+                       mult.test.correction = 0,
+                       by_otus=FALSE,
+                       levels=phyloseq::rank_names(phy)) {
+  requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
+  # pkgs <- c("splines","stats4","survival","mvtnorm","modeltools","coin","MASS")
+  # missing.pkgs <- setdiff(pkgs,installed.packages()[,"Package"])
+  # if (length(missing.pkgs)>0) {
+  #   warning("YTWarning: R packages are needed for the LEFSE scripts to work: ",paste(missing.pkgs,collapse=", "))
+  # }
+  warning("YTWarning: Please note that this function is deprecated, and only does the formatting step.
+Use this with Docker or Conda image, or consider using lda.effect.")
+
+  keepvars <- c(class,subclass,subject,"sample")
+  keepvars <- unique(keepvars[!is.na(keepvars)])
+  samp <- get.samp(phy)[,keepvars]
+  if (by_otus) { #perform by otu only
+    otu <- get.otu.melt(phy,sample_data=FALSE)
+    otu.levels <- otu %>% mutate(taxon=otu) %>%
+      group_by(sample,taxon) %>% summarize(pctseqs=sum(pctseqs)) %>%
+      mutate(taxon=gsub(" ","_",taxon))
+  } else { #divide by taxonomy
+    otu <- get.otu.melt(phy,sample_data=FALSE)
+    otu.list <- lapply(1:length(levels),function(i) {
+      lvls <- levels[1:i]
+      lvl <- levels[i]
+      otu.level <- otu
+      otu.level$taxon <- do.call(paste,c(lapply(lvls,function(l) otu[[l]]),sep="|"))
+      otu.level$rank <- lvl
+      otu.level2 <- otu.level %>% group_by(sample,taxon,rank) %>% summarize(pctseqs=sum(pctseqs)) %>% ungroup()
+      return(otu.level2)
+    })
+    otu.levels <- bind_rows(otu.list) %>%
+      mutate(taxon=gsub(" ","_",taxon))
+  }
+  otu.tbl <- otu.levels %>%
+    dcast(sample~taxon,value.var="pctseqs",fill=0) %>%
+    left_join(samp,by="sample") %>%
+    select_(.dots=c(keepvars,lazyeval::interp(~everything())))
+  if (is.na(subject) | subject!="sample") {
+    otu.tbl <- otu.tbl %>% select(-sample)
+  }
+  tbl <- otu.tbl %>% t()
+  write.table(tbl,"lefse.txt",quote=FALSE,sep="\t",col.names=FALSE)
+
+  opt.class <- paste("-c",which(keepvars %in% class))
+  opt.subclass <- ifelse(is.na(subclass),"",paste("-s",which(keepvars %in% subclass)))
+  opt.subject <-ifelse(is.na(subject),"",paste("-u",which(keepvars %in% subject)))
+  format.command <- paste("format_input.py lefse.txt lefse.in",opt.class,opt.subclass,opt.subject,"-o 1000000")
+  # system(format.command)
+  #   -m {f,s}              set the policy to adopt with missin values: f removes
+  #   the features with missing values, s removes samples
+  #   with missing values (default f)
+  #   -n int                set the minimum cardinality of each subclass
+  #   (subclasses with low cardinalities will be grouped
+  #   together, if the cardinality is still low, no pairwise
+  #   comparison will be performed with them)
+
+  lefse.command <- paste("run_lefse.py lefse.in lefse.res",
+                         "-a",anova.alpha,
+                         "-w",wilcoxon.alpha,
+                         "-l",lda.cutoff,
+                         "-e",as.numeric(wilcoxon.within.subclass),
+                         "-y",as.numeric(one.against.one),
+                         "-b",n_boots,
+                         "--min_c",min_c,
+                         "-f",f_boots,
+                         "-s",mult.test.correction)
+  message("Commands: ")
+  message(format.command)
+  message(lefse.command)
+  message("plot_res.py lefse.res lefse_lda.png")
+  message("plot_cladogram.py lefse.res lefse_clado.pdf --format pdf")
+  return(list(format=format.command,
+              lefse=lefse.command,
+              plot1="plot_res.py lefse.res lefse_lda.png",
+              plot2="plot_cladogram.py lefse.res lefse_clado.pdf --format pdf"))
+}
+
+
+# from yingtools.R --------------------------------------------------------
+
+
+
+
+#' Sample N Groups
+#'
+#' Sample groups from a grouped data frame
+#' @param grouped_df the grouped data frame to be sampled
+#' @param size number of groups to sample
+#' @return a subset of the grouped data frame
+#' @examples
+#' gdf <- mtcars %>% group_by(gear,carb)
+#' sample_n_groups(gdf,3)
+sample_n_groups_OLD <- function(grouped_df, size) {
+  dplyr::group_data(grouped_df) %>%
+    dplyr::sample_n(size) %>%
+    dplyr::select(-.rows) %>%
+    dplyr::inner_join(grouped_df,by=dplyr::group_vars(grouped_df)) %>%
+    dplyr::group_by(!!!groups(grouped_df))
+}
+
+
+#' Extract any text within quotes.
+#'
+#' Works like \code{str_extract_all}, but is used to extract quoted text within text. This comes for example text a character string contains code itself, like a python list.
+#'
+#' This is more difficult than you might think. \code{str_extract_all(text,middle.pattern("\"",".*","\""))}
+#' doesn't work because (1) it includes stuff on either side of the quote, and (2) it will fail if there are quotes inside the text (which look like \code{\\\"})within the quoted text.
+#' So you need to extract based on \code{\"} but ignore \code{\\\"}, and only extract stuff between pairs of quotes.
+#' @param text character vector with quotes to be extracted.
+#' @param convert.text.quotes logical indicating whether or not to convert \\\" to \" after converting.
+#' @examples
+#' # Should be a 3 item python list, with middle item being empty.
+#' python.list <- "[\"no quotes here, ok?\",\"\",\"I like to put \\\"things\\\" in quotes\"]"
+#' #This doesn't work....
+#' str_extract_all(python.list,middle.pattern("\"",".*","\""))
+#' #This also doesn't work...
+#' str_extract_all(python.list,middle.pattern("\"","[^\"]*","\""))
+#' #Even this doesn't work
+#' str_extract_all(python.list,middle.pattern("(?<!\\\\)\\\"",".*","(?<!\\\\)\\\""))
+#' #But: use this function to get it done.
+#' str_extract_all_quotes(python.list)
+#' @author Ying Taur
+#' @export
+str_extract_all_quotes <- function(text,convert.text.quotes=TRUE) {
+  #text="\"\", \"tRNA acetyltransferase TAN1\""
+  quote.pattern <- "(?<!\\\\)\\\""
+  quote.list <- lapply(text,function(x) {
+    quote.pos <- gregexpr(quote.pattern,x,perl=TRUE)[[1]]
+    if (quote.pos[1]==-1) {
+      return(NULL)
+    }
+    if (length(quote.pos) %% 2!=0) stop("YTError: Found an odd number of quotes in this character string:\n",x)
+    quote.pairs <- split(quote.pos,cumsum(rep(1:0,length.out=length(quote.pos))))
+    within.quotes <- sapply(quote.pairs,function(y) substr(x,y[1]+1,y[2]-1))
+    if (convert.text.quotes) {
+      within.quotes <- gsub("\\\\\"","\\\"",within.quotes)
+    }
+    return(within.quotes)
+  })
+  return(quote.list)
+}
+
+
+#not sure I need this
+fit <- function(x,width=100,copy.clipboard=TRUE) {
+  #width=100;copy.clipboard=TRUE
+  cr.pattern <- "(?<!\\\\)\\n"
+  multi.line <- grepl(cr.pattern,x,perl=TRUE)
+  if (multi.line) {
+    lines <- str_split(x,cr.pattern)[[1]]
+    out <- paste(sapply(lines,function(x) fit(x,width=width,copy.clipboard=FALSE)),collapse="\n")
+  } else {
+    #find quotes (cannot be preceded by backslash)
+    if (nchar(x)<=width) {
+      out <- x
+    } else {
+      quote.pos <- gregexpr("(?<!\\\\)\\\"",x,perl=TRUE)[[1]]
+      if (quote.pos[1]==-1) {
+        within.quotes <- NULL
+      } else {
+        if (length(quote.pos) %% 2!=0) stop("YTError: Found an odd number of quotes in this character string:\n",x)
+        quote.pairs <- split(quote.pos,cumsum(rep(1:0,length.out=length(quote.pos))))
+        #mark characters that are within quotes.
+        within.quotes <- lapply(quote.pairs,function(x) x[1]:x[2])
+        within.quotes <- stack(within.quotes)$values
+      }
+      comma.pos <- gregexpr(",",x)[[1]]
+      if (comma.pos[1]==-1) {
+        out <- x
+      } else {
+        valid.cr.pos <- setdiff(comma.pos,within.quotes)
+        min.valid.cr.pos <- min(valid.cr.pos)
+        if (min.valid.cr.pos>=width) {
+          new.cr <- min.valid.cr.pos
+        } else {
+          chars <- strsplit(x,"")[[1]]
+          cumsum.chars <- cumsum(chars!="\\")
+          valid.crs.length <- cumsum.chars[valid.cr.pos]
+          new.cr <- max(valid.cr.pos[valid.crs.length<=width])
+        }
+        first.half <- substr(x,1,new.cr)
+        second.half <- substr(x,new.cr+1,nchar(x))
+        out <- paste(first.half,fit(second.half,width=width,copy.clipboard=FALSE),sep="\n")
+      }
+    }
+  }
+  if (copy.clipboard) {
+    copy.to.clipboard(out)
+  }
+  return(out)
+}
+
+
+
+
+#' Make Table
+#'
+#' Creates a summary table (data frame) variables from the data.
+#'
+#' This was written to create a "Table 1" of a manuscript.
+#' @param data Data frame containing data to be described.
+#' @param vars character vector of variables within \code{data} to be summarized.
+#' @param by Optional, variable name (character) by which to summarize the data. Each separate value will be a column of data in the table.
+#' @param showdenom logical, whether to show denominator in the cells.
+#' @param fisher.test fisher logical, whether or not to calculate Fisher exact tests. Only performed if \code{by} is also specified.
+#' @return Returns a data frame formatted to be summary table.
+#' @examples
+#' make.table(mtcars,c("cyl","gear"))
+#' make.table(mtcars,c("cyl","gear"),by="vs",showdenom=TRUE)
+#' @author Ying Taur
+#' @export
+make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
+  message("Note, make.table is deprecated, consider using make_table")
+  all.vars <- unique(c(vars,by))
+  if (any(all.vars %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
+  data <- data[,all.vars,drop=FALSE]
+  if (!is.null(by)) {
+    if (by %in% vars) {warning("YTWarning, ",paste(intersect(by,vars),collapse=",")," is listed in both 'vars' and 'by'!")}
+  }
+  factorize <- function(x,ifany=TRUE,as.string=TRUE) {
+    if (!is.factor(x)) {x <- factor(x)}
+    if (ifany & !any(is.na(x))) {return(x)}
+    ll <- levels(x)
+    if (!any(is.na(ll))) {ll <- c(ll, NA)}
+    x <- factor(x, levels = ll, exclude = NULL)
+    if(as.string) {levels(x)[is.na(levels(x))] <- "NA"}
+    return(x)
+  }
+  data <- data %>% mutate_all(factorize)
+  get.column <- function(subdata) {
+    #subdata=data
+    denom <- nrow(subdata)
+    subtbl <- plyr::adply(vars,1,function(var) {
+      subdata %>% group_by_(value=var) %>% tally() %>% complete(value,fill=list(n=0)) %>%
+        mutate(var=var,value=ifelse(!is.na(value),as.character(value),"NA"),denom=denom,pct=n/denom)
+    },.id=NULL)
+    if (showdenom) {
+      subtbl <- subtbl %>% mutate(lbl=paste0(n,"/",denom," (",percent(pct),")"))
+    } else {
+      subtbl <- subtbl %>% mutate(lbl=paste0(n," (",percent(pct),")"))
+    }
+    #combine var and value pairs. the combined variable is saved as factor to preserve the order during spread
+    subtbl <- subtbl %>% unite(var_value,var,value,sep="==") %>% mutate(var_value=factor(var_value,levels=var_value))
+    return(subtbl)
+  }
+  tbl <- get.column(data) %>% mutate(column="total")
+  if (!is.null(by)) {
+    #run get.column function for each subgroup
+    sub.tbl <- data %>% group_by_(column=by) %>% do(get.column(.)) %>% ungroup()
+    #recode subgroup values to include variable name
+    levels(sub.tbl$column) <- paste0(by,"=",levels(sub.tbl$column))
+    #combines total and subgroups. use factor levels to preserve subgroup order when spread is performed.
+    tbl <- tbl %>% bind_rows(sub.tbl) %>%
+      mutate(column=factor(column,levels=c("var","value",levels(sub.tbl$column),"total")))
+  }
+  #reshape into final columns using spread command. then re-separate the var_value into separate variables
+  tbl.all <- tbl %>% dplyr::select(var_value,column,lbl) %>% spread(column,lbl) %>% separate(var_value,c("var","value"),sep="==")
+  if (fisher.test & !is.null(by)) {
+    fisher.pval <- sapply(vars,function(var) {
+      if (n_distinct(data[[var]])==1) {
+        warning("YTWarning: ",var," does not vary. Skipping Fisher test.")
+        return(NA_real_)
+      }
+      ftest <- fisher.test(data[[var]],data[[by]])
+      ftest$p.value
+    })
+    tbl.all$fisher <- ""
+    tbl.all$fisher[match(names(fisher.pval),tbl.all$var)] <- formatC(fisher.pval,format="f",digits=3)
+  }
+  return(tbl.all)
+}
+
+
+#' Get Rows (optimized for timeline plots) OLD
+#'
+#' Given timeline event data with event type labels and start/stop times, calculate rows.
+#' If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
+#' @param start vector of event start times (numeric or Date).
+#' @param stop vector of event stop times (numeric or Date).
+#' @param row vector of event types. Can be original row assignments or event labels.
+#' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}
+#' @param min.gap minimum allowable gap between two different event types, if they are to be placed on the same row. Default is \code{Inf}: no row merging, \code{0} tries to perform as much merging as possible.
+#' @return Returns a vector of row number assignments for each time event.
+#' @author Ying Taur
+get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
+  # start=medssub$start_day;stop=medssub$stop_day;row=medssub$y.row;by=list(medssub$abx_class,medssub$med_class3);min.gap=0
+  if (min.gap<0) {
+    stop("YTError: min.gap must be greater than 0")
+  }
+  if (length(start)==0|length(stop)==0) {return(NA_integer_)}
+  if (!is.null(by)) {
+    d <- data.frame(start,stop,row,by)
+    by.list <- setdiff(names(d),c("start","stop","row"))
+    dd <- d %>%
+      mutate(orig.order=1:n()) %>%
+      group_by_(.dots=by.list) %>%
+      mutate(newrow=get.row(start,stop,row,min.gap=min.gap)) %>%
+      ungroup() %>%
+      arrange_(.dots=c(by.list,"newrow"))
+    dd$newrow2 <- do.call(paste,dd[,c(by.list,"newrow")])
+    dd <- dd %>%
+      mutate(#newrow2=paste(by,newrow),
+        newrow2=factor(newrow2,levels=unique(newrow2)),
+        newrow2=as.numeric(newrow2)) %>%
+      arrange(orig.order)
+    return(dd$newrow2)
+  }
+
+  d <- data.frame(start,stop,row)
+  d.collapse <- d %>% group_by(row) %>%
+    summarize(start=min(start),stop=max(stop)) %>% ungroup() %>%
+    mutate(y.row1=row_number(stop),
+           y.row2=row_number(start)-n())
+
+  d.row.test <- plyr::adply(0:(nrow(d.collapse)-1),1,function(overlap) {
+    d.test <- d.collapse %>%
+      mutate(y.row2=y.row2+overlap,
+             y.row3=ifelse(y.row2>=1,y.row2,y.row1))
+    overlap.check <- d.test %>% filter(y.row3<=overlap) %>%
+      group_by(y.row3) %>% filter(n()==2) %>%
+      arrange(start) %>%
+      summarize(start1=start[1],stop1=stop[1],start2=start[2],stop2=stop[2]) %>%
+      mutate(gap=start2-stop1,
+             overlaps=start2-stop1<=min.gap)
+    data.frame(overlap,n.rows=n_distinct(d.test$y.row3),
+               gap=suppressWarnings(min(overlap.check$gap)))
+  },.id=NULL)
+  d.use.row <- d.row.test %>% filter(gap>=min.gap) %>% arrange(n.rows,desc(gap)) %>% slice(1)
+  d.final <- d.collapse %>%
+    mutate(y.row2=y.row2+d.use.row$overlap,
+           y.row3=ifelse(y.row2>=1,y.row2,y.row1),
+           y.row3=dense_rank(y.row3))
+  newrow <- d.final$y.row3[match(d$row,d.final$row)]
+  return(newrow)
+}
+
+
+
+
+
+
+#' Select 2
+#'
+#' Basically \code{dplyr::select}, but ignores variables that aren't found in the data frame.
+#'
+#' @param data Data frame
+#' @param ... Comma separated list of unquoted expressions. You can treat variable names like they are positions. Use positive values to select variables; use negative values to drop variables.
+#' @return Returns \code{data}, but grouped by times and other variables.
+#' @author Ying Taur
+#' @export
+select2 <- function(data,...) {
+  select_vars <- quos(...)
+  select_var_names <- sapply(select_vars,as_name)
+  select_vars_keep <- select_vars[select_var_names %in% names(data)]
+  data %>% select(!!!select_vars_keep)
+}
+
+
+
+
+
+
+#' Cox Proportional Hazards Regression (TAKE 2)
+#'
+#' STILL WRITING THIS
+#' @export
+cox.old <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,args5=list(cens.model="cox",model="fg")) {
+
+  requireNamespace(c("coxphf","cmprsk","timereg","riskRegression"),quietly=TRUE)
+  yvar <- enquo(yvar)
+  starttime <- enquo(starttime)
+  xvars <- quos(...)
+  # yvar=sym("vre.bsi");xvars=syms("agebmt");starttime=sym(NULL)
+
+  yvarday <- quo_name(yvar) %>% paste0("_day") %>% sym()
+  is.td <- function(var) {
+    var <- enquo(var)
+    vardayname <- quo_name(var) %>% paste0("_day")
+    has_name(data,vardayname)
+  }
+  xvars.td <- xvars[sapply(xvars,is.td)]
+  if (length(xvars.td)>0) {
+    xvarsdays.td <- xvars.td %>% sapply(quo_name) %>% paste0("_day") %>% syms()
+  } else {
+    xvarsdays.td <- syms(NULL)
+  }
+  timevars <- c(yvarday,xvarsdays.td)
+  data <- data %>% mutate_at(vars(!!yvar,!!!xvars.td),as.numeric)
+
+  if (quo_is_null(starttime)) {
+    # data <- data %>% mutate(.y=!!yvar,.tstart=-10000,.tstop=!!yvarday)
+    # .tstart is pmin of all time vars, because coxphf can't handle -Inf as tstart.
+    mintime <- data %>% select(!!yvarday,!!!timevars) %>% min(na.rm=TRUE)
+    start <- min(mintime-1,0)
+    message("Setting start time as: ",start)
+    data <- data %>% mutate(.y=!!yvar,.tstart=start,.tstop=!!yvarday) %>%
+      mutate_at(vars(.tstart,.tstop,!!!timevars),function(x) x-start)
+  } else {
+    data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
+  }
+  splitline <- function(data,xvar) {
+    xvar <- enquo(xvar)
+    xvarday <- quo_name(xvar) %>% paste0("_day") %>% sym()
+    data.nochange <- data %>% filter(!!xvar==0|is.na(!!xvar))
+    data.split <- data %>% filter(!!xvar==1,.tstart<!!xvarday,!!xvarday<.tstop)
+    data.xafter <- data %>% filter(!!xvar==1,.tstop<=!!xvarday)
+    data.xbefore <- data %>% filter(!!xvar==1,!!xvarday<=.tstart)
+    data.nochange.new <- data.nochange
+    data.xbefore.new <- data.xbefore
+    data.xafter.new <- data.xafter %>% mutate(!!xvar:=0)
+    data.split.new1 <- data.split %>% mutate(.tstop=!!xvarday,!!xvar:=0,.y=0)
+    data.split.new2 <- data.split %>% mutate(.tstart=!!xvarday,!!xvar:=1)
+    newdata <- bind_rows(data.nochange.new,data.xbefore.new,data.xafter.new,data.split.new1,data.split.new2) %>%
+      select(-!!xvarday)
+    return(newdata)
+  }
+  data2 <- data
+  for (xvar in xvars.td) {
+    data2 <- data2 %>% splitline(!!xvar)
+  }
+  if (return.split.data) {
+    return(data2)
+  }
+  is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
+  has.timevarying <- length(xvars.td)>0 & nrow(data2)>nrow(data)
+  leftside <- "Surv(.tstart,.tstop,.y)"
+  rightside <- xvars %>% sapply(quo_name) %>% paste(collapse=" + ")
+  model <- paste(leftside,rightside,sep=" ~ ")
+  formula <- as.formula(model)
+
+  #result 1, regular cox
+  src <- tibble(xvar="<error>",method="coxph")
+  if (is.competing) {
+    src <- tibble(xvar="<competing>",method="coxph")
+  } else {
+    tryCatch({
+      results <- coxph(formula,data=data2)
+      sr <- summary(results)
+      src <- sr$conf.int %>% as.data.frame() %>% rownames_to_column("var") %>%
+        as_tibble() %>%
+        select(xvar=var,haz.ratio=`exp(coef)`,lower.ci=`lower .95`,upper.ci=`upper .95`) %>%
+        mutate(p.value=sr$coefficients[,"Pr(>|z|)"],method="coxph")
+    },error=function(e) {
+    })
+  }
+
+  #result 2
+  src2 <- tibble(xvar="<error>",method="coxphf.F")
+  if (is.competing) {
+    src2 <- tibble(xvar="<competing>",method="coxphf.F")
+  } else {
+    tryCatch({
+      results2 <- coxphf(formula,data=data2,firth=F)
+      sr2 <- summary(results2)
+      src2 <- tibble(xvar=names(sr2$coefficients),
+                     haz.ratio=exp(sr2$coefficients),
+                     lower.ci=sr2$ci.lower,
+                     upper.ci=sr2$ci.upper,
+                     p.value=sr2$prob,
+                     method="coxphf.F")
+
+    },error=function(e) {
+    })
+
+  }
+  #result 3
+  src3 <- tibble(xvar="<error>",method="xxx")
+  if (is.competing) {
+    src3 <- tibble(xvar="<competing>",method="coxphf.T")
+  } else {
+    tryCatch({
+      results3 <- coxphf(formula,data=data2,firth=T)
+      sr3 <- summary(results3)
+      src3 <- tibble(xvar=names(sr3$coefficients),
+                     haz.ratio=exp(sr3$coefficients),
+                     lower.ci=sr3$ci.lower,
+                     upper.ci=sr3$ci.upper,
+                     p.value=sr3$prob,
+                     method="coxphf.T")
+    },error=function(e) {
+    })
+  }
+
+  #result 4
+  src4 <- tibble(xvar="<error>",method="xxx")
+  if (has.timevarying) {
+    src4 <- tibble(xvar="<timevarying>",method="crr")
+  } else {
+    tryCatch({
+      cov <- paste0("~",rightside) %>% as.formula() %>% model.matrix(data=data2)
+      cov <- cov[,-1,drop=FALSE]
+      results4 <- data2 %>% with(crr(.tstop,.y,cov1=cov))
+      sr4 <- summary(results4)
+      src4 <- sr4$conf.int %>% as.data.frame() %>% rownames_to_column("var") %>%
+        as_tibble() %>%
+        select(xvar=var,haz.ratio=`exp(coef)`,lower.ci=`2.5%`,upper.ci=`97.5%`) %>%
+        mutate(p.value=sr4$coef[,"p-value"],method="crr")
+    },error=function(e) {
+    })
+
+  }
+
+  #results 5, Fine gray riskRegression
+  src5 <- tibble(xvar="<error>",method="xxx")
+  if (has.timevarying) {
+    src5 <- tibble(xvar="<timevarying>",method="riskRegression")
+  } else {
+    tryCatch({
+      leftside.b <- "Hist(.tstop, .y)"
+      rightside <- xvars %>% sapply(quo_name) %>% paste(collapse=" + ")
+      model <- paste(leftside.b,rightside,sep=" ~ ")
+      formula <- as.formula(model)
+      print(formula)
+      r5 <- FGR(formula,data=data2,cause=1)
+      sr5 <- summary(r5)
+      src5 <- cbind(sr5$coef,sr5$conf.int) %>% as.data.frame() %>% rownames_to_column("var") %>%
+        select(xvar=var,haz.ratio=`exp(coef)`,lower.ci=`2.5%`,upper.ci=`97.5%`,p.value=`p-value`) %>%
+        mutate(method="riskRegression")
+    },error=function(e) {
+    })
+
+
+  }
+
+  # #results6 timereg
+  # leftside.b <- "Event(.tstart, .tstop, .y)"
+  # rightside.b <- xvars %>% sapply(quo_name) %>% paste0("const(",.,")",collapse=" + ")
+  # model.b <- paste0(leftside.b," ~ ",rightside.b)
+  # args <- c(list(formula=as.formula(model.b),data=data2,cause=1),args5)
+  # results6 <- do.call(comp.risk,args)
+  # sr6 <- coef(results6) %>% as.data.frame() %>% rownames_to_column("var")
+  # src6 <- tibble(xvar=sr6$var,haz.ratio=exp(sr6$Coef.),lower.ci=exp(sr6$`lower2.5%`),upper.ci=exp(sr6$`upper97.5%`),p.value=sr6$`P-val`,method="timereg")
+
+  d <- bind_rows(src,src2,src3,src4,src5)
+  d
+  # list(coxph=results,coxphf.F=results2,coxphf.T=results3,
+  #      crr=results4,data=d)
+}
+
+
+
+#' Cox Proportional Hazards Regression
+#'
+#' Analyzes survival data by Cox regression.
+#'
+#' Convenience function for survival analysis. Typically uses the \code{coxphf} function.
+#'
+#' @param  ... variable names in the regression
+#' @param starttime character column name for start times (either point to zero or indicate left censor times). Default is "tstart".
+#' @param data survival data.
+#' @param addto if specified, add results to this data.frame of results. Default is NULL
+#' @param as.survfit if TRUE, return the survival fit object (use for kaplan-meier stuff).
+#' @param firth whether or not to perform Firth's penalized likelihood. Default is TRUE.
+#' @param formatted whether to format the data.frame of results. Default is TRUE
+#' @param logrank whether to calculate log rank p-value. Default is FALSE
+#' @param coxphf.obj whether to return cox results object (rather than regression table). Default is FALSE.
+#' @param return.split.data whether to return data after split (do this to split time-dependent variables and run Cox manually). Default is FALSE
+#' @return a regression table with the survival results
+#' @author Ying Taur
+#' @export
+stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE,return.split.data=FALSE) {
+  requireNamespace("coxphf",quietly=TRUE)
+  data <- data.frame(data)
+  y <- c(...)[1]
+  xvars <- c(...)[-1]
+  y.day <- paste0(y,"_day")
+  #xvars that are time-dependent
+  td.xvars <- xvars[paste(xvars,"_day",sep="") %in% names(data)]
+  if (length(td.xvars)>0) {
+    td.xvars.day <- paste(td.xvars,"_day",sep="")
+  } else {
+    td.xvars.day <- NULL
+  }
+  all.vars <- unique(c(y,y.day,xvars,td.xvars.day,starttime))
+  #if data is large, this speeds up a lot
+  data <- data[,all.vars]
+  #define y, s.start and s.stop
+  data$y <- data[,y]
+  data$s.start <- data[,starttime]
+  data$s.stop <- data[,y.day]
+  data <- subset(data,s.start<s.stop)
+  #### check for missing x values.
+  for (x in xvars) {
+    missing.x <- is.na(data[,x])
+    if (any(missing.x)) {
+      print(paste0("  NOTE - missing values in ",x,", removing ",length(sum(missing.x))," values."))
+      data <- data[!is.na(data[,x]),]
+    }
+  }
+  splitline <- function(x) {
+    #time dep xvars where x=1 (xvar.split are vars from td.xvars where splitting needs to be done)
+    xvar.split <- td.xvars[c(x[,td.xvars]==1)]
+    xvarday.split <- td.xvars.day[c(x[,td.xvars]==1)]
+    if (length(xvar.split)==0) {
+      return(x)
+    } else {
+      #cutpoints=time dep where xvars=1, and are between s.start and s.stop
+      cutpoints <- unlist(c(x[,xvarday.split])) #days at which an xvar==1
+      cutpoints <- cutpoints[x$s.start<cutpoints & cutpoints<x$s.stop] #eliminate days on s.start or s.stop
+      cutpoints <- unique(cutpoints)
+      #sort cutpoints and add s.start and s.stop at ends.
+      cutpoints <- c(x$s.start,cutpoints[order(cutpoints)],x$s.stop)
+      #set up new.x, with s.start and s.stop, y=0 by default
+      new.x <- data.frame(s.start=cutpoints[-length(cutpoints)],s.stop=cutpoints[-1],y=0)
+      #the last row of new.x takes value of y, the rest are y=0
+      new.x[nrow(new.x),"y"] <- x$y
+      #determine values of time dep x's (td.xvars) for each time interval. first, x=0 by default
+      new.x[,td.xvars] <- 0
+      for (i in 1:length(xvar.split)) {
+        xvar <- xvar.split[i]
+        xvarday <- xvarday.split[i]
+        new.x[new.x$s.start>=x[,xvarday.split[i]],xvar.split[i]] <- 1
+      }
+      remaining.vars <- setdiff(names(x),names(new.x))
+      new.x[,remaining.vars] <- x[,remaining.vars]
+      return(new.x)
+    }
+  }
+  if (length(td.xvars)>0) {
+    data <- plyr::adply(data,1,splitline)
+  }
+  if (return.split.data) {
+    return(data)
+  }
+
+  #calculate model
+  leftside <- "survival::Surv(s.start,s.stop,y)"
+  rightside <- paste(xvars,collapse=" + ")
+  model <- paste(leftside,rightside,sep=" ~ ")
+  formula <- as.formula(model)
+
+  for (x in xvars) { #check for nonvarying predictors
+    xvalues <- unique(data[,x])
+    if (length(xvalues)==1) {
+      stop("YTError: This predictor does not vary across observations: ",x," is always equal to ",xvalues)
+    }
+  }
+  if (as.survfit) {
+    #return a survfit object
+    return(survival::survfit(formula,data=data))
+  } else if (logrank) {
+    #output logrank test
+    results <- summary(coxph(formula,data=data))
+    return(results$logtest[3])
+  } else {
+    results <- coxphf::coxphf(formula,data=data,firth=firth)
+    if (coxphf.obj) {
+      return(results)
+    }
+    results.table <- data.frame(
+      model=model,
+      yvar=y,
+      xvar=names(results$coefficients),
+      haz.ratio=exp(results$coefficients),
+      lower.ci=results$ci.lower,
+      upper.ci=results$ci.upper,
+      p.value=results$prob,
+      row.names=NULL,stringsAsFactors=FALSE)
+    #mark time-dependent xvars with "(td)". note that this just looks for var in td.xvars;
+    #if variable has level specifications, then it won't work. (could fix this with reg expr instead)
+    if (length(td.xvars)>0) {
+      results.table$xvar[results.table$xvar %in% td.xvars] <- sapply(results.table$xvar[results.table$xvar %in% td.xvars],function(x) paste0(x,"(td)"))
+    }
+    if (formatted) {
+      results.table$signif <- as.character(cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-")))
+      results.table$haz.ratio <- format(round(results.table$haz.ratio,2),nsmall=2)
+      results.table$lower.ci <- format(round(results.table$lower.ci,2),nsmall=2)
+      results.table$upper.ci <- format(round(results.table$upper.ci,2),nsmall=2)
+      results.table$p.value <- format(round(results.table$p.value,3),nsmall=3)
+      results.table <- plyr::adply(results.table,1,function(x) {
+        x$haz.ratio <- paste0(x$haz.ratio," (",x$lower.ci," - ",x$upper.ci,")")
+        return(x)
+      })
+      results.table <- subset(results.table,select=c(model,yvar,xvar,haz.ratio,p.value,signif))
+    }
+    if (missing(addto)) {
+      return(results.table)
+    } else {
+      return(rbind(addto,results.table))
+    }
+  }
+}
+
+
+
+
+#' Univariate Cox Proportional Hazards
+#'
+#' Perform univariate survival, then multivariate on significant variables.
+#' @param yvars column name of survival endpoint.
+#' @param xvars column names of predictors.
+#' @param tstart column name of start variable.
+#' @param data the data frame to be analyzed
+#' @param firth whether to perform Firth's penalized likelihood correction.
+#' @param multi whether to perform multivariate modelling of signficant univariate predictors
+#' @param multi.cutoff if multivariate is done, the P-value cutoff for inclusion into the multivariate model.
+#' @return A regression table containing results
+#' @export
+univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi=FALSE,multi.cutoff=0.2) {
+  # yvar="dead.180";xvars=c("age","race.group","detect.trop","imm.med.group2");starttime="tstart";data=pt;firth=F;multi=TRUE;multi.cutoff=0.2;referrent=FALSE
+  results.list <- lapply(xvars,function(xvar) {
+    print(xvar)
+    tryCatch({
+      stcox(yvar,xvar,starttime=starttime,data=data,firth=firth)
+    },error=function(e) {
+      warning(e$message)
+      data.frame(model=paste0("Surv(s.start,s.stop,y) ~ ",xvar),yvar=yvar,xvar=paste0(xvar,"[ERROR non-varying]"),haz.ratio=NA,p.value=NA,signif=NA)
+    })
+  })
+
+  results.table <- results.list %>% bind_rows()
+  if (multi) {
+    multi.signif <- sapply(results.list,function(tbl) {
+      any(tbl$p.value<=multi.cutoff)
+    })
+    multivars <- xvars[multi.signif]
+    message("Multivariate model:")
+    if (length(multivars)>0) {
+      message(paste0(multivars,collapse=","))
+      multi.table <- stcox(yvar,multivars,starttime=starttime,data=data,firth=firth)
+      names(multi.table) <- recode2(names(multi.table),c("haz.ratio"="multi.haz.ratio","p.value"="multi.p.value","signif"="multi.signif"))
+      multi.table <- multi.table %>% select(-model)
+      results.table <- results.table %>% select(-model)
+
+      combined.table <- results.table %>% left_join(multi.table,by=c("yvar","xvar")) %>%
+        mutate_at(vars(multi.haz.ratio,multi.p.value,multi.signif),function(x) ifelse(is.na(x),"",x))
+      # return(list(uni=results.table,multi=multi.table))
+
+      n.events <- sum(data[[yvar]])
+      n.multivars <- length(multivars)
+      print(paste0(round(n.events/n.multivars,3)," events per multivariable (",n.events,"/",n.multivars,", consider overfitting if less than 10)"))
+      return(combined.table)
+    } else {
+      print("No variables in multivariate!")
+      results.table <- subset(results.table,select=-model)
+      results.table$multi.haz.ratio <- ""
+      results.table$multi.p.value <- ""
+      results.table$multi.signif <- ""
+      return(results.table)
+    }
+  }
+  return(results.table)
+}
+
+
+
+
+#' Create Survival Data Frame
+#'
+#' @param f.survfit the survival data
+#' @param time0 time0 can be specified. It must be <= first event
+#' @return Returns survival data frame
+#' @keywords keyword1 keyword2 ...
+#' @author Ying Taur
+#' @export
+createSurvivalFrame <- function(f.survfit,time0=0) {
+  # define custom function to create a survival data.frame
+  #YT edit: time0 can be specified. it must be <= first event. if it isn't use first event as time0
+  time0 <- min(time0,f.survfit$time[1])
+  # initialise frame variable
+  f.frame <- NULL
+  # check if more then one strata
+  if (length(names(f.survfit$strata))==0) {
+    f.frame <- data.frame(time=f.survfit$time, n.risk=f.survfit$n.risk, n.event=f.survfit$n.event, n.censor = f.survfit$n.censor, surv=f.survfit$surv, upper=f.survfit$upper, lower=f.survfit$lower)
+    # create first two rows (start at 1)
+    f.start <- data.frame(time=c(time0, f.frame$time[1]), n.risk=c(f.survfit$n, f.survfit$n), n.event=c(0,0), n.censor=c(0,0), surv=c(1,1), upper=c(1,1), lower=c(1,1))
+    # add first row to dataset
+    f.frame <- rbind(f.start, f.frame)
+    # remove temporary data
+    rm(f.start)
+    # create data.frame with data from survfit
+  } else { #multiple strata
+    # create vector for strata identification
+    f.strata <- NULL
+    for(f.i in 1:length(f.survfit$strata)){
+      # add vector for one strata according to number of rows of strata
+      f.strata <- c(f.strata, rep(names(f.survfit$strata)[f.i], f.survfit$strata[f.i]))
+    }
+    # create data.frame with data from survfit (create column for strata)
+    f.frame <- data.frame(time=f.survfit$time, n.risk=f.survfit$n.risk, n.event=f.survfit$n.event, n.censor = f.survfit
+                          $n.censor, surv=f.survfit$surv, upper=f.survfit$upper, lower=f.survfit$lower, strata=factor(f.strata))
+    # remove temporary data
+    rm(f.strata)
+    # create first two rows (start at 1) for each strata
+    for(f.i in 1:length(f.survfit$strata)){
+      # take only subset for this strata from data
+      f.subset <- subset(f.frame, strata==names(f.survfit$strata)[f.i])
+      # create first two rows (time: time0, time of first event) YT edit, not time 0 but
+      f.start <- data.frame(time=c(time0, f.subset$time[1]), n.risk=rep(f.survfit[f.i]$n, 2), n.event=c(0,0), n.censor=c(0,0), surv=c(1,1), upper=c(1,1), lower=c(1,1), strata=rep(names(f.survfit$strata)[f.i],2))
+      # add first two rows to dataset
+      f.frame <- rbind(f.start, f.frame)
+      # remove temporary data
+      rm(f.start, f.subset)
+    }
+    # reorder data
+    f.frame <- f.frame[order(f.frame$strata, f.frame$time), ]
+    # rename row.names
+    rownames(f.frame) <- NULL
+  }
+  # return frame
+  return(f.frame)
+}
+
+
+
+
+#' At-Risk Table from Survival Data Frame
+#'
+#' @param t.breaks vector of times to calculate at-risk
+#' @param sf survival frame
+#' @param minus.epsilon.last.t means we substract a small amt from last timepoint, because otherwise it's all NA.
+#' @author Ying Taur
+#' @export
+survival.frame.atrisk.table <- function(t.breaks,sf,minus.epsilon.last.t=TRUE,melt=FALSE,row.name.xloc) {
+  #t.breaks=0:3*365;minus.epsilon.last.t=TRUE;melt=TRUE;row.name.xloc=-200
+  epsilon <- (max(t.breaks) - min(t.breaks)) / 1000000
+  t.breaks2 <- ifelse(t.breaks==max(t.breaks),t.breaks-epsilon,t.breaks)
+  tbl <- data.frame(lapply(t.breaks2,function(t) {
+    survival.frame.info(t,sf,"n.risk")
+  }))
+  names(tbl) <- paste0("time.",t.breaks)
+  #the factor is to keep factor order same as order of table
+  tbl <- data.frame(strata=factor(row.names(tbl),levels=row.names(tbl)),tbl,row.names=NULL)
+  if (melt) {
+    #default for xlocation
+    if (missing(row.name.xloc)) {
+      row.name.xloc <- -200
+    }
+    tbl[,paste0("time.",row.name.xloc)] <- tbl$strata
+    measure.vars <- grep("time\\.",names(tbl),value=TRUE)
+    atrisk.melt <- melt(tbl,measure.vars=measure.vars)
+    atrisk.melt$x <- as.numeric(sub("^time\\.","",atrisk.melt$variable))
+    atrisk.melt$y <- as.numeric(atrisk.melt$strata)
+    atrisk.melt$label <- atrisk.melt$value
+    return(atrisk.melt)
+  } else {
+    return(tbl)
+  }
+}
+
+#' Survival Frame Info
+#'
+#' Given survival.frame, and time, provide info in the survivalframe.
+#' @param t time
+#' @param sf survival frame
+#' @param infotype type of info needed. Needs to be a variable in survival frame.
+#' @return info needed from survival frame
+#' @author Ying Taur
+#' @export
+survival.frame.info <- function(t,sf,infotype) {
+  #given survival.frame, and time, provide info in the survivalframe.
+  #infotype is the name of variable: "n.risk","surv",etc.
+  if (!(infotype %in% names(sf))) {
+    print("Error, infotype needs to be a variable in survival.frame")
+    return(NULL)
+  }
+  if (!("strata" %in% names(sf))) {
+    sf$strata <- "num.at.risk"
+  }
+  sf <- sf[order(sf$strata),]
+  daply(sf,"strata",function(x) {
+    before.times <- x$time<=t
+    if (all(before.times)) {
+      return(NA)
+    } else {
+      sub.x <- x[before.times,]
+      return(sub.x[order(sub.x$time,decreasing=TRUE)[1],infotype])
+    }
+  })
+}
+
+
+
+#' Generate Kaplan-Meier curve in ggplot2
+#'
+#' Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
+#'
+#' Use this to make Kaplan-Meier curves in ggplot2. Utilizes the \code{geom_step} function to draw.
+#' \code{yingtools::stcox} function is used to generate data from a survival frame.
+#'
+#' @param yvar character, used to indicate the variable set to be used as survival endpoint of interest.
+#' For example, if \code{yvar="var1"} is specified, then \code{data} should have \code{"var1"} will represent
+#' whether the endpoint occurred (logical or 0-1), and \code{"var1_day"} will represent the time at which
+#' the event occurred (or didn't occur).
+#' @param xvar character, indicating the variable within \code{data} that will contain the groups by which curves will be generated.
+#' @param data data frame containing the survival data.
+#' @param starttime character, specifying the column within \code{data} that indicates the survival start time.
+#' If there is no left censoring, then this would refer to a vector of 0's. Default is \code{"tstart"}
+#' @param flip.y logical, indicating whether or not to flip the y-axis. \code{flip.y = FALSE} by default (curve is downwards).
+#' @param size line thickness for the survival curve.
+#' @return A ggplot2 geom object with Kaplan-Meier curve.
+#' @examples
+#' library(ggplot2)
+#' ggplot() + geom_kaplanmeier("dead","intensity",data=cid.patients)
+#' @author Ying Taur
+#' @export
+geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE,size=NULL,logrank=FALSE,logrank.pos=NULL,logrank.fontsize=5) {
+  if (is.null(xvar)) {
+    data$one <- 1
+    sf <- createSurvivalFrame(stcox(yvar,"one",starttime=starttime,data=data,as.survfit=TRUE))
+  } else {
+    sf <- createSurvivalFrame(stcox(yvar,xvar,starttime=starttime,data=data,as.survfit=TRUE))
+    sf[,xvar] <- sub("^.+=","",sf$strata)
+    if (is.factor(data[,xvar])) {
+      sf[,xvar] <- factor(sf[,xvar],levels=levels(data[,xvar]))
+    }
+  }
+  if (flip.y) {
+    sf$surv <- 1 - sf$surv
+  }
+  if (is.null(xvar)) {
+    if (is.null(size)) {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv"))
+    } else {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv"),size=size)
+    }
+    g <- list(g,ylim(0,1))
+  } else {
+    if (is.null(size)) {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar))
+    } else {
+      g <- geom_step(data=sf,aes_string(x="time",y="surv",color=xvar,group=xvar),size=size)
+    }
+    g <- list(g,ylim(0,1))
+    if (logrank) {
+      #function to find best x,y for text
+      find_best_spot <- function(plot) {
+        gb <- ggplot_build(plot)
+        xlim <- gb$layout$panel_params[[1]]$x.range
+        ylim <- gb$layout$panel_params[[1]]$y.range
+        xrange <- xlim[2]-xlim[1]
+        yrange <- ylim[2]-ylim[1]
+        xs <- seq(xlim[1],xlim[2],length.out=50)
+        ys <- seq(ylim[1],ylim[2],length.out=50)
+        d.data <- lapply(gb$data,function(data) {
+          d.pts <- tibble()
+          if (c("x","y") %allin% names(data)) {
+            newdata <- data %>% select(x=x,y=y)
+            d.pts <- d.pts %>% bind_rows(newdata)
+          }
+          if (c("xend","yend") %allin% names(data)) {
+            newdata <- data %>% select(x=x,y=y)
+            d.pts <- d.pts %>% bind_rows(newdata)
+          }
+          if (c("xmin","xmax","ymin","ymax") %allin% names(data)) {
+            newdata1 <- data %>% select(x=xmin,y=ymin)
+            newdata2 <- data %>% select(x=xmax,y=ymin)
+            newdata3 <- data %>% select(x=xmin,y=ymax)
+            newdata4 <- data %>% select(x=xmax,y=ymax)
+            d.pts <- d.pts %>% bind_rows(newdata1,newdata2,newdata3,newdata4)
+          }
+          return(d.pts)
+        }) %>% bind_rows() %>%
+          filter(between(x,xlim[1],xlim[2]),between(y,ylim[1],ylim[2]))
+        d.box1 <- tibble(x=xs) %>% crossing(y=ylim)
+        d.box2 <- tibble(y=ys) %>% crossing(x=xlim)
+        d <- bind_rows(d.box1,d.box2,d.data)
+        pts <- tibble(xx=xs) %>% crossing(yy=ys) %>%
+          crossing(d) %>%
+          mutate(dist=sqrt(abs((xx-x)/xrange)^2+abs((yy-y)/yrange)^2)) %>%
+          group_by(xx,yy) %>%
+          summarize(min.dist=min(dist)) %>%
+          ungroup() %>%
+          slice(which.max(min.dist))
+        return(tibble(x=pts$xx,y=pts$yy))
+      }
+      if (is.null(logrank.pos)) {
+        gg <- ggplot() + g
+        bestpos <- find_best_spot(gg)
+        logrank.pos <- c(bestpos$x,bestpos$y)
+      }
+      g <- list(g,geom_logrank(yvar=yvar,xvar=xvar,data=data,starttime=starttime,pos=logrank.pos,logrank.fontsize=logrank.fontsize))
+    }
+  }
+  return(g)
+}
+
+
+#' Generate label for Log-rank test results in ggplot2
+#'
+#' Adds the p-value for a log-rank test to a ggplot2 graph.
+#' @author Ying Taur
+#' @export
+geom_logrank <- function(yvar,xvar,data,starttime="tstart",pos,logrank.fontsize=5) {
+  if (length(pos)!=2) {
+    stop("YTError: Logrank position should be a vector of size 2: c(x,y)")
+  }
+  logrank <- stcox(yvar=yvar,yvar=xvar,data=data,starttime=starttime,logrank=TRUE)
+  logrank <- paste0("Log-rank\nP = ",formatC(logrank,format="f",digits=3))
+  annotate("text",x=pos[1],y=pos[2],label=logrank,size=logrank.fontsize)
+}
+
+
+
+#' Logistic Regression
+#'
+#' Performs univariate or multivariate logistic regression
+#'
+#' Logistic regression is for prediction of yes/no outcomes.
+#'
+#' @return A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
+#' @examples
+#' # logistic regression predicting vs with mpg, cyl, and disp:
+#' # specify yvar and xvar in model:
+#' logistic("vs",c("mpg","cyl","disp"),data=mtcars)
+#' # specify model:
+#' logistic(vs~mpg+cyl+disp,data=mtcars)
+#' @author Ying Taur
+#' @export
+logistic <- function(x,...) UseMethod("logistic")
+
+
+#' @rdname logistic
+#' @param yvar Y-variable of interest (column name within data). Should be either logical or 0-1.
+#' @param xvar X-variable(s) of interest (vector of column names within data). A vector of length=1 will perform a univariate analysis, length>1 will perform a multivariate analysis.
+#' @param data data frame containing the data.
+#' @param firth Whether to apply Firth's penalized likelihood correction. Default is \code{FALSE}
+#' @param formatted logical specifying whether to format the data in a table. Default is \code{TRUE}.
+#' @param digits number of significant digits in results. Default is 3.
+#' @export
+logistic.character <- function(yvar, xvars ,data,firth=FALSE,formatted=TRUE,digits=3) {
+  # y <- c(...)[1]
+  # x <- paste(c(...)[-1],collapse="+")
+  # model <- paste(y,x,sep="~")
+  model <- paste0(yvar,"~",paste(xvars,collapse="+"))
+  logistic(as.formula(model),data=data,firth=firth,formatted=formatted,digits=digits)
+}
+
+#' @rdname logistic
+#' @param formula formula on which to perform logistic regression.
+#' @export
+logistic.formula <- function(formula, data=sys.parent(), firth=FALSE,formatted=TRUE,digits=3) {
+  requireNamespace("logistf",quietly=TRUE)
+  results <- logistf::logistf(formula, data=data, firth=firth)
+  results.table <- data.frame(
+    model=gsub("\"| ","",paste(deparse(results$formula),collapse="")),
+    yvar=as.character(results$formula)[2],
+    xvar=results$terms,
+    odds.ratio=exp(results$coefficients),
+    lower.ci=exp(results$ci.lower),
+    upper.ci=exp(results$ci.upper),
+    p.value=results$prob,
+    row.names=NULL,stringsAsFactors=FALSE)
+  #get rid of intercept line, keep above vars only
+  results.table <- subset(results.table,xvar!="(Intercept)",select=c(model,yvar,xvar,odds.ratio,lower.ci,upper.ci,p.value))
+  if (formatted) {
+    results.table$signif <- cut(results.table$p.value,breaks=c(-Inf,0.05,0.20,Inf),labels=c("****","*","-"))
+    numvars <- sapply(results.table,is.numeric)
+    results.table[,numvars] <- sapply(results.table[,numvars],function(x) formatC(x,format="f",digits=digits))
+    results.table <- plyr::adply(results.table,1,function(x) {
+      x$odds.ratio <- paste0(x$odds.ratio," (",x$lower.ci," - ",x$upper.ci,")")
+      return(x)
+    })
+    results.table <- subset(results.table,select=c(model,yvar,xvar,odds.ratio,p.value,signif))
+  }
+  return(results.table)
+}
+
+
+
+#' Univariate Logistic Regression
+#'
+#' Perform logistic regression analysis on a group of predictors, and optionally perform multivariate analysis on significant univariate predictors.
+#'
+#' @param yvar ...param1.description...xxx
+#' @param xvars ...param2.description...
+#' @param data data frame containing the data.
+#' @param firth Whether to apply Firth's penalized likelihood correction. Default is \code{FALSE}
+#' @param multi whether to contruct a multivariate model using univariate predictors. Default is \code{FALSE}
+#' @param multi.cutoff P-value cutoff at which a univariate predictor is included in the multivariate. Default is \code{0.2}.
+#' @param digits number of significant digits in results. Default is 3.
+#' @return A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
+#' @examples
+#' univariate.logistic("vs",c("mpg","cyl","disp","am","gear"),data=mtcars,multi=TRUE)
+#' @author Ying Taur
+#' @export
+univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cutoff=0.2,digits=3) {
+  # yvar="vs";xvars=c("mpg","cyl","disp","hp","drat","wt","qsec","am","gear","carb");data=mtcars;firth=F;multi=T;multi.cutoff=0.2;digits=3
+  # results.table <- data.frame()
+  # for (xvar in xvars) {
+  #   print(xvar)
+  #   results.table <- logistic(yvar,xvar,data=data,firth=firth,addto=results.table,digits=digits)
+  # }
+  results.table <- lapply(xvars,function(xvar) {
+    print(xvar)
+    logistic(yvar,xvar,data=data,firth=firth,digits=digits)
+  }) %>% bind_rows()
+
+  if (multi) {
+    multivars <- results.table$xvar[results.table$p.value<=multi.cutoff]
+    multivars <- unique(multivars)
+    multivars <- sapply(multivars,function(x) {
+      xvars[sapply(xvars,function(y) {
+        y==x | grepl(paste0("^",y),x) & sub(y,"",x) %in% as.character(unique(c(data[,y],levels(data[,y]))))
+      })]
+    })
+    print("multivariate model: ")
+    print(paste0(multivars,collapse=", "))
+    multi.table <- logistic(yvar,multivars,data=data,firth=firth,digits=digits)
+    names(multi.table) <- c("model","yvar","xvar","multi.odds.ratio","multi.p.value","multi.signif")
+    multi.table <- subset(multi.table,select=-model)
+    results.table <- subset(results.table,select=-model)
+    combined.table <- merge(results.table,multi.table,all.x=TRUE)
+    results.table <- combined.table[order(factor(combined.table$xvar,levels=results.table$xvar)),]
+    results.table <- data.frame(lapply(results.table,function(x) ifelse(is.na(x),"",as.character(x))))
+  }
+  return(results.table)
+}
+
+
+#' Determines if tstart-tstop occurs anywhere within interval.
+#' @export
+occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
+  message("YTNote: occurs.within() was renamed to overlaps()")
+  tstop>=start.interval & stop.interval>=tstart
+}
+
+
+
+
+
+#' All Grepl
+#'
+#' Equivalent to \code{all(grepl(...))}. Performs an initial screen of first 10000 values, to save time.
+#'
+#' This is used in \code{as.Date2} function to save time on pattern matching.
+#' @export
+all.grepl <- function(pattern, x, n.screen=10000, ... ) {
+  if (length(x) > n.screen) {
+    x.screen <- x[1:n.screen]
+    if (!all(grepl(pattern, x.screen, ... ))) {
+      return(FALSE)
+    }
+  }
+  all(grepl(pattern, x, ... ))
+}
+
+

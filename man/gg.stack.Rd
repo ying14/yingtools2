@@ -51,3 +51,11 @@ Performs these steps:
 (3) calls \code{grid.arrange(...,ncol=1)}
 If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
 }
+\examples{
+g1 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
+g2 <- ggplot(mtcars,aes(x=mpg,y=wt,fill=factor(cyl))) + geom_col() + scale_fill_discrete("Number of Cylinders")
+# grid.arrange does not align correctly, basically due to because of legend/axis differences
+gridExtra::grid.arrange(g1,g2,ncol=1)
+# gg.stack aligns correctly
+gg.stack(g1,g2)
+}

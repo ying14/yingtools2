@@ -21,6 +21,6 @@ Creates a regular expression to extract text in between two patterns. This utili
 }
 \examples{
 text <- c("start[target]end","start[target 2]end","start[target 3]")
-str_extract(text,middle.pattern("start",".+","end"))
-str_extract(text,middle.pattern("start",".+"))
+stringr::str_extract(text,middle.pattern("start",".+","end"))
+stringr::str_extract(text,middle.pattern("start",".+"))
 }

@@ -14,3 +14,6 @@ copy.as.tribble(tbl, spaces = 1)
 \description{
 Copy to clipboard as tribble
 }
+\examples{
+copy.as.tribble(head(mtcars)) \%>\% cat()
+}

@@ -39,15 +39,14 @@ other columns do not vary within each group. In other words, it tests if additio
 to the grouping definition and would not alter the grouping structure.
 This can be useful as a way to determine additional identifiers to include,
 when performing reshaping operations such as \code{group_by}/\code{summarize} or \code{pivot_wider}.
-
-* `test_if_nonvarying_by_group()` returns testing results in the form of a named logical vector.
-
-* `group_suggest_additional_vars()` prints out the testing results and copies nonvarying vars to clipboard.
+\itemize{
+\item \code{test_if_nonvarying_by_group()} returns testing results in the form of a named logical vector.
+\item \code{group_suggest_additional_vars()} prints out the testing results and copies nonvarying vars to clipboard.
 Use primarily as an aide during coding.
-
-* `assert_grouping_vars` performs testing and passes the original data frame if all tested
+\item \code{assert_grouping_vars} performs testing and passes the original data frame if all tested
 columns pass (are nonvarying across groups). If a column fails, a warning or error will be issued.
 Use this for error checking within pipelines.
+}
 }
 \examples{
 otu <- get.otu.melt(cid.phy)

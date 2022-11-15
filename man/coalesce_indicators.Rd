@@ -20,7 +20,9 @@ A vector of same length as the indicators, displaying variable names that were \
 After providing multiple indicator variables, summarize them by creating a character vector.
 }
 \examples{
-#####
+cid.patients \%>\%
+  mutate(antibiotics=coalesce_indicators(vanco_iv,betalactam,fluoroquinolone,metronidazole)) \%>\%
+  count(antibiotics,sort=TRUE)
 }
 \author{
 Ying Taur

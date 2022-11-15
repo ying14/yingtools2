@@ -11,9 +11,9 @@ sample_groups(grouped_df, size, weight = NULL, replace = FALSE)
 
 \item{size}{number of groups to sample}
 
-\item{weight}{sampling weights. Can be any expression that can be used in `summarize()` to calculate a valid weight.}
+\item{weight}{sampling weights. Can be any expression that can be used in \code{summarize()} to calculate a valid weight.}
 
-\item{replace}{sample with or without replacement? Default is `FALSE`}
+\item{replace}{sample with or without replacement? Default is \code{FALSE}}
 }
 \value{
 a subset of the original grouped data frame

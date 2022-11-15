@@ -21,3 +21,8 @@ A character vector of same length as the variables, displaying variable names pl
 \description{
 Summarize the value of several variables in a single character vector by concatenating variable name and values.
 }
+\examples{
+cid.patients \%>\%
+  mutate(demographics=coalesce_values(agebmt>60,sex,race)) \%>\%
+  count(demographics,sort=TRUE)
+}

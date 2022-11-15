@@ -28,9 +28,9 @@ This is similar to \code{deparse()}, except output looks a little bit more norma
 }
 \examples{
 x <- c("a","b","c")
-copy.as.Rcode(x)
+copy.as.Rcode(x) \%>\% cat()
 x <- tibble("a"=1:4,"_b"=c(T,F,T,F),"c c"=Sys.Date()+4:1,"d"=factor(LETTERS[1:4]))
-deparse2(x)
+deparse2(x) \%>\% cat()
 }
 \author{
 Ying Taur

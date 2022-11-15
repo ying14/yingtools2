@@ -21,6 +21,9 @@ Returns a data frame with tabulations.
 \description{
 Tabulates frequencies of vectors. By default, sorts by frequency.
 }
+\examples{
+tab(cid.patients$sex)
+}
 \author{
 Ying Taur
 }

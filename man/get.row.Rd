@@ -45,21 +45,20 @@ plot.meds <- function(data,title) {
 }
 pt.meds <- cid.meds \%>\% filter(Patient_ID=="157")
 
-g1 <- pt.meds \%>\%
+# strictly one row per med (no.row.overlap=FALSE and min.gap=Inf), arranged by class
+pt.meds \%>\%
   mutate(row=get.row(startday,endday,row=med.clean,by=med.class)) \%>\%
   plot.meds("strictly one row per med\n(no.row.overlap=FALSE and min.gap=Inf), arranged by class")
-
-g2 <- pt.meds \%>\%
+# same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)
+pt.meds \%>\%
   mutate(row=get.row(startday,endday,row=med.clean,by=med.class,no.row.overlap=TRUE)) \%>\%
   plot.meds("same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)")
-
-g3 <- pt.meds \%>\%
+# To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)
+pt.meds \%>\%
   mutate(row=get.row(startday,endday,row=med.clean,min.gap=1,by=med.class)) \%>\%
   plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
-
-g4 <- pt.meds \%>\%
+# Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)
+pt.meds \%>\%
   mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) \%>\%
   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)")
-
-gridExtra::grid.arrange(g1,g2,g3,g4)
 }

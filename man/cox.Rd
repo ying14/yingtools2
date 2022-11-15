@@ -39,6 +39,5 @@ by default, returns a formatted regression table
 Run a Cox (or Fine-Gray) regression.
 }
 \examples{
-library(yingtools2)
 cid.patients \%>\% cox(vre.bsi,enterodom30,starttime=firstsampday)
 }

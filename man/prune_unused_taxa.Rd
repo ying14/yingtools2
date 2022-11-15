@@ -14,4 +14,13 @@ a phyloseq object, with empty taxa removed.
 }
 \description{
 In a phyloseq object, remove any taxa that are not used in the samples.
+Consider using this after subsetting the samples.
+}
+\examples{
+library(phyloseq)
+physub <- cid.phy \%>\%
+  subset_samples(Patient_ID=="301")
+physub.clean <- prune_unused_taxa(physub)
+physub
+physub.clean
 }

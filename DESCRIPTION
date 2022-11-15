@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.113
+Version: 0.0.1.114
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -43,3 +43,4 @@ Suggests:
     phytools,
     ggtree
 RoxygenNote: 7.2.1
+Roxygen: list(markdown = TRUE)

@@ -22,6 +22,9 @@ returns \code{sdata}, with additional columns for abundance.
 Add abundance to sample data
 }
 \examples{
-get.samp(cid.phy) \%>\% add.abundance(pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria",phy=cid.phy)
-
+library(phyloseq)
+get.samp(cid.phy) \%>\%
+  add.abundance(pct.entero=Genus=="Enterococcus",
+                pct.proteo=Phylum=="Proteobacteria",
+                phy=cid.phy)
 }

@@ -21,3 +21,20 @@ whether or not at least one interval is overlapping.
 \description{
 For a given set of intervals, determine whether any interval is overlapping.
 }
+\examples{
+times1 <- tribble(
+  ~start, ~stop,
+  1,      2,
+  3,      4,
+  4,      6
+)
+any.overlap(times1$start,times1$stop)
+
+times2 <- tribble(
+  ~start, ~stop,
+  1,      2,
+  3,      5,
+  4,      6
+)
+any.overlap(times2$start,times2$stop)
+}
