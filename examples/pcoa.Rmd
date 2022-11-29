@@ -40,6 +40,9 @@ Also, prepare the sample data, which will contain metadata that I might want to 
 Note that you can calculate distance a variety of metrics, such as euclidean, Manhattan, unweighted/weighted Unifrac, etc. Also note that you can start with an OTU/ASV table if you wish, but you will need to use a 
 `phyloseq` object with a phylogenetic tree in order to calculate Unifrac.
 
+
+
+
 To perform PCoA:
 ```{r}
 s <- get.samp(cid.phy)

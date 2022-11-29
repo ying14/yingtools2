@@ -105,14 +105,15 @@ get.otu <- function(phy,as.matrix=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
 
   if (phyloseq::taxa_are_rows(phy)) {
-    otu <- phyloseq::otu_table(phy) %>% t() %>% as.matrix()
+    otu <- phyloseq::otu_table(phy) %>% as("matrix")
   } else {
-    otu <- phyloseq::otu_table(phy) %>% as.matrix()
+    otu <- phyloseq::otu_table(phy) %>% t() %>% as("matrix")
   }
   if (as.matrix) {
     return(otu)
   } else {
-    otu.df <- otu %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
+    # otu.df <- otu %>% data.frame(stringsAsFactors=FALSE,check.names = FALSE) %>% rownames_to_column("otu") %>% as_tibble()
+    otu.df <- otu %>% as_tibble(rownames="otu")
     return(otu.df)
   }
 }
@@ -127,7 +128,7 @@ get.otu <- function(phy,as.matrix=TRUE) {
 set.otu <- function(odata,taxa_are_rows=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
   if (is.data.frame(odata)) {
-    if (("otu" %in% colnames(odata))) {
+    if (!("otu" %in% colnames(odata))) {
       stop("YTError: got a data frame without 'otu' as a column!")
     }
     odata <- odata %>% column_to_rownames("otu") %>% as.matrix()
@@ -143,15 +144,18 @@ set.otu <- function(odata,taxa_are_rows=TRUE) {
 #' Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
 #' Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
 #' The \code{get.otu.melt} now works by performing operations via data table, making it about 30x faster than before.
+#'
 #' @param phy phyloseq object containing sample data
 #' @param filter.zero Logical, whether or not to remove zero abundances. Default \code{TRUE}.
+#' @param tax_data Logical, whether or not to join with \code{tax_data}. Default \code{TRUE}.
 #' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
+#'
 #' @return Data frame melted OTU data
 #' @export
 #' @examples
 #' library(phyloseq)
 #' get.otu.melt(cid.phy)
-get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
+get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   # supports "naked" otu_table as `phy` input.
   otutab = as(phyloseq::otu_table(phy), "matrix")
@@ -175,7 +179,7 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE) {
   }
   # Calculate relative abundance
   mdt[, pctseqs := numseqs / sum(numseqs), by = sample]
-  if(!is.null(phyloseq::tax_table(phy, errorIfNULL=FALSE))) {
+  if(tax_data & !is.null(phyloseq::tax_table(phy, errorIfNULL=FALSE))) {
     # If there is a tax_table, join with it. Otherwise, skip this join.
     taxdt = data.table::data.table(as(phyloseq::tax_table(phy, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
     data.table::setnames(taxdt, "rn", "otu")
@@ -353,6 +357,72 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 }
 
 
+#' Check if taxonomy levels are distinct.
+#'
+#' @param data tax data to be tested. Can be a phylsoeq, tax table (from `get.tax()`), or otu-melt table (from `get.otu.melt()`).
+#' @param taxranks character vector of tax levels to be tested.
+#'
+#' @return logical indicating whether or not taxonomy levels are distinct.
+#' @export
+#'
+#' @examples
+taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")) {
+  if (length(taxranks)<2) {
+    stop("YTError: taxranks should be at least length 2")
+  }
+  if (is(data,"phyloseq")) {
+    data <- get.tax(data)
+  }
+  data <- data %>% select(!!!syms(taxranks)) %>% distinct()
+
+  full.taxonomy <- map_dfr(1:length(taxranks),~{
+    lvl <- taxranks[.x]
+    all.lvl <- taxranks[1:.x]
+    data %>% select(!!!syms(all.lvl)) %>%
+      distinct() %>%
+      transmute(taxonomy=paste(!!!syms(all.lvl),sep="|"),
+                taxon=!!sym(lvl))
+  },.id="rank")
+  taxa.are.distinct <- anyDuplicated(full.taxonomy$taxon)==0
+  return(taxa.are.distinct)
+}
+
+
+#' Make taxonomy distinct
+#'
+#' Modifies the tax_table of phyloseq object such that each level is distinct.
+#' @param phy phyloseq object
+#'
+#' @return modified phyloseq object with corrected names.
+#' @export
+#'
+#' @examples
+make_taxonomy_distinct <- function(phy) {
+  tax <- get.tax(phy)
+  ranks <- rank_names(phy)
+  for (level in seq_along(ranks)[-1]) {
+    taxlevel <- ranks[level]
+    parentlevels <- ranks[1:level-1]
+    tax <- tax %>%
+      group_by(!!sym(taxlevel)) %>%
+      mutate(
+        parentlevels=paste(!!!syms(parentlevels),sep="|"),
+        parent.rank=dense_rank(parentlevels),
+        parents.ndistinct=max(parent.rank),
+        !!taxlevel:=ifelse(parents.ndistinct>1,
+                           paste0(!!sym(taxlevel)," #",parent.rank),
+                           !!sym(taxlevel))) %>%
+      select(-parentlevels,-parent.rank,-parents.ndistinct) %>%
+      mutate(!!taxlevel:=paste0(!!sym(taxlevel)," (",taxlevel,")"))
+  }
+  tax_table(phy) <- tax %>% set.tax()
+  return(phy)
+}
+
+
+
+
+
 #' Collapse Phyloseq Into Taxonomy
 #'
 #' In a phyloseq object, combine OTUs of the same taxonomic classification.
@@ -376,7 +446,8 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
   taxranks <- syms(taxranks)
   otudt <- as(phyloseq::otu_table(phy),"matrix") %>% data.table::data.table()
   taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% select(!!!taxranks)
-  indices_ <- taxdt %>% group_indices(!!!taxranks)
+  # indices_ <- taxdt %>% group_indices(!!!taxranks)
+  indices_ <- taxdt %>% group_by(!!!taxranks) %>% group_indices()
   new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
   new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
   otu.names <- data.table::data.table(otu=taxa_names(phy))
@@ -415,6 +486,401 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
 }
 
 
+
+
+
+
+
+phy.collapse.base <- function(otu,tax,taxranks,level,criteria) {
+  criteria <- enquo(criteria)
+  ntaxa.orig <- nrow(tax$otu)
+  nsamps <- n_distinct(otu$sample)
+  allranks <- c(taxranks,"strain")
+  tax <- tax %>% mutate(strain=otu) %>%
+    rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
+  # look at criteria, determine necessary calculations in make.tax
+  allcalcs <- rlang::exprs(n.detectable=sum(pctseqs>0),
+                           pct.detectable=n.detectable / nsamps,  # pct.detectable=mean(pctseqs>0),
+                           mean.pctseqs=sum(pctseqs) / nsamps,
+                           median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),  # median.pctseqs=median(pctseqs),
+                           max.pctseqs=max(pctseqs),
+                           min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),   # min.pctseqs=min(pctseqs),
+                           total.numseqs=sum(numseqs),
+                           max.numseqs=max(numseqs),
+                           min.numseqs=ifelse(nsamps==n(),min(numseqs),0),  # min.numseqs=min(numseqs),
+                           n.samps=nsamps,
+                           n.rows=nsamps)
+  # some calcs depend on other lines, determine the dependencies
+  depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
+  calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
+  # subset of allcalc that is needed
+  calcs <- allcalcs[names(allcalcs) %in% calcvars]
+
+  make.otu <- function(ss,tt,level) {
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    ss %>%
+      inner_join(tt,by=by1) %>%
+      group_by(!!!syms(by2),
+               sample) %>%
+      summarize(pctseqs=sum(pctseqs),
+                numseqs=sum(numseqs),
+                .groups="drop")
+  }
+  make.tax <- function(ss,level) {
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    collapse_var <- str_glue("collapse{level}")
+    rank <- length(allranks)+1-level
+    parent.groups <- by1[1:(rank-1)]
+    new.tax.var.exprs <- seq_along(by1) %>% setNames(by2) %>%
+      map(~{
+        if (.x<rank) {
+          expr(!!sym(by1[.x]))
+        } else if (.x==rank) {
+          parent <- rank-1
+          expr(ifelse(!!sym(collapse_var),
+                      paste("<miscellaneous>",!!sym(by1[parent])),
+                      !!sym(by1[.x])))
+        } else {
+          expr(ifelse(!!sym(collapse_var),
+                      NA_character_,
+                      !!sym(by1[.x])))
+        }
+      })
+    tt <- ss %>%
+      group_by(!!!syms(by1)) %>%
+      summarize(!!!calcs,
+                .groups="drop") %>%
+      mutate(!!sym(collapse_var):=!!criteria,
+             !!!new.tax.var.exprs) %>%
+      group_by(!!!syms(parent.groups)) %>%
+      mutate(n.collapse=sum(!!sym(collapse_var)),
+             nrows=n()) %>%
+      ungroup() %>%
+      mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1,
+             !!!new.tax.var.exprs) %>%
+      select(!!sym(collapse_var),
+             !!!syms(by1),!!!syms(by2))
+    return(tt)
+  }
+  # each iteration checks criteria and collapses one level
+  ss <- tax %>% inner_join(otu,by="otu")
+  taxmap.raw <- tax
+  for (i in 1:level) {
+    # message(i)
+    tt <- make.tax(ss,i)
+    ss <- make.otu(ss,tt,i)
+    byvar <- paste(allranks,i,sep="_")
+    taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
+  }
+
+  by.tax <- paste(allranks,i+1,sep="_") %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
+  taxmap <- taxmap.raw %>% transmute(otu,!!!by.tax)
+  # coll_vars <- paste0("collapse",1:level) %>% rev()
+  # xx=taxmap %>% mutate(asdf=coalesce_indicators(!!!syms(coll_vars),else.value="other",first.hit.only=TRUE))
+  new.tax.otu <- otu %>%
+    left_join(taxmap,by="otu") %>%
+    group_by(sample,!!!syms(allranks)) %>%
+    summarize(numseqs=sum(numseqs),
+              pctseqs=sum(pctseqs),
+              .groups="drop") %>%
+    mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
+  if (fillin.levels) {
+    for (i in seq_along(taxranks)[-1]) {
+      var <- taxranks[i]
+      allvars <- taxranks[i:1]
+      new.tax.otu <- new.tax.otu %>%
+        mutate(!!sym(var):=coalesce(!!!syms(allvars)))
+    }
+  }
+  new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks)) %>% unique()
+  new.otu <- new.tax.otu %>% select(otu,sample,numseqs,pctseqs)
+  ntaxa.final <- nrow(new.tax)
+  message(str_glue("Collapsed taxa, {ntaxa.orig} to {ntaxa.final}"))
+  list(tax=new.tax,otu=new.otu)
+}
+
+
+
+#' @rdname phy.collapse.bins
+#' @export
+phy.collapse.bins <- function(x,...) UseMethod("phy.collapse.bins")
+
+
+#' Collapse phyloseq or otu.melt data into smaller tax bins
+#'
+#' Collapse phyloseq object into smaller bins, using specified criteria based on the data.
+#'
+#' These variables are available for criteria, for each taxon:
+#'
+#'   * `n.detectable` number of samples where taxa abundance is above 0.
+#'
+#'   * `pct.detectable` percent of samples where taxa abundance is above 0.
+#'
+#'   * `mean.pctseqs` mean relative abundance for a taxon.
+#'
+#'   * `median.pctseqs` median relative abundance for a taxon.
+#'
+#'   * `max.pctseqs` highest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `min.pctseqs` lowest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `total.numseqs` total number of sequences for a taxon (across all samples)
+#'
+#'   * `max.numseqs` highest number of sequences for a taxon (across all samples)
+#'
+#'   * `min.numseqs` lowest number of sequences for a taxon (across all samples)
+#'
+#'   * `n.samps` total number of samples (regardless of abundance)
+#'
+#'   * `n.rows`  total number of rows for a taxon
+#'
+#' @param phy phyloseq object to be collapsed
+#' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, level=4 means collapse at otu, Species, Genus, Family.
+#' @param fillin.levels Whether or not to fill in `NA` values with the collapsed taxa name. Default is `FALSE`.
+#' @param criteria an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)
+#'
+#' @return collapsed phyloseq object
+#'
+#' @examples
+#' phy.binned <- phy.collapse.bins(cid.phy)
+#' phy.binned2 <- phy.collapse.bins(cid.phy, level=5,
+#'                                  criteria=mean.pctseqs<0.001 & n.detectable<=2)
+#' @rdname phy.collapse.bins
+#' @export
+phy.collapse.bins.phyloseq <- function(phy,
+                                       level=length(rank_names(phy)),
+                                       fillin.levels=FALSE,
+                                       criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
+  # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=TRUE
+  criteria <- enquo(criteria)
+  phy <- suppressMessages(prune_unused_taxa(phy))
+  taxranks <- rank_names(phy)
+  otu <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE)
+  tax <- get.tax(phy)
+  objset <- phy.collapse.base(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria)
+  new.tax <- objset$tax
+  new.otu <- objset$otu %>%
+    pivot_wider(id_cols=otu,
+                names_from=sample,
+                values_from=numseqs,
+                values_fn = sum,
+                values_fill=0)
+  new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
+  return(new.phy)
+}
+
+
+#' @param data data frame, formatted as `get.otu.melt`. Must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`
+#' @param taxranks character vector of taxonomic ranks.
+#' @param sample_vars vars that belong to sample data.
+#'
+#' @rdname phy.collapse.bins
+#' @examples
+#' otu <- get.otu.melt(cid.phy)
+#' otu.bin <- phy.collapse.bins(otu,taxranks=c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "taxon"))
+#' @export
+phy.collapse.bins.data.frame <- function(data,
+                                         taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                                         level=length(taxranks),
+                                         fillin.levels=FALSE,
+                                         criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
+                                         sample_vars=NULL) {
+
+
+  # data <- get.otu.melt(cid.phy);taxranks <- rank_names(cid.phy);level=4;fillin.levels=FALSE;criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005);sample_vars=NULL
+  criteria <- enquo(criteria)
+  rows.are.distinct <- is.distinct(data,otu,sample)
+  if (!rows.are.distinct) {
+    stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
+  }
+  needvars <- c("otu","sample","numseqs","pctseqs",taxranks)
+  if (!all(needvars %in% names(data))) {
+    stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
+  }
+  tax <- data %>% select(otu,!!!syms(taxranks)) %>% unique()
+  sample_vars <- setdiff(sample_vars,"sample")
+  if (is.null(sample_vars)) {
+    message("Attempting to determine sample vars...\n")
+  }
+  samp <- data %>% select(sample,!!!syms(sample_vars)) %>% unique()
+  otu <- data %>% select(otu,sample,numseqs,pctseqs)
+  # phy.collapse()
+  objset <- phy.collapse.base(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria)
+  new.data <- objset$otu %>%
+    left_join(objset$tax,by="otu") %>%
+    left_join(samp,by="sample")
+  return(new.data)
+
+}
+
+
+
+
+#' Collapse phyloseq into smaller bins
+#'
+#' Collapse phyloseq object into smaller bins, using specified criteria based on the data.
+#'
+#' These variables are available for criteria, for each taxon:
+#'
+#'   * `n.detectable` number of samples where taxa abundance is above 0.
+#'
+#'   * `pct.detectable` percent of samples where taxa abundance is above 0.
+#'
+#'   * `mean.pctseqs` mean relative abundance for a taxon.
+#'
+#'   * `median.pctseqs` median relative abundance for a taxon.
+#'
+#'   * `max.pctseqs` highest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `min.pctseqs` lowest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `total.numseqs` total number of sequences for a taxon (across all samples)
+#'
+#'   * `max.numseqs` highest number of sequences for a taxon (across all samples)
+#'
+#'   * `min.numseqs` lowest number of sequences for a taxon (across all samples)
+#'
+#'   * `n.samps` total number of samples (regardless of abundance)
+#'
+#'   * `n.rows`  total number of rows for a taxon
+#'
+#' @param phy phyloseq object to be collapsed
+#' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, level=4 means collapse at otu, Species, Genus, Family.
+#' @param fillin.levels Whether or not to fill in `NA` values with the collapsed taxa name. Default is `FALSE`.
+#' @param criteria an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)
+#'
+#' @return collapsed phyloseq object
+#' @export
+#'
+#' @examples
+#' phy.binned <- phy.collapse.bins(cid.phy)
+#' phy.binned2 <- phy.collapse.bins(cid.phy, level=5,
+#'                                  criteria=mean.pctseqs<0.001 & n.detectable<=2)
+phy.collapse.bins.old <- function(phy,
+                              level=length(rank_names(phy)),
+                              fillin.levels=FALSE,
+                              criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
+  # criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=TRUE
+  criteria <- enquo(criteria)
+  ntaxa.orig <- ntaxa(phy)
+  phy <- suppressMessages(prune_unused_taxa(phy))
+  nsamps <- nsamples(phy)
+  taxranks <- rank_names(phy)
+  allranks <- c(taxranks,"strain")
+  # look at criteria, determine necessary calculations in make.tax
+  allcalcs <- rlang::exprs(n.detectable=sum(pctseqs>0),
+                           pct.detectable=n.detectable / nsamps,  # pct.detectable=mean(pctseqs>0),
+                           mean.pctseqs=sum(pctseqs) / nsamps,
+                           median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),  # median.pctseqs=median(pctseqs),
+                           max.pctseqs=max(pctseqs),
+                           min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),   # min.pctseqs=min(pctseqs),
+                           total.numseqs=sum(numseqs),
+                           max.numseqs=max(numseqs),
+                           min.numseqs=ifelse(nsamps==n(),min(numseqs),0),  # min.numseqs=min(numseqs),
+                           n.samps=nsamps,
+                           n.rows=nsamps)
+  # some calcs depend on other lines, determine the dependencies
+  depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
+  calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
+  # subset of allcalc that is needed
+  calcs <- allcalcs[names(allcalcs) %in% calcvars]
+
+  make.otu <- function(ss,tt,level) {
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    ss %>%
+      inner_join(tt,by=by1) %>%
+      group_by(!!!syms(by2),
+               sample) %>%
+      summarize(pctseqs=sum(pctseqs),
+                numseqs=sum(numseqs),
+                .groups="drop")
+  }
+  make.tax <- function(ss,level) {
+    # level=1
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    collapse_var <- str_glue("collapse{level}")
+    rank <- length(allranks)+1-level
+    parent.groups <- by1[1:(rank-1)]
+    new.tax.var.exprs <- seq_along(by1) %>% setNames(by2) %>%
+      map(~{
+        if (.x<rank) {
+          expr(!!sym(by1[.x]))
+        } else if (.x==rank) {
+          parent <- rank-1
+          expr(ifelse(!!sym(collapse_var),
+                      paste("<miscellaneous>",!!sym(by1[parent])),
+                      !!sym(by1[.x])))
+        } else {
+          expr(ifelse(!!sym(collapse_var),
+                      NA_character_,
+                      !!sym(by1[.x])))
+        }
+      })
+    tt <- ss %>%
+      group_by(!!!syms(by1)) %>%
+      summarize(!!!calcs,
+                .groups="drop") %>%
+      mutate(!!sym(collapse_var):=!!criteria,
+             !!!new.tax.var.exprs) %>%
+      group_by(!!!syms(parent.groups)) %>%
+      mutate(n.collapse=sum(!!sym(collapse_var)),
+             nrows=n()) %>%
+      ungroup() %>%
+      mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1,
+             !!!new.tax.var.exprs) %>%
+      # filter(!!sym(collapse_var)) %>%
+      select(!!sym(collapse_var),
+             !!!syms(by1),!!!syms(by2))
+    return(tt)
+  }
+  otu <- get.otu.melt(phy,sample_data=FALSE,tax_data = FALSE)
+  tax <- get.tax(phy) %>% mutate(strain=otu) %>%
+    rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
+  # each iteration checks criteria and collapses one level
+  ss <- tax %>% inner_join(otu,by="otu")
+  taxmap.raw <- tax
+  for (i in 1:level) {
+    tt <- make.tax(ss,i)
+    ss <- make.otu(ss,tt,i)
+    byvar <- paste(allranks,i,sep="_")
+    taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
+  }
+  by.tax <- paste(allranks,i+1,sep="_") %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
+  taxmap <- taxmap.raw %>% mutate(otu,!!!by.tax)
+  # coll_vars <- paste0("collapse",1:level) %>% rev()
+  # xx=taxmap %>% mutate(asdf=coalesce_indicators(!!!syms(coll_vars),else.value="other",first.hit.only=TRUE))
+  new.tax.otu <- otu %>%
+    left_join(taxmap,by="otu") %>%
+    pivot_wider(id_cols=c(!!!syms(allranks)),
+                names_from=sample,
+                values_from=numseqs,
+                values_fn = sum,
+                values_fill=0) %>%
+    mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
+
+  if (fillin.levels) {
+    for (i in seq_along(taxranks)[-1]) {
+      var <- taxranks[i]
+      allvars <- taxranks[i:1]
+      new.tax.otu <- new.tax.otu %>%
+        mutate(!!sym(var):=coalesce(!!!syms(allvars)))
+    }
+  }
+  new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks))
+  new.otu <- new.tax.otu %>% select(otu,!!!syms(sample_names(phy)))
+  new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
+  ntaxa.final <- ntaxa(new.phy)
+  message(str_glue("Collapsed taxa, {ntaxa.orig} to {ntaxa.final}"))
+  return(new.phy)
+}
+
+
+
+
 #' Prune Unused Taxa from a phyloseq object
 #'
 #' In a phyloseq object, remove any taxa that are not used in the samples.
@@ -429,10 +895,12 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
 #' physub.clean <- prune_unused_taxa(physub)
 #' physub
 #' physub.clean
-prune_unused_taxa <- function(phy) {
+prune_unused_taxa <- function(phy,verbose=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
   keep <- taxa_sums(phy)>0
-  message(str_glue("Prune unused taxa: {length(keep)} to {sum(keep)} taxa"))
+  if (verbose) {
+    message(str_glue("Prune unused taxa: {length(keep)} to {sum(keep)} taxa"))
+  }
   prune_taxa(keep,phy)
 }
 
@@ -456,6 +924,7 @@ prune_unused_taxa <- function(phy) {
 #' @author Ying Taur
 #' @export
 get.yt.palette <- function(tax,use.cid.colors=TRUE) {
+  requireNamespace("phyloseq",quietly=TRUE)
   if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
     tax <- get.tax(tax.obj)
   }
@@ -494,6 +963,21 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
 }
 
 
+#; YT Palette 2
+#' @export
+yt.palette2 <- exprs(
+  "Bacteroidetes (phylum)" = Phylum=="Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
+  "Lachnospiraceae (family)" = Family=="Lachnospiraceae" ~ shades("#EC9B96", variation = 0.25),
+  "Ruminococcaceae (family)"  = Family=="Ruminococcaceae" ~ shades("#9AAE73", variation = 0.25),
+  "Clostridiales (order)" = Order=="Clostridiales" ~ shades("#9C854E", variation = 0.25),
+  "Actinobacteria (phylum)" = Phylum=="Actinobacteria" ~ shades("#A77097", variation = 0.25),
+  "Enterococcus (genus)" = Genus=="Enterococcus" ~ "#129246",
+  "Streptococcus (genus)" = Genus=="Streptococcus" ~ "#9FB846",
+  "Staphylococcus (genus)"  = Genus=="Staphylococcus" ~ "#f1eb25",
+  "Lactobacillus (genus)" = Genus=="Lactobacillus" ~ "#3b51a3",
+  "Proteobacteria (phylum)" = Phylum=="Proteobacteria" ~ shades("red", variation = 0.4),
+  "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
+)
 
 #' Get YT Palette 2
 #' @param tax either a data.frame, phyloseq, or tax_table
@@ -502,9 +986,74 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
 #' @examples
 #' @author Ying Taur
 #' @export
-get.yt.palette2 <- function (tax) {
-  if (class(tax)[1] %in% c("phyloseq", "taxonomyTable")) {
-    tax <- get.tax(tax.obj)
+get.yt.palette2 <- function(tax,tax.palette=yt.palette2) {
+  requireNamespace(c("phyloseq","formula.tools"),quietly=TRUE)
+
+  if (!(is.list(tax.palette) && all(map_lgl(tax.palette,is_formula)))) {
+    stop("YTError: tax.palette needs to be a list of formulas!")
+  }
+  if (is(tax,"phyloseq") | is(tax,"taxonomyTable")) {
+    tax <- get.tax(tax)
+  }
+  ranks <- c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  if (!all(ranks %in% names(tax))) {
+    missing.vars <- setdiff(ranks,names(tax))
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species; missing: ",paste(missing.vars,collapse=","))
+  }
+  t.species <- tax %>% select(!!!syms(ranks)) %>% distinct()
+
+  color.list <- map(tax.palette,function(exp) {
+    colors <- formula.tools::rhs(exp) %>% eval_tidy()
+    criteria <- formula.tools::lhs(exp)
+    # message(criteria)
+    color.yes.no <- t.species %>% mutate(criteria=!!criteria) %>% pull(criteria)
+    x.color <- character()
+    x.color[color.yes.no] <- rep(colors,length.out=sum(color.yes.no))
+    return(x.color)
+  }) %>% do.call(coalesce,.)
+  t.species$color <- color.list
+  pal <- setNames(t.species$color,t.species$Species)
+  return(pal)
+}
+
+
+
+#' Make tax legend
+#'
+#' @param tax.palette a list of formulas specifying the palette. Default is \code{yt.palette2}.
+#' @param fontsize Font size. Default is 5.
+#' @return a ggplot object showing the legend.
+#' @export
+#' @examples
+make.tax.legend <- function(tax.palette=yt.palette2,fontsize=5) {
+  requireNamespace("formula.tools",quietly=TRUE)
+  glist <- imap(tax.palette,function(exp,label) {
+    colors <- formula.tools::rhs(exp) %>% rlang::eval_tidy()
+    criteria <- formula.tools::lhs(exp)
+    d <- tibble(color=colors)
+    divs <- seq(0,1,length.out=nrow(d)+1)
+    d$xmin <- divs[-length(divs)]
+    d$xmax <- divs[-1]
+    ggplot() + expand_limits(x=-2) +
+      geom_rect(data=d,aes(xmin=xmin,xmax=xmax,ymin=-0.5,ymax=0.5,fill=color)) +
+      annotate("text",x=0,y=0,label=label,hjust=1,size=fontsize) +
+      scale_fill_identity() + theme_void()
+  })
+  rlang::inject(gridExtra::arrangeGrob(!!!glist,ncol=1))
+}
+
+
+#' Get YT Palette 2
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
+#' @author Ying Taur
+#' @export
+get.yt.palette2_OLD <- function (tax) {
+  requireNamespace("phyloseq",quietly=TRUE)
+  if (is(tax,"phyloseq") | is(tax,"taxonomyTable")) {
+    tax <- get.tax(tax)
   }
   ranks <- c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
   if (!all(ranks %in% names(tax))) {
@@ -531,6 +1080,8 @@ get.yt.palette2 <- function (tax) {
   tax.palette <- structure(tax.dict$color, names = as.character(tax.dict$Species))
   tax.palette
 }
+
+
 
 #' Plot tax
 #'

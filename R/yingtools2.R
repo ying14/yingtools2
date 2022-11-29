@@ -458,13 +458,12 @@ compare.data.frame <- function(x,y,by=NULL) {
   }) %>% set_names(overlap.vars) %>%
     do.call(paste2,.)
   all$.diffs <- diffs
+
   message(str_glue("{x.name}(x): {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
   message(str_glue("{y.name}(y): {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
   all %>% count(.status,.diffs) %>% print()
   invisible(all)
 }
-
-
 
 
 
@@ -838,16 +837,31 @@ regex.widget <- function(vec,port=4567) {
 #' @export
 coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
   vars <- enquos(..., .named=TRUE)
+  # text <- vars %>% map(eval_tidy) %>%
+  #   imap(function(value,lbl) {
+  #     keep <- !is.na(value) & value
+  #     if_else(keep,lbl,NA_character_)
+  #   }) %>% transpose() %>%
+  #   simplify_all() %>%
+  #   map_chr(~paste2(.x,collapse="|"))
   text <- vars %>% map(eval_tidy) %>%
     imap(function(value,lbl) {
       keep <- !is.na(value) & value
       if_else(keep,lbl,NA_character_)
     }) %>% transpose() %>%
     simplify_all() %>%
-    map_chr(~paste2(.x,collapse="|"))
+    map_chr(~{
+      .x <- .x[!is.na(.x)]
+      if (first.hit.only) {
+        .x <- .x[1]
+      }
+      paste2(.x,collapse="|")
+    })
   text[is.na(text)] <- else.value
   return(text)
 }
+
+
 
 
 
@@ -2253,6 +2267,7 @@ read.clipboard <- function(...) {
 #'
 #' dtime <- as.difftime(x,units="secs")
 #' pretty_number(dtime)
+#' @rdname pretty_number
 #' @export
 pretty_number <- function(x,...) UseMethod("pretty_number")
 #' @rdname pretty_number

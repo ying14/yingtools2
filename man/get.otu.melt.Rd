@@ -4,7 +4,7 @@
 \alias{get.otu.melt}
 \title{Convert Phyloseq to Melted OTU x Sample Data}
 \usage{
-get.otu.melt(phy, filter.zero = TRUE, sample_data = TRUE)
+get.otu.melt(phy, filter.zero = TRUE, sample_data = TRUE, tax_data = TRUE)
 }
 \arguments{
 \item{phy}{phyloseq object containing sample data}
@@ -12,6 +12,8 @@ get.otu.melt(phy, filter.zero = TRUE, sample_data = TRUE)
 \item{filter.zero}{Logical, whether or not to remove zero abundances. Default \code{TRUE}.}
 
 \item{sample_data}{Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.}
+
+\item{tax_data}{Logical, whether or not to join with \code{tax_data}. Default \code{TRUE}.}
 }
 \value{
 Data frame melted OTU data
