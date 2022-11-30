@@ -5,6 +5,262 @@
 
 
 
+#' Get YT Palette
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
+#' @author Ying Taur
+#' @export
+get.yt.palette <- function(tax,use.cid.colors=TRUE) {
+  requireNamespace("phyloseq",quietly=TRUE)
+  message("YTNote: get.yt.palette() and get.yt.palette2 are deprecated. Try using get.tax.palette().")
+
+  if (class(tax)[1] %in% c("phyloseq","taxonomyTable")) {
+    tax <- get.tax(tax.obj)
+  }
+  ranks <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
+  if (!all(ranks %in% names(tax))) {
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species")
+  }
+  tax.dict <- tax[,ranks] %>% distinct()
+  #bacteria are shades of gray by default
+  tax.dict$color <- rep(shades("gray"),length.out=nrow(tax.dict))
+  #proteobacteria: red
+  proteo <- tax.dict$Phylum=="Proteobacteria"
+  tax.dict$color[proteo] <- rep(shades("red",variation=0.4),length.out=sum(proteo))
+  #bacteroidetes: cyan
+  bacteroidetes <- tax.dict$Phylum=="Bacteroidetes"
+  tax.dict$color[bacteroidetes] <- rep(shades("#2dbfc2",variation=0.4),length.out=sum(bacteroidetes))
+  #actinobacteria: purple
+  actino <- tax.dict$Phylum=="Actinobacteria"
+  tax.dict$color[actino] <- rep(shades("purple",variation=0.4),length.out=sum(actino))
+  #firmicutes:
+  firm <- tax.dict$Phylum=="Firmicutes"
+  tax.dict$color[firm] <- rep(shades("#8f7536",variation=0.3),length.out=sum(firm))
+  #within firmicutes, color bacilli
+  bacilli <- tax.dict$Class=="Bacilli"
+  tax.dict$color[bacilli] <- rep(shades("#3b51a3",variation=0.2),length.out=sum(bacilli))
+  #within firmicutes, color blautia
+  blautia <- tax.dict$Genus=="Blautia"
+  tax.dict$color[blautia] <- rep(shades("#f69ea0",variation=0.2),length.out=sum(blautia))
+  if (use.cid.colors) {
+    cid.colors.new <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Staphylococcus"="#f1eb25")
+    cid <- cid.colors.new[match(tax.dict$Genus,names(cid.colors.new))]
+    tax.dict$color <- ifelse(is.na(cid),tax.dict$color,cid)
+  }
+  tax.palette <- structure(tax.dict$color,names=as.character(tax.dict$Species))
+  tax.palette
+}
+
+
+
+
+#' Get YT Palette 2
+#' @param tax either a data.frame, phyloseq, or tax_table
+#' @param use.cid.colors whether to use classic CID colors
+#' @return a color palette that can be used in \code{ggplot2}
+#' @examples
+#' @author Ying Taur
+#' @export
+get.yt.palette2 <- function (tax) {
+  requireNamespace("phyloseq",quietly=TRUE)
+  message("YTNote: get.yt.palette() and get.yt.palette2 are deprecated. Try using get.tax.palette().")
+
+  if (is(tax,"phyloseq") | is(tax,"taxonomyTable")) {
+    tax <- get.tax(tax)
+  }
+  ranks <- c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
+  if (!all(ranks %in% names(tax))) {
+    missing.vars <- setdiff(ranks,names(tax))
+    stop("YTError: need to have taxon levels: Superkingdom, Phylum, Class, Order, Family, Genus, Species; missing: ",paste(missing.vars,collapse=","))
+  }
+  tax.dict <- tax[, ranks] %>% distinct()
+  tax.dict$color <- rep(shades("gray", variation=0.25),length.out = nrow(tax.dict))
+  proteo <- tax.dict$Phylum == "Proteobacteria"
+  tax.dict$color[proteo] <- rep(shades("red", variation = 0.4), length.out = sum(proteo))
+  actino <- tax.dict$Phylum == "Actinobacteria"
+  tax.dict$color[actino] <- rep(shades("#A77097", variation = 0.25), length.out = sum(actino))
+  bacteroidetes <- tax.dict$Phylum == "Bacteroidetes"
+  tax.dict$color[bacteroidetes] <- rep(shades("#51AB9B", variation = 0.25), length.out = sum(bacteroidetes))
+  clost <- tax.dict$Order == "Clostridiales"
+  tax.dict$color[clost] <- rep(shades("#9C854E", variation = 0.25), length.out = sum(clost))
+  lachno <- tax.dict$Family == "Lachnospiraceae"
+  tax.dict$color[lachno] <- rep(shades("#EC9B96", variation = 0.25), length.out = sum(lachno))
+  rumino <- tax.dict$Family == "Ruminococcaceae"
+  tax.dict$color[rumino] <- rep(shades("#9AAE73", variation = 0.25), length.out = sum(rumino))
+  cid.colors.new <- c(Enterococcus = "#129246", Streptococcus = "#9FB846", Staphylococcus = "#f1eb25" , Lactobacillus="#3b51a3")
+  cid <- cid.colors.new[match(tax.dict$Genus, names(cid.colors.new))]
+  tax.dict$color <- ifelse(is.na(cid), tax.dict$color, cid)
+  tax.palette <- structure(tax.dict$color, names = as.character(tax.dict$Species))
+  tax.palette
+}
+
+
+
+
+#' Collapse phyloseq into smaller bins
+#'
+#' Collapse phyloseq object into smaller bins, using specified criteria based on the data.
+#'
+#' These variables are available for criteria, for each taxon:
+#'
+#'   * `n.detectable` number of samples where taxa abundance is above 0.
+#'
+#'   * `pct.detectable` percent of samples where taxa abundance is above 0.
+#'
+#'   * `mean.pctseqs` mean relative abundance for a taxon.
+#'
+#'   * `median.pctseqs` median relative abundance for a taxon.
+#'
+#'   * `max.pctseqs` highest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `min.pctseqs` lowest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `total.numseqs` total number of sequences for a taxon (across all samples)
+#'
+#'   * `max.numseqs` highest number of sequences for a taxon (across all samples)
+#'
+#'   * `min.numseqs` lowest number of sequences for a taxon (across all samples)
+#'
+#'   * `n.samps` total number of samples (regardless of abundance)
+#'
+#'   * `n.rows`  total number of rows for a taxon
+#'
+#' @param phy phyloseq object to be collapsed
+#' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, level=4 means collapse at otu, Species, Genus, Family.
+#' @param fillin.levels Whether or not to fill in `NA` values with the collapsed taxa name. Default is `FALSE`.
+#' @param criteria an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)
+#'
+#' @return collapsed phyloseq object
+#' @export
+#'
+#' @examples
+#' phy.binned <- phy.collapse.bins(cid.phy)
+#' phy.binned2 <- phy.collapse.bins(cid.phy, level=5,
+#'                                  criteria=mean.pctseqs<0.001 & n.detectable<=2)
+phy.collapse.bins.old <- function(phy,
+                                  level=length(rank_names(phy)),
+                                  fillin.levels=FALSE,
+                                  criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
+  # criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=TRUE
+  criteria <- enquo(criteria)
+  ntaxa.orig <- ntaxa(phy)
+  phy <- suppressMessages(prune_unused_taxa(phy))
+  nsamps <- nsamples(phy)
+  taxranks <- rank_names(phy)
+  allranks <- c(taxranks,"strain")
+  # look at criteria, determine necessary calculations in make.tax
+  allcalcs <- rlang::exprs(n.detectable=sum(pctseqs>0),
+                           pct.detectable=n.detectable / nsamps,  # pct.detectable=mean(pctseqs>0),
+                           mean.pctseqs=sum(pctseqs) / nsamps,
+                           median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),  # median.pctseqs=median(pctseqs),
+                           max.pctseqs=max(pctseqs),
+                           min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),   # min.pctseqs=min(pctseqs),
+                           total.numseqs=sum(numseqs),
+                           max.numseqs=max(numseqs),
+                           min.numseqs=ifelse(nsamps==n(),min(numseqs),0),  # min.numseqs=min(numseqs),
+                           n.samps=nsamps,
+                           n.rows=nsamps)
+  # some calcs depend on other lines, determine the dependencies
+  depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
+  calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
+  # subset of allcalc that is needed
+  calcs <- allcalcs[names(allcalcs) %in% calcvars]
+
+  make.otu <- function(ss,tt,level) {
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    ss %>%
+      inner_join(tt,by=by1) %>%
+      group_by(!!!syms(by2),
+               sample) %>%
+      summarize(pctseqs=sum(pctseqs),
+                numseqs=sum(numseqs),
+                .groups="drop")
+  }
+  make.tax <- function(ss,level) {
+    # level=1
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    collapse_var <- str_glue("collapse{level}")
+    rank <- length(allranks)+1-level
+    parent.groups <- by1[1:(rank-1)]
+    new.tax.var.exprs <- seq_along(by1) %>% setNames(by2) %>%
+      map(~{
+        if (.x<rank) {
+          expr(!!sym(by1[.x]))
+        } else if (.x==rank) {
+          parent <- rank-1
+          expr(ifelse(!!sym(collapse_var),
+                      paste("<miscellaneous>",!!sym(by1[parent])),
+                      !!sym(by1[.x])))
+        } else {
+          expr(ifelse(!!sym(collapse_var),
+                      NA_character_,
+                      !!sym(by1[.x])))
+        }
+      })
+    tt <- ss %>%
+      group_by(!!!syms(by1)) %>%
+      summarize(!!!calcs,
+                .groups="drop") %>%
+      mutate(!!sym(collapse_var):=!!criteria,
+             !!!new.tax.var.exprs) %>%
+      group_by(!!!syms(parent.groups)) %>%
+      mutate(n.collapse=sum(!!sym(collapse_var)),
+             nrows=n()) %>%
+      ungroup() %>%
+      mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1,
+             !!!new.tax.var.exprs) %>%
+      # filter(!!sym(collapse_var)) %>%
+      select(!!sym(collapse_var),
+             !!!syms(by1),!!!syms(by2))
+    return(tt)
+  }
+  otu <- get.otu.melt(phy,sample_data=FALSE,tax_data = FALSE)
+  tax <- get.tax(phy) %>% mutate(strain=otu) %>%
+    rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
+  # each iteration checks criteria and collapses one level
+  ss <- tax %>% inner_join(otu,by="otu")
+  taxmap.raw <- tax
+  for (i in 1:level) {
+    tt <- make.tax(ss,i)
+    ss <- make.otu(ss,tt,i)
+    byvar <- paste(allranks,i,sep="_")
+    taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
+  }
+  by.tax <- paste(allranks,i+1,sep="_") %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
+  taxmap <- taxmap.raw %>% mutate(otu,!!!by.tax)
+  # coll_vars <- paste0("collapse",1:level) %>% rev()
+  # xx=taxmap %>% mutate(asdf=coalesce_indicators(!!!syms(coll_vars),else.value="other",first.hit.only=TRUE))
+  new.tax.otu <- otu %>%
+    left_join(taxmap,by="otu") %>%
+    pivot_wider(id_cols=c(!!!syms(allranks)),
+                names_from=sample,
+                values_from=numseqs,
+                values_fn = sum,
+                values_fill=0) %>%
+    mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
+
+  if (fillin.levels) {
+    for (i in seq_along(taxranks)[-1]) {
+      var <- taxranks[i]
+      allvars <- taxranks[i:1]
+      new.tax.otu <- new.tax.otu %>%
+        mutate(!!sym(var):=coalesce(!!!syms(allvars)))
+    }
+  }
+  new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks))
+  new.otu <- new.tax.otu %>% select(otu,!!!syms(sample_names(phy)))
+  new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
+  ntaxa.final <- ntaxa(new.phy)
+  message(str_glue("Collapsed taxa, {ntaxa.orig} to {ntaxa.final}"))
+  return(new.phy)
+}
+
+
+
 #' Read OTU table from text file
 #'
 #' Used for uparse pipeline to read in otu table.
