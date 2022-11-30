@@ -685,6 +685,8 @@ phy.collapse.bins.phyloseq <- function(phy,
 #' @param data data frame, formatted as `get.otu.melt`. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
 #' @param taxranks character vector of taxonomic ranks in `data`.
 #' @param sample_vars character vector of column names in `data` that convey sample-level information. These will be retained as such after binning.
+#' @param sample_id name of sample column identifier. Default is "sample".
+#' @param taxa_id name of taxon column identifier. Default is "otu".
 #' @rdname phy.collapse.bins
 #' @examples
 #' #  You can also enter the data in long form (rows=sample*taxa, such as that produced by get.otu.melt).
@@ -701,19 +703,24 @@ phy.collapse.bins.data.frame <- function(data,
                                          taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
                                          level=length(taxranks),
                                          fillin.levels=FALSE,
+                                         sample_id="sample",
+                                         taxa_id="otu",
                                          criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
                                          sample_vars=NULL) {
 
+
   # data <- get.otu.melt(cid.phy);taxranks <- rank_names(cid.phy);level=4;fillin.levels=FALSE;criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005);sample_vars=NULL
   criteria <- enquo(criteria)
+  needvars <- c(taxa_id,sample_id,"numseqs","pctseqs",taxranks)
+  if (!all(needvars %in% names(data))) {
+    stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
+  }
+  data <- data %>% rename(sample=!!sym(sample_id),otu=!!sym(taxa_id))
   rows.are.distinct <- is.distinct(data,otu,sample)
   if (!rows.are.distinct) {
     stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
   }
-  needvars <- c("otu","sample","numseqs","pctseqs",taxranks)
-  if (!all(needvars %in% names(data))) {
-    stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
-  }
+
   tax <- data %>% select(otu,!!!syms(taxranks)) %>% unique()
   sample_vars <- setdiff(sample_vars,"sample")
   if (is.null(sample_vars)) {
@@ -725,7 +732,8 @@ phy.collapse.bins.data.frame <- function(data,
   objset <- phy.collapse.base(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
   new.data <- objset$otu %>%
     left_join(objset$tax,by="otu") %>%
-    left_join(samp,by="sample")
+    left_join(samp,by="sample") %>%
+    rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
   return(new.data)
 
 }
@@ -860,7 +868,6 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
   }
   tax <- data %>% select(!!!syms(vars.needed)) %>% unique() %>%
     assert_grouping_vars(id_vars=!!sym(unitvar),stopIfTRUE = TRUE)
-
   is_color <- function(x) {
     iscolor <- grepl('^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$', x) |
       (x %in% c(colors(),as.character(1:8),"transparent")) |

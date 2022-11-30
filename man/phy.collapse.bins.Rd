@@ -20,6 +20,8 @@ phy.collapse.bins(x, ...)
   taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
   level = length(taxranks),
   fillin.levels = FALSE,
+  sample_id = "sample",
+  taxa_id = "otu",
   criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005,
   sample_vars = NULL
 )
@@ -36,6 +38,10 @@ phy.collapse.bins(x, ...)
 \item{data}{data frame, formatted as \code{get.otu.melt}. Note, it must have columns \code{otu}, \code{sample}, \code{numseqs}, \code{pctseqs}, and all values in \code{taxranks}.}
 
 \item{taxranks}{character vector of taxonomic ranks in \code{data}.}
+
+\item{sample_id}{name of sample column identifier. Default is "sample".}
+
+\item{taxa_id}{name of taxon column identifier. Default is "otu".}
 
 \item{sample_vars}{character vector of column names in \code{data} that convey sample-level information. These will be retained as such after binning.}
 }

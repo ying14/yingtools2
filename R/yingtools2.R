@@ -50,7 +50,7 @@
 #' @examples
 #' sentences %find% "fish"
 "%find%" = function(x,y) {
-  grep(y,x,ignore.case=TRUE,value=TRUE)
+  grep(y,x,ignore.case=TRUE,value=TRUE) %>% unique()
 }
 
 # simple vector operations ------------------------------------------------
@@ -4068,6 +4068,61 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
   }) %>% bind_rows() %>% arrange(desc(bytes)) %>% select(-bytes)
   return(dsize)
 }
+
+
+
+
+
+#' Determine all dependent packages
+#'
+#' For a given installed package, determine all the downstream dependent packages, nesting through all sub-packages.
+#' Removes R itself and its included base packages, such as `stats` or `utils`.
+#'
+#' This function works by searching through dependencies in a recursive manner. A global data frame is maintained to remove packages that
+#' have already been processed. This increases the efficiency and avoids any possibility of circular dependencies (if that is even possible).
+#'
+#' @param pkg package name
+#'
+#' @return a character vector of all sub-packages
+#' @export
+#'
+#' @examples
+#' get.all.dependencies("purrr")
+get.all.dependencies <- function(pkg)  {
+
+  all.pkgs <- installed.packages() %>% as_tibble()
+  base.pkgs <- all.pkgs %>% filter(Priority=="base")
+  installed.pkgs <- all.pkgs %>% filter(Priority!="base"|is.na(Priority))
+  pkgs <- installed.pkgs %>%
+    mutate(across(c(Depends,Imports),~str_split(.x,", ?")),
+           deps=map2(Depends,Imports,~{
+             all <- c(.x,.y) %>% {.[!is.na(.)]} %>% str_replace_all("\\n","") %>% str_replace_all(" ?\\(.+\\)$","")
+             setdiff(all,c("R",base.pkgs$Package))
+           })) %>%
+    select(Package,deps) %>% unique()
+  #recursive function, with global variable
+  local({
+    pp <- pkgs
+    f <- function(pkg) {
+      i <- which(pp$Package==pkg)[1]
+      if (length(i)==0)  { # pkg not there
+        return(character())
+      }
+      subs <- pp$deps[[i]]
+      pp <<- pp %>% filter(Package!=pkg)
+      if (length(subs)==0) {
+        return(pkg)
+      } else {
+        sub.pkgs <- subs %>% map(f) %>% simplify()
+        return(c(pkg,sub.pkgs))
+      }
+    }
+    f(pkg)
+  })
+}
+
+
+
 
 
 
