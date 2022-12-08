@@ -2,31 +2,35 @@
 % Please edit documentation in R/yingtools2.R
 \name{compare}
 \alias{compare}
+\alias{compare.default}
 \alias{compare.character}
 \alias{compare.data.frame}
 \title{Compare objects}
 \usage{
 compare(x, ...)
 
+\method{compare}{default}(x, y)
+
 \method{compare}{character}(x, y)
 
 \method{compare}{data.frame}(x, y, by = NULL)
 }
 \arguments{
-\item{x}{vector or data frame to be compared}
+\item{x}{object (vector or data frame) to be compared}
 
-\item{y}{vector or data frame to be compared}
+\item{y}{object (vector or data frame) to be compared}
 
-\item{by}{variable(s) to join by and compare}
+\item{by}{variable(s) to join by and compare (for data frames only)}
 }
 \value{
 displays a report of the comparison, and invisibly returns a table of comparison details.
 }
 \description{
-Compare two vectors or data frames.
+Compare two objects (vector or data frame), and displays a summary of similarities and differences.
 }
 \examples{
-vec <- sentences[1:100]
+suppressMessages(library(tidyverse))
+vec <- stringr::sentences[1:100]
 compare(vec,vec)
 compare(vec,rev(vec))
 compare(vec,rep(vec,2))
@@ -37,29 +41,22 @@ compare(vec[1:50],vec[51:100])
 
 m <- mtcars \%>\% rownames_to_column("car")
 m2 <- bind_rows(m,m)
+m3 <- bind_rows(m,m,m)
 m.sort <- m \%>\% arrange(mpg)
 m.single <- m; m.single[4,4] <- 200
 m.col <- m; m.col$disp <- 101
 m.top <- m \%>\% slice(1:25)
 m.bottom <- m \%>\% slice(10:n())
 m.extracol <- m \%>\% mutate(mpg2=mpg+1,hp2=hp*100)
-# identical
 compare(m,m)
 compare(m,m,by="car")
-# distinct vs. non-distinct
 compare(m,m2,by="car")
-# non-distinct join
+compare(m2,m3,by="car")
 compare(m,m,by="cyl")
-# different order
 compare(m,m.sort,by="car")
-# single difference
 compare(m,m.single,by="car")
-# single difference if by is not specified
 compare(m,m.single)
-# entire column is different
 compare(m,m.col,by="car")
-# compare with subset of the table
 compare(m,m.top,by="car")
-# partial overlap of tables
 compare(m.top,m.bottom,by="car")
 }
