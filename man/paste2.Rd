@@ -25,7 +25,7 @@ This is useful when dealing with \code{NA} values. \code{paste} produces charact
 of course I could just convert those to actual \code{NA} values afterwards. However, if I use \code{collapse} option,
 I can frequently get a lot of character combinations with \code{NA} in it, where it can be hard to remove.
 This function comes in handy when using the \code{collapse} option and I need to guarantee a single character value.
-An example is the \code{fun.aggregate} function for \code{dcast}, which requires a function that returns a single value.
+An example is the \code{values_fn} argument for \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}, which requires a function that returns a single value.
 }
 \examples{
 a <- c(1,2,3)

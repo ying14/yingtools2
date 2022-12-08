@@ -11,6 +11,6 @@ An object of class \code{list} of length 11.
 yt.palette2
 }
 \description{
-The customary palette for Bacteria.
+The old customary palette for Bacteria.
 }
 \keyword{datasets}

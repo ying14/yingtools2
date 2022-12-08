@@ -10,7 +10,7 @@ taxonomy_is_distinct(
 )
 }
 \arguments{
-\item{data}{tax data to be tested. Can be a phylsoeq, tax table (from \code{get.tax()}), or otu-melt table (from \code{get.otu.melt()}).}
+\item{data}{tax data to be tested. Can be a \code{\link[phyloseq:phyloseq-class]{phyloseq}}, tax table (from \code{\link[=get.tax]{get.tax()}}), or otu-melt table (from \code{\link[=get.otu.melt]{get.otu.melt()}}).}
 
 \item{taxranks}{character vector of tax levels to be tested.}
 }

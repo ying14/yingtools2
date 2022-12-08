@@ -16,7 +16,7 @@ No value.
 Opens the specified file using the application specified.
 }
 \details{
-Note that this does different things depending on operating system. Windows R already has a \code{shell.exec} function, so it just uses that.
+Note that this does different things depending on operating system. Windows R already has a \code{\link[base:shell.exec]{base::shell.exec()}} function, so it just uses that.
 Linux R doesn't have this function, so this emulates on Linux using the 'xdg-open' terminal command..
 }
 \author{

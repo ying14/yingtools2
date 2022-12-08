@@ -1,9 +1,14 @@
 
+
+
+
+
+
 # custom operators --------------------------------------------------------
 
 #' Not In
 #'
-#' Convenience function. \code{a \%!in\% b} is equivalent to \code{!(a \%in\% b)}
+#' Convenience function. `a %!in% b` is equivalent to `!(a %in% b)`
 #' @export
 "%!in%" = function(x,y) {
   !(x %in% y)
@@ -11,7 +16,7 @@
 
 #' All In
 #'
-#' Convenience function. \code{a \%allin\% b} is equivalent to \code{all(a \%in\% b, na.rm=FALSE)}
+#' Convenience function. `a %allin% b` is equivalent to `all(a %in% b, na.rm=FALSE)`
 #' @export
 "%allin%" = function(x,y) {
   all(x %in% y)
@@ -62,8 +67,8 @@
 #'
 #' Some people calculate age by taking age in days and dividing by 365.25. That approach can be inaccurate
 #' because of leap years (that's weak!).
-#' @param bdate \code{Date}, vector of birthdays.
-#' @param now, \code{Date}, vector representing the time by which to calculate age.
+#' @param bdate `Date`, vector of birthdays.
+#' @param now, `Date`, vector representing the time by which to calculate age.
 #' @return Returns the age in years.
 #' @examples
 #' age.years(as.Date("1975-02-21"),Sys.Date())
@@ -106,20 +111,22 @@ middle.pattern <- function(start="",middle=".+",end="") {
   paste0(start,middle,end)
 }
 
+
+
 #' Paste 2
 #'
-#' Similar to \code{paste} command, except that \code{NA}s are not converted to text.
-#' If all fields are \code{NA}, then return \code{NA} if collapse if specified.
+#' Similar to `paste` command, except that `NA`s are not converted to text.
+#' If all fields are `NA`, then return `NA` if collapse if specified.
 #'
-#' This is useful when dealing with \code{NA} values. \code{paste} produces character \code{"NA"} values,
-#' of course I could just convert those to actual \code{NA} values afterwards. However, if I use \code{collapse} option,
-#' I can frequently get a lot of character combinations with \code{NA} in it, where it can be hard to remove.
-#' This function comes in handy when using the \code{collapse} option and I need to guarantee a single character value.
-#' An example is the \code{fun.aggregate} function for \code{dcast}, which requires a function that returns a single value.
+#' This is useful when dealing with `NA` values. `paste` produces character `"NA"` values,
+#' of course I could just convert those to actual `NA` values afterwards. However, if I use `collapse` option,
+#' I can frequently get a lot of character combinations with `NA` in it, where it can be hard to remove.
+#' This function comes in handy when using the `collapse` option and I need to guarantee a single character value.
+#' An example is the `values_fn` argument for [tidyr::pivot_wider()], which requires a function that returns a single value.
 #'
-#' @param ... one or more \code{R} objects, to be converted to character vectors (same as \code{paste}).
-#' @param sep a character string to separate the terms (same as \code{paste}).
-#' @param an optional character string to separate the results (same as \code{paste}).
+#' @param ... one or more `R` objects, to be converted to character vectors (same as `paste`).
+#' @param sep a character string to separate the terms (same as `paste`).
+#' @param an optional character string to separate the results (same as `paste`).
 #' @return A character vector of the concatenated values.
 #' @examples
 #' a <- c(1,2,3)
@@ -167,18 +174,22 @@ paste2 <- function(...,sep=" ",collapse=NULL) {
   }
 }
 
+
+
+
+
 #' Ying's Min/Max
 #'
-#' Similar to \code{min}/\code{max} command, except that if the data is empty, the function returns
-#' \code{NA} instead of \code{+/-Inf}.
+#' Similar to `min`/`max` command, except that if the data is empty, the function returns
+#' `NA` instead of `Inf`.
 #'
-#' This is useful when using the function repetitively and it's possible that everything can be \code{NA}.
-#' This might come in handy if running min/max functions across an \code{apply} or \code{ddply} command.
+#' This is useful when using the function repetitively and it's possible that everything can be `NA`.
+#' This might come in handy if running min/max functions across an `apply` or `ddply` command.
 #'
 #' @param ... numeric or character arguments.
 #' @param na.rm a logical indicating whether missing values should be removed.
 #' @return A length-one vector representing max or min.
-#' @describeIn max2 \code{max2} maximum value.
+#' @describeIn max2 `max2` maximum value.
 #' @examples
 #' a <- c(1,2,3)
 #' b <- c(1,2,NA)
@@ -210,7 +221,9 @@ max2 <- function(...,na.rm=FALSE) {
   return(val)
 }
 
-#' @describeIn max2 \code{max2} minimum value.
+
+
+#' @describeIn max2 `max2` minimum value.
 #' @export
 min2 <- function(...,na.rm=FALSE) {
   suppressWarnings({
@@ -220,6 +233,7 @@ min2 <- function(...,na.rm=FALSE) {
   return(val)
 
 }
+
 
 
 
@@ -281,6 +295,10 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
 }
 
 
+
+
+
+
 #' Determines if a numeric is all whole numbers
 #'
 #' Uses machine precision to determine if a numeric vector is all whole numbers.
@@ -327,13 +345,52 @@ cummax.Date <- function(x) {
 
 # data inspection tools --------------------------------------------------------
 
-
-#' Compare data frames
+#' Compare objects
 #'
-#' @param x table to be compared
-#' @param y table to be compared
-#' @param by varaible(s) to join by and compare
-#' @return a table from full_join(x,y,by). Contains columns .status and .diffs.
+#' Compare two vectors or data frames.
+#'
+#' @param x vector or data frame to be compared
+#' @param y vector or data frame to be compared
+#' @param by variable(s) to join by and compare
+#' @return displays a report of the comparison, and invisibly returns a table of comparison details.
+#' @examples
+#' vec <- sentences[1:100]
+#' compare(vec,vec)
+#' compare(vec,rev(vec))
+#' compare(vec,rep(vec,2))
+#' compare(rep(vec,2),vec)
+#' compare(vec,rep(vec[1:10],2))
+#' compare(vec,sample(vec,size=200,replace=TRUE))
+#' compare(vec[1:50],vec[51:100])
+#'
+#' m <- mtcars %>% rownames_to_column("car")
+#' m2 <- bind_rows(m,m)
+#' m.sort <- m %>% arrange(mpg)
+#' m.single <- m; m.single[4,4] <- 200
+#' m.col <- m; m.col$disp <- 101
+#' m.top <- m %>% slice(1:25)
+#' m.bottom <- m %>% slice(10:n())
+#' m.extracol <- m %>% mutate(mpg2=mpg+1,hp2=hp*100)
+#' # identical
+#' compare(m,m)
+#' compare(m,m,by="car")
+#' # distinct vs. non-distinct
+#' compare(m,m2,by="car")
+#' # non-distinct join
+#' compare(m,m,by="cyl")
+#' # different order
+#' compare(m,m.sort,by="car")
+#' # single difference
+#' compare(m,m.single,by="car")
+#' # single difference if by is not specified
+#' compare(m,m.single)
+#' # entire column is different
+#' compare(m,m.col,by="car")
+#' # compare with subset of the table
+#' compare(m,m.top,by="car")
+#' # partial overlap of tables
+#' compare(m.top,m.bottom,by="car")
+#' @rdname compare
 #' @export
 compare <- function(x,...) {
   UseMethod("compare")
@@ -345,11 +402,7 @@ compare.character <- function(x,y) {
   #using deparse1(substitute) because as_label doesn't seem to work in UseMethod situations, for some reason.
   x.name <- deparse1(substitute(x))
   y.name <- deparse1(substitute(y))
-  # x.name <- as_label(enquo(x))
-  # y.name <- as_label(enquo(y))
   stopifnot("x and y are not vectors"=is.vector(x) && is.vector(y))
-  # x=s1
-  # y=s2
   x.length <- length(x)
   y.length <- length(y)
   x.ndistinct <- n_distinct(x)
@@ -369,34 +422,36 @@ compare.character <- function(x,y) {
   y.subsetof.x <-length(y.not.x)==0 && length(x.not.y)>0
   xy.nooverlap <- length(x.and.y)==0
 
+  message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
+
   if (x.is.distinct) {
-    x.message <- str_glue("{x.name}(x) is distinct (N={x.length})")
+    x.message <- str_glue("X is distinct (N={x.length})")
   } else {
-    x.message <- str_glue("{x.name}(x) is non-distinct (N={x.length}, {x.ndistinct} distinct values up to {x.range[2]} times")
+    x.message <- str_glue("X is non-distinct (N={x.length}, {x.ndistinct} values up to {x.range[2]} times)")
   }
 
   if (y.is.distinct) {
-    y.message <- str_glue("{y.name}(y) is distinct (N={y.length})")
+    y.message <- str_glue("Y is distinct (N={y.length})")
   } else {
-    y.message <- str_glue("{y.name}(y) is non-distinct (N={y.length}, {y.ndistinct} distinct values up to {y.range[2]} times")
+    y.message <- str_glue("Y is non-distinct (N={y.length}, {y.ndistinct} values up to {y.range[2]} times)")
   }
   message(x.message)
   message(y.message)
 
   if (xy.identical) {
-    message(str_glue("{x.name}(x) and {y.name}(y) are identical"))
+    message(str_glue("X and Y are identical"))
   } else if (xy.identical.difforder) {
-    message(str_glue("{x.name}(x) and {y.name}(y) are identical, but in different order"))
+    message(str_glue("X and Y are identical, but in different order"))
   } else if (setequal.xy) {
-    message(str_glue("{x.name}(x) and {y.name}(y) are different but setequal"))
+    message(str_glue("X and Y are have equal sets, but with different freqs"))
   } else if (x.subsetof.y) {
-    message(str_glue("{x.name}(x) is a subset of {y.name}(y) ({x.ndistinct} out of {y.ndistinct})"))
+    message(str_glue("X is a subset of Y ({x.ndistinct} out of {y.ndistinct})"))
   } else if (y.subsetof.x) {
-    message(str_glue("{y.name}(y) is a subset of {x.name}(x) ({y.ndistinct} out of {x.ndistinct})"))
+    message(str_glue("Y is a subset of X ({y.ndistinct} out of {x.ndistinct})"))
   } else if (xy.nooverlap) {
-    message(str_glue("{x.name}(x) and {y.name}(y) do not overlap"))
+    message(str_glue("X and Y do not overlap"))
   } else {
-    message(str_glue("partial overlap: {length(x.not.y)} values both {x.name}(x) and {y.name}(y), {length(y.not.x)} values in {y.name}(y) only, {length(x.and.y)} values in {x.name}(x) only"))
+    message(str_glue("partial overlap: {length(x.not.y)} values both X and Y, {length(y.not.x)} values in Y only, {length(x.and.y)} values in X only"))
   }
 
   tbl <- bind_rows(tibble(value=x,source="x"),tibble(value=y,source="y")) %>%
@@ -404,67 +459,146 @@ compare.character <- function(x,y) {
     pivot_wider(id_cols=value,names_from=source,values_from=n,values_fill=0) %>%
     select(value,x,y) %>%
     mutate(.status=case_when(
-      x>0 & y>0 ~ str_glue("both {x.name}(x) and {y.name}(y)"),
-      x>0 & y==0 ~ str_glue("{x.name}(x) not {y.name}(y)"),
-      x==0 & y>0 ~ str_glue("{y.name}(y) not {x.name}(x)")
+      x>0 & y>0 ~ str_glue("both X and Y"),
+      x>0 & y==0 ~ str_glue("X not Y"),
+      x==0 & y>0 ~ str_glue("Y not X")
     ))
   invisible(tbl)
 }
 
+
+
+
 #' @rdname compare
 #' @export
 compare.data.frame <- function(x,y,by=NULL) {
-  # x.name <- as_label(enquo(x))
-  # y.name <- as_label(enquo(y))
+
+  # declare.args(x=m,y=m.col,by="car")
+
   x.name <- deparse1(substitute(x))
   y.name <- deparse1(substitute(y))
-
+  xy.cols <- intersect(names(x),names(y))
+  x.cols <- setdiff(names(x),names(y))
+  y.cols <- setdiff(names(y),names(x))
   if (is.null(by)) {
-    by <- intersect(names(x),names(y))
+    by <- xy.cols
   }
-
-  by.x <- names(by) %||% by
+  by.x <- (names(by) %||% by) %>% if_else(.=="",by,.) %>% unname()  # similar to coalesce; if names(by) is NULL, then =by.
   by.y <- unname(by)
+  message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
+  # are by vars distinct?
   x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
   y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
-  if (all(by.x==by.y)) {
-    by.x <- paste0(by.x,".x")
-    by.y <- paste0(by.y,".y")
+
+  message(str_glue("-X: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,'distinct','not distinct')} across {paste(by.x,collapse=',')})"))
+  message(str_glue("-Y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,'distinct','not distinct')} across {paste(by.x,collapse=',')})"))
+  # cols
+
+  column.report <- "Columns: "
+  if (length(x.cols)==0 && length(y.cols)==0) {
+    column.report <- c(column.report, str_glue("-X and Y have same {length(xy.cols)} columns"))
+  } else {
+    if (length(x.cols)>0) {
+      column.report <- c(column.report, str_glue("-X has {length(x.cols)} cols not in Y: {paste(x.cols,collapse=', ')}"))
+    }
+    if (length(y.cols)>0) {
+      column.report <- c(column.report, str_glue("-Y has {length(y.cols)} cols not in X: {paste(y.cols,collapse=', ')}"))
+    }
   }
-  # both <- inner_join_replace(x,y,by=by,errorIfDifferent = FALSE)
+  message(paste(column.report,collapse="\n"))
+
+  if (length(by)==0) {
+    message("-No cols to compare.")
+    return(invisible(NULL))
+  }
+  #compare x and y
+  different.by <- by.x!=by.y
+  if (any(different.by)) {
+    #rename vars such that by.x==by.y
+    old.x <- by.x[different.by]
+    old.y <- by.y[different.by]
+    new.xy <- paste(old.x,old.y,sep="___")
+    x <- x %>% rename(!!!(set_names(syms(old.x),new.xy)))
+    y <- y %>% rename(!!!(set_names(syms(old.y),new.xy)))
+    by.x <- ifelse(different.by,new.xy,by.x)
+    by.y <- ifelse(different.by,new.xy,by.y)
+    if (!all(by.x==by.y)) {
+      stop("YTError: by.x and by.y are different!")
+    }
+  }
+  x.byvals <- x %>% transmute(x.vals=paste(!!!syms(by.x),sep="__")) %>% pull(x.vals)
+  y.byvals <- y %>% transmute(y.vals=paste(!!!syms(by.y),sep="__")) %>% pull(y.vals)
+  byvals.setequal <- setequal(x.byvals,y.byvals)
+  byvals.xnoty <- setdiff(x.byvals,y.byvals)
+  byvals.ynotx <- setdiff(y.byvals,x.byvals)
+  byvals.y.subsetof.x <- length(byvals.xnoty)>0 && length(byvals.ynotx)==0
+  byvals.x.subsetof.y <- length(byvals.ynotx)>0 && length(byvals.xnoty)==0
+  byvals.samelength <- length(x.byvals)==length(y.byvals)
+  byvals.identical.diff.order <- byvals.samelength && byvals.setequal && all(sort(x.byvals)==sort(y.byvals))
+  byvals.identical <- byvals.samelength && byvals.setequal && all(x.byvals==y.byvals)
+
+  message("Joining:")
+  if (byvals.identical) {
+    message("-X and Y join completely")
+  } else if (byvals.identical.diff.order) {
+    message("-X and Y are identical (different order)")
+  } else if (byvals.setequal && !byvals.identical.diff.order) {
+    message("-X and Y are setequal but diff freqs")
+  } else if (byvals.y.subsetof.x) {
+    message("-Y is a subset of X")
+  } else if (byvals.x.subsetof.y) {
+    message("-X is a subset of Y")
+  }
+  # recalculate in case of weirdness with col names
+  compare.vars <- intersect(names(x),names(y))
+  # add _x and _y to ends
+  names(x) <- paste0(names(x),"_x")
+  names(y) <- paste0(names(y),"_y")
+  by.x <- paste0(by.x,"_x")
+  by.y <- paste0(by.y,"_y")
+  compare.x <- paste0(compare.vars,"_x")
+  compare.y <- paste0(compare.vars,"_y")
+  by <- set_names(by.y,by.x)
+  if (length(intersect(names(x),names(y)))>0) {
+    #should never happen
+    stop("YTError: there's still name overlap after renaming!")
+  }
   all <- full_join(x,y,by=by,keep=TRUE) %>%
     mutate(.status=case_when(
-      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ str_glue("both {x.name}(x) and {y.name}(y)"),
-      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ str_glue("{x.name}(x) only"),
-      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ str_glue("{y.name}(y) only")
+      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "both X and Y rows",
+      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ "X only rows",
+      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "Y only rows"
     ))
-  x.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.x$)") %>% unlist()
-  y.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.y$)") %>% unlist()
-  overlap.vars <- intersect(x.vars0,y.vars0)
+  diff <- map2(compare.x,compare.y,~{
+    xx <- all[[.x]]
+    yy <- all[[.y]]
+    xy.diff <- xx != yy
+    xy.both.na <- is.na(xx) & is.na(yy)
+    xy.diff | xy.both.na
+  }) %>% setNames(compare.vars) %>% as_tibble()
+  alldiff <- all %>% select(.status) %>% cbind(diff)
+  alldiff.summary <- alldiff %>%
+    group_by(.status) %>%
+    summarize(n.rows=n(),
+              across(all_of(compare.vars),.fns = ~{
+                diffcount <- sum(.x,na.rm=TRUE)
+                ifelse(diffcount>0,diffcount,NA_integer_)
+              }),.groups="drop") %>%
+    mutate(.status,n.rows,n.diffs=coalesce_values(!!!syms(compare.vars),omit.na=TRUE),
+           n.diffs=case_when(
+             (.status=="both X and Y rows") & is.na(n.diffs) ~ "<all equal>",
+             (.status!="both X and Y rows") & is.na(n.diffs) ~ "n/a",
+             TRUE ~ n.diffs
+           )) %>%
+    select(.status,n.rows,n.diffs)
 
-  for (var in overlap.vars) {
-    var.x <- paste0(var,".x")
-    var.y <- paste0(var,".y")
-    diff <- all[[var.x]]!=all[[var.y]]
-    diff <- !is.na(diff) & diff
-  }
-
-  diffs <- map(overlap.vars,~{
-    var.x <- paste0(.x,".x")
-    var.y <- paste0(.x,".y")
-    diff <- all[[var.x]]!=all[[var.y]]
-    diff <- !is.na(diff) & diff
-    ifelse(diff,.x,NA_character_)
-  }) %>% set_names(overlap.vars) %>%
-    do.call(paste2,.)
-  all$.diffs <- diffs
-
-  message(str_glue("{x.name}(x): {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
-  message(str_glue("{y.name}(y): {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
-  all %>% count(.status,.diffs) %>% print()
+  # msg <- capture.output(print(alldiff.summary), type="output") %>% paste(collapse="\n")
+  # message(msg)
+  print(alldiff.summary)
+  # message(str_glue("{paste(diff.summary,collapse='\n')}"))
+  message("(returning X-Y joined dataset)")
   invisible(all)
 }
-
 
 
 #' Tabulate
@@ -472,9 +606,11 @@ compare.data.frame <- function(x,y,by=NULL) {
 #' Tabulates frequencies of vectors. By default, sorts by frequency.
 #'
 #' @param var the vector to be tabulated
-#' @param sortby.freq if \code{TRUE}, sorts by order
-#' @param useNA character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}
-#' @param as.char logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}
+#' @param sort whether to sort results. Default `TRUE`
+#' @param pct whether to display percents. Default `TRUE`
+#' @param as.char logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as `ddply` or `group_by`/`summarize`
+#' @param collapse if `as.char=TRUE`, how to collapse. Default `"\n"`
+#'
 #' @return Returns a data frame with tabulations.
 #' @examples
 #' tab(cid.patients$sex)
@@ -502,21 +638,23 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 }
 
 
+
+
 #' Ying's DT view
 #'
-#' Use to peruse a dataframe within RStudio. Utilizes \code{DT} package.
+#' Use to peruse a dataframe within RStudio. Utilizes `DT` package.
 #'
-#' If data frame is grouped (i.e. \code{group_by} in dplyr), the rows will be sorted and shaded by group.
+#' If data frame is grouped (i.e. `group_by` in dplyr), the rows will be sorted and shaded by group.
 #'
 #' @param data dataframe to be viewed.
 #' @param fontsize numeric controlling font size in the table, measured in px. Default is 11.
-#' @param maxchars max number of characters before adding an ellipsis \code{...}. Default is 250.
+#' @param maxchars max number of characters before adding an ellipsis `...`. Default is 250.
 #' @param whiteSpace CSS property sets how white space inside an element is handled. Default is "pre-wrap".
-#' @param pageLength number of rows to display per page (Default \code{Inf}, show all rows)
-#' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent \code{DT} from handling excessively large data frames. Default is 1000.
-#' @param rownames whether or not to show row names (passed directly to \code{\link[DT:datatable]{DT::datatable}}).
-#' @param class the CSS class(es) of the table (passed directly to \code{\link[DT:datatable]{DT::datatable}}).
-#' @param escape whether to escape HTML entities in the table (passed directly to \code{\link[DT:datatable]{DT::datatable}}).
+#' @param pageLength number of rows to display per page (Default `Inf`, show all rows)
+#' @param maxrows numeric controlling max number of rows to display. The purpose is to prevent `DT` from handling excessively large data frames. Default is 1000.
+#' @param rownames whether or not to show row names (passed directly to [DT::datatable()]).
+#' @param class the CSS class(es) of the table (passed directly to [DT::datatable()]).
+#' @param escape whether to escape HTML entities in the table (passed directly to [DT::datatable()]).
 #'
 #' @return A javascript-style datatable, which displays in the Rstudio viewer.
 #' @examples
@@ -586,11 +724,11 @@ dt <- function(data,fontsize=11,pageLength=Inf,maxchars=250,maxrows=500,rownames
 #' This was written to create a "Table 1" of a manuscript.
 #'
 #' @param data Data frame containing data to be described.
-#' @param ... column names (bare) within \code{data} to be summarized.
+#' @param ... column names (bare) within `data` to be summarized.
 #' @param denom whether to show the denominator in the summary
 #' @param maxgroups max number of groups before collapsing into an "Other" category.
 #' @param by optional variable name (bare) by which to summarize the data. Each separate value will be a column of data in the table.
-#' @param fisher whether or not to perform Fisher test. Performed if by=... is specified.
+#' @param fisher whether or not to perform Fisher test. Performed if `by=...` is specified.
 #'
 #' @return Returns a data frame formatted to be summary table.
 #' @examples
@@ -668,7 +806,7 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
 #'
 #' Find Distinct
 #'
-#' @param data Dataframe to be analyzed
+#' @param data data frame to be analyzed
 #' @param ... grouping variables that define data units.
 #' @return prints whether variables matching the groups or not.
 #' @export
@@ -693,9 +831,9 @@ find.all.distinct.vars <- function(data, ...) {
 #' Is Distinct
 #'
 #' Determine if specified columns within data are distinct for individual rows.
-#' @param data Dataframe to be analyzed
+#' @param data data frame to be analyzed
 #' @param ... grouping variables that define data units.
-#' @param add.group.vars if \code{TRUE}, add any grouping variables.
+#' @param add.group.vars if `TRUE`, add any grouping variables.
 #' @return Logical indicating whether or not columns are distinct.
 #' @export
 #' @examples
@@ -708,6 +846,9 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
   anydup <- data %>% select(!!!gvars) %>% anyDuplicated()
   return(anydup==0)
 }
+
+
+
 
 
 
@@ -826,9 +967,9 @@ regex.widget <- function(vec,port=4567) {
 #'
 #' After providing multiple indicator variables, summarize them by creating a character vector.
 #' @param ... indicator variables to coalesce together. Should be all logical.
-#' @param else.value The character value if there are no hits. Default is \code{NA}
-#' @param first.hit.only If \code{TRUE}, will only show first hit (which is a true coalesce). Default is \code{FALSE}, which concatenates all hits.
-#' @return A vector of same length as the indicators, displaying variable names that were \code{TRUE}
+#' @param else.value The character value if there are no hits. Default is `NA`
+#' @param first.hit.only If `TRUE`, will only show first hit (which is a true coalesce). Default is `FALSE`, which concatenates all hits.
+#' @return A vector of same length as the indicators, displaying variable names that were `TRUE`
 #' @examples
 #' cid.patients %>%
 #'   mutate(antibiotics=coalesce_indicators(vanco_iv,betalactam,fluoroquinolone,metronidazole)) %>%
@@ -884,11 +1025,11 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
   text <- vars %>% imap(function(quo,lbl) {
     value <- eval_tidy(quo) %>% as.character()
     if (omit.na) {
-      ifelse(!is.na(value),paste0(lbl,sep,value),NA)
+      ifelse(!is.na(value),paste0(lbl,sep,value),NA_character_)
     } else {
       paste0(lbl,sep,value)
     }
-  }) %>% transpose() %>% simplify_all() %>% map_chr(~paste2(.,collapse=collapse))
+  }) %>% transpose() %>% simplify_all() %>% map_chr(~paste2(.x,collapse=collapse))
   return(text)
 }
 
@@ -903,17 +1044,17 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
 #'
 #' @param var the vector to be recoded.
 #' @param recodes typically, a named vector specifying recodes. Note that order matters; first matching recode will apply
-#' (assuming \code{multi.hits=FALSE}). As an additional option, a named list of vectors can also be used, where each vector of
+#' (assuming `multi.hits=FALSE`). As an additional option, a named list of vectors can also be used, where each vector of
 #' values will be recoded to its corresponding name.
 #' @param else.value the value to be used if a value is not recoded. Default is the old value.
-#' @param as.factor whether or not to code as a factor. The levels will ordered based on \code{recodes}. Default is to base it on whether original vector is a factor.
-#' @param regexp if \code{TRUE}, use regular expressions. Default is \code{FALSE}, which performs exact matching.
-#' @param replace if \code{TRUE}, replace the hit (using \code{gsub})instead of replacing the entire field. Note that \code{regexp} and \code{multi.hits} should be \code{TRUE}, if not it will be changed. Default is \code{FALSE}.
-#' @param multi.hits if \code{TRUE}, will evaluate every value for every recode. So values can be recoded more than one time.
-#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
-#' @param perl whether to use perl-style regular expressions. Default is \code{FALSE}
-#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
-#' @return A vector consisting of the recoded values of \code{var}
+#' @param as.factor whether or not to code as a factor. The levels will ordered based on `recodes`. Default is to base it on whether original vector is a factor.
+#' @param regexp if `TRUE`, use regular expressions. Default is `FALSE`, which performs exact matching.
+#' @param replace if `TRUE`, replace the hit (using `gsub`)instead of replacing the entire field. Note that `regexp` and `multi.hits` should be `TRUE`, if not it will be changed. Default is `FALSE`.
+#' @param multi.hits if `TRUE`, will evaluate every value for every recode. So values can be recoded more than one time.
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is `TRUE`
+#' @param perl whether to use perl-style regular expressions. Default is `FALSE`
+#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for `grep`)
+#' @return A vector consisting of the recoded values of `var`
 #' @examples
 #' # Recode if field matches exactly.
 #' recodes1 <- c("Pseudomonas aeruginosa"="P. aeruginosa","Staphylococcus aureus oxacillin resistant"="MRSA")
@@ -1033,21 +1174,22 @@ recode.grep <- function(...) {
 
 #' Ying's Replace Grep
 #'
-#' Perform multiple text replacements at once using regular expressions. Similar in form to \code{recode2} and \code{recode.grep}.
+#' Perform multiple text replacements at once using regular expressions. Similar in form to [recode()] and [recode.grep()]
 #'
 #' @param var the character vector to be searched.
 #' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
-#' @param result.as.list if \code{TRUE}, returns a 2-vector list containing replaced text and text hits. Default is \code{FALSE}.
-#' @param replace.text text to replace hits with. Default is \code{""}
-#' @param collapse.hits the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{result.as.list=TRUE}
-#' @param recode.hits whether to recode the hits into the with the replacement. Default if \code{FALSE}. This is relevant if \code{result.as.list=TRUE}.
-#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
-#' @param perl whether to use perl-style regular expressions. Default is \code{TRUE}
-#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
+#' @param result.as.list if `TRUE`, returns a 2-vector list containing replaced text and text hits. Default is `FALSE`.
+#' @param replace.text text to replace hits with. Default is `""`
+#' @param collapse.hits the separator with which all hits are pasted together. If `NULL`, hits will remain as an uncollapsed list. Default is `"|"`. Note that this parameter is not relevant unless `result.as.list=TRUE`
+#' @param recode.hits whether to recode the hits into the with the replacement. Default if `FALSE`. This is relevant if `result.as.list=TRUE`.
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is `TRUE`
+#' @param perl whether to use perl-style regular expressions. Default is `TRUE`
+#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for `grep`)
 #'
-#' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
+#' @return By default, returns `var`, but with all regular expression hits replaced. If `result.as.list=TRUE` is specified, the hits themselves are also returned, within a 2-vector list.
 #' @export
 replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collapse.hits="|",recode.hits=FALSE,ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
+  # declare.args(var=sentences, recodes=c("the"="[THE]","[.]$"="!!"), replace.grep)
   message("YTNote: replace.grep() and replace.grep.data() are deprecated. Try using replace_grep_data.")
   if (is.null(collapse.hits) & !result.as.list) {
     stop("YTWarning: hits.collapse=NULL (hits displayed as list), but report.as.list=FALSE.")
@@ -1094,21 +1236,21 @@ replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collap
 #'
 #' Perform multiple text replacements for a character vector in a data frame.
 #'
-#' Uses \code{replace.grep}.
+#' Uses `replace.grep`.
 #'
 #' @param data the data frame to be manipulated.
 #' @param var the bare character vector to be searched.
 #' @param recodes a vector of regular expressions. Can be named or unnamed; if named, the names are the regular expression, and the value is the replacement text.
-#' @param newvar bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.
-#' @param replace.text text to replace hits with. Default is \code{""}
-#' @param hits.var bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored.
-#' @param collapse.hits the separator with which all hits are pasted together. If \code{NULL}, hits will remain as an uncollapsed list. Default is \code{"|"}. Note that this parameter is not relevant unless \code{hits.var} is specified.
-#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
-#' @param perl whether to use perl-style regular expressions. Default is \code{TRUE}
-#' @param recode.hits whether to recode the hits into the with the replacement. Default if \code{FALSE}. This is relevant if \code{result.as.list=TRUE}.
-#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for \code{grep})
+#' @param newvar bare name of column to hold the replaced version of `var`. If `NULL` (default), `var` will be overwritten.
+#' @param replace.text text to replace hits with. Default is `""`
+#' @param hits.var bare name of column to hold the text hits. If `NULL` (default), hits are not stored.
+#' @param collapse.hits the separator with which all hits are pasted together. If `NULL`, hits will remain as an uncollapsed list. Default is `"|"`. Note that this parameter is not relevant unless `hits.var` is specified.
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is `TRUE`
+#' @param perl whether to use perl-style regular expressions. Default is `TRUE`
+#' @param recode.hits whether to recode the hits into the with the replacement. Default if `FALSE`. This is relevant if `result.as.list=TRUE`.
+#' @param useBytes logical. If TRUE the regex matching is done byte-by-byte rather than character-by-character. Avoids weird locale warnings. (see help for `grep`)
 #'
-#' @return By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
+#' @return By default, returns `var`, but with all regular expression hits replaced. If `result.as.list=TRUE` is specified, the hits themselves are also returned, within a 2-vector list.
 #' @export
 replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.var=NULL,collapse.hits="|",recode.hits=FALSE,ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
   newvar <- as.character(substitute(newvar))
@@ -1132,27 +1274,25 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
   return(newdata)
 }
 
-
-
 #' Replace and Extract Regular Expression Patterns for Data Frames
 #'
 #' For a given column of text, search for list of Regex patterns. Perform replacements and save the hits in another column.
-#' This is roughly equivalent to repeatedly running '\code{stringr::str_replace_all()} and/or \code{stringr::str_extract_all()} on the same
+#' This is roughly equivalent to repeatedly running '`stringr::str_replace_all()` and/or `stringr::str_extract_all()` on the same
 #' column of text.
 #'
 #' This function attempts to perform multiple text manipulations (replacements and/or extractions) in an easy and efficient way.
-#' It can be faster than manually running '\code{stringr::str_replace_all()} and/or \code{stringr::str_extract_all()} for a few
+#' It can be faster than manually running '`stringr::str_replace_all()` and/or `stringr::str_extract_all()` for a few
 #' reasons: (1) it performs one search for both replacement and extraction, (2) it performs an initial search and ignores any rows
 #' that didn't match, which saves time especially if most rows are not hits.
 #'
 #' @param data the data frame to be manipulated.
 #' @param var the bare character vector to be searched.
 #' @param recodes a vector of regular expressions. Can be named or unnamed; if named, will replace as: \code{c("replacement1"="pattern1", "replacement2"="pattern2", ...)}.
-#' If unnamed, will replace \code{c("pattern1","pattern2", ...)} with \code{""}.
-#' @param newvar bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.
-#' @param hits bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}
-#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is \code{TRUE}
-#' @param collapse.fn optional function to apply to each element of \code{hits}, to create an atomic vector Non-hits are ignored.
+#' If unnamed, will replace `c("pattern1","pattern2", ...)` with `""`.
+#' @param newvar bare name of column to hold the replaced version of `var`. If `NULL` (default), `var` will be overwritten.
+#' @param hits bare name of column to hold the text hits. If `NULL` (default), hits are not stored. This will store a list of extracted text, similar to the output of `str_extract_all()`
+#' @param ignore.case whether or not to ignore case, passed to regular expression. Default is `TRUE`
+#' @param collapse.fn optional function to apply to each element of `hits`, to create an atomic vector Non-hits are ignored.
 #' @return returns the data with the above replacement text and stored hits.
 #' @examples
 #' library(stringr)
@@ -1236,9 +1376,9 @@ replace_grep_data <- function(data,var,recodes,newvar=NULL,hits=NULL,ignore.case
 #' Produces R-code that would create the object inputted. I use this if I have some data object that I obtained
 #' somehow but just want to declare it in the code.
 #'
-#' This is similar to \code{deparse()}, except output looks a little bit more normal, and you can specify \code{width=Inf}
+#' This is similar to `deparse()`, except output looks a little bit more normal, and you can specify `width=Inf`
 #' @param x object to be converted to R-code. Can be vector or data frame.
-#' @param width max character width of each line. Set to \code{Inf} to avoid text-wrapping.
+#' @param width max character width of each line. Set to `Inf` to avoid text-wrapping.
 #' @return Returns the R-code.
 #' @examples
 #' x <- c("a","b","c")
@@ -1301,7 +1441,7 @@ deparse2 <- function(x,width=Inf) {
 }
 
 #' @rdname deparse2
-#' @param copy.clipboard whether or not to copy to clipboard. Default is \code{TRUE}
+#' @param copy.clipboard whether or not to copy to clipboard. Default is `TRUE`
 #' @export
 copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
   #converts x to R-code.
@@ -1319,7 +1459,7 @@ copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
 #' Produces SQL code for a vector of values.
 #'
 #' @param x vector to be converted to SQL code.
-#' @param copy.clipboard logical, if \code{TRUE}, will copy the SQL code to the Clipboard.
+#' @param copy.clipboard logical, if `TRUE`, will copy the SQL code to the Clipboard.
 #' @return Returns the SQL code.
 #' @examples
 #' values <- c("35171234","35507574")
@@ -1378,7 +1518,7 @@ copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-
 #' @param tbl a data frame to be copied
 #' @param spaces number of spaces between columns
 #'
-#' @return
+#' @return (invisibly) returns R code statement that creates the tribble data frame, and copies to clipboard.
 #' @export
 #'
 #' @examples
@@ -1470,6 +1610,50 @@ get.code.info <- function(expr,text=NULL,fn=NULL,envir=parent.frame()) {
 
 
 
+
+#' Declare arguments in a function
+#'
+#' Convenience function used when creating or modifying function code.
+#'
+#' Using this is like debug trace, except more unofficial. If anything is handled as quosure, you'll probably
+#' need to put `quo()` around it. Also does not handle ellipses.
+#' @param ... either named arguments or a function by which to assign defaults.
+#' @param envir_ Environment to declare the arguments. Default is calling environment.
+#' @return (nothing)
+#' @export
+#'
+#' @examples
+#' declare.args(var=sentences, recodes=c("the"="[THE]","[.]$"="!!"), replace.grep)
+declare.args <- function(..., envir_=parent.frame()) {
+  elist <- enexprs(...)
+  imap(elist,function(exp,varname) {
+    message(paste(varname,"=",as_label(exp)))
+    obj <- eval(exp,envir=envir_)
+    if (varname!="") {
+      assign(varname,obj,envir=envir_)
+    }
+    if (is_function(obj)) {
+      fmls <- formals(obj)
+      # all args with defaults
+      defaults <- fmls[!map_lgl(fmls,is.name)]
+      current.vars <- ls(envir=envir_)
+      # defaults that are not declared previously.
+      defaults.to.assign <- defaults[!(names(defaults) %in% current.vars)]
+      # defaults <- fmls[!(names(fmls) %in% declared.vars)]
+      n.assign <- length(defaults.to.assign)
+      if (n.assign>0) {
+        for (j in 1:n.assign) {
+          dvar <- names(defaults.to.assign)[j]
+          dobj <- defaults.to.assign[[j]] %>% eval_tidy()
+          assign(dvar,dobj,envir = envir_)
+        }
+      }
+    }
+  })
+  invisible(NULL)
+}
+
+
 # date/time/timeline-related functions ------------------------------------------------------
 
 
@@ -1527,7 +1711,7 @@ overlaps <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA
 #'
 #' @param start vector specifying the start of the intervals
 #' @param stop vector specifying the end of the intervals
-#' @param check whether to check if start is greater than stop (default is \code{TRUE})
+#' @param check whether to check if start is greater than stop (default is `TRUE`)
 #' @param na.rm whether to remove NA values (default is TRUE)
 #'
 #' @return whether or not at least one interval is overlapping.
@@ -1562,7 +1746,7 @@ any.overlap <- function(start,stop,check=TRUE,na.rm=TRUE) {
 
 #' Determines if x is between start and stop/
 #'
-#' Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
+#' Similar to [dplyr::between()], except that the vectors are recycled, so x can be a fixed value.
 #' @param x vector of values to be checked
 #' @param start vector of start time(s)
 #' @param stop vector of stop time(s)
@@ -1584,11 +1768,10 @@ is.between <- function(x,start,stop,check=TRUE) {
 #' @param start vector of event start times (numeric or Date).
 #' @param stop vector of event stop times (numeric or Date).
 #' @param row vector of event types. Can be a list of more than one vector.
-#' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}
+#' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is `NULL`
 #' @param row.overlap whether or not the same row value can overlap. TRUE: each value is always one row FALSE: each row can occupy several rows if necessary
 #' @param min.gap the minimum gap allowed before 2 different row values can be combined. Inf: different row values can never share the same row position. 0: fit different rows as much as possible.
 #' @return Returns a vector of row number assignments for each time event.
-#'
 #' @examples
 #' library(tidyverse)
 #' library(gridExtra)
@@ -1670,9 +1853,8 @@ get.row <- function(start,stop,row=NULL,by=NULL,no.row.overlap=FALSE,min.gap=Inf
 
 
 
-
 #' Convert Date format to regular expression
-#' @param format character designating date formatting, following \code{\link[base]{strptime}} convention.
+#' @param format character designating date formatting, following [base::strptime()] convention.
 #' @return regular expression corresponding to the format
 #' @export
 #' @examples
@@ -1756,7 +1938,7 @@ as.Date2 <- function(vec) {
 
 #' Create Date-Time (POSIXct object)
 #'
-#' Note: The particular use is in ytdata::visits() function.
+#' Note: The particular use is in [ytdata::visits()] function.
 #' @param date Date object
 #' @param time character with time in it
 #'
@@ -1786,8 +1968,8 @@ make.datetime <- function(date,time) {
 
 #' Convert POSIXct to a fractional date
 #'
-#' This creates a fractional date. If you do as.Date(datetime), it removes the time part.
-#' @param datetime a POSIXct vector to be convered
+#' This creates a fractional date. If you do `as.Date(datetime)`, it removes the time part.
+#' @param datetime a POSIXct vector to be converted
 #' @return a Date column that contains fractional values.
 #' @export
 as_date_fractional <- function(datetime) {
@@ -1805,7 +1987,7 @@ as_date_fractional <- function(datetime) {
 #' This is useful when dealing with Date and POSIXct, since you can't just add them together and divide by 2.
 #' @param tstart the start value
 #' @param tstop the stop value
-#' @return a vector of values represent the midpoint between \code{tstart} and \code{tstop}.
+#' @return a vector of values represent the midpoint between `tstart` and `tstop`.
 #' @export
 midpoint <- function(tstart,tstop) {
   if (lubridate::is.Date(tstart) | lubridate::is.POSIXct(tstart)) {
@@ -1849,15 +2031,15 @@ get.time <- function(datetime,format="%I:%m%p") {
 
 #' Group By All Distinct Variables
 #'
-#' Can be used similar to \code{group_by}, but will try to add additional variables to the group list, such that the grouping remains the same.
-#' In other words, \code{group_by_all_distinct(data,a,b,c)} will group by a,b,c,x,y,z, where x,y,z do not alter the groups.
-#' This is useful for keeping extra variables that go with the grouping, if you perform \code{summarize} afterwards.
+#' Can be used similar to `group_by`, but will try to add additional variables to the group list, such that the grouping remains the same.
+#' In other words, `group_by_all_distinct(data,a,b,c)` will group by a,b,c,x,y,z, where x,y,z do not alter the groups.
+#' This is useful for keeping extra variables that go with the grouping, if you perform `summarize` afterwards.
 #'
 #' This is a convenience function that I made because of sheer laziness....
 #' probably better to avoid using this for really rigorous data operations.
 #' @param data data frame
 #' @param ... variables to group by
-#' @return Returns \code{data}, but grouped by \code{...} plus other variables that can be grouped along with it.
+#' @return Returns `data`, but grouped by `...` plus other variables that can be grouped along with it.
 #' @author Ying Taur
 #' @export
 group_by_all_distinct <- function(data, ...) {
@@ -1874,6 +2056,7 @@ group_by_all_distinct <- function(data, ...) {
 
 
 
+
 #' Test data for additional identifiers across groups.
 #'
 #' @description
@@ -1881,7 +2064,7 @@ group_by_all_distinct <- function(data, ...) {
 #' other columns do not vary within each group. In other words, it tests if additional columns can be added
 #' to the grouping definition and would not alter the grouping structure.
 #' This can be useful as a way to determine additional identifiers to include,
-#' when performing reshaping operations such as \code{group_by}/\code{summarize} or \code{pivot_wider}.
+#' when performing reshaping operations such as `group_by`/`summarize` or `pivot_wider`.
 #'
 #' * `test_if_nonvarying_by_group()` returns testing results in the form of a named logical vector.
 #'
@@ -1892,12 +2075,13 @@ group_by_all_distinct <- function(data, ...) {
 #' columns pass (are nonvarying across groups). If a column fails, a warning or error will be issued.
 #' Use this for error checking within pipelines.
 #'
-#' @param data data to be tested.
-#' @param id_vars \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> ID vars that define the nonvarying
-#' groups. Default is to use the grouping variables (from \code{dplyr::group_by})
-#' @param test_vars \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> variables to be tested. Default is all columns not specified in \code{id_vars}.
+#' @param data data to be tested (data.frame or data.table).
+#' @param id_vars [`tidy-select`][`tidyr::tidyr_tidy_select`] ID vars that define the nonvarying
+#' groups. Default is to use the grouping variables (from [dplyr::group_by()])
+#' @param test_vars [`tidy-select`][`tidyr::tidyr_tidy_select`] variables to be tested. Default is all columns not specified in `id_vars`.
 #' @param verbose whether or not to display messages about the testing results
 #' @export
+#' @rdname test_if_nonvarying_by_group
 #' @examples
 #' otu <- get.otu.melt(cid.phy)
 #'
@@ -1917,6 +2101,7 @@ test_if_nonvarying_by_group <- function(data,
                                         id_vars = all_of(group_vars(data)),
                                         test_vars = everything(),
                                         verbose = FALSE) {
+  # data=get.otu.melt(cid.phy);id_vars=quo(sample);test_vars=quo(everything())
   id_vars <- enquo(id_vars)
   test_vars <- enquo(test_vars)
   id_vars_ts <- tidyselect::eval_select(id_vars, data=data)
@@ -1927,12 +2112,51 @@ test_if_nonvarying_by_group <- function(data,
   if (length(id_vars)==0) {
     warning("YTWarning: no groups detected")
   }
+
+  dt.test <- data %>% as.data.table(key=id_var_names) %>%
+    .[ , .group:=.GRP,by=id_var_names]
+  total.groups <- dt.test$.group[nrow(dt.test)]
+  total.testcols <- length(test_var_names)
+  # whether or not to analyze first 10 groups, which can
+  # speed up the calc by removing easy varying columns first.
+  # generally worth doing if there are more cols and groups
+  if (total.groups>500 && total.testcols>=10) {
+    dt.ngroup.sizes <- c(10,Inf)
+  } else {
+    dt.ngroup.sizes <- Inf
+  }
+  var.to.test <- test_var_names
+  varying <- c()
+  for (ngroups in dt.ngroup.sizes) {
+    # ngroups=10
+    # message(length(var.to.test))
+    sub <- dt.test[.group<ngroups ,]
+    for (test_var in var.to.test) {
+      # test_var=test_var_names[1]
+      xx <- sub %>%
+        .[ , c(test_var,id_var_names), with=FALSE] %>%
+        unique() %>%
+        .[ , id_var_names, with=FALSE] %>%
+        anyDuplicated()
+      if (xx!=0) {
+        varying <- c(varying,test_var)
+      }
+    }
+    var.to.test <- setdiff(var.to.test,varying)
+  }
+  data.testing <- setNames(!(test_var_names %in% varying),test_var_names)
+
+  #whatever is left is non-varying.
+  # data.testing <- setNames(test_var_names %in% to.test,test_var_names)
   data.rootgroup <- setNames(rep_along(id_var_names,TRUE),id_var_names)
-  data.testing <- data %>% ungroup() %>%
-    group_by(!!!syms(id_var_names)) %>%
-    summarize(across(.cols=all_of(test_var_names), .fns=n_distinct), .groups="drop") %>%
-    summarize(across(.cols=all_of(test_var_names), .fns=~all(.x==1))) %>%
-    unlist()
+  # data.testing <- data %>% ungroup() %>% as.data.table(key=id_var_names) %>%
+  #   .[, lapply(.SD, uniqueN), .SDcols=test_var_names, by=id_var_names] %>%
+  #   .[, lapply(.SD, function(x) all(x==1)), .SDcols=test_var_names] %>%
+  #   as_tibble() %>% unlist()
+
+  # data.testing0 <- data %>% ungroup() %>% group_by(!!!syms(id_var_names)) %>%
+  #   summarize(across(.cols=all_of(test_var_names), .fns=n_distinct), .groups="drop") %>%
+  #   summarize(across(.cols=all_of(test_var_names), .fns=~all(.x==1))) %>% unlist()
 
   if (verbose) {
     test_var_names_cangroup <- names(data.testing)[data.testing]
@@ -1944,7 +2168,6 @@ test_if_nonvarying_by_group <- function(data,
   test <- c(data.rootgroup,data.testing)
   test
 }
-
 
 
 
@@ -1967,7 +2190,7 @@ group_suggest_additional_vars <- function(data,
 }
 
 #' @rdname test_if_nonvarying_by_group
-#' @param stopIfTRUE Whether to raise error is test fails. Default is \code{FALSE}: issue warning only.
+#' @param stopIfTRUE Whether to raise error is test fails. Default is `FALSE`: issue warning only.
 #' @export
 assert_grouping_vars <- function(data,
                                  id_vars = all_of(group_vars(data)),
@@ -2009,14 +2232,14 @@ assert_grouping_vars <- function(data,
 #'
 #' Given data frame with start and stop times, group times by non-overlapping start and stop times.
 #'
-#' This is like running \code{group_by}, but creates a new grouping variable called \code{index_} that is created from times.
+#' This is like running `group_by`, but creates a new grouping variable called `index_` that is created from times.
 #' @param data data frame
 #' @param start start times
 #' @param stop stop times
 #' @param ... other variables to group by. These will be applied prior to grouping by times.
 #' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is 1.
-#' @param add Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.
-#' @return Returns \code{data}, but grouped by times and other variables.
+#' @param add Same as the add option in `group_by`. When TRUE, will add to groups, rather than overriding them.
+#' @return Returns `data`, but grouped by times and other variables.
 #' @author Ying Taur
 #' @export
 #' @examples
@@ -2060,7 +2283,7 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 #'
 #' Group time data by consecutive streaks of a certain indicator variable.
 #'
-#' Similar to \code{group_by_time}, but for a different purpose. This function groups by consecutive values of the indicator variable.
+#' Similar to `group_by_time`, but for a different purpose. This function groups by consecutive values of the indicator variable.
 #' This is to measure how long the indicator remains in the same state. One situation where I use this is calculating
 #' when BMT engraftment has occurred. It is defined as the first day on which absolute neutrophil count is >500
 #' for at least three consecutive measurements on at least three consecutive days.
@@ -2068,10 +2291,10 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
 #' @param time time variable
 #' @param indicator variable to group consecutive streaks
 #' @param ... other variables to group by. These will be applied prior to grouping by time streaks.
-#' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is \code{Inf}, i.e. no gap.
-#' @param na.skip whether to ignore \code{NA} values in the indicator. Default is \code{FALSE}, which will just break streaks and provide a warning if they are encountered.
-#' @param add Same as the add option in \code{group_by}. When TRUE, will add to groups, rather than overriding them.
-#' @return Returns \code{data}, but grouped by time streaks
+#' @param gap time periods differing by this gap or less will be combined in the grouping variable. Default is `Inf`, i.e. no gap.
+#' @param na.skip whether to ignore `NA` values in the indicator. Default is `FALSE`, which will just break streaks and provide a warning if they are encountered.
+#' @param add Same as the add option in `group_by`. When TRUE, will add to groups, rather than overriding them.
+#' @return Returns `data`, but grouped by time streaks
 #' @author Ying Taur
 #' @export
 #' @examples
@@ -2149,10 +2372,12 @@ sample_groups = function(grouped_df,size,weight=NULL,replace=FALSE) {
 }
 
 
+
+
 #' Split data frame into named list
 #'
-#' Same as \code{dplyr::group_split()}, except that the list of tables is named rather than unnamed.
-#' Another minor difference is that it keeps previous grouping (\code{group_split()} wants all grouping vars to be stated at once).
+#' Same as [dplyr::group_split()], except that the list of tables is named rather than unnamed.
+#' Another minor difference is that it keeps previous grouping ([dplyr::group_split()]} wants all grouping vars to be stated at once).
 #' @param .tbl A table
 #' @param ... Grouping specification
 #' @param .keep Should the grouping columns be kept
@@ -2181,7 +2406,7 @@ group_split_named <- function(.tbl, ..., .keep = TRUE, sep = " / ") {
 #'
 #' Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
 #'
-#' This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
+#' This is now done using the [`clipr`] package. Previously I did this manually for each operating system.
 #'
 #' @param obj object to by copied. Can be data frame, matrix, table, vector.
 #' @author Ying Taur
@@ -2221,14 +2446,15 @@ copy.to.clipboard.gg <- function(obj,width=10,height=7,dpi=150,pointsize=12,resc
 }
 
 
+
 #' Read Clipboard
 #'
 #' Read clipboard into vector or data frame.
 #'
 #' Attempts to determine if content is vector or data frame. If reading a data frame, it will assume first row
-#' as header (specify \code{header=FALSE} if necessary). If first cell is blank, it will assume row and column names.
-#' Note: This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
-#' @param ... Options to pass to \link[utils]{read.table} (e.g. header, row.names, sep, as.is)
+#' as header (specify `header=FALSE` if necessary). If first cell is blank, it will assume row and column names.
+#' Note: This is now done using the `clipr` package. Previously I did this manually for each operating system.
+#' @param ... Options to pass to [utils::read.table()] (e.g. `header`, `row.names`, `sep`, `as.is`)
 #' @return Contents of clipboard
 #' @author Ying Taur
 #' @export
@@ -2316,7 +2542,7 @@ pretty_scientific <- function(l,parse=TRUE) {
 #' Use to abbreviate large numbers (e.g. 3450000 is '3.4M')
 #'
 #' @param x numeric vector to be formatted
-#' @param abbrev named vector specifying the log base 10 cutoff values and their assigned label. Default is \code{c(K=3,M=6,B=9)}.
+#' @param abbrev named vector specifying the log base 10 cutoff values and their assigned label. Default is `c(K=3,M=6,B=9)`.
 #' @param sig.digits number of signficant digits to use.
 #'
 #' @return character vector of formatted numbers
@@ -2345,15 +2571,14 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 # data reshaping functions -----------------------------------------------------
 
 
-
 #' Inner/Left/Right/Full Join with Replace
 #'
-#' Same as \code{inner_join}, \code{left_join}, \code{right_join}, and \code{full_join} in the \code{dplyr} package, except that variables with the
+#' Same as `inner_join`, `left_join`, `right_join`, and `full_join` in the `dplyr` package, except that variables with the
 #' same column name will not be renamed with the ".x" and ".y" suffix.
 #' Instead, the variables will be turned into one column if the variables are equal. If they are not equal, an error (or warning) is thrown.
 #'
 #' This is a convenience function that just avoids the renaming of columns.
-#' @param errorIfDifferent whether to throw an error if a difference is detected (default is \code{TRUE})
+#' @param errorIfDifferent whether to throw an error if a difference is detected (default is `TRUE`)
 #'
 #' @export
 inner_join_replace <- function(x,y,by=NULL,errorIfDifferent=TRUE) {
@@ -2429,7 +2654,7 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 
 #' Pivot data from long to wide, with recoding
 #'
-#' Somewhat similar to \code{tidyr::pivot_wider}, where but where the names_from column is recoded using \code{recode.grep},
+#' Somewhat similar to [tidyr::pivot_wider()], where but where the names_from column is recoded using `recode.grep`,
 #' prior to pivotting. This is primarily useful for restructuring data that comes in long format (name-value pairs).
 #'
 #' In addition to recoding, there are other changes:
@@ -2437,17 +2662,16 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 #' 2. asdf
 #'
 #' @param data data to be pivotted.
-#' @param id_cols \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> columns that identify each observation. Used in \code{pivot_wider}.
-#' @param names_from \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> column names to be pivotted. Used in \code{pivot_wider}.
-#' @param values_from \item{cols}{<\code{\link[=tidyr_tidy_select]{tidy-select}}> column values to be pivotted. Used in \code{pivot_wider}.
-#' @param names_recodes recodes to be done on \code{names_from} prior to pivotting. Used in \code{recode.grep}.
-#' @param names_else.value default value of recoding. Used in \code{recode.grep}.
-#' @param names_sort whether to sort columns by order of recode.grep. Default is \code{TRUE}
-#' @param values_sep character separator between name and value. Default is '::'
-#' @param values_fill value used when value is missing. Used in \code{pivot_wider}.
-#' @param values_fn How multiple values are combined. Default is ~paste(.x,collapse="|"), which collapses into a single string. Used in \code{pivot_wider}.
-#' @param unused_fn A function performed on unused columns. Default is \code{NULL}.
-#'
+#' @param id_cols [`tidy-select`][`tidyr::tidyr_tidy_select`] columns that identify each observation. Used in [tidyr::pivot_wider()].
+#' @param names_from [`tidy-select`][`tidyr::tidyr_tidy_select`] column names to be pivotted. Used in [tidyr::pivot_wider()].
+#' @param values_from [`tidy-select`][`tidyr::tidyr_tidy_select`] column values to be pivotted. Used in [tidyr::pivot_wider()].
+#' @param names_recodes recodes to be done on `names_from` prior to pivotting. Used in [recode.grep()].
+#' @param names_else.value default value of recoding. Used in [recode.grep()].
+#' @param names_sort whether to sort columns by order of recode.grep. Default is `TRUE`
+#' @param values_sep character separator between name and value. Default is `"::"`
+#' @param values_fill value used when value is missing. Used in [tidyr::pivot_wider()].
+#' @param values_fn How multiple values are combined. Default is `~paste(.x,collapse="|")`, which collapses into a single string. Used in [tidyr::pivot_wider()].
+#' @param unused_fn A function performed on unused columns. Default is `NULL`.
 #' @return Pivotted data
 #' @export
 #' @examples
@@ -2561,7 +2785,7 @@ pivot_wider_partial <- function(data,
 #' Creates different shades of the specified color.
 #'
 #' Use this as a convenience function when creating your plots.
-#' @param color character, specifying the color you want to build shades around. (e.g. \code{"red"} or \code{"#1460fa"})
+#' @param color character, specifying the color you want to build shades around. (e.g. `"red"` or `"#1460fa"`)
 #' @param ncolor number specifying the length of the vector, i.e. how many different shades should be returned (default 3 shades).
 #' @param variation a number from 0-1, which determines how different the shades will be. Smaller numbers will be more similar.
 #' @return Produces a character vector of colors, corresponding to shades of the specified color.
@@ -2653,22 +2877,23 @@ gg.colors <- function(n=6, h=c(0,360)+15) {
 #' Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
 #'
 #' Performs these steps:
-#' (1) change margins so that plots are closer together
-#' (2) alters widths of each component so that the plots will line up nicely
-#' (3) calls \code{grid.arrange(...,ncol=1)}
-#' If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
+#' 1. change margins so that plots are closer together
+#' 2. alters widths of each component so that the plots will line up nicely
+#' 3. calls `grid.arrange(...,ncol=1)`
+#'
+#' If a `NULL` value is passed to the plot list, that plot and the corresponding height value will be omitted.
 #'
 #' @param ... ggplot objects to be stacked
-#' @param heights a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.
-#' @param align.xlim logical, whether or not to alter the x-limits in each plot to match. Default is \code{FALSE}. (Note this is experimental and can potentially fail in strange situations)
-#' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default \code{TRUE}.
-#' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is \code{NULL}.
+#' @param heights a numeric vector representing the relative height of each plot. Passed directly to [gridExtra::grid.arrange()].
+#' @param align.xlim logical, whether or not to alter the x-limits in each plot to match. Default is `FALSE`. (Note this is experimental and can potentially fail in strange situations)
+#' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default `TRUE`.
+#' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is `NULL`.
 #' @param gap size of gap between stacked plots. Default is 0
 #' @param margin size of the margin around the plots. Default is 5.5.
 #' @param units specifies units used for gap and margin. Default is "pt"
 #' @param newpage logical, whether or not to erase current grid device. Default is TRUE. (Note, should turn this off if using in a shiny plot)
 
-#' @param as.gtable logical, whether or not to return as a gtable object (i.e. don't execute \code{grid.draw}). Default is \code{FALSE}. Do this if you want to do more arranging afterwards.
+#' @param as.gtable logical, whether or not to return as a gtable object (i.e. don't execute `grid.draw`). Default is `FALSE`. Do this if you want to do more arranging afterwards.
 #'
 #' @return plot of stacked ggplots
 #' @export
@@ -2762,7 +2987,7 @@ gg.stack <- function(...,heights=NULL,align.xlim=FALSE,adjust.themes=TRUE,gg.ext
 
 #' Calculate axis limits
 #'
-#' Determines the actual limits of X and Y, for a given ggplot object. This is used by \code{gg.align.xlim}.
+#' Determines the actual limits of X and Y, for a given ggplot object. This is used by [gg.align.xlim()].
 #' @param gg the ggplot object
 #' @return a list containing inforation about limits for X and Y.
 #' @example
@@ -2843,7 +3068,7 @@ gg.axis.limits <- function(gg) {
 #'
 #' For a given list of ggplot objects, make the x-limits the same across all plots.
 #'
-#' This is useful when stacking plots like in gg.stack().
+#' This is useful when stacking plots like in [gg.stack()].
 #' @param glist a list of ggplot objects
 #'
 #' @return a modified list of ggplot objects, with modified x-limits
@@ -2904,9 +3129,9 @@ trim.data.frame <- function(data,verbose=TRUE) {
 #'
 #' In a given data frame, look for variables resembling dates and convert them to Dates.
 #'
-#' Basically applies \code{as.Date2} to all variables.
+#' Basically applies [as.Date2()] to all variables.
 #' @param data The data frame to be converted.
-#' @param verbose logical indicating whether or not to display info on date conversions. Default is \code{FALSE}.
+#' @param verbose logical indicating whether or not to display info on date conversions. Default is `FALSE`.
 #' @export
 convert.dates <- function(data,verbose=FALSE) {
   #data=xx
@@ -2936,10 +3161,10 @@ convert.dates <- function(data,verbose=FALSE) {
 #'
 #' MRN's must characters with 8 digits, where the first is either "0" or "3".
 #'
-#' Note that many numeric vectors \emph{could} be an MRN. Will issue a warning if the variable
+#' Note that many numeric vectors _could_ be an MRN. Will issue a warning if the variable
 #' passes the tests but is not necessarily an MRN variable.
 #' @param mrn vector to be examined.
-#' @param like logical, whether or not to check if the variable \emph{could} be an MRN. If \code{FALSE}, it checks strictly. If \code{TRUE}, will allow for classes other than character, and for whitespaces.
+#' @param like logical, whether or not to check if the variable _could_ be an MRN. If `FALSE`, it checks strictly. If `TRUE`, will allow for classes other than character, and for whitespaces.
 #' @return Returns logical stating whether or not this variable is an MRN.
 #' @examples
 #' @author Ying Taur
@@ -3035,10 +3260,11 @@ as.mrn.data.frame <- function(data,verbose=FALSE) {
 }
 
 
+
 #' Remove NA columns
 #'
 #' @param data data frame to be filtered.
-#' @param verbose logical indicating whether or not to display info on columns removed. Default is \code{FALSE}.
+#' @param verbose logical indicating whether or not to display info on columns removed. Default is `FALSE`.
 #' @return The original data frame, with blank columns removed.
 #' @export
 remove.na.cols <- function(data,verbose=FALSE) {
@@ -3059,7 +3285,7 @@ remove.na.cols <- function(data,verbose=FALSE) {
 #' Remove NA rows
 #'
 #' @param data data frame to be filtered.
-#' @param verbose logical indicating whether or not to display info on rows removed. Default is \code{FALSE}.
+#' @param verbose logical indicating whether or not to display info on rows removed. Default is `FALSE`.
 #' @return The original data frame, with blank rows removed.
 #' @export
 remove.na.rows <- function(data,verbose=FALSE) {
@@ -3076,13 +3302,14 @@ remove.na.rows <- function(data,verbose=FALSE) {
   return(data[keeprows,])
 }
 
+
 #' Make Syntactically Valid Names (Ying's version)
 #'
 #' Make syntactically valid names out of character vectors.
 #'
-#' Like original \code{make.names}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
+#' Like original [base::make.names()], but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
 #' @param names character vector to be coerced to syntactically valid names. This is coerced to character if necessary.
-#' @param verbose logical indicating whether or not to display info name cleanup. Default is \code{FALSE}. Dataframe only
+#' @param verbose logical indicating whether or not to display info name cleanup. Default is `FALSE`. Data frame only
 #' @return Data frame with corrected names
 #' @export
 make.names <- function(x,...) UseMethod("make.names")
@@ -3114,9 +3341,9 @@ make.names.data.frame <- function(data,verbose=FALSE) {
 #'
 #' For a given vector,  in blanks with previous value.
 #' @param vec the vector to be ed in.
-#' @param blank vector of values that denote a blank. By default, \code{""} is used.
-#' @param include.na vector of values that denote a blank. By default, \code{""} is used.
-#' @return Returns \code{vec}, with blanks filled in.
+#' @param blank vector of values that denote a blank. By default, `""` is used.
+#' @param include.na vector of values that denote a blank. By default, `""` is used.
+#' @return Returns `vec`, with blanks filled in.
 #' @examples
 #' fill_in_blanks(c("1",NA,"2","","3","","","4",NA,NA))
 #' @author Ying Taur
@@ -3135,20 +3362,20 @@ fill_in_blanks <- function(vec,blank="",include.na=TRUE) {
 #' Cleanup data
 #'
 #' Cleans up a data frame by performing 5 tasks:
-#' (1) Remove any column or row that is all \code{NA} values (\code{remove.na.rows},\code{remove.na.cols})
-#' (2) Make column names well-formatted (\code{make.names})
-#' (3) Remove any leading or trailing whitespace from character variables (\code{trim})
-#' (4) Look for variables that look like date/time variables, and convert them to Date or POSIXct format (\code{convert.dates})
-#' (5) Look for variables that look like MRNs and format them properly (\code{as.mrn})
+#' 1. Remove any column or row that is all `NA` values ([remove.na.rows()],[remove.na.cols()])
+#' 2. Make column names well-formatted ([make.names()])
+#' 3. Remove any leading or trailing whitespace from character variables ([trim()])
+#' 4. Look for variables that look like date/time variables, and convert them to Date or POSIXct format ([convert.dates()])
+#' 5. Look for variables that look like MRNs and format them properly ([as.mrn()])
 #'
-#' @param remove.na.cols If \code{TRUE}, will remove any column consisting entirely of \code{NA}'s. Default=\code{FALSE}
-#' @param remove.na.rows If \code{TRUE}, will remove any row consisting entirely of \code{NA}'s. Default=\code{TRUE}
-#' @param make.names If \code{TRUE}, will fix variable names. Default=\code{TRUE}
-#' @param trim If \code{TRUE}, will remove whitespace from all character variables. Default=\code{TRUE}
-#' @param convert.dates If \code{TRUE}, will convert variables that look like dates to Date format. Default=\code{TRUE}
-#' @param as.mrn If \code{TRUE}, will looking for variables that look like MRN and convert to 8-digit character. Default=\code{TRUE}
-#' @param verbose logical indicating whether or not to display info on data cleaning. Default is \code{FALSE}.
-#' @return Returns a clean version of \code{data}.
+#' @param remove.na.cols If `TRUE`, will remove any column consisting entirely of `NA`'s. Default=`FALSE`
+#' @param remove.na.rows If `TRUE`, will remove any row consisting entirely of `NA`'s. Default=`TRUE`
+#' @param make.names If `TRUE`, will fix variable names. Default=`TRUE`
+#' @param trim If `TRUE`, will remove whitespace from all character variables. Default=`TRUE`
+#' @param convert.dates If `TRUE`, will convert variables that look like dates to Date format. Default=`TRUE`
+#' @param as.mrn If `TRUE`, will looking for variables that look like MRN and convert to 8-digit character. Default=`TRUE`
+#' @param verbose logical indicating whether or not to display info on data cleaning. Default is `FALSE`.
+#' @return Returns a clean version of `data`.
 #' @examples
 #' #####
 #' @author Ying Taur
@@ -3190,7 +3417,7 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #'
 #' Use this transformation for plotting log data including 0. You can't use regular log transformation because it can't take zero.
 #'
-#' The transformation used is y=log(x+epsilon/8)-log(epsilon/8), where epsilon is the parameter controlling the scale. The 1/8 portion is to make distances between ticks equal, so it's visually pleasing.
+#' The transformation used is \eqn{\log{(|x|+\frac{epsilon}{8})} - \log(\frac{epsilon}{8})}, where epsilon is the parameter controlling the scale. The 1/8 portion is to make distances between ticks equal, so it's visually pleasing.
 #' @param epsilon This parameter controls scaling. Think of this as the value of the first axis tick after zero. Default is 0.001.
 #' @return Tranformation function to be plugged into ggplot.
 #' @examples
@@ -3206,7 +3433,6 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @export
 log_epsilon_trans <- function(epsilon=0.001) {
   requireNamespace("scales",quietly=TRUE)
-  ep8 <- epsilon/8
   trans <- function(x) sign(x)*(log(abs(x)+epsilon/8)-log(epsilon/8))
   inv <- function(y) sign(y)*epsilon/8*(exp(abs(y))-1)
   scales::trans_new(paste0("log_epsilon-",format(epsilon)),trans,inv,
@@ -3218,7 +3444,7 @@ log_epsilon_trans <- function(epsilon=0.001) {
 #' Breaks for Log Epsilon Tranformation
 #'
 #' This is used by scant_trans as default method for breaks. Will fill in logs of 10.
-#' @param epsilon scaling parameter used in \code{log_epsilon_trans}
+#' @param epsilon scaling parameter used in [log_epsilon_trans()]
 #' @return break function returning break values.
 #' @export
 log_epsilon_trans_breaks <- function(epsilon) {
@@ -3242,8 +3468,8 @@ log_epsilon_trans_breaks <- function(epsilon) {
 #' @param value2 Second value whose percent height you'd like to specify.
 #' @param pct.value1 Percent height of the first value. Default is 0.1.
 #' @param pct.value2 Percent height of the second value. Default is 0.9.
-#' @param invert whether or not to flip the logistic curve. Default is \code{FALSE}.
-#' @return Returns the logistic transformation of \code{var}, where values will fall within \code{scale}, and where \code{inner.range} will be transformed to \code{percentiles}.
+#' @param invert whether or not to flip the logistic curve. Default is `FALSE`.
+#' @return Returns the logistic transformation of `var`, where values will fall within `scale`, and where `inner.range` will be transformed to `percentiles`.
 #' @examples
 #' #Example: WBC. Values between 0.2 and 10 take up 80% of the space. Values outside of that de-emphasized.
 #' wbc <- seq(0,20,by=0.1)
@@ -3298,11 +3524,11 @@ logistic_trans_breaks <- function(inner.range) {
 #'
 #' For a given survival endpoint, censor at earlier timepoints, if they occur.
 #' @param data the data frame with survival data
-#' @param newvar the name (unquoted) of the new survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")}
+#' @param newvar the name (unquoted) of the new survival endpoint to be created (creates `newvar`, plus `paste0(newvar,"_day")`
 #' @param oldvar the original survival endpoint, to be censored.
 #' @param ... columns representing censoring times.
-#' @param censor.as.tdvar whether to censor endpoints occurring exactly at the censoring time. Use \code{TRUE} for time-dependent predictors, \code{FALSE} for endpoints.
-#' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which has been censored wherever the censoring times occur before the original end of survival time.
+#' @param censor.as.tdvar whether to censor endpoints occurring exactly at the censoring time. Use `TRUE` for time-dependent predictors, `FALSE` for endpoints.
+#' @return Returns `data`, with a newly defined survival endpoint (`newvar`), which has been censored wherever the censoring times occur before the original end of survival time.
 #' @examples
 #' # create a endpoint(dead30d), which represents death within 30 days or discharge.
 #' new.pt <- cid.patients %>% chop.endpoint(dead30d,dead,30,discharge.day)
@@ -3345,26 +3571,26 @@ chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
 #' Make a survival endpoint
 #'
 #' Construct a survival endpoint, by specifying times or survival other survival endpoints.
-#' These can be regular survival or competing endpoints (which you would analyze with something like Fine-Grey in \code{cmprsk} package).
+#' These can be regular survival or competing endpoints (which you would analyze with something like Fine-Grey in `cmprsk` package).
 #'
 #' Note, endpoints (primary and competing) can be specified either as a "varname" and "varname_day" pair, representing survival indicator and survival time,
-#' or a single column representing positive endpoints (\code{NA} or \code{Inf}) otherwise.
+#' or a single column representing positive endpoints (`NA` or `Inf`) otherwise.
 #'
 #' If survival endpoints are specified, note that censored times may be ignored.
 #'
 #' @param data the data to be modified, containing the endpoints to be combined
-#' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")})
+#' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates `newvar`, plus `paste0(newvar,"_day")`)
 #' @param primary the original survival endpoint, to be converted to a competing endpoint
 #' @param ... columns representing competing endpoints.
-#' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.
+#' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=`Inf`, if it doesn't exist.
 #' @param competing whether to code as competing. If FALSE, competing endpoints will be censored.
 #'
-#' @return Returns \code{data}, with a newly defined survival endpoint (\code{newvar}), which represents the combined competing endpoint.
-#' \code{newvar} is the numeric indicator of the endpoint,
-#' \code{newvar_day} is the survival time,
-#' \code{newvar_code} is a character showing the value definition,
-#' \code{newvar_info} shows the status of all endpoints, in order.
-#' You would primarily use \code{newvar} and \code{newvar_day} with packages such as \code{cmprsk} for competing risk analysis.
+#' @return Returns `data`, with a newly defined survival endpoint (`newvar`), which represents the combined competing endpoint.
+#' `newvar` is the numeric indicator of the endpoint,
+#' `newvar_day` is the survival time,
+#' `newvar_code` is a character showing the value definition,
+#' `newvar_info` shows the status of all endpoints, in order.
+#' You would primarily use `newvar` and `newvar_day` with packages such as `cmprsk` for competing risk analysis.
 #' @examples
 #' # create a combined endpoint
 #' cid.patients %>% make.surv.endpt(competing.enterodom,enterodom30,dead,strepdom30,proteodom30,30)
@@ -3481,9 +3707,9 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 #' @param yvar the time-to-event outcome (bare unquoted).
 #' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
 #' @param starttime optional parameter specifying analysis start time. Use this for left censoring.... no need to use it for setting time zero.
-#' @param return.split.data if \code{TRUE}, returns the data frame after splitting rows that are time-dependent.
-#' @param return.model.obj if \code{TRUE}, returns the model object of the \code{coxph} command
-#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @param return.split.data if `TRUE`, returns the data frame after splitting rows that are time-dependent.
+#' @param return.model.obj if `TRUE`, returns the model object of the [survival::coxph()] command
+#' @param formatted returns a formatted regression table (default `TRUE`). Otherwise, return the raw, unformatted regression table (essentially, the output of `broom::tidy`, plus a few additional columns)
 #'
 #' @return by default, returns a formatted regression table
 #' @examples
@@ -3713,14 +3939,14 @@ yt.tidy.logistf <- function(obj) {
 
 #' Univariate and Multivariate Cox Regression
 #'
-#' Uses the \code{cox} function to perform a univariate and multivariate model analysis.
+#' Uses the [cox()] function to perform a univariate and multivariate model analysis.
 #' @param data the data frame containing the variables to be analyzed.
 #' @param yvar the time-to-event outcome (bare unquoted).
 #' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
 #' @param starttime optional parameter specifying analysis start time.
-#' @param multi if \code{TRUE}, perform multivariate analysis.
-#' @param multi.cutoff P-value threshold for inclusion into the multivariate model (default is \code{0.25})
-#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @param multi if `TRUE`, perform multivariate analysis.
+#' @param multi.cutoff P-value threshold for inclusion into the multivariate model (default is `0.25`)
+#' @param formatted returns a formatted regression table (default `TRUE`). Otherwise, return the raw, unformatted regression table (essentially, the output of [broom::tidy()], plus a few additional columns)
 #' @return by default, returns a formatted regression table
 #' @examples
 #' @export
@@ -3777,8 +4003,8 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
 #' @param yvar the outcome (bare unquoted).
 #' @param ... predictors in the model (bare unquoted).
 #' @param starttime optional parameter specifying analysis start time.
-#' @param return.model.obj if \code{TRUE}, returns the model object of the \code{coxph} command
-#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @param return.model.obj if `TRUE`, returns the model object of the [survival::coxph()] command
+#' @param formatted returns a formatted regression table (default `TRUE`). Otherwise, return the raw, unformatted regression table (essentially, the output of [broom::tidy()], plus a few additional columns)
 #' @return by default, returns a formatted regression table
 #' @export
 logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted=TRUE) {
@@ -3847,14 +4073,14 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
 
 #' Univariate and Multivariate Cox Regression
 #'
-#' Uses the \code{cox} function to perform a univariate and multivariate model analysis.
+#' Uses the `cox` function to perform a univariate and multivariate model analysis.
 #' @param data the data frame containing the variables to be analyzed.
 #' @param yvar the time-to-event outcome (bare unquoted).
 #' @param ... predictors in the model (bare unquoted). If a predictor time-dependent, the split the corresonding rows of the data frame.
 #' @param starttime optional parameter specifying analysis start time.
-#' @param multi if \code{TRUE}, perform multivariate analysis.
-#' @param multi.cutoff P-value threshold for inclusion into the multivariate model (default is \code{0.25})
-#' @param formatted returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)
+#' @param multi if `TRUE`, perform multivariate analysis.
+#' @param multi.cutoff P-value threshold for inclusion into the multivariate model (default is `0.25`)
+#' @param formatted returns a formatted regression table (default `TRUE`). Otherwise, return the raw, unformatted regression table (essentially, the output of [broom::tidy()], plus a few additional columns)
 #' @return by default, returns a formatted regression table
 #' @examples
 #' @export
@@ -3908,9 +4134,9 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,firth
 #' Read Multiple Excel Sheets Into a List of Data Frames
 #'
 #' @param ... Either a file(s) or folder(s). If a folder is specified, it will look for all files ending in (.xlsx/.xls).
-#' @param col_names \code{TRUE} to use the first row as column names, \code{FALSE} to get default names, or a character
-#' vector giving a name for each column. This is passed to \code{readxl::read_excel} function.
-#' @param keep.nested If \code{TRUE}, returns a nested list of files and then sheets. Otherwise, a list of sheets is normally returned.
+#' @param col_names `TRUE` to use the first row as column names, `FALSE` to get default names, or a character
+#' vector giving a name for each column. This is passed to [readxl::read_excel()] function.
+#' @param keep.nested If `TRUE`, returns a nested list of files and then sheets. Otherwise, a list of sheets is normally returned.
 #' @param bare.filename Whether to use bare vs. full path as the filename.
 #' @return A named list of data frames, where each data frame represents a sheet.
 #' @export
@@ -3976,7 +4202,7 @@ write_all_excel <- function(..., file) {
 
 #' Read Excel File 2
 #'
-#' Same as \code{readxl::read_excel} function, but col_types can be named vector
+#' Same as [readxl::read_excel()] function, but col_types can be named vector
 #'
 #' @param path Path to the xls/xlsx file
 #' @param sheet Sheet to read. Either a string (the name of a sheet), or an integer (the position of the sheet). Defaults to the first sheet.
@@ -4015,7 +4241,7 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
 #'
 #' Opens the specified file using the application specified.
 #'
-#' Note that this does different things depending on operating system. Windows R already has a \code{shell.exec} function, so it just uses that.
+#' Note that this does different things depending on operating system. Windows R already has a [base::shell.exec()] function, so it just uses that.
 #' Linux R doesn't have this function, so this emulates on Linux using the 'xdg-open' terminal command..
 #' @param file file to be opened
 #' @return No value.
@@ -4039,7 +4265,7 @@ shell.exec <- function(file) {
 #' Display sizes of objects in memory
 #'
 #' Use this to see what is occupying memory
-#' @param envir the environment to list objects. Default is \code{.GlobalEnv}
+#' @param envir the environment to list objects. Default is `.GlobalEnv`
 #' @return a data frame showing objects and the object size, in Mb.
 #' @export
 ls.object.sizes <- function(envir=.GlobalEnv) {
@@ -4200,23 +4426,24 @@ kill_port_process <- function(port) {
 #' Evaluate expression in another R session
 #'
 #' Use these to run code in a separate instance of R, separate from your current console.
-#' This is essentially doing what the \code{callr} package does, but just adds a few modifications to make it easier to use.
+#' This is essentially doing what the [`callr`] package does, but just adds a few modifications to make it easier to use.
 #'
-#' In some cases it is useful to run code in a separate R session... this is where functions from the \code{callr} package
-#' come in handy, such as \code{r()} or \code{r_bg()}. However, in order to use these, you have to be sure to:
-#' (1) place the code inside an anonymous function,
-#' (2) refer to functions and variables explicitly from other packages using the :: notation,
-#' (3) pass any necessary local variables as arguments to the anonymous function.
-#' \code{run_r()} and \code{run_r_bg()} are running \code{callr::r()} and \code{callr::r_bg()}, except that you can
+#' In some cases it is useful to run code in a separate R session... this is where functions from the [`callr`] package
+#' come in handy, such as [callr::r()] or [callr::r_bg()]. However, in order to use these, you have to be sure to:
+#' 1. place the code inside an anonymous function,
+#' 2. refer to functions and variables explicitly from other packages using the :: notation,
+#' 3. pass any necessary local variables as arguments to the anonymous function.
+#'
+#' `run_r()` and `run_r_bg()` are running [callr::r()] and [callr::r_bg()], except that you can
 #' just insert the code without worrying about about the 3 modifications above.
 #'
 #' @param expr expression to be run in separate R session.
 #' @param envir the environment to execute the code.
 #'
-#' @return For \code{run_r}: the value of the evaluated expression.
-#' For \code{run_r_bg}: an \code{r_process} object, which has a \code{get_result()} method to collect the result.
-#' For \code{run_r_callargs}: a list containing a modified function and a list of arguments to pass to the function;
-#' this is designed to be the arguments that can be plugged into \code{callr::r} or \code{callr::r_bg}.
+#' @return For `run_r`: the value of the evaluated expression.
+#' For `run_r_bg`: an [`callr::r_process`] object, which has a [callr::get_result()] method to collect the result.
+#' For `run_r_callargs`: a list containing a modified function and a list of arguments to pass to the function;
+#' this is designed to be the arguments that can be plugged into [callr::r()] or [callr::r_bg()].
 #' @export
 run_r <- function(expr,envir=parent.frame()) {
   requireNamespace("callr",quietly=TRUE)
@@ -4267,17 +4494,17 @@ run_r_callargs <- function(expr,envir=parent.frame()) {
 
 #' Run a shiny gadget in background
 #'
-#' Similar to \code{shiny::runGadget}, you can use this to run shiny apps in the viewer pane of RStudio.
+#' Similar to [shiny::runGadget()], you can use this to run shiny apps in the viewer pane of RStudio.
 #' The difference is that the R console is not blocked during execution,
 #' so you can continue coding while the shiny app is running.
 #'
 #' This function works by deploying the Shiny app is run in the background
-#' (using \code{callr::r_bg}), then having the viewer panel set to display the corresponding port.
-#' If a process already exists that is listening to the port, that process is killed (using \code{kill_port_process}.
+#' (using [callr::r_bg()]), then having the viewer panel set to display the corresponding port.
+#' If a process already exists that is listening to the port, that process is killed (using [kill_port_process()]).
 #'
-#' @param app A Shiny app object created by shinyApp()
+#' @param app A Shiny app object created by [shiny::shinyApp()]
 #' @param port The TCP port that the application should listen on.
-#' @return An \code{r_process} object, which is running separately in the background.
+#' @return A [`callr::r_process`] object, which is running separately in the background.
 #' @examples
 #' library(shiny)
 #' app <- shinyApp(ui = fluidPage(

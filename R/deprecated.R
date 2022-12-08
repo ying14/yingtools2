@@ -5,6 +5,381 @@
 
 
 
+
+
+compareOLD.data.frame.OLD <- function(x,y,by=NULL) {
+
+  # declare.args(x=d1,y=d1[,-1],yingtools2:::compare.data.frame)
+
+  # x.name <- as_label(enquo(x))
+  # y.name <- as_label(enquo(y))
+  x.name <- deparse1(substitute(x))
+  y.name <- deparse1(substitute(y))
+
+  if (is.null(by)) {
+    by <- intersect(names(x),names(y))
+  }
+
+  by.x <- names(by) %||% by
+  by.y <- unname(by)
+  x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
+  y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
+  if (all(by.x==by.y)) {
+    by.x <- paste0(by.x,".x")
+    by.y <- paste0(by.y,".y")
+  }
+
+  # both <- inner_join_replace(x,y,by=by,errorIfDifferent = FALSE)
+  all <- full_join(x,y,by=by,keep=TRUE) %>%
+    mutate(.status=case_when(
+      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ str_glue("both {x.name}(x) and {y.name}(y)"),
+      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ str_glue("{x.name}(x) only"),
+      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ str_glue("{y.name}(y) only")
+    ))
+  x.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.x$)") %>% unlist()
+  y.vars0 <- str_extract_all(names(all),"(?<=^).+(?=\\.y$)") %>% unlist()
+  overlap.vars <- intersect(x.vars0,y.vars0)
+
+  for (var in overlap.vars) {
+    var.x <- paste0(var,".x")
+    var.y <- paste0(var,".y")
+    diff <- all[[var.x]]!=all[[var.y]]
+    diff <- !is.na(diff) & diff
+  }
+
+  diffs <- map(overlap.vars,~{
+    var.x <- paste0(.x,".x")
+    var.y <- paste0(.x,".y")
+    diff <- all[[var.x]]!=all[[var.y]]
+    diff <- !is.na(diff) & diff
+    ifelse(diff,.x,NA_character_)
+  }) %>% set_names(overlap.vars) %>%
+    do.call(paste2,.)
+  all$.diffs <- diffs
+
+  message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
+  message(str_glue("X: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,\"distinct\",\"not distinct\")})"))
+  message(str_glue("Y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,\"distinct\",\"not distinct\")})"))
+  all %>% count(.status,.diffs) %>% print()
+  invisible(all)
+}
+
+
+test_if_nonvarying_by_group_OLD <- function(data,
+                                            id_vars = all_of(group_vars(data)),
+                                            test_vars = everything(),
+                                            verbose = FALSE) {
+  # data=get.otu.melt(cid.phy);id_vars=quo(sample);test_vars=quo(everything())
+
+
+  id_vars <- enquo(id_vars)
+  test_vars <- enquo(test_vars)
+  id_vars_ts <- tidyselect::eval_select(id_vars, data=data)
+  test_vars_ts <- tidyselect::eval_select(test_vars, data=data)
+  test_vars_ts <- test_vars_ts[!(test_vars_ts %in% id_vars_ts)]
+  id_var_names <- names(id_vars_ts)
+  test_var_names <- names(test_vars_ts)
+  if (length(id_vars)==0) {
+    warning("YTWarning: no groups detected")
+  }
+  data.rootgroup <- setNames(rep_along(id_var_names,TRUE),id_var_names)
+
+  # dt.testing <- data %>% ungroup() %>%
+  #   as.data.table(key=id_var_names) %>%
+  #   .[,group:=.GRP,by=id_var_names]
+  # groups <- dt.testing[["group"]] %>% unique()
+  # to.test <- test_var_names
+  # test <- function(x) {
+  #   uniqueN(x)==1
+  # }
+  #
+  # for (i in groups) {
+  #   # message(i)
+  #   results <- dt.testing[group==i, lapply(.SD, test), .SDcols=to.test] %>% unlist()
+  #   to.test <- names(results)[results]
+  #   if (length(to.test)==0) {
+  #     break
+  #   }
+  # }
+  #whatever is left is non-varying.
+  data.testing <- setNames(test_var_names %in% to.test,test_var_names)
+
+  data.testing <- data %>% ungroup() %>% as.data.table(key=id_var_names) %>%
+    .[, lapply(.SD, uniqueN), .SDcols=test_var_names, by=id_var_names] %>%
+    .[, lapply(.SD, function(x) all(x==1)), .SDcols=test_var_names] %>%
+    as_tibble() %>% unlist()
+
+  # data.testing0 <- data %>% ungroup() %>% group_by(!!!syms(id_var_names)) %>%
+  #   summarize(across(.cols=all_of(test_var_names), .fns=n_distinct), .groups="drop") %>%
+  #   summarize(across(.cols=all_of(test_var_names), .fns=~all(.x==1))) %>% unlist()
+
+  if (verbose) {
+    test_var_names_cangroup <- names(data.testing)[data.testing]
+    test_var_names_cannotgroup <- names(data.testing)[!data.testing]
+    message(str_glue("* ID grouping var(s): {paste(id_var_names,collapse=',')}"))
+    message(str_glue("* Additional nonvarying grouping vars: {paste(test_var_names_cangroup,collapse=',')}"))
+    message(str_glue("* Varying non-grouping vars: {paste(test_var_names_cannotgroup,collapse=',')}"))
+  }
+  test <- c(data.rootgroup,data.testing)
+  test
+}
+
+
+phy.collapse.base.old <- function(otu,tax,taxranks,level,criteria,fillin.levels) {
+
+  # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=FALSE
+  criteria <- enquo(criteria)
+  # ntaxa.orig <- nrow(tax)
+  nsamps <- n_distinct(otu$sample)
+  allranks <- c(taxranks,"strain")
+  tax <- tax %>% mutate(strain=otu) %>%
+    rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
+  # look at criteria, determine necessary calculations in make.tax
+  allcalcs <- rlang::exprs(n.detectable=sum(pctseqs>0),
+                           pct.detectable=n.detectable / nsamps,  # pct.detectable=mean(pctseqs>0),
+                           mean.pctseqs=sum(pctseqs) / nsamps,
+                           median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),  # median.pctseqs=median(pctseqs),
+                           max.pctseqs=max(pctseqs),
+                           min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),   # min.pctseqs=min(pctseqs),
+                           total.numseqs=sum(numseqs),
+                           max.numseqs=max(numseqs),
+                           min.numseqs=ifelse(nsamps==n(),min(numseqs),0),  # min.numseqs=min(numseqs),
+                           n.samps=nsamps,
+                           n.rows=nsamps)
+  # some calcs depend on other lines, determine the dependencies
+  depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
+  calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
+  # subset of allcalc that is needed
+  calcs <- allcalcs[names(allcalcs) %in% calcvars]
+
+  make.otu <- function(ss,tt,level) {
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    ss %>%
+      inner_join(tt,by=by1) %>%
+      group_by(!!!syms(by2),
+               sample) %>%
+      summarize(pctseqs=sum(pctseqs),
+                numseqs=sum(numseqs),
+                .groups="drop")
+  }
+  make.tax <- function(ss,level) {
+    by1 <- paste(allranks,level,sep="_")
+    by2 <- paste(allranks,level+1,sep="_")
+    collapse_var <- str_glue("collapse{level}")
+    rank <- length(allranks)+1-level
+    parent.groups <- by1[1:(rank-1)]
+    new.tax.var.exprs <- seq_along(by1) %>% setNames(by2) %>%
+      map(~{
+        if (.x<rank) {
+          cur.rank <- sym(by1[.x])
+          expr(!!cur.rank)
+        } else if (.x==rank) {
+          parent <- sym(by1[rank-1])
+          expr(ifelse(!!sym(collapse_var),
+                      paste("<miscellaneous>",!!parent),
+                      !!sym(by1[.x])))
+        } else {
+          expr(ifelse(!!sym(collapse_var),
+                      NA_character_,
+                      !!sym(by1[.x])))
+        }
+      })
+    tt <- ss %>%
+      group_by(!!!syms(by1)) %>%
+      summarize(!!!calcs,
+                .groups="drop") %>%
+      mutate(!!sym(collapse_var):=!!criteria,
+             !!!new.tax.var.exprs) %>%
+      group_by(!!!syms(parent.groups)) %>%
+      mutate(n.collapse=sum(!!sym(collapse_var)),
+             nrows=n()) %>%
+      ungroup() %>%
+      mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1,
+             !!!new.tax.var.exprs) %>%
+      select(!!sym(collapse_var),
+             !!!syms(by1),!!!syms(by2))
+    return(tt)
+  }
+  # each iteration checks criteria and collapses one level
+  ss <- tax %>% inner_join(otu,by="otu")
+  taxmap.raw <- tax
+  trace <- c()
+  for (i in 1:level) {
+    # message(i)
+    tt <- make.tax(ss,i)
+    ss <- make.otu(ss,tt,i)
+    byvar <- paste(allranks,i,sep="_")
+    taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
+    trace <- c(trace,nrow(tt))
+  }
+
+  by.tax <- paste(allranks,i+1,sep="_") %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
+  taxmap <- taxmap.raw %>% transmute(otu,!!!by.tax)
+
+  # coll_vars <- paste0("collapse",1:level) %>% rev()
+  # taxmap.raw %>% count(!!!syms(coll_vars))
+  new.tax.otu <- otu %>%
+    left_join(taxmap,by="otu") %>%
+    group_by(sample,!!!syms(allranks)) %>%
+    summarize(numseqs=sum(numseqs),
+              pctseqs=sum(pctseqs),
+              .groups="drop") %>%
+    mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
+  if (fillin.levels) {
+    for (i in seq_along(taxranks)[-1]) {
+      var <- taxranks[i]
+      allvars <- taxranks[i:1]
+      new.tax.otu <- new.tax.otu %>%
+        mutate(!!sym(var):=coalesce(!!!syms(allvars)))
+    }
+  }
+  new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks)) %>% unique()
+  new.otu <- new.tax.otu %>% select(otu,sample,numseqs,pctseqs)
+
+  trace <- c(trace,nrow(new.tax)) %>% setNames(rev(allranks[1:level]))
+
+  message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
+  message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
+  # ntaxa.final <- nrow(new.tax)
+  # message(str_glue("Collapsed taxa, {ntaxa.orig} to {ntaxa.final}"))
+  list(tax=new.tax,otu=new.otu)
+}
+
+
+#' @rdname phy.collapse.bins.old
+#' @export
+phy.collapse.bins.old <- function(x,...) UseMethod("phy.collapse.bins.old")
+
+
+#' Collapse phyloseq or otu.melt data into smaller tax bins
+#'
+#' Collapse phyloseq object into smaller bins, using specified criteria based on the data.
+#' Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and at each level, collapses 2 or more taxa if they meet the specified criteria.
+#'
+#' The binning criteria can be defined multiple ways. These variables are available for criteria, for each taxon:
+#'
+#'   * `n.detectable` number of samples where taxa abundance is above 0.
+#'
+#'   * `pct.detectable` percent of samples where taxa abundance is above 0.
+#'
+#'   * `mean.pctseqs` mean relative abundance for a taxon.
+#'
+#'   * `median.pctseqs` median relative abundance for a taxon.
+#'
+#'   * `max.pctseqs` highest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `min.pctseqs` lowest relative abundance of sequences for a taxon (across all samples)
+#'
+#'   * `total.numseqs` total number of sequences for a taxon (across all samples)
+#'
+#'   * `max.numseqs` highest number of sequences for a taxon (across all samples)
+#'
+#'   * `min.numseqs` lowest number of sequences for a taxon (across all samples)
+#'
+#'   * `n.samps` total number of samples (regardless of abundance)
+#'
+#'   * `n.rows`  total number of rows for a taxon
+#'
+#' @param phy phyloseq object to be collapsed
+#' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, level=4 means collapse at otu, Species, Genus, Family.
+#' @param fillin.levels Whether or not to fill in `NA` values with the collapsed taxa name. Default is `FALSE`.
+#' @param criteria an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)
+#' @return phyloseq object or data frame (depending on what was supplied), representing the data, after criteria-based taxonomic binning.
+#'
+#' @examples
+#' # original phyloseq
+#' cid.phy
+#'
+#' # after default binning
+#' phy.collapse.bins(cid.phy)
+#'
+#' # customized binning
+#' phy.collapse.bins(cid.phy, level = 5,
+#'                   criteria = mean.pctseqs < 0.001 & n.detectable <= 2)
+#' @rdname phy.collapse.bins.old
+#' @export
+phy.collapse.bins.old.phyloseq <- function(phy,
+                                           level=length(rank_names(phy)),
+                                           fillin.levels=FALSE,
+                                           criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
+  # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=FALSE
+  criteria <- enquo(criteria)
+  phy <- suppressMessages(prune_unused_taxa(phy))
+  taxranks <- rank_names(phy)
+  otu <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE)
+  tax <- get.tax(phy)
+  objset <- phy.collapse.base.old(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
+  new.tax <- objset$tax
+  new.otu <- objset$otu %>%
+    pivot_wider(id_cols=otu,
+                names_from=sample,
+                values_from=numseqs,
+                values_fn = sum,
+                values_fill=0)
+  new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
+  return(new.phy)
+}
+
+
+#' @param data data frame, formatted as `get.otu.melt`. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
+#' @param taxranks character vector of taxonomic ranks in `data`.
+#' @param sample_vars character vector of column names in `data` that convey sample-level information. These will be retained as such after binning.
+#' @param sample_id name of sample column identifier. Default is "sample".
+#' @param taxa_id name of taxon column identifier. Default is "otu".
+#' @rdname phy.collapse.bins.old
+#' @examples
+#' #  You can also enter the data in long form (rows=sample*taxa, such as that produced by get.otu.melt).
+#' otu <- get.otu.melt(cid.phy)
+#' otu.bin <- phy.collapse.bins(otu,
+#'                              taxranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "taxon"),
+#'                              sample_vars = c("Sample_ID", "Patient_ID", "day", "day.old", "Consistency"),
+#'                              level = 5,
+#'                              criteria = mean.pctseqs < 0.001 & n.detectable <= 2)
+#' n_distinct(otu$otu)
+#' n_distinct(otu.bin$otu)
+#' @export
+phy.collapse.bins.old.data.frame <- function(data,
+                                             taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                                             level=length(taxranks),
+                                             fillin.levels=FALSE,
+                                             sample_id="sample",
+                                             taxa_id="otu",
+                                             criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
+                                             sample_vars=NULL) {
+
+
+  # data <- get.otu.melt(cid.phy);taxranks <- rank_names(cid.phy);level=4;fillin.levels=FALSE;criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005);sample_vars=NULL
+  criteria <- enquo(criteria)
+  needvars <- c(taxa_id,sample_id,"numseqs","pctseqs",taxranks)
+  if (!all(needvars %in% names(data))) {
+    stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
+  }
+  data <- data %>% rename(sample=!!sym(sample_id),otu=!!sym(taxa_id))
+  rows.are.distinct <- is.distinct(data,otu,sample)
+  if (!rows.are.distinct) {
+    stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
+  }
+
+  tax <- data %>% select(otu,!!!syms(taxranks)) %>% unique()
+  sample_vars <- setdiff(sample_vars,"sample")
+  if (is.null(sample_vars)) {
+    message("Attempting to determine sample vars...\n")
+  }
+  samp <- data %>% select(sample,!!!syms(sample_vars)) %>% unique()
+  otu <- data %>% select(otu,sample,numseqs,pctseqs)
+  # phy.collapse()
+  objset <- phy.collapse.base.old(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
+  new.data <- objset$otu %>%
+    left_join(objset$tax,by="otu") %>%
+    left_join(samp,by="sample") %>%
+    rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
+  return(new.data)
+
+}
+
+
+
 #' Get YT Palette
 #' @param tax either a data.frame, phyloseq, or tax_table
 #' @param use.cid.colors whether to use classic CID colors

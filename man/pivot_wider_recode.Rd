@@ -21,17 +21,23 @@ pivot_wider_recode(
 \arguments{
 \item{data}{data to be pivotted.}
 
-\item{names_recodes}{recodes to be done on \code{names_from} prior to pivotting. Used in \code{recode.grep}.}
+\item{id_cols}{\code{\link[tidyr:tidyr_tidy_select]{tidy-select}} columns that identify each observation. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
 
-\item{names_else.value}{default value of recoding. Used in \code{recode.grep}.}
+\item{names_from}{\code{\link[tidyr:tidyr_tidy_select]{tidy-select}} column names to be pivotted. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
+
+\item{values_from}{\code{\link[tidyr:tidyr_tidy_select]{tidy-select}} column values to be pivotted. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
+
+\item{names_recodes}{recodes to be done on \code{names_from} prior to pivotting. Used in \code{\link[=recode.grep]{recode.grep()}}.}
+
+\item{names_else.value}{default value of recoding. Used in \code{\link[=recode.grep]{recode.grep()}}.}
 
 \item{names_sort}{whether to sort columns by order of recode.grep. Default is \code{TRUE}}
 
-\item{values_sep}{character separator between name and value. Default is '::'}
+\item{values_sep}{character separator between name and value. Default is \code{"::"}}
 
-\item{values_fill}{value used when value is missing. Used in \code{pivot_wider}.}
+\item{values_fill}{value used when value is missing. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
 
-\item{values_fn}{How multiple values are combined. Default is ~paste(.x,collapse="|"), which collapses into a single string. Used in \code{pivot_wider}.}
+\item{values_fn}{How multiple values are combined. Default is \code{~paste(.x,collapse="|")}, which collapses into a single string. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
 
 \item{unused_fn}{A function performed on unused columns. Default is \code{NULL}.}
 }
@@ -39,7 +45,7 @@ pivot_wider_recode(
 Pivotted data
 }
 \description{
-Somewhat similar to \code{tidyr::pivot_wider}, where but where the names_from column is recoded using \code{recode.grep},
+Somewhat similar to \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}, where but where the names_from column is recoded using \code{recode.grep},
 prior to pivotting. This is primarily useful for restructuring data that comes in long format (name-value pairs).
 }
 \details{

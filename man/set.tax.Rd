@@ -7,10 +7,10 @@
 set.tax(tdata)
 }
 \arguments{
-\item{tdata}{dataframe to be converted back to tax_table.}
+\item{tdata}{dataframe to be converted back to \link[phyloseq:taxonomyTable-class]{tax_table}.}
 }
 \value{
-formatted tax_table.
+formatted \link[phyloseq:taxonomyTable-class]{tax_table}.
 }
 \description{
 Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".

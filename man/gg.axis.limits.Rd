@@ -13,5 +13,5 @@ gg.axis.limits(gg)
 a list containing inforation about limits for X and Y.
 }
 \description{
-Determines the actual limits of X and Y, for a given ggplot object. This is used by \code{gg.align.xlim}.
+Determines the actual limits of X and Y, for a given ggplot object. This is used by \code{\link[=gg.align.xlim]{gg.align.xlim()}}.
 }

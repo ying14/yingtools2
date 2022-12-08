@@ -7,11 +7,11 @@
 as_date_fractional(datetime)
 }
 \arguments{
-\item{datetime}{a POSIXct vector to be convered}
+\item{datetime}{a POSIXct vector to be converted}
 }
 \value{
 a Date column that contains fractional values.
 }
 \description{
-This creates a fractional date. If you do as.Date(datetime), it removes the time part.
+This creates a fractional date. If you do \code{as.Date(datetime)}, it removes the time part.
 }

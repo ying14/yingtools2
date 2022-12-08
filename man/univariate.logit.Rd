@@ -25,7 +25,7 @@ univariate.logit(
 
 \item{multi.cutoff}{P-value threshold for inclusion into the multivariate model (default is \code{0.25})}
 
-\item{formatted}{returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)}
+\item{formatted}{returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{\link[broom:reexports]{broom::tidy()}}, plus a few additional columns)}
 
 \item{starttime}{optional parameter specifying analysis start time.}
 }

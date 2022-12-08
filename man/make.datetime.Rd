@@ -15,5 +15,5 @@ make.datetime(date, time)
 Returns POSIXct object with date and time combined.
 }
 \description{
-Note: The particular use is in ytdata::visits() function.
+Note: The particular use is in \code{\link[ytdata:visits]{ytdata::visits()}} function.
 }

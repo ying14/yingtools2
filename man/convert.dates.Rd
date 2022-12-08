@@ -15,5 +15,5 @@ convert.dates(data, verbose = FALSE)
 In a given data frame, look for variables resembling dates and convert them to Dates.
 }
 \details{
-Basically applies \code{as.Date2} to all variables.
+Basically applies \code{\link[=as.Date2]{as.Date2()}} to all variables.
 }

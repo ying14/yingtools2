@@ -34,7 +34,7 @@ hilight.clade(
 
 \item{ymax}{the max value of y in the clade.}
 
-\item{label}{A \code{glue} expression for the clade label. Default is \code{"{value}\n({var})"}}
+\item{label}{A \code{glue} expression for the clade label. Default is \verb{"\{value}\n({var})"}}
 
 \item{fill.color}{the clade fill color (default is \code{NA}, no fill)}
 

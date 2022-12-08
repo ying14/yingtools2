@@ -16,5 +16,5 @@ a modified list of ggplot objects, with modified x-limits
 For a given list of ggplot objects, make the x-limits the same across all plots.
 }
 \details{
-This is useful when stacking plots like in gg.stack().
+This is useful when stacking plots like in \code{\link[=gg.stack]{gg.stack()}}.
 }

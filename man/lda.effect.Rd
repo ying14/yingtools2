@@ -21,7 +21,7 @@ lda.effect(
 )
 }
 \arguments{
-\item{phy}{the phyloseq object containing the data}
+\item{phy}{the \code{\link[phyloseq:phyloseq-class]{phyloseq}} object containing the data}
 
 \item{class}{set which variable use as class}
 
@@ -51,7 +51,7 @@ one-against-one (TRUE - more strict) or in a one-against-all setting (FALSE - le
 a table containing features tested and results.
 }
 \description{
-Given a phyloseq object and class variable, perform LDA Effect Size analysis.
+Given a \code{\link[phyloseq:phyloseq-class]{phyloseq}} object and class variable, perform LDA Effect Size analysis.
 }
 \examples{
 lda <- lda.effect(cid.phy,class="Consistency")

@@ -27,7 +27,12 @@ assert_grouping_vars(
 )
 }
 \arguments{
-\item{data}{data to be tested.}
+\item{data}{data to be tested (data.frame or data.table).}
+
+\item{id_vars}{\code{\link[tidyr:tidyr_tidy_select]{tidy-select}} ID vars that define the nonvarying
+groups. Default is to use the grouping variables (from \code{\link[dplyr:group_by]{dplyr::group_by()}})}
+
+\item{test_vars}{\code{\link[tidyr:tidyr_tidy_select]{tidy-select}} variables to be tested. Default is all columns not specified in \code{id_vars}.}
 
 \item{verbose}{whether or not to display messages about the testing results}
 

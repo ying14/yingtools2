@@ -13,5 +13,5 @@ get.tax(phy)
 Dataframe containing tax data
 }
 \description{
-Creates data.frame from tax_table, storing the rownames as variable "otu". The opposite of set.tax function.
+Creates data.frame from \link[phyloseq:taxonomyTable-class]{tax_table}, storing the rownames as variable "otu". The opposite of set.tax function.
 }

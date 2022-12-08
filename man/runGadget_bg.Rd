@@ -7,22 +7,22 @@
 runGadget_bg(app, args = list(), port = 4567)
 }
 \arguments{
-\item{app}{A Shiny app object created by shinyApp()}
+\item{app}{A Shiny app object created by \code{\link[shiny:shinyApp]{shiny::shinyApp()}}}
 
 \item{port}{The TCP port that the application should listen on.}
 }
 \value{
-An \code{r_process} object, which is running separately in the background.
+A \code{\link[callr:r_process]{callr::r_process}} object, which is running separately in the background.
 }
 \description{
-Similar to \code{shiny::runGadget}, you can use this to run shiny apps in the viewer pane of RStudio.
+Similar to \code{\link[shiny:runGadget]{shiny::runGadget()}}, you can use this to run shiny apps in the viewer pane of RStudio.
 The difference is that the R console is not blocked during execution,
 so you can continue coding while the shiny app is running.
 }
 \details{
 This function works by deploying the Shiny app is run in the background
-(using \code{callr::r_bg}), then having the viewer panel set to display the corresponding port.
-If a process already exists that is listening to the port, that process is killed (using \code{kill_port_process}.
+(using \code{\link[callr:r_bg]{callr::r_bg()}}), then having the viewer panel set to display the corresponding port.
+If a process already exists that is listening to the port, that process is killed (using \code{\link[=kill_port_process]{kill_port_process()}}).
 }
 \examples{
 library(shiny)

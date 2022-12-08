@@ -17,7 +17,7 @@ make_table(data, ..., by = NULL, denom = FALSE, maxgroups = 10, fisher = TRUE)
 
 \item{maxgroups}{max number of groups before collapsing into an "Other" category.}
 
-\item{fisher}{whether or not to perform Fisher test. Performed if by=... is specified.}
+\item{fisher}{whether or not to perform Fisher test. Performed if \code{by=...} is specified.}
 }
 \value{
 Returns a data frame formatted to be summary table.

@@ -7,7 +7,7 @@
 read.clipboard(...)
 }
 \arguments{
-\item{...}{Options to pass to \link[utils]{read.table} (e.g. header, row.names, sep, as.is)}
+\item{...}{Options to pass to \code{\link[utils:read.table]{utils::read.table()}} (e.g. \code{header}, \code{row.names}, \code{sep}, \code{as.is})}
 }
 \value{
 Contents of clipboard

@@ -9,11 +9,13 @@ tab(var, sort = TRUE, pct = TRUE, as.char = FALSE, collapse = "\\n")
 \arguments{
 \item{var}{the vector to be tabulated}
 
+\item{sort}{whether to sort results. Default \code{TRUE}}
+
+\item{pct}{whether to display percents. Default \code{TRUE}}
+
 \item{as.char}{logical specifying whether to return tabulation as a single character. Useful for summarizing data within grouping commands such as \code{ddply} or \code{group_by}/\code{summarize}}
 
-\item{sortby.freq}{if \code{TRUE}, sorts by order}
-
-\item{useNA}{character specifying whether to tally \code{NA} values. This is passed to \code{tabulate}}
+\item{collapse}{if \code{as.char=TRUE}, how to collapse. Default \code{"\\n"}}
 }
 \value{
 Returns a data frame with tabulations.

@@ -7,7 +7,7 @@
 is.distinct(data, ..., add.group.vars = TRUE)
 }
 \arguments{
-\item{data}{Dataframe to be analyzed}
+\item{data}{data frame to be analyzed}
 
 \item{...}{grouping variables that define data units.}
 

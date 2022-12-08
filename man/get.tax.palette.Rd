@@ -7,7 +7,7 @@
 get.tax.palette(data, unitvar = "Species", tax.palette = yt.palette3)
 }
 \arguments{
-\item{data}{taxonomic data, can be \code{phyloseq}, \code{get.otu.melt()} data frame, or \code{get.tax()} data frame.}
+\item{data}{taxonomic data, can be \code{\link[phyloseq:phyloseq-class]{phyloseq}}, \code{\link[=get.otu.melt]{get.otu.melt()}} data frame, or \code{\link[=get.tax]{get.tax()}} data frame.}
 
 \item{unitvar}{the granular column by which colors will be assigned. Default is \code{"Species"}. Sometimes you might want to switch to \code{"otu"}.}
 
@@ -20,7 +20,7 @@ named vector of colors, which can be used in: \verb{ggplot( ... ) + scale_fill_m
 Given microbiota data, generate a color palette that can be used in ggplot2 plots.
 }
 \details{
-Note that the \code{tax.palette} formula list is evaluated in order, and should probably end in TRUE  (similar to \code{case_when()}).
+Note that the \code{tax.palette} formula list is evaluated in order, and should probably end in TRUE  (similar to \code{\link[dplyr:case_when]{dplyr::case_when()}}).
 }
 \examples{
 # generate a stacked plot for one subject

@@ -7,7 +7,7 @@
 get.tax.legend(tax.palette = yt.palette3, fontsize = 5)
 }
 \arguments{
-\item{tax.palette}{a list of formulas specifying the palette. Default is \code{yt.palette3}.}
+\item{tax.palette}{a list of formulas specifying the palette. Default is \code{\link{yt.palette3}}.}
 
 \item{fontsize}{Font size. Default is 5.}
 }

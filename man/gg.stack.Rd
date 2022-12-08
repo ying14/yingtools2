@@ -20,7 +20,7 @@ gg.stack(
 \arguments{
 \item{...}{ggplot objects to be stacked}
 
-\item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{grid.arrange}.}
+\item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{\link[gridExtra:arrangeGrob]{gridExtra::grid.arrange()}}.}
 
 \item{align.xlim}{logical, whether or not to alter the x-limits in each plot to match. Default is \code{FALSE}. (Note this is experimental and can potentially fail in strange situations)}
 
@@ -46,9 +46,12 @@ Use this to arrange ggplot objects, where the axes, plot, and legend are lined u
 }
 \details{
 Performs these steps:
-(1) change margins so that plots are closer together
-(2) alters widths of each component so that the plots will line up nicely
-(3) calls \code{grid.arrange(...,ncol=1)}
+\enumerate{
+\item change margins so that plots are closer together
+\item alters widths of each component so that the plots will line up nicely
+\item calls \code{grid.arrange(...,ncol=1)}
+}
+
 If a \code{NULL} value is passed to the plot list, that plot and the corresponding height value will be omitted.
 }
 \examples{

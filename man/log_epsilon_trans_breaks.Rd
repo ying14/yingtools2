@@ -7,7 +7,7 @@
 log_epsilon_trans_breaks(epsilon)
 }
 \arguments{
-\item{epsilon}{scaling parameter used in \code{log_epsilon_trans}}
+\item{epsilon}{scaling parameter used in \code{\link[=log_epsilon_trans]{log_epsilon_trans()}}}
 }
 \value{
 break function returning break values.

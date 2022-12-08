@@ -4,11 +4,7 @@
 \alias{phy.collapse}
 \title{Collapse Phyloseq Into Taxonomy}
 \usage{
-phy.collapse(
-  phy,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
-  short_taxa_names = TRUE
-)
+phy.collapse(phy, taxranks = rank_names(phy), short_taxa_names = TRUE)
 }
 \arguments{
 \item{phy}{A phylsoeq object.}
@@ -18,16 +14,18 @@ phy.collapse(
 \item{short_taxa_names}{How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.}
 }
 \value{
-A phyloseq object with OTUs collapsed.
+A \code{\link[phyloseq:phyloseq-class]{phyloseq}} object with OTUs collapsed.
 }
 \description{
-In a phyloseq object, combine OTUs of the same taxonomic classification.
+In a \code{\link[phyloseq:phyloseq-class]{phyloseq}} object, combine OTUs of the same taxonomic classification.
 }
 \details{
-Similar to \code{phyloseq::tax_glom}, but with the following differences:
-(a) it performs much faster,
-(b) requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
-(c) the new OTU names will specify old OTU names separated by '|'
+Similar to \code{\link[phyloseq:tax_glom]{phyloseq::tax_glom()}}, but with the following differences:
+\enumerate{
+\item it performs much faster,
+\item requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
+\item the new OTU names will specify old OTU names separated by \code{'|'}
+}
 }
 \examples{
 library(phyloseq)

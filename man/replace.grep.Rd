@@ -39,5 +39,5 @@ replace.grep(
 By default, returns \code{var}, but with all regular expression hits replaced. If \code{result.as.list=TRUE} is specified, the hits themselves are also returned, within a 2-vector list.
 }
 \description{
-Perform multiple text replacements at once using regular expressions. Similar in form to \code{recode2} and \code{recode.grep}.
+Perform multiple text replacements at once using regular expressions. Similar in form to \code{\link[=recode]{recode()}} and \code{\link[=recode.grep]{recode.grep()}}
 }

@@ -11,6 +11,9 @@ copy.as.tribble(tbl, spaces = 1)
 
 \item{spaces}{number of spaces between columns}
 }
+\value{
+(invisibly) returns R code statement that creates the tribble data frame, and copies to clipboard.
+}
 \description{
 Copy to clipboard as tribble
 }

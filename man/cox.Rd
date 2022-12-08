@@ -28,7 +28,7 @@ cox(
 
 \item{return.split.data}{if \code{TRUE}, returns the data frame after splitting rows that are time-dependent.}
 
-\item{return.model.obj}{if \code{TRUE}, returns the model object of the \code{coxph} command}
+\item{return.model.obj}{if \code{TRUE}, returns the model object of the \code{\link[survival:coxph]{survival::coxph()}} command}
 
 \item{formatted}{returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{broom::tidy}, plus a few additional columns)}
 }

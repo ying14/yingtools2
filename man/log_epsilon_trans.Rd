@@ -16,7 +16,7 @@ Tranformation function to be plugged into ggplot.
 Use this transformation for plotting log data including 0. You can't use regular log transformation because it can't take zero.
 }
 \details{
-The transformation used is y=log(x+epsilon/8)-log(epsilon/8), where epsilon is the parameter controlling the scale. The 1/8 portion is to make distances between ticks equal, so it's visually pleasing.
+The transformation used is \eqn{\log{(|x|+\frac{epsilon}{8})} - \log(\frac{epsilon}{8})}, where epsilon is the parameter controlling the scale. The 1/8 portion is to make distances between ticks equal, so it's visually pleasing.
 }
 \examples{
 values <- c(0,10^(-10:0))

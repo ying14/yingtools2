@@ -11,7 +11,7 @@ get.otu.melt(phy, filter.zero = TRUE, sample_data = TRUE, tax_data = TRUE)
 
 \item{filter.zero}{Logical, whether or not to remove zero abundances. Default \code{TRUE}.}
 
-\item{sample_data}{Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.}
+\item{sample_data}{Logical, whether or not to join with \link[phyloseq:sample_data-class]{sample_data}. Default \code{TRUE}.}
 
 \item{tax_data}{Logical, whether or not to join with \code{tax_data}. Default \code{TRUE}.}
 }
@@ -24,8 +24,8 @@ Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
 \details{
 Essentially gives back the OTU table, in melted form, such that each row represents a certain OTU for a certain sample.
 Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
-Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
-The \code{get.otu.melt} now works by performing operations via data table, making it about 30x faster than before.
+Note that phyloseq has a similar function, \code{\link[phyloseq:psmelt]{phyloseq::psmelt()}}, but that takes longer.
+The \code{get.otu.melt()} now works by performing operations via data table, making it about 30x faster than before.
 }
 \examples{
 library(phyloseq)

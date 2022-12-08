@@ -13,4 +13,9 @@ yt.palette3
 \description{
 The customary palette for Bacteria.
 }
+\details{
+Slightly different than \link{yt.palette2}; now everything cycles through shades.
+
+\figure{unnamed-chunk-1-1.png}
+}
 \keyword{datasets}

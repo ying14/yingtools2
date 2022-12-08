@@ -6,25 +6,25 @@
 \usage{
 get.phyloseq.from.melt(
   otu.melt,
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+  sample_vars = TRUE,
   sample_id = "sample",
   abundance_var = "numseqs",
-  taxa_id = "otu",
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
-  sample_vars = NULL
+  taxa_id = "otu"
 )
 }
 \arguments{
 \item{otu.melt}{table of taxa x sample abundances, similar to output of \code{get.otu.melt}}
 
+\item{taxranks}{vector of taxonomic ranks to be included in \link[phyloseq:taxonomyTable-class]{tax_table}.}
+
+\item{sample_vars}{whether to include sample variables in the data. Can be \code{TRUE} (include sample vars, and try to determine which ones), \code{FALSE} no sample vars, or a character vector specifying col names to be included.}
+
 \item{sample_id}{sample ID variable. Default \code{"sample"}.}
 
-\item{abundance_var}{abundance variable, used to fill \code{otu_table()}. Default \code{"sample"}.}
+\item{abundance_var}{abundance variable, used to fill \code{\link[phyloseq:otu_table-methods]{phyloseq::otu_table()}}. Default \code{"sample"}.}
 
 \item{taxa_id}{taxa/OTU ID variable. Default \code{"otu"}.}
-
-\item{taxranks}{vector of taxonomic ranks to be included in \code{tax_table()}.}
-
-\item{sample_vars}{vector of sample variables to be included in \code{sample_data()}. If \code{NULL}, will attempt to determine sample vars automatically (vars that are distinct along with \code{sample_id}).}
 }
 \value{
 phyloseq object, generated from the \code{otu.melt} data.

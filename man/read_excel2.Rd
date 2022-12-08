@@ -30,5 +30,5 @@ read_excel2(
 A data frame consisting of Excel data.
 }
 \description{
-Same as \code{readxl::read_excel} function, but col_types can be named vector
+Same as \code{\link[readxl:read_excel]{readxl::read_excel()}} function, but col_types can be named vector
 }

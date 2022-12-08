@@ -10,7 +10,7 @@ set.otu(odata, taxa_are_rows = TRUE)
 \item{odata}{otu table (matrix or dataframe with 'otu' column) to be converted back to otu_table.}
 }
 \value{
-formatted tax_table.
+formatted \link[phyloseq:taxonomyTable-class]{tax_table}.
 }
 \description{
 Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".

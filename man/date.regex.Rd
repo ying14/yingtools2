@@ -7,7 +7,7 @@
 date.regex(format)
 }
 \arguments{
-\item{format}{character designating date formatting, following \code{\link[base]{strptime}} convention.}
+\item{format}{character designating date formatting, following \code{\link[base:strptime]{base::strptime()}} convention.}
 }
 \value{
 regular expression corresponding to the format

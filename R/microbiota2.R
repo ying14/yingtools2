@@ -7,20 +7,22 @@
 
 
 
+
 #' Extract Phyloseq sample_data
 #'
-#' Returns \code{sample_data} component from phyloseq object, as a data frame.
+#' Returns [sample_data][phyloseq::sample_data-class] component from phyloseq object, as a data frame.
 #'
-#' This basically is similar to the function \code{phyloseq::sample_data}, but does a few extra things.
-#' (1) Converts to a data frame
-#' (2) The sample name is stored in a column called \code{sample}. (\code{phyloseq} normally stores as a row name)
-#' (3) Calculates number of sequences and alpha diversity metrics, if desired.
-#' This function is the opposite of \code{set.samp}, which converts the data frame back into a \code{sample_data}.
-#' Note that if the \code{phyloseq} object does not contain \code{sample_data}, a data frame containing a single column, \code{sample}, is returned.
-#' @param phy phyloseq object containing sample_data
-#' @param stats logical, whether or not to include summary statistics of samples. Stores \code{nseqs}, and diversity metrics.
-#' @param measures diversity measures to calculate, if stats is TRUE. Default: c("Observed","InvSimpson","Shannon")
-#' @return Data frame containing \code{sample_data} data.
+#' This basically is similar to the function [phyloseq::sample_data()], but does a few extra things.
+#' 1. Converts to a data frame
+#' 2. The sample name is stored in a column called `sample`. ([`phyloseq`][`phyloseq::phyloseq-class`] normally stores as a row name)
+#' 3. Calculates number of sequences and alpha diversity metrics, if desired.
+#'
+#' This function is the opposite of [set.samp()], which converts the data frame back into a [sample_data][phyloseq::sample_data-class].
+#' Note that if the [`phyloseq`][`phyloseq::phyloseq-class`] object does not contain [sample_data][phyloseq::sample_data-class], a data frame containing a single column, `sample`, is returned.
+#' @param phy phyloseq object containing [sample_data][phyloseq::sample_data-class]
+#' @param stats logical, whether or not to include summary statistics of samples. Stores `nseqs`, and diversity metrics.
+#' @param measures diversity measures to calculate, if stats is `TRUE.` Default: `c("Observed","InvSimpson","Shannon")`
+#' @return Data frame containing [sample_data][phyloseq::sample_data-class] data.
 #' @examples
 #' get.samp(cid.phy)
 #' @export
@@ -55,8 +57,8 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' Convert data frame to phyloseq sample_data
 #'
 #' Use this on data with sample info. The opposite of function get.samp. Make sure it contains variable "sample"
-#' @param sdata Data frame to be converted back to sample_data
-#' @return formatted sample_data.
+#' @param sdata Data frame to be converted back to [sample_data][phyloseq::sample_data-class]
+#' @return formatted [sample_data][phyloseq::sample_data-class].
 #' @export
 set.samp <- function(sdata) {
   requireNamespace(c("phyloseq"),quietly=TRUE)
@@ -67,7 +69,7 @@ set.samp <- function(sdata) {
 
 #' Extract Phyloseq tax_table
 #'
-#' Creates data.frame from tax_table, storing the rownames as variable "otu". The opposite of set.tax function.
+#' Creates data.frame from [tax_table][phyloseq::taxonomyTable-class], storing the rownames as variable "otu". The opposite of set.tax function.
 #'
 #' @param phy phyloseq object containing tax_data
 #' @return Dataframe containing tax data
@@ -81,8 +83,8 @@ get.tax <- function(phy) {
 #' Convert data frame to phyloseq tax_table
 #'
 #' Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".
-#' @param tdata dataframe to be converted back to tax_table.
-#' @return formatted tax_table.
+#' @param tdata dataframe to be converted back to [tax_table][phyloseq::taxonomyTable-class].
+#' @return formatted [tax_table][phyloseq::taxonomyTable-class].
 #' @export
 set.tax <- function(tdata) {
   requireNamespace(c("phyloseq"),quietly=TRUE)
@@ -98,7 +100,7 @@ set.tax <- function(tdata) {
 #' Creates data.frame from otu_table, storing the rownames as variable "otu". The opposite of set.tax function.
 #'
 #' @param phy phyloseq object containing otu_data
-#' @param as.matrix if \code{TRUE}, return matrix (instead of data frame with otu as column)
+#' @param as.matrix if `TRUE`, return matrix (instead of data frame with otu as column)
 #' @return Dataframe containing otu table
 #' @export
 get.otu <- function(phy,as.matrix=TRUE) {
@@ -123,7 +125,7 @@ get.otu <- function(phy,as.matrix=TRUE) {
 #'
 #' Use this on data.frames with tax data. The opposite of get.tax function. Make sure it contains the variable "otu".
 #' @param odata otu table (matrix or dataframe with 'otu' column) to be converted back to otu_table.
-#' @return formatted tax_table.
+#' @return formatted [tax_table][phyloseq::taxonomyTable-class].
 #' @export
 set.otu <- function(odata,taxa_are_rows=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
@@ -136,19 +138,21 @@ set.otu <- function(odata,taxa_are_rows=TRUE) {
   odata %>% phyloseq::otu_table(taxa_are_rows=taxa_are_rows)
 }
 
+
+
 #' Convert Phyloseq to Melted OTU x Sample Data
 #'
 #' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
 #'
 #' Essentially gives back the OTU table, in melted form, such that each row represents a certain OTU for a certain sample.
 #' Adds sample and taxonomy table data as columns. Uses the following reserved varnames: otu, sample, numseqs, pctseqs.
-#' Note that phyloseq has a similar function, \code{psmelt}, but that takes longer.
-#' The \code{get.otu.melt} now works by performing operations via data table, making it about 30x faster than before.
+#' Note that phyloseq has a similar function, [phyloseq::psmelt()], but that takes longer.
+#' The `get.otu.melt()` now works by performing operations via data table, making it about 30x faster than before.
 #'
 #' @param phy phyloseq object containing sample data
-#' @param filter.zero Logical, whether or not to remove zero abundances. Default \code{TRUE}.
-#' @param tax_data Logical, whether or not to join with \code{tax_data}. Default \code{TRUE}.
-#' @param sample_data Logical, whether or not to join with \code{sample_data}. Default \code{TRUE}.
+#' @param filter.zero Logical, whether or not to remove zero abundances. Default `TRUE`.
+#' @param tax_data Logical, whether or not to join with `tax_data`. Default `TRUE`.
+#' @param sample_data Logical, whether or not to join with [sample_data][phyloseq::sample_data-class]. Default `TRUE`.
 #'
 #' @return Data frame melted OTU data
 #' @export
@@ -162,6 +166,9 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
   if (!phyloseq::taxa_are_rows(phy)) {
     otutab <- t(otutab)
   }
+  if (filter.zero) {
+    otutab[otutab==0] <- NA_real_
+  }
   otudt = data.table::data.table(otutab, keep.rownames = TRUE)
   data.table::setnames(otudt, "rn", "otu")
   # Enforce character otu key
@@ -170,13 +177,13 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
   otudt[, otu := NULL]
   data.table::setnames(otudt, "otuchar", "otu")
   # Melt count table
-  mdt = data.table::melt.data.table(otudt, id.vars = "otu", variable.name = "sample", variable.factor=FALSE, value.name = "numseqs")
-  if (filter.zero) {
-    # Remove zeroes, NAs
-    mdt <- mdt[numseqs > 0][!is.na(numseqs)]
-  } else {
-    mdt <- mdt[!is.na(numseqs)]
-  }
+  mdt = data.table::melt.data.table(otudt, id.vars = "otu", variable.name = "sample", variable.factor=FALSE, value.name = "numseqs", na.rm = filter.zero)
+  # if (filter.zero) {
+  #   # Remove zeroes, NAs
+  #   mdt <- mdt[numseqs > 0][!is.na(numseqs)]
+  # } else {
+  #   mdt <- mdt[!is.na(numseqs)]
+  # }
   # Calculate relative abundance
   mdt[, pctseqs := numseqs / sum(numseqs), by = sample]
   if(tax_data & !is.null(phyloseq::tax_table(phy, errorIfNULL=FALSE))) {
@@ -213,14 +220,13 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
 
 #' Convert melted OTU table to phyloseq object
 #'
-#' @param otu.melt table of taxa x sample abundances, similar to output of \code{get.otu.melt}
-#' @param sample_id sample ID variable. Default \code{"sample"}.
-#' @param taxa_id taxa/OTU ID variable. Default \code{"otu"}.
-#' @param abundance_var abundance variable, used to fill \code{otu_table()}. Default \code{"sample"}.
-#' @param taxranks vector of taxonomic ranks to be included in \code{tax_table()}.
-#' @param sample_vars vector of sample variables to be included in \code{sample_data()}. If \code{NULL}, will attempt to determine sample vars automatically (vars that are distinct along with \code{sample_id}).
-#'
-#' @return phyloseq object, generated from the \code{otu.melt} data.
+#' @param otu.melt table of taxa x sample abundances, similar to output of `get.otu.melt`
+#' @param sample_id sample ID variable. Default `"sample"`.
+#' @param taxa_id taxa/OTU ID variable. Default `"otu"`.
+#' @param abundance_var abundance variable, used to fill [phyloseq::otu_table()]. Default `"sample"`.
+#' @param taxranks vector of taxonomic ranks to be included in [tax_table][phyloseq::taxonomyTable-class].
+#' @param sample_vars whether to include sample variables in the data. Can be `TRUE` (include sample vars, and try to determine which ones), `FALSE` no sample vars, or a character vector specifying col names to be included.
+#' @return phyloseq object, generated from the `otu.melt` data.
 #' @export
 #'
 #' @examples
@@ -231,9 +237,11 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
 #' phy2 <- get.phyloseq.from.melt(otu,taxranks=ranks)
 #' phy
 #' phy2
-get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="numseqs",taxa_id="otu",
+get.phyloseq.from.melt <- function(otu.melt,
                                    taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
-                                   sample_vars=NULL) {
+                                   sample_vars=TRUE,
+                                   sample_id="sample",abundance_var="numseqs",taxa_id="otu") {
+  # declare.args(otu.melt=get.otu.melt(cid.phy), taxranks=rank_names(cid.phy), get.phyloseq.from.melt)
   requireNamespace("phyloseq",quietly=TRUE)
   sample_vars <- setdiff(sample_vars,sample_id)
   rows.are.distinct <- is.distinct(otu.melt, !!sym(taxa_id), !!sym(sample_id))
@@ -245,14 +253,23 @@ get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="nu
     pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fill=0)
   tax <- otu.melt %>% select(otu=!!sym(taxa_id),!!!syms(taxranks)) %>% distinct()
 
-  if (is.null(sample_vars)) {
+  if (isTRUE(sample_vars)) { #logical and true
+    # determine sample  vars
     message("Attempting to determine sample vars...\n")
-    distinct_sample_vars <- otu.melt %>% select(-all_of(c(taxa_id,taxranks,abundance_var))) %>%
-      group_by(!!sym(sample_id)) %>%
-      summarize(across(.fns=n_distinct,.groups="drop")) %>%
-      summarize(across(-all_of(sample_id),.fns=~all(.==1))) %>%unlist() %>% {names(.)[.]}
+    vars.to.check <-setdiff(names(otu.melt),c(taxa_id,taxranks,abundance_var))
+    distinct_sample_vars <- otu.melt %>%
+      test_if_nonvarying_by_group(id_vars=sample,test_vars=all_of(vars.to.check)) %>%
+      {names(.)[.]} %>% setdiff("sample")
     sample_vars <- distinct_sample_vars
+  } else if (isFALSE(sample_vars))  {
+    #no sample variables
+    sample_vars <- c()
+  } else if (is.character(sample_vars)) {
+    # sample_vars are specified do nothing
+  } else {
+    stop("YTError: sample_vars should be a character or logical!")
   }
+
   if (length(sample_vars)==0) {
     samp <- NULL
   } else {
@@ -275,12 +292,14 @@ get.phyloseq.from.melt <- function(otu.melt,sample_id="sample",abundance_var="nu
 }
 
 
+
+
 #' Calculate Abundance from Phyloseq
 #'
-#' Given a phyloseq, calculate relative abundance for each sample.
-#' @param phy phyloseq object to be analyzed
+#' Given a [`phyloseq`][`phyloseq::phyloseq-class`], calculate relative abundance for each sample.
+#' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be analyzed
 #' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
-#' @param counts if \code{TRUE}, will return count rather than relative abundance
+#' @param counts if `TRUE`, will return count rather than relative abundance
 #' @return a data frame containing sample identifier and abundance columns
 #'
 #' @examples
@@ -332,10 +351,10 @@ get.abundance <- function(phy,..., counts=FALSE) {
 #'
 #' @param sdata sample data to be modified
 #' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
-#' @param phy phyloseq object to be used for caluclation
-#' @param counts if \code{TRUE}, will return count rather than relative abundance
+#' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be used for caluclation
+#' @param counts if `TRUE`, will return count rather than relative abundance
 #'
-#' @return returns \code{sdata}, with additional columns for abundance.
+#' @return returns `sdata`, with additional columns for abundance.
 #'
 #' @examples
 #' library(phyloseq)
@@ -359,7 +378,7 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 
 #' Check if taxonomy levels are distinct.
 #'
-#' @param data tax data to be tested. Can be a phylsoeq, tax table (from `get.tax()`), or otu-melt table (from `get.otu.melt()`).
+#' @param data tax data to be tested. Can be a [`phyloseq`][`phyloseq::phyloseq-class`], tax table (from [get.tax()]), or otu-melt table (from [get.otu.melt()]).
 #' @param taxranks character vector of tax levels to be tested.
 #'
 #' @return logical indicating whether or not taxonomy levels are distinct.
@@ -388,15 +407,30 @@ taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Clas
 }
 
 
+
+
+
+
 #' Make taxonomy distinct
 #'
-#' Modifies the tax_table of phyloseq object such that each level is distinct.
-#' @param phy phyloseq object
+#' Modifies (if necessary) the [tax_table][phyloseq::taxonomyTable-class] of [`phyloseq`][`phyloseq::phyloseq-class`] object such that each rank level is a distinct identifier.
 #'
-#' @return modified phyloseq object with corrected names.
+#' Sometimes there are two taxonomy naming issues that can cause issues or confusion:
+#'
+#' 1. Two or more distinct taxonomies can have the same duplicate names at the lowest level, e.g. Genus=Ileibacterium can
+#' either have Family=`"Erysipelotrichaceae" `or Family=`"Clostridiales Family XIII. Incertae Sedis"`.
+#'
+#' 2. The same name is used for 2 different levels, e.g. `"Actinobacteria"` is both a Phylum and a Class
+#'
+#' This will handle by adding `"#1", "#2", ...` to the name in the event of #1, and adds rank for #2.
+#' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object
+#'
+#' @return modified [`phyloseq`][`phyloseq::phyloseq-class`] object with corrected names.
 #' @export
 #'
 #' @examples
+#' d.phy <- make_taxonomy_distinct(cid.phy)
+#' get.tax(d.phy)
 make_taxonomy_distinct <- function(phy) {
   tax <- get.tax(phy)
   ranks <- rank_names(phy)
@@ -421,33 +455,35 @@ make_taxonomy_distinct <- function(phy) {
 
 
 
-
-
 #' Collapse Phyloseq Into Taxonomy
 #'
-#' In a phyloseq object, combine OTUs of the same taxonomic classification.
+#' In a [`phyloseq`][`phyloseq::phyloseq-class`] object, combine OTUs of the same taxonomic classification.
 #'
-#' Similar to \code{phyloseq::tax_glom}, but with the following differences:
-#' (a) it performs much faster,
-#' (b) requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
-#' (c) the new OTU names will specify old OTU names separated by '|'
+#' Similar to [phyloseq::tax_glom()], but with the following differences:
+#' 1. it performs much faster,
+#' 2. requires all tax levels to be specified (instead of assuming all ranks to the left of the tax-level)
+#' 3. the new OTU names will specify old OTU names separated by `'|'`
+#'
 #' @param phy A phylsoeq object.
-#' @param taxranks tax levels to collapse by. Default is \code{c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")}.
-#' @param short_taxa_names How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.
-#' @return A phyloseq object with OTUs collapsed.
+#' @param taxranks tax levels to collapse by. Default is `c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")`.
+#' @param short_taxa_names How to name the collapsed OTUs. If `TRUE`, use name of first OTU plus number of OTUs being collapsed. If `FALSE`, paste the OTU names together.
+#' @return A [`phyloseq`][`phyloseq::phyloseq-class`] object with OTUs collapsed.
 #' @export
 #' @examples
 #' library(phyloseq)
 #' cid.phy.family <- phy.collapse(cid.phy,taxranks=c("Kingdom", "Phylum", "Class", "Order", "Family"))
 #' cid.phy
 #' cid.phy.family
-phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),short_taxa_names=TRUE) {
+phy.collapse <- function(phy,taxranks=rank_names(phy),short_taxa_names=TRUE) {
+  # declare.args(phy=cid.phy,phy.collapse)
+
+  # phy=phy1;taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
-  taxranks <- syms(taxranks)
-  otudt <- as(phyloseq::otu_table(phy),"matrix") %>% data.table::data.table()
-  taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% select(!!!taxranks)
-  # indices_ <- taxdt %>% group_indices(!!!taxranks)
-  indices_ <- taxdt %>% group_by(!!!taxranks) %>% group_indices()
+  otudt <- phyloseq::otu_table(phy) %>% as("matrix") %>% data.table::data.table()
+  taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% .[,taxranks,with=FALSE]
+  # indices_ <- taxdt %>% group_by(!!!taxranks) %>% group_indices()
+  indices_ <- taxdt[, .group:=.GRP, by=taxranks]$.group
+
   new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
   new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
   otu.names <- data.table::data.table(otu=taxa_names(phy))
@@ -463,11 +499,12 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
   otu.rep <- otu.rep[,lapply(.SD,function(x) {
     rep <- x[order(as.numeric(str_extract(x,"[0-9]+")))[1]]
     rep
-  }),by=indices_] %>% pull(otu)
+  }),by=indices_] %>% .[["otu"]]
   new.otudt <- new.otudt[,"indices_":=NULL] %>% as.matrix()
   new.taxdt <- new.taxdt[,"indices_":=NULL] %>% as.matrix()
   row.names(new.otudt) <- otu.names
   row.names(new.taxdt) <- otu.names
+
   new.otu <- new.otudt %>% phyloseq::otu_table(taxa_are_rows=TRUE)
   new.tax <- new.taxdt %>% phyloseq::tax_table()
   samp <- phyloseq::sample_data(phy,errorIfNULL=FALSE)
@@ -485,49 +522,51 @@ phy.collapse <- function(phy,taxranks=c("Superkingdom","Phylum","Class","Order",
   return(new.phy)
 }
 
-
-
-phy.collapse.base <- function(otu,tax,taxranks,level,criteria,fillin.levels) {
+phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels) {
+  # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
   criteria <- enquo(criteria)
-  # ntaxa.orig <- nrow(tax)
-  nsamps <- n_distinct(otu$sample)
+  otudt <- as.data.table(otudt)  #make sure it's data.table
+  taxdt <- as.data.table(taxdt)
+  nsamps <- uniqueN(otudt$sample)
   allranks <- c(taxranks,"strain")
-  tax <- tax %>% mutate(strain=otu) %>%
-    rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
+  subscript <- function(x,i) {
+    paste(x,i,sep="_")
+  }
+  # taxdt[,strain:=otu] %>% setnames(allranks,subscript(allranks,1))
+  taxdt <- taxdt[,strain:=otu] %>% setnames(allranks,subscript(allranks,1))
+  # taxdt <- taxdt %>% mutate(strain=otu) %>% rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
+
   # look at criteria, determine necessary calculations in make.tax
-  allcalcs <- rlang::exprs(n.detectable=sum(pctseqs>0),
-                           pct.detectable=n.detectable / nsamps,  # pct.detectable=mean(pctseqs>0),
-                           mean.pctseqs=sum(pctseqs) / nsamps,
-                           median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),  # median.pctseqs=median(pctseqs),
-                           max.pctseqs=max(pctseqs),
-                           min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),   # min.pctseqs=min(pctseqs),
-                           total.numseqs=sum(numseqs),
-                           max.numseqs=max(numseqs),
-                           min.numseqs=ifelse(nsamps==n(),min(numseqs),0),  # min.numseqs=min(numseqs),
-                           n.samps=nsamps,
-                           n.rows=nsamps)
+  allcalcs <- rlang::exprs(n.detectable = sum(numseqs > 0),
+                           pct.detectable = sum(numseqs > 0)/..nsamps,   # pct.detectable=mean(pctseqs>0),
+                           mean.pctseqs = sum(pctseqs)/..nsamps,
+                           median.pctseqs = median(c(pctseqs, rep(0, length.out = ..nsamps - .N))), # median.pctseqs=median(pctseqs),
+                           max.pctseqs = max(pctseqs),
+                           min.pctseqs = fifelse(..nsamps == .N, min(pctseqs), 0),   # min.pctseqs=min(pctseqs),
+                           total.numseqs = sum(numseqs),
+                           max.numseqs = max(numseqs),
+                           min.numseqs = fifelse(..nsamps == .N, min(numseqs), 0),   # min.numseqs=min(numseqs),
+                           n.samps = ..nsamps)
+  # allcalcs <- rlang::exprs(n.detectable=sum(numseqs>0),pct.detectable=sum(numseqs>0) / nsamps,mean.pctseqs=sum(pctseqs) / nsamps,median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),max.pctseqs=max(pctseqs),min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),total.numseqs=sum(numseqs),max.numseqs=max(numseqs),min.numseqs=ifelse(nsamps==n(),min(numseqs),0),n.samps=nsamps,n.rows=nsamps)
+
   # some calcs depend on other lines, determine the dependencies
   depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
   calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
   # subset of allcalc that is needed
   calcs <- allcalcs[names(allcalcs) %in% calcvars]
-
-  make.otu <- function(ss,tt,level) {
-    by1 <- paste(allranks,level,sep="_")
-    by2 <- paste(allranks,level+1,sep="_")
+  make.otu <- function(ss,tt,i) {
+    by1 <- subscript(allranks,i)
+    by2 <- subscript(allranks,i+1)
+    # ss %>% inner_join(tt,by=by1) %>% group_by(!!!syms(by2),sample) %>% summarize(pctseqs=sum(pctseqs),numseqs=sum(numseqs),.groups="drop")
     ss %>%
-      inner_join(tt,by=by1) %>%
-      group_by(!!!syms(by2),
-               sample) %>%
-      summarize(pctseqs=sum(pctseqs),
-                numseqs=sum(numseqs),
-                .groups="drop")
+      merge(tt,by=by1) %>%
+      .[, .(pctseqs=sum(pctseqs),numseqs=sum(numseqs)), by=c("sample",by2)]
   }
-  make.tax <- function(ss,level) {
-    by1 <- paste(allranks,level,sep="_")
-    by2 <- paste(allranks,level+1,sep="_")
-    collapse_var <- str_glue("collapse{level}")
-    rank <- length(allranks)+1-level
+  make.tax <- function(ss,i) {
+    by1 <- subscript(allranks,i)
+    by2 <- subscript(allranks,i+1)
+    collapse_var <- subscript("collapse",i)
+    rank <- length(allranks)+1-i
     parent.groups <- by1[1:(rank-1)]
     new.tax.var.exprs <- seq_along(by1) %>% setNames(by2) %>%
       map(~{
@@ -545,60 +584,65 @@ phy.collapse.base <- function(otu,tax,taxranks,level,criteria,fillin.levels) {
                       !!sym(by1[.x])))
         }
       })
-    tt <- ss %>%
-      group_by(!!!syms(by1)) %>%
-      summarize(!!!calcs,
-                .groups="drop") %>%
-      mutate(!!sym(collapse_var):=!!criteria,
-             !!!new.tax.var.exprs) %>%
-      group_by(!!!syms(parent.groups)) %>%
-      mutate(n.collapse=sum(!!sym(collapse_var)),
-             nrows=n()) %>%
-      ungroup() %>%
-      mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1,
-             !!!new.tax.var.exprs) %>%
-      select(!!sym(collapse_var),
-             !!!syms(by1),!!!syms(by2))
+    # tt <- ss %>% group_by(!!!syms(by1)) %>% summarize(!!!calcs0, .groups="drop") %>% mutate(!!sym(collapse_var):=!!criteria, !!!new.tax.var.exprs) %>% group_by(!!!syms(parent.groups)) %>% mutate(n.collapse=sum(!!sym(collapse_var)), nrows=n()) %>% ungroup() %>% mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1) %>% select(!!sym(collapse_var),!!!syms(by1),!!!syms(by2))
+    tt <- inject(
+      ss                                                              # ss %>%
+      [, .(!!!calcs), by = by1]                                       # group_by(!!!syms(by1)) %>% summarize(!!!calcs, .groups = "drop") %>%
+      [, (collapse_var) := !!quo_squash(criteria)]                    # mutate(!!sym(collapse_var) := !!criteria) %>%
+      [, `:=`(!!!new.tax.var.exprs)]                                  # mutate(!!!new.tax.var.exprs) %>%
+      [, `:=`(n.collapse=sum(!!sym(collapse_var)),                    # group_by(!!!syms(parent.groups)) %>%
+              nrows = .N), by=parent.groups]                          #   mutate(n.collapse = sum(!!sym(collapse_var)), nrows = n()) %>%
+      [, (collapse_var) := !!sym(collapse_var) & n.collapse>1]        # mutate(!!sym(collapse_var) := !!sym(collapse_var) & n.collapse > 1) %>%
+      [, c(collapse_var,by1,by2), with=FALSE]                         # select(!!sym(collapse_var), !!!syms(by1), !!!syms(by2))
+    )
     return(tt)
   }
   # each iteration checks criteria and collapses one level
-  ss <- tax %>% inner_join(otu,by="otu")
-  taxmap.raw <- tax
+
+  # ss <- taxdt %>% inner_join(otudt,by="otu")
+  ss <- taxdt %>% merge(otudt,by="otu")
+  taxmap.raw <- taxdt
   trace <- c()
   for (i in 1:level) {
+    # i=1
     # message(i)
     tt <- make.tax(ss,i)
     ss <- make.otu(ss,tt,i)
-    byvar <- paste(allranks,i,sep="_")
-    taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
+    byvar <- subscript(allranks,i)
+    taxmap.raw <- taxmap.raw %>% merge(tt,all.x=TRUE, by=byvar)
+    # taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
     trace <- c(trace,nrow(tt))
   }
+  by.tax <- subscript(allranks,i+1) %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
+  # taxmap <- taxmap.raw %>% transmute(otu,!!!by.tax)
+  taxmap <- inject(taxmap.raw[, .(otu,!!!by.tax)])
 
-  by.tax <- paste(allranks,i+1,sep="_") %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
-  taxmap <- taxmap.raw %>% transmute(otu,!!!by.tax)
-
-  # coll_vars <- paste0("collapse",1:level) %>% rev()
-  # taxmap.raw %>% count(!!!syms(coll_vars))
-  new.tax.otu <- otu %>%
-    left_join(taxmap,by="otu") %>%
-    group_by(sample,!!!syms(allranks)) %>%
-    summarize(numseqs=sum(numseqs),
-              pctseqs=sum(pctseqs),
-              .groups="drop") %>%
-    mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
+  # new.tax.otu <- otudt %>% left_join(taxmap,by="otu") %>% group_by(sample,!!!syms(allranks)) %>% summarize(numseqs=sum(numseqs), pctseqs=sum(pctseqs), .groups="drop") %>% mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
+  new.tax.otu <- inject(
+    merge(otudt,taxmap, all.x=TRUE, by="otu")                     # left_join(taxmap,by="otu") %>%
+    [, .(numseqs=sum(numseqs),                                  # group_by(sample,!!!syms(allranks)) %>%
+         pctseqs=sum(pctseqs)), by=c("sample",allranks)]        #       summarize(numseqs=sum(numseqs),pctseqs=sum(pctseqs),.groups="drop") %>%
+    [, otu:=paste2(!!!syms(allranks),sep="|")]                  # mutate(otu=paste2(!!!syms(allranks),sep="|"))
+  )
+  # new.tax.otu <- as_tibble(new.tax.otu)
   if (fillin.levels) {
     for (i in seq_along(taxranks)[-1]) {
       var <- taxranks[i]
       allvars <- taxranks[i:1]
-      new.tax.otu <- new.tax.otu %>%
-        mutate(!!sym(var):=coalesce(!!!syms(allvars)))
+      inject(new.tax.otu[, (var):=coalesce(!!!syms(allvars))])
+      # new.tax.otu <- new.tax.otu %>% mutate(!!sym(var):=coalesce(!!!syms(allvars)))
     }
   }
-  new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks)) %>% unique()
-  new.otu <- new.tax.otu %>% select(otu,sample,numseqs,pctseqs)
+  # new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks)) %>% unique()
+  # tcols <- c("otu",taxranks)
+  # new.tax <- new.tax.otu[, ..tcols] %>% unique()
+  new.tax <- new.tax.otu[, c("otu",taxranks), with=FALSE] %>% unique()
+  # new.otu <- new.tax.otu %>% select(otu,sample,numseqs,pctseqs)
+  # ocols <- c("otu","sample","numseqs","pctseqs")
+  # new.otu <- new.tax.otu[, ..ocols]
+  new.otu <- new.tax.otu[, c("otu","sample","numseqs","pctseqs"), with=FALSE]
 
   trace <- c(trace,nrow(new.tax)) %>% setNames(rev(allranks[1:level]))
-
   message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
   message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
   # ntaxa.final <- nrow(new.tax)
@@ -614,7 +658,7 @@ phy.collapse.bins <- function(x,...) UseMethod("phy.collapse.bins")
 
 #' Collapse phyloseq or otu.melt data into smaller tax bins
 #'
-#' Collapse phyloseq object into smaller bins, using specified criteria based on the data.
+#' Collapse [`phyloseq`][`phyloseq::phyloseq-class`] object into smaller bins, using specified criteria based on the data.
 #' Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and at each level, collapses 2 or more taxa if they meet the specified criteria.
 #'
 #' The binning criteria can be defined multiple ways. These variables are available for criteria, for each taxon:
@@ -641,11 +685,11 @@ phy.collapse.bins <- function(x,...) UseMethod("phy.collapse.bins")
 #'
 #'   * `n.rows`  total number of rows for a taxon
 #'
-#' @param phy phyloseq object to be collapsed
-#' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, level=4 means collapse at otu, Species, Genus, Family.
+#' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be collapsed
+#' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, `level=4` means collapse at `otu`, `Species`, `Genus`, `Family`.
 #' @param fillin.levels Whether or not to fill in `NA` values with the collapsed taxa name. Default is `FALSE`.
 #' @param criteria an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)
-#' @return phyloseq object or data frame (depending on what was supplied), representing the data, after criteria-based taxonomic binning.
+#' @return [`phyloseq`][`phyloseq::phyloseq-class`] object or data frame (depending on what was supplied), representing the data, after criteria-based taxonomic binning.
 #'
 #' @examples
 #' # original phyloseq
@@ -663,33 +707,34 @@ phy.collapse.bins.phyloseq <- function(phy,
                                        level=length(rank_names(phy)),
                                        fillin.levels=FALSE,
                                        criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
-  # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=TRUE
+  # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=FALSE
+  # declare.args(phy=cid.phy,yingtools2:::phy.collapse.bins.phyloseq)
   criteria <- enquo(criteria)
   phy <- suppressMessages(prune_unused_taxa(phy))
   taxranks <- rank_names(phy)
-  otu <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE)
-  tax <- get.tax(phy)
-  objset <- phy.collapse.base(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
-  new.tax <- objset$tax
+  otudt <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table()
+  taxdt <- get.tax(phy) %>% as.data.table()
+  objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
+  new.tax <- objset$tax %>% as_tibble()
   new.otu <- objset$otu %>%
-    pivot_wider(id_cols=otu,
-                names_from=sample,
-                values_from=numseqs,
-                values_fn = sum,
-                values_fill=0)
+    dcast.data.table(formula=otu ~ sample,value.var="numseqs",fill=0) %>%
+    as_tibble()
+  # new.otu <- new.otu %>% as_tibble() %>% pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fn = sum,values_fill=0)
   new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
   return(new.phy)
 }
 
 
-#' @param data data frame, formatted as `get.otu.melt`. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
+
+
+#' @param data data frame, formatted as [get.otu.melt()] data. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
 #' @param taxranks character vector of taxonomic ranks in `data`.
 #' @param sample_vars character vector of column names in `data` that convey sample-level information. These will be retained as such after binning.
-#' @param sample_id name of sample column identifier. Default is "sample".
-#' @param taxa_id name of taxon column identifier. Default is "otu".
+#' @param sample_id name of sample column identifier. Default is `"sample"`.
+#' @param taxa_id name of taxon column identifier. Default is `"otu"`.
 #' @rdname phy.collapse.bins
 #' @examples
-#' #  You can also enter the data in long form (rows=sample*taxa, such as that produced by get.otu.melt).
+#' # You can also enter the data in long form (rows=sample*taxa, such as that produced by [get.otu.melt()]).
 #' otu <- get.otu.melt(cid.phy)
 #' otu.bin <- phy.collapse.bins(otu,
 #'                              taxranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "taxon"),
@@ -707,9 +752,7 @@ phy.collapse.bins.data.frame <- function(data,
                                          taxa_id="otu",
                                          criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
                                          sample_vars=NULL) {
-
-
-  # data <- get.otu.melt(cid.phy);taxranks <- rank_names(cid.phy);level=4;fillin.levels=FALSE;criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005);sample_vars=NULL
+  # data <- get.otu.melt(cid.phy);taxranks <- rank_names(cid.phy);level=4;fillin.levels=FALSE;criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005);sample_vars=NULL;taxa_id="otu";sample_id="sample"
   criteria <- enquo(criteria)
   needvars <- c(taxa_id,sample_id,"numseqs","pctseqs",taxranks)
   if (!all(needvars %in% names(data))) {
@@ -720,23 +763,27 @@ phy.collapse.bins.data.frame <- function(data,
   if (!rows.are.distinct) {
     stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
   }
-
-  tax <- data %>% select(otu,!!!syms(taxranks)) %>% unique()
+  taxdt <- data %>% select(otu,!!!syms(taxranks)) %>% as.data.table() %>% unique()
   sample_vars <- setdiff(sample_vars,"sample")
   if (is.null(sample_vars)) {
     message("Attempting to determine sample vars...\n")
+
   }
   samp <- data %>% select(sample,!!!syms(sample_vars)) %>% unique()
-  otu <- data %>% select(otu,sample,numseqs,pctseqs)
-  # phy.collapse()
-  objset <- phy.collapse.base(otu=otu,tax=tax,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
-  new.data <- objset$otu %>%
-    left_join(objset$tax,by="otu") %>%
-    left_join(samp,by="sample") %>%
-    rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
+  otudt <- data %>% select(otu,sample,numseqs,pctseqs) %>% as.data.table()
+  sampdt <- samp %>% as.data.table()
+  objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
+  new.otudt <- objset$otu
+  new.taxdt <- objset$tax
+  new.data <- new.otudt %>%
+    merge(new.taxdt, by="otu",all.x = TRUE) %>%
+    merge(sampdt,by="sample",all.x = TRUE) %>%
+    setnames(old=c("otu","sample"),new=c(taxa_id,sample_id)) %>%
+    as_tibble()
+  # new.data <- new.otu %>% left_join(new.tax,by="otu") %>% left_join(samp,by="sample") %>% rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
   return(new.data)
-
 }
+
 
 
 
@@ -744,10 +791,10 @@ phy.collapse.bins.data.frame <- function(data,
 
 #' Prune Unused Taxa from a phyloseq object
 #'
-#' In a phyloseq object, remove any taxa that are not used in the samples.
+#' In a [`phyloseq`][`phyloseq::phyloseq-class`] object, remove any taxa that are not used in the samples.
 #' Consider using this after subsetting the samples.
-#' @param phy phyloseq object
-#' @return a phyloseq object, with empty taxa removed.
+#' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object
+#' @return a [`phyloseq`][`phyloseq::phyloseq-class`] object, with empty taxa removed.
 #' @export
 #' @examples
 #' library(phyloseq)
@@ -776,10 +823,11 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 
 
 
-
 #' YT Palette 2
 #'
-#' The customary palette for Bacteria.
+#' The old customary palette for Bacteria.
+#'
+#'
 #' @export
 yt.palette2 <- exprs(
   "Bacteroidetes (phylum)" = Phylum=="Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
@@ -798,6 +846,16 @@ yt.palette2 <- exprs(
 #' YT Palette 3
 #'
 #' The customary palette for Bacteria.
+#'
+#' Slightly different than [yt.palette2]; now everything cycles through shades.
+#'
+#'
+#' ```{r}
+#' #| echo: false
+#' taxlegend3 <- get.tax.legend(tax.palette = yt.palette3, fontsize = 5)
+#' grid::grid.newpage()
+#' grid::grid.draw(taxlegend3)
+#' ```
 #' @export
 yt.palette3 <- exprs(
   "Bacteroidetes (phylum)" = Phylum=="Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
@@ -814,12 +872,18 @@ yt.palette3 <- exprs(
 )
 
 
+
+
+
+
+
+
 #' Create a color palette for taxonomy
 #'
 #' Given microbiota data, generate a color palette that can be used in ggplot2 plots.
 #'
-#' Note that the `tax.palette` formula list is evaluated in order, and should probably end in TRUE  (similar to `case_when()`).
-#' @param data taxonomic data, can be `phyloseq`, `get.otu.melt()` data frame, or `get.tax()` data frame.
+#' Note that the `tax.palette` formula list is evaluated in order, and should probably end in TRUE  (similar to [dplyr::case_when()]).
+#' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
 #' @param unitvar the granular column by which colors will be assigned. Default is `"Species"`. Sometimes you might want to switch to `"otu"`.
 #' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
 #' @return named vector of colors, which can be used in: `ggplot( ... ) + scale_fill_manual(values = <pal> )`
@@ -893,7 +957,7 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
 
 #' Generate tax legend
 #'
-#' @param tax.palette a list of formulas specifying the palette. Default is \code{yt.palette3}.
+#' @param tax.palette a list of formulas specifying the palette. Default is [`yt.palette3`].
 #' @param fontsize Font size. Default is 5.
 #' @return a ggplot object showing the legend.
 #' @describeIn get.tax.palette
@@ -987,17 +1051,17 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
 #'
 #' @param gdata a data frame from a ggtree object.
 #' @param var the variable to be matched (unquoted).
-#' @param value the value that \code{var} needed for inclusion in the clade to be highlighted.
+#' @param value the value that `var` needed for inclusion in the clade to be highlighted.
 #' @param criteria an expression that evaluates to logical, can use as an alternative (or in addition to) var/value,
 #' @param ymin the min value of y in the clade.
 #' @param ymax the max value of y in the clade.
-#' @param label A \code{glue} expression for the clade label. Default is \code{"{value}\n({var})"}
-#' @param fill.color the clade fill color (default is \code{NA}, no fill)
-#' @param line.color the color of the outline around the clade (default \code{"dark gray"})
+#' @param label A `glue` expression for the clade label. Default is `"{value`\n({var})"}
+#' @param fill.color the clade fill color (default is `NA`, no fill)
+#' @param line.color the color of the outline around the clade (default `"dark gray"`)
 #' @param alpha the alpha value of the fill color (default 1)
 #' @param xmax the x depth at which the edge of the clade is drawn (optional)
-#' @param xscalar if \code{xmax} is not specified, the x depth can be specified as a scaled factor of maximum x of all clade tips. Default is \code{1.5}
-#' @param fill.in whether to fill all gaps in the clade (default is \code{FALSE})
+#' @param xscalar if `xmax` is not specified, the x depth can be specified as a scaled factor of maximum x of all clade tips. Default is `1.5`
+#' @param fill.in whether to fill all gaps in the clade (default is `FALSE`)
 #' @param font.size font size of the text (default is 4)
 #'
 #' @return
@@ -1090,60 +1154,60 @@ geom_hilight <- function(mapping = NULL, data = NULL,
 
 #' @export
 GeomHilight <- ggplot2::ggproto("GeomHilight", ggplot2::Geom,
-                       default_aes = ggplot2::aes(label = NA,
-                                         colour = "black",
-                                         fill = "light blue",
-                                         xend = NA,
-                                         xadd = NA,
-                                         linesize = 0.5,
-                                         linetype = 1, lineheight = 1.2,
-                                         alpha = NA,
-                                         size = 3.88,
-                                         angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1),
-                       required_aes = c("x","y"),
-                       setup_data = function(data, params) {
-                         data %>% filter(isTip,var==value)
-                       },
-                       draw_group = function(data, panel_scales, coord) {
-                         linesize <- data$linesize[1]
-                         topdata <- data[which.max(data$y),,drop=FALSE]
-                         bottomdata <- data[which.min(data$y),,drop=FALSE]
-                         xend <- data$xend[1]
-                         xadd <- data$xadd[1]
-                         label <- data$label[1]
-                         if (is.na(label)) {
-                           label <- data$value[1]
-                         }
-                         if (is.na(xend) & is.na(xadd)) {
-                           xend <- max(data$x,na.rm=TRUE)
-                           xadd <- 0.5
-                         } else if (is.na(xend) & !is.na(xadd)) {
-                           xend <- max(data$x)
-                         } else if (!is.na(xend) & is.na(xadd)) {
-                           xadd <- 0
-                         } else if (!is.na(xend) & !is.na(xadd)) {
-                           warning("YTWarning: both xend and xadd were specified, only one should be specified")
-                         } else stop("YTError: should not happen, look for code issues")
-                         xend <- xend + xadd
-                         xtop <- topdata$x
-                         ytop <- topdata$y+0.5
-                         xbottom <- bottomdata$x
-                         ybottom <- bottomdata$y-0.5
-                         rect_data <- data.frame(xmin=data$x,
-                                                 xmax=xend,
-                                                 ymin=data$y-0.5,
-                                                 ymax=data$y+0.5,
-                                                 colour=NA,data[1,,drop=FALSE],row.names=NULL)
-                         text_data <- data.frame(x=xend,y=(ytop+ybottom)/2,label=label,
-                                                 data[1,,drop=FALSE],row.names=NULL)
-                         line_data <- data.frame(x=c(xend,xtop,xbottom),y=c(ytop,ytop,ybottom),
-                                                 xend=c(xend,xend,xend),yend=c(ybottom,ytop,ybottom),
-                                                 size=linesize,
-                                                 data[1,,drop=FALSE],row.names=NULL)
-                         gList(GeomRect$draw_panel(rect_data, panel_scales, coord),
-                               GeomText$draw_panel(text_data, panel_scales, coord),
-                               GeomSegment$draw_panel(line_data, panel_scales, coord))}
-                       #draw_key = GeomRect$draw_key
+                                default_aes = ggplot2::aes(label = NA,
+                                                           colour = "black",
+                                                           fill = "light blue",
+                                                           xend = NA,
+                                                           xadd = NA,
+                                                           linesize = 0.5,
+                                                           linetype = 1, lineheight = 1.2,
+                                                           alpha = NA,
+                                                           size = 3.88,
+                                                           angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1),
+                                required_aes = c("x","y"),
+                                setup_data = function(data, params) {
+                                  data %>% filter(isTip,var==value)
+                                },
+                                draw_group = function(data, panel_scales, coord) {
+                                  linesize <- data$linesize[1]
+                                  topdata <- data[which.max(data$y),,drop=FALSE]
+                                  bottomdata <- data[which.min(data$y),,drop=FALSE]
+                                  xend <- data$xend[1]
+                                  xadd <- data$xadd[1]
+                                  label <- data$label[1]
+                                  if (is.na(label)) {
+                                    label <- data$value[1]
+                                  }
+                                  if (is.na(xend) & is.na(xadd)) {
+                                    xend <- max(data$x,na.rm=TRUE)
+                                    xadd <- 0.5
+                                  } else if (is.na(xend) & !is.na(xadd)) {
+                                    xend <- max(data$x)
+                                  } else if (!is.na(xend) & is.na(xadd)) {
+                                    xadd <- 0
+                                  } else if (!is.na(xend) & !is.na(xadd)) {
+                                    warning("YTWarning: both xend and xadd were specified, only one should be specified")
+                                  } else stop("YTError: should not happen, look for code issues")
+                                  xend <- xend + xadd
+                                  xtop <- topdata$x
+                                  ytop <- topdata$y+0.5
+                                  xbottom <- bottomdata$x
+                                  ybottom <- bottomdata$y-0.5
+                                  rect_data <- data.frame(xmin=data$x,
+                                                          xmax=xend,
+                                                          ymin=data$y-0.5,
+                                                          ymax=data$y+0.5,
+                                                          colour=NA,data[1,,drop=FALSE],row.names=NULL)
+                                  text_data <- data.frame(x=xend,y=(ytop+ybottom)/2,label=label,
+                                                          data[1,,drop=FALSE],row.names=NULL)
+                                  line_data <- data.frame(x=c(xend,xtop,xbottom),y=c(ytop,ytop,ybottom),
+                                                          xend=c(xend,xend,xend),yend=c(ybottom,ytop,ybottom),
+                                                          size=linesize,
+                                                          data[1,,drop=FALSE],row.names=NULL)
+                                  gList(GeomRect$draw_panel(rect_data, panel_scales, coord),
+                                        GeomText$draw_panel(text_data, panel_scales, coord),
+                                        GeomSegment$draw_panel(line_data, panel_scales, coord))}
+                                #draw_key = GeomRect$draw_key
 )
 
 
@@ -1180,7 +1244,7 @@ fan.angle <- function(angle,hjust=FALSE,right=FALSE) {
 #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
 #'
 #' Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
-#' Modified from a version from Liam J. Revell, University of Massachusetts, \link{https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html}
+#' Modified from a version from Liam J. Revell, University of Massachusetts, (https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html)
 #'
 #' Here are the changes:
 #' (1) Corrected branch lengths. The original ape::as.phylo.formula does not work well because it uses ape::read.tree to read in data,
@@ -1296,8 +1360,8 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
 
 #' LDA Effect Size
 #'
-#' Given a phyloseq object and class variable, perform LDA Effect Size analysis.
-#' @param phy the phyloseq object containing the data
+#' Given a [`phyloseq`][`phyloseq::phyloseq-class`] object and class variable, perform LDA Effect Size analysis.
+#' @param phy the [`phyloseq`][`phyloseq::phyloseq-class`] object containing the data
 #' @param class set which variable use as class
 #' @param subclass set which variable use as subclass (default is no subclass)
 #' @param anova.alpha set the alpha value for the Kruskal-Wallis test (default 0.05)
@@ -1563,7 +1627,7 @@ lda.effect <- function(phy,class,subclass=NULL,
 
 
 #' Plot LDA Results
-#' @param lda lda table from \code{lda.effect()}
+#' @param lda lda table from `lda.effect()`
 #' @param tax.label either "taxon" or "taxonomy"
 #'
 #' @return a ggplot of lda results
@@ -1597,9 +1661,9 @@ lda.plot <- function(lda,tax.label="taxon") {
 
 #' Plot LDA Results in Cladogram
 #'
-#' @param lda lda table from \code{lda.effect()}
+#' @param lda lda table from [lda.effect()]
 #' @param layout Either "cirular" or "rectangular"
-#' @param check_overlap Only write clade labels if they do not overlap each other. Default is \code{TRUE}. This is passed to \code{geom_text}.
+#' @param check_overlap Only write clade labels if they do not overlap each other. Default is `TRUE`. This is passed to `geom_text`.
 #' @param font.size Font size of clade labels. Default is 3.88.
 #' @param clade.label.height Height of clade labels, relative to the size of the concentric tax levels. Default is 1 ()
 #' @param pad Determines the spacing of surrounding clade labels.
@@ -1690,61 +1754,62 @@ lda.clado <- function(lda,layout="circular",pad=2,check_overlap=TRUE,
 #' This reads in the file created by the YT python script, blastn.py
 #'
 #' Chooses one taxonomy from the hits, also listing runner-up taxonomy.
-#' qseqid: Query Seq-id
-#' qgi: Query GI
-#' qacc: Query accesion
-#' qaccver: Query accesion.version
-#' qlen: Query sequence length
-#' sseqid: Subject Seq-id
-#' sallseqid: All subject Seq-id(s), separated by a ';'
-#' sgi: Subject GI
-#' sallgi: All subject GIs
-#' sacc: Subject accession
-#' saccver: Subject accession.version
-#' sallacc: All subject accessions
-#' slen: Subject sequence length
-#' qstart: Start of alignment in query
-#' qend: End of alignment in query
-#' sstart: Start of alignment in subject
-#' send: End of alignment in subject
-#' qseq: Aligned part of query sequence
-#' sseq: Aligned part of subject sequence
-#' evalue: Expect value. Describes the number of hits one can "expect" to see by chance when searching a database of a particular size.
+#' * qseqid: Query Seq-id
+#' * qgi: Query GI
+#' * qacc: Query accesion
+#' * qaccver: Query accesion.version
+#' * qlen: Query sequence length
+#' * sseqid: Subject Seq-id
+#' * sallseqid: All subject Seq-id(s), separated by a ';'
+#' * sgi: Subject GI
+#' * sallgi: All subject GIs
+#' * sacc: Subject accession
+#' * saccver: Subject accession.version
+#' * sallacc: All subject accessions
+#' * slen: Subject sequence length
+#' * qstart: Start of alignment in query
+#' * qend: End of alignment in query
+#' * sstart: Start of alignment in subject
+#' * send: End of alignment in subject
+#' * qseq: Aligned part of query sequence
+#' * sseq: Aligned part of subject sequence
+#' * evalue: Expect value. Describes the number of hits one can "expect" to see by chance when searching a database of a particular size.
 #'   It decreases exponentially as the Score (S) of the match increases. Essentially, the E value describes the random background noise.
 #'   For example, an E value of 1 assigned to a hit can be interpreted as meaning that in a database of the current size one might
 #'   expect to see 1 match with a similar score simply by chance.
-#' bitscore: Bit score
-#' score: Raw score
-#' length: Alignment length
-#' pident: Percentage of identical matches
-#' nident: Number of identical matches
-#' mismatch: Number of mismatches
-#' positive: Number of positive-scoring matches
-#' gapopen: Number of gap openings
-#' gaps: Total number of gaps
-#' ppos: Percentage of positive-scoring matches
-#' frames: Query and subject frames separated by a '/'
-#' qframe: Query frame
-#' sframe: Subject frame
-#' btop: Blast traceback operations (BTOP)
-#' staxid: Subject Taxonomy ID
-#' ssciname: Subject Scientific Name
-#' scomname: Subject Common Name
-#' sblastname: Subject Blast Name
-#' sskingdom: Subject Super Kingdom
-#' staxids: unique Subject Taxonomy ID(s), separated by a ';' (in numerical order)
-#' sscinames: unique Subject Scientific Name(s), separated by a ';'
-#' scomnames: unique Subject Common Name(s), separated by a ';'
-#' sblastnames: unique Subject Blast Name(s), separated by a ';' (in alphabetical order)
-#' sskingdoms: unique Subject Super Kingdom(s), separated by a ';' (in alphabetical order)
-#' stitle: Subject Title
-#' salltitles: All Subject Title(s), separated by a '<>'
-#' sstrand: Subject Strand
-#' qcovs: Query Coverage Per Subject
-#' qcovhsp: Query Coverage Per HSP
-#' qcovus: Query Coverage Per Unique Subject (blastn only)
+#' * bitscore: Bit score
+#' * score: Raw score
+#' * length: Alignment length
+#' * pident: Percentage of identical matches
+#' * nident: Number of identical matches
+#' * mismatch: Number of mismatches
+#' * positive: Number of positive-scoring matches
+#' * gapopen: Number of gap openings
+#' * gaps: Total number of gaps
+#' * ppos: Percentage of positive-scoring matches
+#' * frames: Query and subject frames separated by a '/'
+#' * qframe: Query frame
+#' * sframe: Subject frame
+#' * btop: Blast traceback operations (BTOP)
+#' * staxid: Subject Taxonomy ID
+#' * ssciname: Subject Scientific Name
+#' * scomname: Subject Common Name
+#' * sblastname: Subject Blast Name
+#' * sskingdom: Subject Super Kingdom
+#' * staxids: unique Subject Taxonomy ID(s), separated by a ';' (in numerical order)
+#' * sscinames: unique Subject Scientific Name(s), separated by a ';'
+#' * scomnames: unique Subject Common Name(s), separated by a ';'
+#' * sblastnames: unique Subject Blast Name(s), separated by a ';' (in alphabetical order)
+#' * sskingdoms: unique Subject Super Kingdom(s), separated by a ';' (in alphabetical order)
+#' * stitle: Subject Title
+#' * salltitles: All Subject Title(s), separated by a '<>'
+#' * sstrand: Subject Strand
+#' * qcovs: Query Coverage Per Subject
+#' * qcovhsp: Query Coverage Per HSP
+#' * qcovus: Query Coverage Per Unique Subject (blastn only)
+#'
 #' @param tax Taxonomy data from blastn, either as the file or a data frame.
-#' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq tax_table object. If FALSE, returns data frame with all hits and associated data.
+#' @param tax_table logical, if TRUE (default), will return a data frame of taxonomy, which can be directly converted to a phyloseq [tax_table][phyloseq::taxonomyTable-class] object. If FALSE, returns data frame with all hits and associated data.
 #' @return Data from the blastn data file.
 #' @author Ying Taur
 #' @export

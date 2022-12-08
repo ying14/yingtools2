@@ -7,7 +7,7 @@
 get.abundance(phy, ..., counts = FALSE)
 }
 \arguments{
-\item{phy}{phyloseq object to be analyzed}
+\item{phy}{\code{\link[phyloseq:phyloseq-class]{phyloseq}} object to be analyzed}
 
 \item{...}{one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.}
 
@@ -17,7 +17,7 @@ get.abundance(phy, ..., counts = FALSE)
 a data frame containing sample identifier and abundance columns
 }
 \description{
-Given a phyloseq, calculate relative abundance for each sample.
+Given a \code{\link[phyloseq:phyloseq-class]{phyloseq}}, calculate relative abundance for each sample.
 }
 \examples{
 library(phyloseq)

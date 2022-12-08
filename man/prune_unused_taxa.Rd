@@ -7,13 +7,13 @@
 prune_unused_taxa(phy, verbose = TRUE)
 }
 \arguments{
-\item{phy}{phyloseq object}
+\item{phy}{\code{\link[phyloseq:phyloseq-class]{phyloseq}} object}
 }
 \value{
-a phyloseq object, with empty taxa removed.
+a \code{\link[phyloseq:phyloseq-class]{phyloseq}} object, with empty taxa removed.
 }
 \description{
-In a phyloseq object, remove any taxa that are not used in the samples.
+In a \code{\link[phyloseq:phyloseq-class]{phyloseq}} object, remove any taxa that are not used in the samples.
 Consider using this after subsetting the samples.
 }
 \examples{

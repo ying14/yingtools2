@@ -19,8 +19,7 @@ group_split_named(.tbl, ..., .keep = TRUE, sep = " / ")
 A list of tibbles, broken up by grouping.
 }
 \description{
-Same as \code{dplyr::group_split()}, except that the list of tables is named rather than unnamed.
-Another minor difference is that it keeps previous grouping (\code{group_split()} wants all grouping vars to be stated at once).
+
 }
 \examples{
 group_split_named(iris,Species)

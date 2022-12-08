@@ -35,11 +35,13 @@ Returns a clean version of \code{data}.
 }
 \description{
 Cleans up a data frame by performing 5 tasks:
-(1) Remove any column or row that is all \code{NA} values (\code{remove.na.rows},\code{remove.na.cols})
-(2) Make column names well-formatted (\code{make.names})
-(3) Remove any leading or trailing whitespace from character variables (\code{trim})
-(4) Look for variables that look like date/time variables, and convert them to Date or POSIXct format (\code{convert.dates})
-(5) Look for variables that look like MRNs and format them properly (\code{as.mrn})
+\enumerate{
+\item Remove any column or row that is all \code{NA} values (\code{\link[=remove.na.rows]{remove.na.rows()}},\code{\link[=remove.na.cols]{remove.na.cols()}})
+\item Make column names well-formatted (\code{\link[=make.names]{make.names()}})
+\item Remove any leading or trailing whitespace from character variables (\code{\link[=trim]{trim()}})
+\item Look for variables that look like date/time variables, and convert them to Date or POSIXct format (\code{\link[=convert.dates]{convert.dates()}})
+\item Look for variables that look like MRNs and format them properly (\code{\link[=as.mrn]{as.mrn()}})
+}
 }
 \examples{
 #####

@@ -2,8 +2,35 @@
 % Please edit documentation in R/deprecated.R
 \name{phy.collapse.bins.old}
 \alias{phy.collapse.bins.old}
-\title{Collapse phyloseq into smaller bins}
+\alias{phy.collapse.bins.old.phyloseq}
+\alias{phy.collapse.bins.old.data.frame}
+\title{Collapse phyloseq or otu.melt data into smaller tax bins}
 \usage{
+\method{phy.collapse.bins}{old}(
+  phy,
+  level = length(rank_names(phy)),
+  fillin.levels = FALSE,
+  criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005
+)
+
+\method{phy.collapse.bins}{old.phyloseq}(
+  phy,
+  level = length(rank_names(phy)),
+  fillin.levels = FALSE,
+  criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005
+)
+
+\method{phy.collapse.bins}{old.data.frame}(
+  data,
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+  level = length(taxranks),
+  fillin.levels = FALSE,
+  sample_id = "sample",
+  taxa_id = "otu",
+  criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005,
+  sample_vars = NULL
+)
+
 \method{phy.collapse.bins}{old}(
   phy,
   level = length(rank_names(phy)),
@@ -19,14 +46,44 @@
 \item{fillin.levels}{Whether or not to fill in \code{NA} values with the collapsed taxa name. Default is \code{FALSE}.}
 
 \item{criteria}{an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)}
+
+\item{data}{data frame, formatted as \code{get.otu.melt}. Note, it must have columns \code{otu}, \code{sample}, \code{numseqs}, \code{pctseqs}, and all values in \code{taxranks}.}
+
+\item{taxranks}{character vector of taxonomic ranks in \code{data}.}
+
+\item{sample_id}{name of sample column identifier. Default is "sample".}
+
+\item{taxa_id}{name of taxon column identifier. Default is "otu".}
+
+\item{sample_vars}{character vector of column names in \code{data} that convey sample-level information. These will be retained as such after binning.}
 }
 \value{
+phyloseq object or data frame (depending on what was supplied), representing the data, after criteria-based taxonomic binning.
+
 collapsed phyloseq object
 }
 \description{
 Collapse phyloseq object into smaller bins, using specified criteria based on the data.
+Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and at each level, collapses 2 or more taxa if they meet the specified criteria.
+
+Collapse phyloseq object into smaller bins, using specified criteria based on the data.
 }
 \details{
+The binning criteria can be defined multiple ways. These variables are available for criteria, for each taxon:
+\itemize{
+\item \code{n.detectable} number of samples where taxa abundance is above 0.
+\item \code{pct.detectable} percent of samples where taxa abundance is above 0.
+\item \code{mean.pctseqs} mean relative abundance for a taxon.
+\item \code{median.pctseqs} median relative abundance for a taxon.
+\item \code{max.pctseqs} highest relative abundance of sequences for a taxon (across all samples)
+\item \code{min.pctseqs} lowest relative abundance of sequences for a taxon (across all samples)
+\item \code{total.numseqs} total number of sequences for a taxon (across all samples)
+\item \code{max.numseqs} highest number of sequences for a taxon (across all samples)
+\item \code{min.numseqs} lowest number of sequences for a taxon (across all samples)
+\item \code{n.samps} total number of samples (regardless of abundance)
+\item \code{n.rows}  total number of rows for a taxon
+}
+
 These variables are available for criteria, for each taxon:
 \itemize{
 \item \code{n.detectable} number of samples where taxa abundance is above 0.
@@ -43,6 +100,24 @@ These variables are available for criteria, for each taxon:
 }
 }
 \examples{
+# original phyloseq
+cid.phy
+
+# after default binning
+phy.collapse.bins(cid.phy)
+
+# customized binning
+phy.collapse.bins(cid.phy, level = 5,
+                  criteria = mean.pctseqs < 0.001 & n.detectable <= 2)
+#  You can also enter the data in long form (rows=sample*taxa, such as that produced by get.otu.melt).
+otu <- get.otu.melt(cid.phy)
+otu.bin <- phy.collapse.bins(otu,
+                             taxranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "taxon"),
+                             sample_vars = c("Sample_ID", "Patient_ID", "day", "day.old", "Consistency"),
+                             level = 5,
+                             criteria = mean.pctseqs < 0.001 & n.detectable <= 2)
+n_distinct(otu$otu)
+n_distinct(otu.bin$otu)
 phy.binned <- phy.collapse.bins(cid.phy)
 phy.binned2 <- phy.collapse.bins(cid.phy, level=5,
                                  criteria=mean.pctseqs<0.001 & n.detectable<=2)

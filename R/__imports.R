@@ -35,6 +35,90 @@ NULL
 NULL
 
 
+
+
+
+
+if (FALSE) {
+
+
+  #' ASDF function 2
+  #'
+  #' @description
+  #' Here is a description of the function.
+  #'
+  #' @details
+  #' Here are some details.
+  #'
+  #' `code here` = \code{code here}
+  #'
+  #' _italics_ = \emph{italics}
+  #'
+  #' **bold** = \strong{bold}
+  #'
+  #' \pkg{package_name}
+  #'
+  #' Bullet list:
+  #' * bullet 1
+  #' * bullet 2
+  #'
+  #' Number list:
+  #' 1. number uno.
+  #' continue discussing uno
+  #' 2. number dos
+  #' continue discussing dos
+  #'
+  #' link to another function in this package or another: [age.years()] or [tidyselect::all_of()]
+  #'
+  #' same as above but with different text: [ageyears][age.years()] or [tidyselect_stuff][tidyselect::all_of()]
+  #'
+  #' package: [`ggplot2`]
+  #'
+  #' package topic: [`<tidy-select>`][`tidyr::tidyr_tidy_select`]
+  #'
+  #' hyperlink: [Commonmark web site](http://commonmark.org/help)
+  #'
+  #' ## Subsection within details
+  #' ### Sub-subsection
+  #' ... text ...
+  #'
+  #' The main R web site is at <https://r-project.org>.
+  #'
+  #' here is a calculated number: `r 2+2`
+  #'
+  #' ```{r}
+  #' #| echo: false
+  #' knitr::kable(mtcars[1:5,1:5])
+  #' ```
+  #'
+  #'
+  #'
+  #' @param a the a variable
+  #' @param b the b variable
+  #' @param c the c variable
+  #' @param d the d variable
+  #' @param ... ellipsis
+  #'
+  #' @return a list of everything.
+  #' @export
+  #'
+  #' @examples
+  #' asdf("a", "b")
+  asdf <- function(a, b, c=1, d=list("a","b"), ...) {
+    # ctrl-shift-D
+    # rstudioapi::previewRd("man/asdf.Rd")
+
+    # rstudioapi::previewRd("man/test_if_nonvarying_by_group.Rd")
+
+    list(a,b,c,d,...)
+  }
+
+}
+
+
+
+
+
 if (FALSE) {
   # find functions used by the package
   scripts <- list.files(path=".",pattern="\\.R$",recursive=TRUE,ignore.case=TRUE)

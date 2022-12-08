@@ -9,7 +9,7 @@ make.names(x, ...)
 \arguments{
 \item{names}{character vector to be coerced to syntactically valid names. This is coerced to character if necessary.}
 
-\item{verbose}{logical indicating whether or not to display info name cleanup. Default is \code{FALSE}. Dataframe only}
+\item{verbose}{logical indicating whether or not to display info name cleanup. Default is \code{FALSE}. Data frame only}
 }
 \value{
 Data frame with corrected names
@@ -18,5 +18,5 @@ Data frame with corrected names
 Make syntactically valid names out of character vectors.
 }
 \details{
-Like original \code{make.names}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
+Like original \code{\link[base:make.names]{base::make.names()}}, but gets rid of any repeating periods('.'), as well as periods at the end. This is just an aesthetic modification.
 }

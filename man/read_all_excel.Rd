@@ -15,7 +15,7 @@ read_all_excel(
 \item{...}{Either a file(s) or folder(s). If a folder is specified, it will look for all files ending in (.xlsx/.xls).}
 
 \item{col_names}{\code{TRUE} to use the first row as column names, \code{FALSE} to get default names, or a character
-vector giving a name for each column. This is passed to \code{readxl::read_excel} function.}
+vector giving a name for each column. This is passed to \code{\link[readxl:read_excel]{readxl::read_excel()}} function.}
 
 \item{keep.nested}{If \code{TRUE}, returns a nested list of files and then sheets. Otherwise, a list of sheets is normally returned.}
 

@@ -7,10 +7,10 @@
 set.samp(sdata)
 }
 \arguments{
-\item{sdata}{Data frame to be converted back to sample_data}
+\item{sdata}{Data frame to be converted back to \link[phyloseq:sample_data-class]{sample_data}}
 }
 \value{
-formatted sample_data.
+formatted \link[phyloseq:sample_data-class]{sample_data}.
 }
 \description{
 Use this on data with sample info. The opposite of function get.samp. Make sure it contains variable "sample"

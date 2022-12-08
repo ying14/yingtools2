@@ -27,11 +27,11 @@ dt(
 
 \item{maxrows}{numeric controlling max number of rows to display. The purpose is to prevent \code{DT} from handling excessively large data frames. Default is 1000.}
 
-\item{rownames}{whether or not to show row names (passed directly to \code{\link[DT:datatable]{DT::datatable}}).}
+\item{rownames}{whether or not to show row names (passed directly to \code{\link[DT:datatable]{DT::datatable()}}).}
 
-\item{escape}{whether to escape HTML entities in the table (passed directly to \code{\link[DT:datatable]{DT::datatable}}).}
+\item{escape}{whether to escape HTML entities in the table (passed directly to \code{\link[DT:datatable]{DT::datatable()}}).}
 
-\item{class}{the CSS class(es) of the table (passed directly to \code{\link[DT:datatable]{DT::datatable}}).}
+\item{class}{the CSS class(es) of the table (passed directly to \code{\link[DT:datatable]{DT::datatable()}}).}
 
 \item{whiteSpace}{CSS property sets how white space inside an element is handled. Default is "pre-wrap".}
 }

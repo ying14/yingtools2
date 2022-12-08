@@ -11,7 +11,7 @@ add.abundance(sdata, ..., phy, counts = FALSE)
 
 \item{...}{one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.}
 
-\item{phy}{phyloseq object to be used for caluclation}
+\item{phy}{\code{\link[phyloseq:phyloseq-class]{phyloseq}} object to be used for caluclation}
 
 \item{counts}{if \code{TRUE}, will return count rather than relative abundance}
 }

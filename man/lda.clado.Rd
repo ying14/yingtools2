@@ -14,7 +14,7 @@ lda.clado(
 )
 }
 \arguments{
-\item{lda}{lda table from \code{lda.effect()}}
+\item{lda}{lda table from \code{\link[=lda.effect]{lda.effect()}}}
 
 \item{layout}{Either "cirular" or "rectangular"}
 

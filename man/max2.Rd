@@ -19,7 +19,7 @@ A length-one vector representing max or min.
 }
 \description{
 Similar to \code{min}/\code{max} command, except that if the data is empty, the function returns
-\code{NA} instead of \code{+/-Inf}.
+\code{NA} instead of \code{Inf}.
 }
 \details{
 This is useful when using the function repetitively and it's possible that everything can be \code{NA}.

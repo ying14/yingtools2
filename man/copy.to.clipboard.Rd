@@ -23,7 +23,7 @@ copy.to.clipboard.gg(
 Copies object to the clipboard, which can be used to paste into other programs such as Word or Excel.
 }
 \details{
-This is now done using the \code{clipr} package. Previously I did this manually for each operating system.
+This is now done using the \code{\link{clipr}} package. Previously I did this manually for each operating system.
 }
 \author{
 Ying Taur

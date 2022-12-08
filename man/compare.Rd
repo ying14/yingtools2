@@ -4,7 +4,7 @@
 \alias{compare}
 \alias{compare.character}
 \alias{compare.data.frame}
-\title{Compare data frames}
+\title{Compare objects}
 \usage{
 compare(x, ...)
 
@@ -13,15 +13,53 @@ compare(x, ...)
 \method{compare}{data.frame}(x, y, by = NULL)
 }
 \arguments{
-\item{x}{table to be compared}
+\item{x}{vector or data frame to be compared}
 
-\item{y}{table to be compared}
+\item{y}{vector or data frame to be compared}
 
-\item{by}{varaible(s) to join by and compare}
+\item{by}{variable(s) to join by and compare}
 }
 \value{
-a table from full_join(x,y,by). Contains columns .status and .diffs.
+displays a report of the comparison, and invisibly returns a table of comparison details.
 }
 \description{
-Compare data frames
+Compare two vectors or data frames.
+}
+\examples{
+vec <- sentences[1:100]
+compare(vec,vec)
+compare(vec,rev(vec))
+compare(vec,rep(vec,2))
+compare(rep(vec,2),vec)
+compare(vec,rep(vec[1:10],2))
+compare(vec,sample(vec,size=200,replace=TRUE))
+compare(vec[1:50],vec[51:100])
+
+m <- mtcars \%>\% rownames_to_column("car")
+m2 <- bind_rows(m,m)
+m.sort <- m \%>\% arrange(mpg)
+m.single <- m; m.single[4,4] <- 200
+m.col <- m; m.col$disp <- 101
+m.top <- m \%>\% slice(1:25)
+m.bottom <- m \%>\% slice(10:n())
+m.extracol <- m \%>\% mutate(mpg2=mpg+1,hp2=hp*100)
+# identical
+compare(m,m)
+compare(m,m,by="car")
+# distinct vs. non-distinct
+compare(m,m2,by="car")
+# non-distinct join
+compare(m,m,by="cyl")
+# different order
+compare(m,m.sort,by="car")
+# single difference
+compare(m,m.single,by="car")
+# single difference if by is not specified
+compare(m,m.single)
+# entire column is different
+compare(m,m.col,by="car")
+# compare with subset of the table
+compare(m,m.top,by="car")
+# partial overlap of tables
+compare(m.top,m.bottom,by="car")
 }

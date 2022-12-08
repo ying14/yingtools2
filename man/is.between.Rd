@@ -16,5 +16,5 @@ is.between(x, start, stop, check = TRUE)
 \item{check}{whether to check if start comes before stop.}
 }
 \description{
-Similar to \code{dplyr::between}, except that the vectors are recycled, so x can be a fixed value.
+Similar to \code{\link[dplyr:between]{dplyr::between()}}, except that the vectors are recycled, so x can be a fixed value.
 }
