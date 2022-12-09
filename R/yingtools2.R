@@ -2120,6 +2120,8 @@ test_if_nonvarying_by_group <- function(data,
                                         test_vars = everything(),
                                         verbose = FALSE) {
   # data=get.otu.melt(cid.phy);id_vars=quo(sample);test_vars=quo(everything())
+  requireNamespace("data.table",quietly=TRUE)
+
   id_vars <- enquo(id_vars)
   test_vars <- enquo(test_vars)
   id_vars_ts <- tidyselect::eval_select(id_vars, data=data)
@@ -2131,7 +2133,7 @@ test_if_nonvarying_by_group <- function(data,
     warning("YTWarning: no groups detected")
   }
 
-  dt.test <- data %>% as.data.table(key=id_var_names) %>%
+  dt.test <- data %>% data.table::as.data.table(key=id_var_names) %>%
     .[ , .group:=.GRP,by=id_var_names]
   total.groups <- dt.test$.group[nrow(dt.test)]
   total.testcols <- length(test_var_names)
@@ -2335,7 +2337,6 @@ group_by_time_streaks <- function(data,time,indicator, ... ,gap=Inf,na.skip=FALS
   time <- enquo(time)
   indicator <- enquo(indicator)
   group_vars <- enquos(...)
-
 
   ind <- pull(data,!!indicator)
   if (any(is.na(ind))) {

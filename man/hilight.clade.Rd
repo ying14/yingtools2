@@ -50,6 +50,9 @@ hilight.clade(
 
 \item{font.size}{font size of the text (default is 4)}
 }
+\value{
+
+}
 \description{
 Highlight a clade in ggtree
 }

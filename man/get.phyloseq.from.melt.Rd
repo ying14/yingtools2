@@ -6,7 +6,8 @@
 \usage{
 get.phyloseq.from.melt(
   otu.melt,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
+    "Species"),
   sample_vars = TRUE,
   sample_id = "sample",
   abundance_var = "numseqs",
@@ -22,7 +23,7 @@ get.phyloseq.from.melt(
 
 \item{sample_id}{sample ID variable. Default \code{"sample"}.}
 
-\item{abundance_var}{abundance variable, used to fill \code{\link[phyloseq:otu_table-methods]{phyloseq::otu_table()}}. Default \code{"sample"}.}
+\item{abundance_var}{abundance variable, used to fill \code{\link[phyloseq:otu_table-methods]{phyloseq::otu_table()}}. Default \code{"numseqs"}.}
 
 \item{taxa_id}{taxa/OTU ID variable. Default \code{"otu"}.}
 }

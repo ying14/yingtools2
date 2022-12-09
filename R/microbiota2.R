@@ -223,12 +223,11 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
 #' @param otu.melt table of taxa x sample abundances, similar to output of `get.otu.melt`
 #' @param sample_id sample ID variable. Default `"sample"`.
 #' @param taxa_id taxa/OTU ID variable. Default `"otu"`.
-#' @param abundance_var abundance variable, used to fill [phyloseq::otu_table()]. Default `"sample"`.
+#' @param abundance_var abundance variable, used to fill [phyloseq::otu_table()]. Default `"numseqs"`.
 #' @param taxranks vector of taxonomic ranks to be included in [tax_table][phyloseq::taxonomyTable-class].
 #' @param sample_vars whether to include sample variables in the data. Can be `TRUE` (include sample vars, and try to determine which ones), `FALSE` no sample vars, or a character vector specifying col names to be included.
 #' @return phyloseq object, generated from the `otu.melt` data.
 #' @export
-#'
 #' @examples
 #' library(phyloseq)
 #' phy <- cid.phy
@@ -243,13 +242,14 @@ get.phyloseq.from.melt <- function(otu.melt,
                                    sample_id="sample",abundance_var="numseqs",taxa_id="otu") {
   # declare.args(otu.melt=get.otu.melt(cid.phy), taxranks=rank_names(cid.phy), get.phyloseq.from.melt)
   requireNamespace("phyloseq",quietly=TRUE)
-  sample_vars <- setdiff(sample_vars,sample_id)
   rows.are.distinct <- is.distinct(otu.melt, !!sym(taxa_id), !!sym(sample_id))
   if (!rows.are.distinct) {
     stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
   }
   otu <- otu.melt %>%
-    transmute(otu=as.character(!!sym(taxa_id)),sample=as.character(!!sym(sample_id)),numseqs=!!sym(abundance_var)) %>%
+    transmute(otu=as.character(!!sym(taxa_id)),
+              sample=as.character(!!sym(sample_id)),
+              numseqs=!!sym(abundance_var)) %>%
     pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fill=0)
   tax <- otu.melt %>% select(otu=!!sym(taxa_id),!!!syms(taxranks)) %>% distinct()
 
@@ -258,25 +258,27 @@ get.phyloseq.from.melt <- function(otu.melt,
     message("Attempting to determine sample vars...\n")
     vars.to.check <-setdiff(names(otu.melt),c(taxa_id,taxranks,abundance_var))
     distinct_sample_vars <- otu.melt %>%
-      test_if_nonvarying_by_group(id_vars=sample,test_vars=all_of(vars.to.check)) %>%
-      {names(.)[.]} %>% setdiff("sample")
+      test_if_nonvarying_by_group(id_vars=all_of(sample_id),test_vars=all_of(vars.to.check)) %>%
+      {names(.)[.]} %>% setdiff(sample_id)
     sample_vars <- distinct_sample_vars
   } else if (isFALSE(sample_vars))  {
     #no sample variables
     sample_vars <- c()
   } else if (is.character(sample_vars)) {
     # sample_vars are specified do nothing
+    sample_vars <- setdiff(sample_vars,sample_id)
   } else {
     stop("YTError: sample_vars should be a character or logical!")
   }
 
-  if (length(sample_vars)==0) {
-    samp <- NULL
-  } else {
-    samp <- otu.melt %>% select(sample=!!sym(sample_id),!!!syms(sample_vars)) %>% distinct()
-  }
   if (anyDuplicated(tax$otu)!=0) {stop("YTError: taxranks are not distinct over taxa_id!")}
-  if (anyDuplicated(samp$sample)!=0) {stop("YTError: sample vars are not distinct over sample!")}
+  phy <- phyloseq::phyloseq(set.otu(otu),set.tax(tax))
+  if (length(sample_vars)>0) {
+    samp <- otu.melt %>% select(sample=!!sym(sample_id),!!!syms(sample_vars)) %>% distinct()
+    if (anyDuplicated(samp$sample)!=0) {stop("YTError: sample vars are not distinct over sample!")}
+    phyloseq::sample_data(phy) <- samp %>% set.samp()
+  }
+
   leftover.vars <- setdiff(names(otu.melt),c(abundance_var,sample_id,taxa_id,taxranks,sample_vars))
   message(str_glue("sample vars: [{sample_id}]; {paste(sample_vars,collapse=\", \")}"))
   message(str_glue("tax vars: [{taxa_id}]; {paste(taxranks,collapse=\", \")}"))
@@ -284,13 +286,8 @@ get.phyloseq.from.melt <- function(otu.melt,
   if (length(leftover.vars)>0) {
     message(str_glue("(vars not used: {paste(leftover.vars,collapse=\", \")})"))
   }
-  phy <- phyloseq::phyloseq(set.otu(otu),set.tax(tax))
-  if (ncol(samp)>1) {
-    phyloseq::sample_data(phy) <- samp %>% set.samp()
-  }
   return(phy)
 }
-
 
 
 
@@ -524,16 +521,17 @@ phy.collapse <- function(phy,taxranks=rank_names(phy),short_taxa_names=TRUE) {
 
 phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels) {
   # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
+  requireNamespace("data.table",quietly=TRUE)
   criteria <- enquo(criteria)
-  otudt <- as.data.table(otudt)  #make sure it's data.table
-  taxdt <- as.data.table(taxdt)
-  nsamps <- uniqueN(otudt$sample)
+  otudt <- data.table::as.data.table(otudt)  #make sure it's data.table
+  taxdt <- data.table::as.data.table(taxdt)
+  nsamps <- data.table::uniqueN(otudt$sample)
   allranks <- c(taxranks,"strain")
   subscript <- function(x,i) {
     paste(x,i,sep="_")
   }
   # taxdt[,strain:=otu] %>% setnames(allranks,subscript(allranks,1))
-  taxdt <- taxdt[,strain:=otu] %>% setnames(allranks,subscript(allranks,1))
+  taxdt <- taxdt[,strain:=otu] %>% data.table::setnames(allranks,subscript(allranks,1))
   # taxdt <- taxdt %>% mutate(strain=otu) %>% rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
 
   # look at criteria, determine necessary calculations in make.tax
@@ -609,7 +607,7 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
     tt <- make.tax(ss,i)
     ss <- make.otu(ss,tt,i)
     byvar <- subscript(allranks,i)
-    taxmap.raw <- taxmap.raw %>% merge(tt,all.x=TRUE, by=byvar)
+    taxmap.raw <- taxmap.raw %>% data.table::merge.data.table(tt,all.x=TRUE, by=byvar)
     # taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
     trace <- c(trace,nrow(tt))
   }
@@ -619,7 +617,7 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
 
   # new.tax.otu <- otudt %>% left_join(taxmap,by="otu") %>% group_by(sample,!!!syms(allranks)) %>% summarize(numseqs=sum(numseqs), pctseqs=sum(pctseqs), .groups="drop") %>% mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
   new.tax.otu <- inject(
-    merge(otudt,taxmap, all.x=TRUE, by="otu")                     # left_join(taxmap,by="otu") %>%
+    data.table::merge.data.table(otudt,taxmap, all.x=TRUE, by="otu")                     # left_join(taxmap,by="otu") %>%
     [, .(numseqs=sum(numseqs),                                  # group_by(sample,!!!syms(allranks)) %>%
          pctseqs=sum(pctseqs)), by=c("sample",allranks)]        #       summarize(numseqs=sum(numseqs),pctseqs=sum(pctseqs),.groups="drop") %>%
     [, otu:=paste2(!!!syms(allranks),sep="|")]                  # mutate(otu=paste2(!!!syms(allranks),sep="|"))
@@ -641,8 +639,7 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
   # ocols <- c("otu","sample","numseqs","pctseqs")
   # new.otu <- new.tax.otu[, ..ocols]
   new.otu <- new.tax.otu[, c("otu","sample","numseqs","pctseqs"), with=FALSE]
-
-  trace <- c(trace,nrow(new.tax)) %>% setNames(rev(allranks[1:level]))
+  trace <- c(trace,nrow(new.tax)) %>% setNames(rev(allranks)[1:(level+1)])
   message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
   message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
   # ntaxa.final <- nrow(new.tax)
@@ -709,15 +706,16 @@ phy.collapse.bins.phyloseq <- function(phy,
                                        criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
   # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=FALSE
   # declare.args(phy=cid.phy,yingtools2:::phy.collapse.bins.phyloseq)
+  requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
   criteria <- enquo(criteria)
   phy <- suppressMessages(prune_unused_taxa(phy))
   taxranks <- rank_names(phy)
-  otudt <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table()
-  taxdt <- get.tax(phy) %>% as.data.table()
+  otudt <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE) %>% data.table::as.data.table()
+  taxdt <- get.tax(phy) %>% data.table::as.data.table()
   objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
   new.tax <- objset$tax %>% as_tibble()
   new.otu <- objset$otu %>%
-    dcast.data.table(formula=otu ~ sample,value.var="numseqs",fill=0) %>%
+    data.table::dcast.data.table(formula=otu ~ sample,value.var="numseqs",fill=0) %>%
     as_tibble()
   # new.otu <- new.otu %>% as_tibble() %>% pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fn = sum,values_fill=0)
   new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
@@ -727,9 +725,14 @@ phy.collapse.bins.phyloseq <- function(phy,
 
 
 
+
+
+
 #' @param data data frame, formatted as [get.otu.melt()] data. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
 #' @param taxranks character vector of taxonomic ranks in `data`.
-#' @param sample_vars character vector of column names in `data` that convey sample-level information. These will be retained as such after binning.
+#' @param sample_vars whether to include sample variables in the data.
+#' Can be `TRUE` (include sample vars, and try to determine which ones),
+#' `FALSE` no sample vars, or a character vector specifying col names in `data` to be included.
 #' @param sample_id name of sample column identifier. Default is `"sample"`.
 #' @param taxa_id name of taxon column identifier. Default is `"otu"`.
 #' @rdname phy.collapse.bins
@@ -750,41 +753,62 @@ phy.collapse.bins.data.frame <- function(data,
                                          fillin.levels=FALSE,
                                          sample_id="sample",
                                          taxa_id="otu",
+                                         abundance_var="numseqs",
                                          criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
-                                         sample_vars=NULL) {
-  # data <- get.otu.melt(cid.phy);taxranks <- rank_names(cid.phy);level=4;fillin.levels=FALSE;criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005);sample_vars=NULL;taxa_id="otu";sample_id="sample"
+                                         sample_vars=TRUE) {
+  requireNamespace("data.table",quietly=TRUE)
+  # declare.args(data=get.otu.melt(cid.phy), taxranks <- rank_names(cid.phy), criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005), yingtools2:::phy.collapse.bins.data.frame)
   criteria <- enquo(criteria)
-  needvars <- c(taxa_id,sample_id,"numseqs","pctseqs",taxranks)
+  needvars <- c(taxa_id, sample_id, abundance_var, taxranks)
   if (!all(needvars %in% names(data))) {
     stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
   }
-  data <- data %>% rename(sample=!!sym(sample_id),otu=!!sym(taxa_id))
+  data <- data %>% rename(sample=!!sym(sample_id),otu=!!sym(taxa_id),numseqs=!!sym(abundance_var))
   rows.are.distinct <- is.distinct(data,otu,sample)
   if (!rows.are.distinct) {
     stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
   }
-  taxdt <- data %>% select(otu,!!!syms(taxranks)) %>% as.data.table() %>% unique()
-  sample_vars <- setdiff(sample_vars,"sample")
-  if (is.null(sample_vars)) {
-    message("Attempting to determine sample vars...\n")
+  taxdt <- data %>% select(otu,!!!syms(taxranks)) %>% data.table::as.data.table() %>% unique()
 
+  if (isTRUE(sample_vars)) { #logical and true
+    message("Attempting to determine sample vars...\n")
+    vars.to.check <- setdiff(names(data),c("otu","numseqs",taxranks))
+    distinct_sample_vars <- data %>%
+      test_if_nonvarying_by_group(id_vars=sample, test_vars=all_of(vars.to.check)) %>%
+      {names(.)[.]} %>% setdiff("sample")
+    sample_vars <- distinct_sample_vars
+  } else if (isFALSE(sample_vars))  {
+    #no sample variables
+    sample_vars <- c()
+  } else if (is.character(sample_vars)) {
+    # sample_vars are specified do nothing
+    sample_vars <- setdiff(sample_vars,"sample")
+  } else {
+    stop("YTError: sample_vars should be a character or logical!")
   }
-  samp <- data %>% select(sample,!!!syms(sample_vars)) %>% unique()
-  otudt <- data %>% select(otu,sample,numseqs,pctseqs) %>% as.data.table()
-  sampdt <- samp %>% as.data.table()
+
+  otudt <- data %>% select(otu,sample,numseqs,pctseqs) %>% data.table::as.data.table()
+  # sampdt <- samp %>% data.table::as.data.table()
   objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
   new.otudt <- objset$otu
   new.taxdt <- objset$tax
-  new.data <- new.otudt %>%
-    merge(new.taxdt, by="otu",all.x = TRUE) %>%
-    merge(sampdt,by="sample",all.x = TRUE) %>%
-    setnames(old=c("otu","sample"),new=c(taxa_id,sample_id)) %>%
-    as_tibble()
+  new.dt <- new.otudt %>%
+    data.table::merge.data.table(new.taxdt, by="otu",all.x = TRUE)
+  if (length(sample_vars)>0) {
+    sampdt <- data %>% select(sample,!!!syms(sample_vars)) %>% distinct() %>%
+      data.table::as.data.table()
+    if (anyDuplicated(sampdt$sample)>0) {
+      stop("YTError: sample data with selected sample vars is not unique!")
+    }
+    new.dt <- new.dt %>%
+      data.table::merge.data.table(sampdt,by="sample",all.x = TRUE)
+  }
+  new.data <- new.dt %>%
+    as_tibble() %>%
+    rename(!!sym(sample_id):=sample,!!sym(taxa_id):=otu,!!sym(abundance_var):=numseqs)
   # new.data <- new.otu %>% left_join(new.tax,by="otu") %>% left_join(samp,by="sample") %>% rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
   return(new.data)
 }
-
-
 
 
 
@@ -870,11 +894,6 @@ yt.palette3 <- exprs(
   "Proteobacteria (phylum)" = Phylum=="Proteobacteria" ~ shades("red", variation = 0.4),
   "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
 )
-
-
-
-
-
 
 
 
@@ -982,9 +1001,6 @@ get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
 
 
 
-
-
-
 #' Plot tax
 #'
 #' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
@@ -1039,7 +1055,6 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
                 "Spracetigenium"="#72b443","Veillonella"="#653f99","Lactococcus"="#51a546",
                 "Granulicatella"="#a5a7aa","Proteobacteria"="#ed2024","Other Bacteroidetes"="#963695",
                 "Other Firmicutes"="#929497","Other Bacteria"="#6d6e70")
-
 
 
 # tree drawing/manipulation functions --------------------------------------------------

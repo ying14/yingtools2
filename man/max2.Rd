@@ -27,11 +27,11 @@ This might come in handy if running min/max functions across an \code{apply} or 
 }
 \section{Functions}{
 \itemize{
-\item \code{max2()}: \code{max2} maximum value.
+\item \code{max2}: \code{max2} maximum value.
 
-\item \code{min2()}: \code{max2} minimum value.
-
+\item \code{min2}: \code{max2} minimum value.
 }}
+
 \examples{
 a <- c(1,2,3)
 b <- c(1,2,NA)

@@ -17,13 +17,15 @@ phy.collapse.bins(x, ...)
 
 \method{phy.collapse.bins}{data.frame}(
   data,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
+    "Species"),
   level = length(taxranks),
   fillin.levels = FALSE,
   sample_id = "sample",
   taxa_id = "otu",
+  abundance_var = "numseqs",
   criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005,
-  sample_vars = NULL
+  sample_vars = TRUE
 )
 }
 \arguments{
@@ -43,7 +45,9 @@ phy.collapse.bins(x, ...)
 
 \item{taxa_id}{name of taxon column identifier. Default is \code{"otu"}.}
 
-\item{sample_vars}{character vector of column names in \code{data} that convey sample-level information. These will be retained as such after binning.}
+\item{sample_vars}{whether to include sample variables in the data.
+Can be \code{TRUE} (include sample vars, and try to determine which ones),
+\code{FALSE} no sample vars, or a character vector specifying col names in \code{data} to be included.}
 }
 \value{
 \code{\link[phyloseq:phyloseq-class]{phyloseq}} object or data frame (depending on what was supplied), representing the data, after criteria-based taxonomic binning.
