@@ -407,7 +407,6 @@ taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Clas
 
 
 
-
 #' Make taxonomy distinct
 #'
 #' Modifies (if necessary) the [tax_table][phyloseq::taxonomyTable-class] of [`phyloseq`][`phyloseq::phyloseq-class`] object such that each rank level is a distinct identifier.
@@ -519,8 +518,15 @@ phy.collapse <- function(phy,taxranks=rank_names(phy),short_taxa_names=TRUE) {
   return(new.phy)
 }
 
+
+
+
+
+
 phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels) {
   # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
+  # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(Genus=="Enterococcus"),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
+
   requireNamespace("data.table",quietly=TRUE)
   criteria <- enquo(criteria)
   otudt <- data.table::as.data.table(otudt)  #make sure it's data.table
@@ -530,10 +536,7 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
   subscript <- function(x,i) {
     paste(x,i,sep="_")
   }
-  # taxdt[,strain:=otu] %>% setnames(allranks,subscript(allranks,1))
-  taxdt <- taxdt[,strain:=otu] %>% data.table::setnames(allranks,subscript(allranks,1))
-  # taxdt <- taxdt %>% mutate(strain=otu) %>% rename_with(.fn=~paste(.x,"1",sep="_"),.cols=all_of(allranks))
-
+  taxdt <- taxdt[,strain:=otu]
   # look at criteria, determine necessary calculations in make.tax
   allcalcs <- rlang::exprs(n.detectable = sum(numseqs > 0),
                            pct.detectable = sum(numseqs > 0)/..nsamps,   # pct.detectable=mean(pctseqs>0),
@@ -545,24 +548,16 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
                            max.numseqs = max(numseqs),
                            min.numseqs = fifelse(..nsamps == .N, min(numseqs), 0),   # min.numseqs=min(numseqs),
                            n.samps = ..nsamps)
-  # allcalcs <- rlang::exprs(n.detectable=sum(numseqs>0),pct.detectable=sum(numseqs>0) / nsamps,mean.pctseqs=sum(pctseqs) / nsamps,median.pctseqs=median(c(pctseqs,rep(0,length.out=nsamps-n()))),max.pctseqs=max(pctseqs),min.pctseqs=ifelse(nsamps==n(),min(pctseqs),0),total.numseqs=sum(numseqs),max.numseqs=max(numseqs),min.numseqs=ifelse(nsamps==n(),min(numseqs),0),n.samps=nsamps,n.rows=nsamps)
-
   # some calcs depend on other lines, determine the dependencies
   depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
   calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
   # subset of allcalc that is needed
   calcs <- allcalcs[names(allcalcs) %in% calcvars]
-  make.otu <- function(ss,tt,i) {
-    by1 <- subscript(allranks,i)
-    by2 <- subscript(allranks,i+1)
-    # ss %>% inner_join(tt,by=by1) %>% group_by(!!!syms(by2),sample) %>% summarize(pctseqs=sum(pctseqs),numseqs=sum(numseqs),.groups="drop")
-    ss %>%
-      merge(tt,by=by1) %>%
-      .[, .(pctseqs=sum(pctseqs),numseqs=sum(numseqs)), by=c("sample",by2)]
-  }
+
+
   make.tax <- function(ss,i) {
-    by1 <- subscript(allranks,i)
-    by2 <- subscript(allranks,i+1)
+    by1 <- allranks
+    by2 <- subscript(allranks,"new")
     collapse_var <- subscript("collapse",i)
     rank <- length(allranks)+1-i
     parent.groups <- by1[1:(rank-1)]
@@ -582,7 +577,10 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
                       !!sym(by1[.x])))
         }
       })
-    # tt <- ss %>% group_by(!!!syms(by1)) %>% summarize(!!!calcs0, .groups="drop") %>% mutate(!!sym(collapse_var):=!!criteria, !!!new.tax.var.exprs) %>% group_by(!!!syms(parent.groups)) %>% mutate(n.collapse=sum(!!sym(collapse_var)), nrows=n()) %>% ungroup() %>% mutate(!!sym(collapse_var):=!!sym(collapse_var) & n.collapse>1) %>% select(!!sym(collapse_var),!!!syms(by1),!!!syms(by2))
+    # add this to make current.level available in calculations,
+    # but also to add a placeholder if calcs is empty list up until now.
+    crank <- length(allranks)+1-i
+    calcs <- c(calcs,exprs(current.level=crank))
     tt <- inject(
       ss                                                              # ss %>%
       [, .(!!!calcs), by = by1]                                       # group_by(!!!syms(by1)) %>% summarize(!!!calcs, .groups = "drop") %>%
@@ -595,27 +593,33 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
     )
     return(tt)
   }
+  make.otu <- function(ss,tt,i) {
+    by1 <- allranks
+    by2 <- subscript(allranks,"new")
+    ss %>%
+      merge(tt,by=by1) %>%
+      .[, .(pctseqs=sum(pctseqs),numseqs=sum(numseqs)), by=c("sample",by2)]
+  }
   # each iteration checks criteria and collapses one level
-
-  # ss <- taxdt %>% inner_join(otudt,by="otu")
   ss <- taxdt %>% merge(otudt,by="otu")
-  taxmap.raw <- taxdt
+  taxmap.raw <- taxdt %>% setnames(old=allranks,new=subscript(allranks,1))
   trace <- c()
   for (i in 1:level) {
     # i=1
-    # message(i)
     tt <- make.tax(ss,i)
     ss <- make.otu(ss,tt,i)
-    byvar <- subscript(allranks,i)
-    taxmap.raw <- taxmap.raw %>% data.table::merge.data.table(tt,all.x=TRUE, by=byvar)
-    # taxmap.raw <- taxmap.raw %>% left_join(tt,by=byvar)
+    by1 <- subscript(allranks,i)
+    by2 <- subscript(allranks,i+1)
+    by.new <- subscript(allranks,"new")
+    taxmap.raw <- tt %>% setnames(old=allranks,new=by1) %>% setnames(old=by.new,new=by2) %>%
+      data.table::merge.data.table(taxmap.raw,all.y=TRUE, by=by1)
     trace <- c(trace,nrow(tt))
+    ss <- ss %>% setnames(old=by.new,new=allranks)
   }
+  #rename back to normal
   by.tax <- subscript(allranks,i+1) %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
-  # taxmap <- taxmap.raw %>% transmute(otu,!!!by.tax)
   taxmap <- inject(taxmap.raw[, .(otu,!!!by.tax)])
 
-  # new.tax.otu <- otudt %>% left_join(taxmap,by="otu") %>% group_by(sample,!!!syms(allranks)) %>% summarize(numseqs=sum(numseqs), pctseqs=sum(pctseqs), .groups="drop") %>% mutate(otu=paste2(!!!syms(allranks),sep="|")) %>% arrange(otu)
   new.tax.otu <- inject(
     data.table::merge.data.table(otudt,taxmap, all.x=TRUE, by="otu")                     # left_join(taxmap,by="otu") %>%
     [, .(numseqs=sum(numseqs),                                  # group_by(sample,!!!syms(allranks)) %>%
@@ -631,19 +635,11 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
       # new.tax.otu <- new.tax.otu %>% mutate(!!sym(var):=coalesce(!!!syms(allvars)))
     }
   }
-  # new.tax <- new.tax.otu %>% select(otu,!!!syms(taxranks)) %>% unique()
-  # tcols <- c("otu",taxranks)
-  # new.tax <- new.tax.otu[, ..tcols] %>% unique()
   new.tax <- new.tax.otu[, c("otu",taxranks), with=FALSE] %>% unique()
-  # new.otu <- new.tax.otu %>% select(otu,sample,numseqs,pctseqs)
-  # ocols <- c("otu","sample","numseqs","pctseqs")
-  # new.otu <- new.tax.otu[, ..ocols]
   new.otu <- new.tax.otu[, c("otu","sample","numseqs","pctseqs"), with=FALSE]
   trace <- c(trace,nrow(new.tax)) %>% setNames(rev(allranks)[1:(level+1)])
   message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
   message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
-  # ntaxa.final <- nrow(new.tax)
-  # message(str_glue("Collapsed taxa, {ntaxa.orig} to {ntaxa.final}"))
   list(tax=new.tax,otu=new.otu)
 }
 
@@ -680,7 +676,9 @@ phy.collapse.bins <- function(x,...) UseMethod("phy.collapse.bins")
 #'
 #'   * `n.samps` total number of samples (regardless of abundance)
 #'
-#'   * `n.rows`  total number of rows for a taxon
+#'   * `n.rows` total number of rows for a taxon
+#'
+#'   * `current.level` current level being evaluated
 #'
 #' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be collapsed
 #' @param level number of tax levels to evaluate and collapse by, starting with `otu` and moving up. For instance, `level=4` means collapse at `otu`, `Species`, `Genus`, `Family`.
@@ -809,6 +807,7 @@ phy.collapse.bins.data.frame <- function(data,
   # new.data <- new.otu %>% left_join(new.tax,by="otu") %>% left_join(samp,by="sample") %>% rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
   return(new.data)
 }
+
 
 
 
