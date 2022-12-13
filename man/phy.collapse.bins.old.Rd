@@ -22,8 +22,7 @@
 
 \method{phy.collapse.bins}{old.data.frame}(
   data,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
-    "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
   level = length(taxranks),
   fillin.levels = FALSE,
   sample_id = "sample",

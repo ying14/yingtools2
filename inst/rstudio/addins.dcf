@@ -10,3 +10,14 @@ Binding: style_selection_4096
 Interactive: false
 
 
+Name: Run selection in try/catch statement
+Description: Run selection in try/catch statement
+Binding: selection_try_catch
+Interactive: false
+
+Name: Run selection in benchmark
+Description: Run selection in benchmark
+Binding: selection_benchmark
+Interactive: false
+
+

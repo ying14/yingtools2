@@ -9,9 +9,6 @@ regex.widget(vec, port = 4567)
 \arguments{
 \item{vec}{a character vector where regex searches will be applied.}
 }
-\value{
-
-}
 \description{
 A widget for exploring regular expressions on a vector
 }

@@ -6,8 +6,7 @@
 \usage{
 taxonomy_is_distinct(
   data,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
-    "Species")
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")
 )
 }
 \arguments{

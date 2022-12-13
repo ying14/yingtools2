@@ -3,6 +3,10 @@
 
 # custom Rstudio addins.
 # these need to be declared in /inst/rstudio/addins.dcf.
+# run the following to edit....
+# rstudioapi::navigateToFile('inst/rstudio/addins.dcf')
+
+
 
 
 convert_winpath <- function() {
@@ -14,6 +18,47 @@ convert_winpath <- function() {
   newtext <- gsub("\\\\","/",text)
   rstudioapi::insertText(newtext)
 }
+
+
+
+
+selection_try_catch <- function()  {
+  context <- rstudioapi::getActiveDocumentContext()
+  text <- context$selection[[1]]$text
+  if (text=="") {
+    text <- suppressMessages(read.clipboard())
+  }
+  newtext <- str_glue("tryCatch({{
+  {text}
+}},error=function(e) {{
+  message('Error here!')
+  print(e)
+})")
+  rstudioapi::insertText(newtext)
+}
+
+
+selection_benchmark <- function()  {
+  context <- rstudioapi::getActiveDocumentContext()
+  text <- context$selection[[1]]$text
+  if (text=="") {
+    text <- suppressMessages(read.clipboard())
+  }
+  newtext <- str_glue("rbenchmark::benchmark(
+  test1={{
+    {text}
+  }},
+  test2={{
+
+  }},
+  replications = 1)")
+  rstudioapi::insertText(newtext)
+}
+
+
+
+
+
 
 set_line_break_after_comma_if_4096_chars <- function(pd_flat) {
   pd2 <- pd_flat %>%

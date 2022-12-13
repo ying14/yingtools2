@@ -6,8 +6,7 @@
 \usage{
 get.phyloseq.from.melt(
   otu.melt,
-  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
-    "Species"),
+  taxranks = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"),
   sample_vars = TRUE,
   sample_id = "sample",
   abundance_var = "numseqs",
