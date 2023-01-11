@@ -871,6 +871,38 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
 
 
 
+#' Test the relationship between X and Y
+#'
+#' @param x first vector
+#' @param y second vector
+#'
+#' @return
+#' @export
+#'
+#' @examples
+compare_relationship <- function(x,y) {
+  t <- tibble(x=x,y=y)
+  tx <- t %>% group_by(x) %>%
+    summarize(n.y=n_distinct(y),.groups="drop") %>%
+    summarize(max.n.y=max(n.y),.groups="drop") %>% pull(max.n.y)
+  ty <- t %>% group_by(y) %>%
+    summarize(n.x=n_distinct(x),.groups="drop") %>%
+    summarize(max.n.x=max(n.x),.groups="drop") %>% pull(max.n.x)
+
+  if (tx==1 && ty==1) {
+    relationship <- "one-to-one"
+  } else if (tx==1 && ty>1) {
+    relationship <- "many-to-one"
+  } else if (tx>1 && ty==1) {
+    relationship <- "one-to-many"
+  } else {
+    relationship <- "many-to-many"
+  }
+  message(relationship)
+  invisible(relationship)
+}
+
+
 #' Test if X and Y are one-to-one
 #'
 #' @param x first vector
@@ -881,14 +913,8 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
 #'
 #' @examples
 is.one.to.one <- function(x,y) {
-  t <- tibble(x=x,y=y)
-  tx <- t %>% group_by(x) %>%
-    summarize(n.y=n_distinct(y),.groups="drop") %>%
-    summarize(max.n.y=max(n.y),.groups="drop") %>% pull(max.n.y)
-  ty <- t %>% group_by(y) %>%
-    summarize(n.x=n_distinct(x),.groups="drop") %>%
-    summarize(max.n.x=max(n.x),.groups="drop") %>% pull(max.n.x)
-  return(tx==1 && ty==1)
+  rel <- compare_relationship(x,y)
+  return(rel=="one-to-one")
 }
 
 

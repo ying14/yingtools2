@@ -894,6 +894,31 @@ yt.palette3 <- exprs(
   "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
 )
 
+#' Fungal Palette
+#'
+#' The customary palette for Fungi.
+#'
+#'
+#' ```{r}
+#' #| echo: false
+#' fungalpal <- get.tax.legend(tax.palette = fungal.palette, fontsize = 5)
+#' grid::grid.newpage()
+#' grid::grid.draw(fungalpal)
+#' ```
+#' @export
+fungal.palette <- exprs(
+  "Saccharomyces cerevisiae (species)" = Species == "Saccharomyces cerevisiae" ~  "#DA8686",
+  "Saccharomycetales (order)" = Order == "Saccharomycetales" ~ shades("#F0C3C3", variation = 0.4),
+  "Candida (genus)" = Genus == "Candida" & Family == "Debaryomycetaceae" ~ shades("#DE0000", ncolor=6,variation = 0.6),
+  "Aspergillus (genus)" = Genus == "Aspergillus" ~ shades("#3F8D3D", variation = 0.4),
+  "Miscellaneous molds" = Class %in% c("Arthoniomycetes","Coniocybomycetes","Dothideomycetes",
+                                       "Eurotiomycetes","Geoglossomycetes","Laboulbeniomycetes",
+                                       "Lecanoromycetes","Leotiomycetes","Lichinomycetes","Orbiliomycetes",
+                                       "Pezizomycetes","Sordariomycetes","Xylonomycetes") ~ shades("#ADDADA",variation=0.4),
+  "Malassezia (genus)" = Genus == "Malassezia" ~ shades("#8A3030", variation = 0.6),
+  "Basidiomycota (phylum)" = Phylum == "Basidiomycota" ~ shades("#C48C66", variation = 0.4),
+  "Other" = TRUE ~ shades("gray", variation=0.25)
+)
 
 
 #' Create a color palette for taxonomy
@@ -911,7 +936,7 @@ yt.palette3 <- exprs(
 #' otusub <- cid.phy %>% get.otu.melt() %>% filter(Patient_ID=="221") %>%
 #'   arrange(!!!syms(rank_names(cid.phy))) %>%
 #'   mutate(otu=fct_inorder(otu))
-#' g <- ggplot(otu,aes(x=day,y=pctseqs,fill=otu)) +
+#' g <- ggplot(otusub,aes(x=day,y=pctseqs,fill=otu)) +
 #'   geom_col(show.legend=FALSE,width=1) +
 #'   expand_limits(x=50)
 #' g
@@ -943,13 +968,13 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
   }
   vars.needed <- tax.palette %>% map(~{
     formula.tools::lhs(.x) %>% all.vars()
-  }) %>% simplify() %>% c(unitvar) %>% unique()
+  }) %>% simplify() %>% c(unitvar) %>% unique() %>% as.character()
   if (!all(vars.needed %in% names(data))) {
     missing.vars <- setdiff(vars.needed,names(data))
     stop("YTError: the tax.palette has vars that were not found in data: ",paste(missing.vars,collapse=","))
   }
   tax <- data %>% select(!!!syms(vars.needed)) %>% unique() %>%
-    assert_grouping_vars(id_vars=!!sym(unitvar),stopIfTRUE = TRUE)
+    assert_grouping_vars(id_vars=!!sym(unitvar),stopIfTRUE = FALSE)
   is_color <- function(x) {
     iscolor <- grepl('^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$', x) |
       (x %in% c(colors(),as.character(1:8),"transparent")) |
@@ -963,8 +988,12 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
     }
     criteria <- formula.tools::lhs(exp)
     # message(criteria)
-    color.yes.no <- tax %>% mutate(criteria=!!criteria) %>% pull(criteria)
-    x.color <- character()
+    color.yes.no <- tax %>%
+      mutate(criteria=!!criteria,
+             criteria=criteria & !is.na(criteria)) %>%
+      pull(criteria)
+    # x.color <- character()
+    x.color <- rep(NA_character_,length.out=nrow(tax))
     x.color[color.yes.no] <- rep(colors,length.out=sum(color.yes.no))
     return(x.color)
   }) %>% do.call(coalesce,.)
@@ -972,6 +1001,7 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
   pal <- setNames(tax$color,tax[[unitvar]])
   return(pal)
 }
+
 
 #' Generate tax legend
 #'
@@ -999,43 +1029,49 @@ get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
 }
 
 
-
 #' Plot tax
 #'
 #' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
 #' @param xvar xvar by which to plot data
 #' @param data whether to return data frame
+#' @param pctseqs the relative abundance column name  (default `pctseqs`)
+#' @param unitvar unit var (default `Species`)
+#' @param label column name for labels var (default `Species`)
+#' @param tax.levels tax ranks.
 #' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
-#' @param cid.colors whether to use conventional cid colors.
+#'
 #' @return either ggplot2 object, or data frame.
 #' @examples
 #' @author Ying Taur
 #' @export
-tax.plot <- function(t,xvar="sample",data=FALSE,label.pct.cutoff=0.3,use.cid.colors=TRUE) {
+tax.plot <- function(t,xvar="sample",pctseqs="pctseqs",unitvar="Species",
+                     label="Species",
+                     tax.levels = c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                     data=FALSE,label.pct.cutoff=0.3) {
   #t=get.otu.melt(phy.species)
-  tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
-  vars <- c("sample","pctseqs",tax.levels)
+  # tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
+  vars <- c(xvar,pctseqs,tax.levels,unitvar) %>% unique()
   if (!all(vars %in% names(t))) {
     missing.vars <- setdiff(vars,names(t))
     stop("YTError: missing var:",paste(missing.vars,collapse=","))
   }
-  t <- t %>% arrange(Superkingdom,Phylum,Class,Order,Family,Genus,Species) %>%
-    mutate(Species=fct_inorder(Species)) %>%
-    group_by(sample) %>% arrange(Species) %>%
-    mutate(cum.pct=cumsum(pctseqs),
+  t <- t %>% arrange(!!!syms(tax.levels)) %>%
+    mutate(!!sym(unitvar):=fct_inorder(!!sym(unitvar))) %>%
+    group_by(!!sym(xvar)) %>% arrange(!!sym(unitvar)) %>%
+    mutate(cum.pct=cumsum(!!sym(pctseqs)),
            y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
            y.text=1-y.text) %>%
     ungroup() %>%
     select(-cum.pct) %>%
-    mutate(tax.label=ifelse(pctseqs>=label.pct.cutoff,as.character(Species),""))
-  pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
-  attr(t,"pal") <- pal
+    mutate(tax.label=ifelse(!!sym(pctseqs)>=label.pct.cutoff,as.character(!!sym(label)),""))
+  # pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
+  # attr(t,"pal") <- pal
   if (data) {
     return(t)
   } else {
     g <- ggplot() +
-      geom_bar(data=t,aes_string(x=xvar,y="pctseqs",fill="Species"),stat="identity",position="fill") +
-      geom_text(data=t,aes_string(x=xvar,y="y.text",label="tax.label"),angle=-90,lineheight=0.9) +
+      geom_bar(data=t,aes(x=!!sym(xvar),y=!!sym(pctseqs),fill=!!sym(unitvar)),stat="identity",position="fill") +
+      geom_text(data=t,aes(x=!!sym(xvar),y=y.text,label=tax.label),angle=-90,lineheight=0.9) +
       scale_fill_manual(values=attr(t,"pal")) +
       theme(legend.position="none")
     return(g)

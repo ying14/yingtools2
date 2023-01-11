@@ -27,7 +27,7 @@ Note that the \code{tax.palette} formula list is evaluated in order, and should 
 otusub <- cid.phy \%>\% get.otu.melt() \%>\% filter(Patient_ID=="221") \%>\%
   arrange(!!!syms(rank_names(cid.phy))) \%>\%
   mutate(otu=fct_inorder(otu))
-g <- ggplot(otu,aes(x=day,y=pctseqs,fill=otu)) +
+g <- ggplot(otusub,aes(x=day,y=pctseqs,fill=otu)) +
   geom_col(show.legend=FALSE,width=1) +
   expand_limits(x=50)
 g

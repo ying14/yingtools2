@@ -7,9 +7,13 @@
 tax.plot(
   t,
   xvar = "sample",
+  pctseqs = "pctseqs",
+  unitvar = "Species",
+  label = "Species",
+  tax.levels = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
+    "Species"),
   data = FALSE,
-  label.pct.cutoff = 0.3,
-  use.cid.colors = TRUE
+  label.pct.cutoff = 0.3
 )
 }
 \arguments{
@@ -17,11 +21,17 @@ tax.plot(
 
 \item{xvar}{xvar by which to plot data}
 
+\item{pctseqs}{the relative abundance column name  (default \code{pctseqs})}
+
+\item{unitvar}{unit var (default \code{Species})}
+
+\item{label}{column name for labels var (default \code{Species})}
+
+\item{tax.levels}{tax ranks.}
+
 \item{data}{whether to return data frame}
 
 \item{label.pct.cutoff}{cutoff by which to label abundances, stored in tax.label}
-
-\item{cid.colors}{whether to use conventional cid colors.}
 }
 \value{
 either ggplot2 object, or data frame.
