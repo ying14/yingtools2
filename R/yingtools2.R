@@ -4298,6 +4298,8 @@ shell.exec <- function(file) {
     system(paste("xdg-open",file),wait=FALSE)
   } else if (Sys.info()['sysname']=="Windows") {
     base::shell.exec(normalizePath(file))
+  } else if (Sys.info()['sysname']=="Darwin") {
+    system(paste("open",file),wait=FALSE)
   } else {
     stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
   }
