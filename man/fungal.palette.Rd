@@ -13,7 +13,4 @@ fungal.palette
 \description{
 The customary palette for Fungi.
 }
-\details{
-\figure{unnamed-chunk-1-1.png}
-}
 \keyword{datasets}

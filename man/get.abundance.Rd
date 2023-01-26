@@ -21,5 +21,5 @@ Given a \code{\link[phyloseq:phyloseq-class]{phyloseq}}, calculate relative abun
 }
 \examples{
 library(phyloseq)
-get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
+get.abundance(cid.phy,pct.entero=Genus \%in\% "Enterococcus",pct.proteo=Phylum \%in\% "Proteobacteria")
 }

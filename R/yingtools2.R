@@ -681,7 +681,7 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 #' mtcars %>% group_by(cyl) %>% dt()
 #' @author Ying Taur
 #' @export
-dt <- function(data,fontsize=11,pageLength=Inf,maxchars=250,maxrows=500,rownames=FALSE,escape=FALSE,class="compact cell-border stripe",whiteSpace="pre-wrap") {
+dt <- function(data,fontsize=14,pageLength=Inf,maxchars=250,maxrows=500,rownames=FALSE,escape=FALSE,class="compact cell-border stripe",whiteSpace="pre-wrap") {
   requireNamespace(c("DT","forcats"),quietly=TRUE)
   fontsize <- paste0(fontsize,"px")
   n.cols <- ncol(data)
@@ -2190,6 +2190,7 @@ test_if_nonvarying_by_group <- function(data,
     }
     var.to.test <- setdiff(var.to.test,varying)
   }
+
   data.testing <- setNames(!(test_var_names %in% varying),test_var_names)
 
   #whatever is left is non-varying.

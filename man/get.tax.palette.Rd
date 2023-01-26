@@ -4,12 +4,13 @@
 \alias{get.tax.palette}
 \title{Create a color palette for taxonomy}
 \usage{
-get.tax.palette(data, unitvar = "Species", tax.palette = yt.palette3)
+get.tax.palette(data, unitvar = Species, tax.palette = yt.palette3)
 }
 \arguments{
 \item{data}{taxonomic data, can be \code{\link[phyloseq:phyloseq-class]{phyloseq}}, \code{\link[=get.otu.melt]{get.otu.melt()}} data frame, or \code{\link[=get.tax]{get.tax()}} data frame.}
 
-\item{unitvar}{the granular column by which colors will be assigned. Default is \code{"Species"}. Sometimes you might want to switch to \code{"otu"}.}
+\item{unitvar}{the granular column (bare unquoted) by which colors will be assigned. Default is \code{Species}.
+Sometimes you might want to switch to another granular identifer, such as \code{otu}. Depending on the situation.}
 
 \item{tax.palette}{a list of formulas used to assign colors. Each element should take the form: \verb{"<label>" = <true/false expression> ~ <color vector>}. See examples and details.}
 }

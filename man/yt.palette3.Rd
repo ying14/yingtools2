@@ -15,6 +15,7 @@ The customary palette for Bacteria.
 }
 \details{
 Slightly different than \link{yt.palette2}; now everything cycles through shades.
+Also accomodates the name changes of Bacteroidetes to Bacteroidota,  Clostridiales to Eubacteriales, Ruminococcaceae to Oscillospiraceae
 
 \figure{unnamed-chunk-1-1.png}
 }

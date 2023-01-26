@@ -301,7 +301,7 @@ get.phyloseq.from.melt <- function(otu.melt,
 #'
 #' @examples
 #' library(phyloseq)
-#' get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
+#' get.abundance(cid.phy,pct.entero=Genus %in% "Enterococcus",pct.proteo=Phylum %in% "Proteobacteria")
 #' @export
 get.abundance <- function(phy,..., counts=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
@@ -405,11 +405,13 @@ taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Clas
 
 
 
-
+#' @rdname make_taxonomy_distinct
+#' @export
+make_taxonomy_distinct <- function(x,...) UseMethod("make_taxonomy_distinct")
 
 #' Make taxonomy distinct
 #'
-#' Modifies (if necessary) the [tax_table][phyloseq::taxonomyTable-class] of [`phyloseq`][`phyloseq::phyloseq-class`] object such that each rank level is a distinct identifier.
+#' Modifies (if necessary) the data frame or [tax_table][phyloseq::taxonomyTable-class] of [`phyloseq`][`phyloseq::phyloseq-class`] object such that each rank level is a distinct identifier.
 #'
 #' Sometimes there are two taxonomy naming issues that can cause issues or confusion:
 #'
@@ -421,19 +423,33 @@ taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Clas
 #' This will handle by adding `"#1", "#2", ...` to the name in the event of #1, and adds rank for #2.
 #' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object
 #'
-#' @return modified [`phyloseq`][`phyloseq::phyloseq-class`] object with corrected names.
-#' @export
-#'
+#' @return modified data frame or [`phyloseq`][`phyloseq::phyloseq-class`] object with corrected names.
 #' @examples
+#' @rdname phy.collapse.bins#'
+#' @export
 #' d.phy <- make_taxonomy_distinct(cid.phy)
 #' get.tax(d.phy)
-make_taxonomy_distinct <- function(phy) {
+make_taxonomy_distinct.phyloseq <- function(phy,add.rank=FALSE) {
   tax <- get.tax(phy)
   ranks <- rank_names(phy)
-  for (level in seq_along(ranks)[-1]) {
-    taxlevel <- ranks[level]
-    parentlevels <- ranks[1:level-1]
-    tax <- tax %>%
+  tax <- make_taxonomy_distinct.data.frame(tax,taxranks=ranks,add.rank=add.rank)
+  tax_table(phy) <- tax %>% set.tax()
+  return(phy)
+}
+
+
+#' @param data data to be modified
+#' @param taxranks vector of column names to be checked and modified.
+#' @param add.rank logical, whether to add rank to taxon names: e.g. `Enterococcus` would be renamed to `Enterococcus (Genus)`. Default is `FALSE`
+#'
+#' @rdname phy.collapse.bins
+#' @export
+make_taxonomy_distinct.data.frame <- function(data,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                                              add.rank=FALSE) {
+  for (level in seq_along(taxranks)[-1]) {
+    taxlevel <- taxranks[level]
+    parentlevels <- taxranks[1:level-1]
+    data <- data %>%
       group_by(!!sym(taxlevel)) %>%
       mutate(
         parentlevels=paste(!!!syms(parentlevels),sep="|"),
@@ -443,11 +459,17 @@ make_taxonomy_distinct <- function(phy) {
                            paste0(!!sym(taxlevel)," #",parent.rank),
                            !!sym(taxlevel))) %>%
       select(-parentlevels,-parent.rank,-parents.ndistinct) %>%
-      mutate(!!taxlevel:=paste0(!!sym(taxlevel)," (",taxlevel,")"))
+      ungroup()
+    if (add.rank) {
+      data <- data %>%
+        mutate(!!taxlevel:=paste0(!!sym(taxlevel)," (",taxlevel,")"))
+    }
   }
-  tax_table(phy) <- tax %>% set.tax()
-  return(phy)
+  return(data)
 }
+
+
+
 
 
 
@@ -602,7 +624,7 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
   }
   # each iteration checks criteria and collapses one level
   ss <- taxdt %>% merge(otudt,by="otu")
-  taxmap.raw <- taxdt %>% setnames(old=allranks,new=subscript(allranks,1))
+  taxmap.raw <- taxdt %>% data.table::setnames(old=allranks,new=subscript(allranks,1))
   trace <- c()
   for (i in 1:level) {
     # i=1
@@ -611,10 +633,10 @@ phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels)
     by1 <- subscript(allranks,i)
     by2 <- subscript(allranks,i+1)
     by.new <- subscript(allranks,"new")
-    taxmap.raw <- tt %>% setnames(old=allranks,new=by1) %>% setnames(old=by.new,new=by2) %>%
+    taxmap.raw <- tt %>% data.table::setnames(old=allranks,new=by1) %>% data.table::setnames(old=by.new,new=by2) %>%
       data.table::merge.data.table(taxmap.raw,all.y=TRUE, by=by1)
     trace <- c(trace,nrow(tt))
-    ss <- ss %>% setnames(old=by.new,new=allranks)
+    ss <- ss %>% data.table::setnames(old=by.new,new=allranks)
   }
   #rename back to normal
   by.tax <- subscript(allranks,i+1) %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
@@ -721,11 +743,6 @@ phy.collapse.bins.phyloseq <- function(phy,
 }
 
 
-
-
-
-
-
 #' @param data data frame, formatted as [get.otu.melt()] data. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
 #' @param taxranks character vector of taxonomic ranks in `data`.
 #' @param sample_vars whether to include sample variables in the data.
@@ -749,19 +766,23 @@ phy.collapse.bins.data.frame <- function(data,
                                          taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
                                          level=length(taxranks),
                                          fillin.levels=FALSE,
-                                         sample_id="sample",
-                                         taxa_id="otu",
-                                         abundance_var="numseqs",
+                                         sample_id=sample,
+                                         taxa_id=otu,
+                                         abundance_var=numseqs,
                                          criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
                                          sample_vars=TRUE) {
   requireNamespace("data.table",quietly=TRUE)
   # declare.args(data=get.otu.melt(cid.phy), taxranks <- rank_names(cid.phy), criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005), yingtools2:::phy.collapse.bins.data.frame)
   criteria <- enquo(criteria)
+  sample_id <- ensym(sample_id)
+  taxa_id <- ensym(taxa_id)
+  abundance_var <- ensym(abundance_var)
+
   needvars <- c(taxa_id, sample_id, abundance_var, taxranks)
   if (!all(needvars %in% names(data))) {
     stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
   }
-  data <- data %>% rename(sample=!!sym(sample_id),otu=!!sym(taxa_id),numseqs=!!sym(abundance_var))
+  data <- data %>% rename(sample=!!sample_id,otu=!!taxa_id,numseqs=!!abundance_var)
   rows.are.distinct <- is.distinct(data,otu,sample)
   if (!rows.are.distinct) {
     stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
@@ -803,7 +824,7 @@ phy.collapse.bins.data.frame <- function(data,
   }
   new.data <- new.dt %>%
     as_tibble() %>%
-    rename(!!sym(sample_id):=sample,!!sym(taxa_id):=otu,!!sym(abundance_var):=numseqs)
+    rename(!!sample_id:=sample,!!taxa_id:=otu,!!abundance_var:=numseqs)
   # new.data <- new.otu %>% left_join(new.tax,by="otu") %>% left_join(samp,by="sample") %>% rename(!!sym(taxa_id):=otu,!!sym(sample_id):=sample)
   return(new.data)
 }
@@ -853,24 +874,27 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 #'
 #' @export
 yt.palette2 <- exprs(
-  "Bacteroidetes (phylum)" = Phylum=="Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
-  "Lachnospiraceae (family)" = Family=="Lachnospiraceae" ~ shades("#EC9B96", variation = 0.25),
-  "Ruminococcaceae (family)"  = Family=="Ruminococcaceae" ~ shades("#9AAE73", variation = 0.25),
-  "Clostridiales (order)" = Order=="Clostridiales" ~ shades("#9C854E", variation = 0.25),
-  "Actinobacteria (phylum)" = Phylum=="Actinobacteria" ~ shades("#A77097", variation = 0.25),
-  "Enterococcus (genus)" = Genus=="Enterococcus" ~ "#129246",
-  "Streptococcus (genus)" = Genus=="Streptococcus" ~ "#9FB846",
-  "Staphylococcus (genus)"  = Genus=="Staphylococcus" ~ "#f1eb25",
-  "Lactobacillus (genus)" = Genus=="Lactobacillus" ~ "#3b51a3",
-  "Proteobacteria (phylum)" = Phylum=="Proteobacteria" ~ shades("red", variation = 0.4),
-  "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
+  "Bacteroidetes (phylum)"=Phylum == "Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
+  "Lachnospiraceae (family)"=Family == "Lachnospiraceae" ~ shades("#EC9B96", variation = 0.25),
+  "Ruminococcaceae (family)"=Family == "Ruminococcaceae" ~ shades("#9AAE73", variation = 0.25),
+  "Clostridiales (order)"=Order == "Clostridiales" ~ shades("#9C854E", variation = 0.25),
+  "Actinobacteria (phylum)"=Phylum == "Actinobacteria" ~ shades("#A77097", variation = 0.25),
+  "Enterococcus (genus)"=Genus == "Enterococcus" ~ "#129246",
+  "Streptococcus (genus)"=Genus == "Streptococcus" ~ "#9FB846",
+  "Staphylococcus (genus)"=Genus == "Staphylococcus" ~ "#f1eb25",
+  "Lactobacillus (genus)"=Genus == "Lactobacillus" ~ "#3b51a3",
+  "Proteobacteria (phylum)"=Phylum == "Proteobacteria" ~ shades("red", variation = 0.4),
+  "Other Bacteria"=TRUE ~ shades("gray", variation = 0.25)
 )
+
+
 
 #' YT Palette 3
 #'
 #' The customary palette for Bacteria.
 #'
 #' Slightly different than [yt.palette2]; now everything cycles through shades.
+#' Also accomodates the name changes of Bacteroidetes to Bacteroidota,  Clostridiales to Eubacteriales, Ruminococcaceae to Oscillospiraceae
 #'
 #'
 #' ```{r}
@@ -881,11 +905,11 @@ yt.palette2 <- exprs(
 #' ```
 #' @export
 yt.palette3 <- exprs(
-  "Bacteroidetes (phylum)" = Phylum=="Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
+  "Bacteroidota/Bacteroidetes (phylum)" = Phylum %in% c("Bacteroidetes","Bacteroidota") ~ shades("#51AB9B", variation = 0.25),
   "Lachnospiraceae (family)" = Family=="Lachnospiraceae" ~ shades("#EC9B96", variation = 0.25),
-  "Ruminococcaceae (family)"  = Family=="Ruminococcaceae" ~ shades("#9AAE73", variation = 0.25),
-  "Clostridiales (order)" = Order=="Clostridiales" ~ shades("#9C854E", variation = 0.25),
-  "Actinobacteria (phylum)" = Phylum=="Actinobacteria" ~ shades("#A77097", variation = 0.25),
+  "Oscillospiraceae/Ruminococcaceae (family)"  = Family %in% c("Ruminococcaceae","Oscillospiraceae") ~ shades("#9AAE73", variation = 0.25),
+  "Eubacteriales/Clostridiales (order)" = Order %in% c("Clostridiales","Eubacteriales") ~ shades("#9C854E", variation = 0.25),
+  "Actinomycetota/Actinobacteria (phylum)" = Phylum %in% c("Actinobacteria","Actinomycetota") ~ shades("#A77097", variation = 0.25),
   "Enterococcus (genus)" = Genus=="Enterococcus" ~ shades("#129246", variation = 0.15),
   "Streptococcus (genus)" = Genus=="Streptococcus" ~ shades("#9FB846", variation = 0.15),
   "Staphylococcus (genus)"  = Genus=="Staphylococcus" ~ shades("#f1eb25", variation = 0.15),
@@ -894,17 +918,13 @@ yt.palette3 <- exprs(
   "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
 )
 
+
+
+
 #' Fungal Palette
 #'
 #' The customary palette for Fungi.
 #'
-#'
-#' ```{r}
-#' #| echo: false
-#' fungalpal <- get.tax.legend(tax.palette = fungal.palette, fontsize = 5)
-#' grid::grid.newpage()
-#' grid::grid.draw(fungalpal)
-#' ```
 #' @export
 fungal.palette <- exprs(
   "Saccharomyces cerevisiae (species)" = Species == "Saccharomyces cerevisiae" ~  "#DA8686",
@@ -920,14 +940,14 @@ fungal.palette <- exprs(
   "Other" = TRUE ~ shades("gray", variation=0.25)
 )
 
-
 #' Create a color palette for taxonomy
 #'
 #' Given microbiota data, generate a color palette that can be used in ggplot2 plots.
 #'
 #' Note that the `tax.palette` formula list is evaluated in order, and should probably end in TRUE  (similar to [dplyr::case_when()]).
 #' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
-#' @param unitvar the granular column by which colors will be assigned. Default is `"Species"`. Sometimes you might want to switch to `"otu"`.
+#' @param unitvar the granular column (bare unquoted) by which colors will be assigned. Default is `Species`.
+#' Sometimes you might want to switch to another granular identifer, such as `otu`. Depending on the situation.
 #' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
 #' @return named vector of colors, which can be used in: `ggplot( ... ) + scale_fill_manual(values = <pal> )`
 #' @export
@@ -957,9 +977,10 @@ fungal.palette <- exprs(
 #' legend2 <- get.tax.legend(tax.palette = custom_pal) %>%
 #'   annotation_custom(xmin=30, xmax=50, ymin=0.7, ymax=1)
 #' g + scale_fill_manual(values=pal2) + legend2
-get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
+get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
   # data=phy1;unitvar="Species";tax.palette=yt.palette2
   requireNamespace(c("phyloseq","formula.tools"),quietly=TRUE)
+  unitvar <- ensym(unitvar)
   if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
     data <- get.tax(data)
   }
@@ -968,13 +989,13 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
   }
   vars.needed <- tax.palette %>% map(~{
     formula.tools::lhs(.x) %>% all.vars()
-  }) %>% simplify() %>% c(unitvar) %>% unique() %>% as.character()
+  }) %>% simplify() %>% c(as_label(unitvar)) %>% unique() %>% as.character()
   if (!all(vars.needed %in% names(data))) {
     missing.vars <- setdiff(vars.needed,names(data))
     stop("YTError: the tax.palette has vars that were not found in data: ",paste(missing.vars,collapse=","))
   }
   tax <- data %>% select(!!!syms(vars.needed)) %>% unique() %>%
-    assert_grouping_vars(id_vars=!!sym(unitvar),stopIfTRUE = FALSE)
+    assert_grouping_vars(id_vars=!!unitvar,stopIfTRUE = FALSE)
   is_color <- function(x) {
     iscolor <- grepl('^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$', x) |
       (x %in% c(colors(),as.character(1:8),"transparent")) |
@@ -998,7 +1019,7 @@ get.tax.palette <- function(data,unitvar="Species",tax.palette=yt.palette3) {
     return(x.color)
   }) %>% do.call(coalesce,.)
   tax$color <- color.list
-  pal <- setNames(tax$color,tax[[unitvar]])
+  pal <- setNames(tax$color,tax[[as_label(unitvar)]])
   return(pal)
 }
 
@@ -1032,11 +1053,11 @@ get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
 #' Plot tax
 #'
 #' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
-#' @param xvar xvar by which to plot data
-#' @param data whether to return data frame
+#' @param xvar xvar by which to plot data. This should be a distinct identifier for samples.
+#' @param data whether to return data frame only (`TRUE`), or  proceed with plotting (`FALSE`).
 #' @param pctseqs the relative abundance column name  (default `pctseqs`)
-#' @param unitvar unit var (default `Species`)
-#' @param label column name for labels var (default `Species`)
+#' @param unitvar unit variable (bare unquoted). Default `Species`
+#' @param label column name (bare unquoted) for labels var. Default is `Species`.
 #' @param tax.levels tax ranks.
 #' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
 #'
@@ -1047,31 +1068,37 @@ get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
 tax.plot <- function(t,xvar="sample",pctseqs="pctseqs",unitvar="Species",
                      label="Species",
                      tax.levels = c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
-                     data=FALSE,label.pct.cutoff=0.3) {
+                     data=TRUE,label.pct.cutoff=0.3) {
   #t=get.otu.melt(phy.species)
   # tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
-  vars <- c(xvar,pctseqs,tax.levels,unitvar) %>% unique()
+  xvar <- ensym(xvar)
+  pctseqs <- ensym(pctseqs)
+  unitvar <- ensym(unitvar)
+  label <- ensym(label)
+
+  vars <- c(as_label(xvar),as_label(pctseqs),tax.levels,as_label(unitvar),as_label(label)) %>% unique()
+
   if (!all(vars %in% names(t))) {
     missing.vars <- setdiff(vars,names(t))
     stop("YTError: missing var:",paste(missing.vars,collapse=","))
   }
   t <- t %>% arrange(!!!syms(tax.levels)) %>%
-    mutate(!!sym(unitvar):=fct_inorder(!!sym(unitvar))) %>%
-    group_by(!!sym(xvar)) %>% arrange(!!sym(unitvar)) %>%
-    mutate(cum.pct=cumsum(!!sym(pctseqs)),
+    mutate(!!unitvar:=fct_inorder(!!unitvar)) %>%
+    group_by(!!xvar) %>% arrange(!!unitvar) %>%
+    mutate(cum.pct=cumsum(!!pctseqs),
            y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
            y.text=1-y.text) %>%
     ungroup() %>%
     select(-cum.pct) %>%
-    mutate(tax.label=ifelse(!!sym(pctseqs)>=label.pct.cutoff,as.character(!!sym(label)),""))
+    mutate(tax.label=ifelse(!!pctseqs>=label.pct.cutoff,as.character(!!label),""))
   # pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
   # attr(t,"pal") <- pal
   if (data) {
     return(t)
   } else {
     g <- ggplot() +
-      geom_bar(data=t,aes(x=!!sym(xvar),y=!!sym(pctseqs),fill=!!sym(unitvar)),stat="identity",position="fill") +
-      geom_text(data=t,aes(x=!!sym(xvar),y=y.text,label=tax.label),angle=-90,lineheight=0.9) +
+      geom_bar(data=t,aes(x=!!xvar,y=!!pctseqs,fill=!!unitvar),stat="identity",position="fill") +
+      geom_text(data=t,aes(x=!!xvar,y=y.text,label=tax.label),angle=-90,lineheight=0.9) +
       scale_fill_manual(values=attr(t,"pal")) +
       theme(legend.position="none")
     return(g)

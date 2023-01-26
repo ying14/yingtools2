@@ -6,7 +6,7 @@
 \usage{
 dt(
   data,
-  fontsize = 11,
+  fontsize = 14,
   pageLength = Inf,
   maxchars = 250,
   maxrows = 500,
