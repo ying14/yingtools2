@@ -425,7 +425,7 @@ make_taxonomy_distinct <- function(x,...) UseMethod("make_taxonomy_distinct")
 #'
 #' @return modified data frame or [`phyloseq`][`phyloseq::phyloseq-class`] object with corrected names.
 #' @examples
-#' @rdname phy.collapse.bins#'
+#' @rdname make_taxonomy_distinct
 #' @export
 #' d.phy <- make_taxonomy_distinct(cid.phy)
 #' get.tax(d.phy)
@@ -442,7 +442,7 @@ make_taxonomy_distinct.phyloseq <- function(phy,add.rank=FALSE) {
 #' @param taxranks vector of column names to be checked and modified.
 #' @param add.rank logical, whether to add rank to taxon names: e.g. `Enterococcus` would be renamed to `Enterococcus (Genus)`. Default is `FALSE`
 #'
-#' @rdname phy.collapse.bins
+#' @rdname make_taxonomy_distinct
 #' @export
 make_taxonomy_distinct.data.frame <- function(data,taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
                                               add.rank=FALSE) {
@@ -1065,8 +1065,8 @@ get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
 #' @examples
 #' @author Ying Taur
 #' @export
-tax.plot <- function(t,xvar="sample",pctseqs="pctseqs",unitvar="Species",
-                     label="Species",
+tax.plot <- function(t,xvar=sample,pctseqs=pctseqs,unitvar=Species,
+                     label=Species,
                      tax.levels = c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
                      data=TRUE,label.pct.cutoff=0.3) {
   #t=get.otu.melt(phy.species)

@@ -6,10 +6,10 @@
 \usage{
 tax.plot(
   t,
-  xvar = "sample",
-  pctseqs = "pctseqs",
-  unitvar = "Species",
-  label = "Species",
+  xvar = sample,
+  pctseqs = pctseqs,
+  unitvar = Species,
+  label = Species,
   tax.levels = c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus",
     "Species"),
   data = TRUE,
