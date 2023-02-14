@@ -57,9 +57,6 @@ selection_benchmark <- function()  {
 
 
 
-
-
-
 set_line_break_after_comma_if_4096_chars <- function(pd_flat) {
   pd2 <- pd_flat %>%
     mutate(
@@ -115,3 +112,48 @@ style_selection_4096 <- function() {
     id = context$id
   )
 }
+
+
+
+modify_selected_package_function <- function() {
+  context <- rstudioapi::getActiveDocumentContext()
+  text <- context$selection[[1]]$text
+
+  parts <- str_split(text,":::|::") %>% simplify()
+  if (length(parts)==2) {
+    ns <- parts[1]
+    fn_name <- parts[2]
+  } else if (length(parts)==1) {
+    fn_name <- parts[1]
+    ns <- find(fn_name) %>% str_replace("package:","")
+  } else {
+    message("nothing")
+    return()
+  }
+  fn <- getFromNamespace(fn_name,ns)
+  fn_code <- fn %>% deparse1(collapse="\n")
+
+  new.fn <- str_glue("customized_{fn_name}")
+  orig.fn <- str_glue("original_{fn_name}")
+  modtext <- str_glue("
+
+## customized function
+{new.fn} <- {fn_code}
+
+## assign above function to replace in package {ns}
+{orig.fn} <- {text}
+environment({new.fn}) <- asNamespace('{ns}')
+assignInNamespace('{fn_name}', {new.fn}, ns = '{ns}')
+
+## to reset back to normal:
+#assignInNamespace('{fn_name}', {orig.fn}, ns = '{ns}')
+
+")
+  message(str_glue("Setting up code for re-assigning function {fn_name} in package {ns}"))
+  rstudioapi::documentNew(modtext)
+}
+
+
+
+
+

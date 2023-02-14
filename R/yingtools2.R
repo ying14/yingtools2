@@ -657,6 +657,36 @@ tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
 
 
 
+#' Search data columns for a Regex pattern
+#'
+#' Use to search columns for a pattern.
+#' @param data data to be searched
+#' @param pattern regex pattern to be searched
+#' @param ignore.case whether to ignore case, default is `TRUE`
+#'
+#' @return a summary table of column hits
+#' @export
+#'
+#' @examples
+search.data.columns <- function(data,pattern,ignore.case=TRUE) {
+  # data=cell.infusion.rows;pattern="boost";ignore.case=T
+  d <- data %>%
+    mutate(across(.fns=as.character)) %>%
+    mutate(row=row_number()) %>%
+    pivot_longer(-row,names_to="column") %>%
+    count(column,value) %>%
+    mutate(hit=grepl(pattern,value,ignore.case=ignore.case))
+
+  dd <- d %>%
+    group_by(column) %>%
+    summarize(n.hits=sum(n[hit]),
+              pct=n.hits/sum(n),
+              values=paste2(value[hit],collapse="\n"),
+              .groups="drop") %>%
+    arrange(desc(n.hits)) %>%
+    filter(n.hits>0)
+  dd
+}
 
 #' Ying's DT view
 #'

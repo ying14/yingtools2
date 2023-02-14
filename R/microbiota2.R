@@ -805,8 +805,12 @@ phy.collapse.bins.data.frame <- function(data,
   } else {
     stop("YTError: sample_vars should be a character or logical!")
   }
-
-  otudt <- data %>% select(otu,sample,numseqs,pctseqs) %>% data.table::as.data.table()
+  # otudt <- data %>% select(otu,sample,numseqs,pctseqs) %>% data.table::as.data.table()
+  otudt <- data %>% select(otu, sample, numseqs) %>%
+    group_by(sample) %>%
+    mutate(pctseqs=numseqs/sum(numseqs)) %>%
+    ungroup() %>%
+    data.table::as.data.table()
   # sampdt <- samp %>% data.table::as.data.table()
   objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
   new.otudt <- objset$otu

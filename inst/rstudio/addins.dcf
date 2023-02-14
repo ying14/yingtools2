@@ -20,4 +20,9 @@ Description: Run selection in benchmark
 Binding: selection_benchmark
 Interactive: false
 
+Name: Modify selected package function
+Description: Modify selected package function
+Binding: modify_selected_package_function
+Interactive: false
+
 
