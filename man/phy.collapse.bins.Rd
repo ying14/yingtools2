@@ -12,7 +12,8 @@ phy.collapse.bins(x, ...)
   phy,
   level = length(rank_names(phy)),
   fillin.levels = FALSE,
-  criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005
+  criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005,
+  return.tax.assignments = FALSE
 )
 
 \method{phy.collapse.bins}{data.frame}(
@@ -24,7 +25,8 @@ phy.collapse.bins(x, ...)
   taxa_id = otu,
   abundance_var = numseqs,
   criteria = max.pctseqs <= 0.001 | pct.detectable <= 0.005,
-  sample_vars = TRUE
+  sample_vars = TRUE,
+  return.tax.assignments = FALSE
 )
 }
 \arguments{
@@ -35,6 +37,8 @@ phy.collapse.bins(x, ...)
 \item{fillin.levels}{Whether or not to fill in \code{NA} values with the collapsed taxa name. Default is \code{FALSE}.}
 
 \item{criteria}{an expression that evaluates to TRUE/FALSE, whether to collapse at a particular level. Create this using calculated stats for each taxa (see Details)}
+
+\item{return.tax.assignments}{return a table showing taxonomy re-assignments, in detail. Use this to understand what was collapsed. Default is \code{FALSE}.}
 
 \item{data}{data frame, formatted as \code{\link[=get.otu.melt]{get.otu.melt()}} data. Note, it must have columns \code{otu}, \code{sample}, \code{numseqs}, \code{pctseqs}, and all values in \code{taxranks}.}
 
@@ -53,7 +57,9 @@ Can be \code{TRUE} (include sample vars, and try to determine which ones),
 }
 \description{
 Collapse \code{\link[phyloseq:phyloseq-class]{phyloseq}} object into smaller bins, using specified criteria based on the data.
-Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and at each level, collapses 2 or more taxa if they meet the specified criteria.
+Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and
+collapses into its parent taxon if they meet specified criteria. Additionally, collapsing is performed only if
+there are at least 2 or more taxa being combined, and only if the parent taxon is not \code{NA}.
 }
 \details{
 The binning criteria can be defined multiple ways. These variables are available for criteria, for each taxon:
@@ -79,10 +85,20 @@ cid.phy
 # after default binning
 phy.collapse.bins(cid.phy)
 
-# customized binning
-phy.collapse.bins(cid.phy, level = 5,
+# customized binning: for 4 levels (otu,taxon,Genus,Family),
+# collapse taxon if mean relative abundance < 0.001,
+# and if detectable in more than 2 samples.
+phy.collapse.bins(cid.phy,
+                  level = 4,
                   criteria = mean.pctseqs < 0.001 & n.detectable <= 2)
-# You can also enter the data in long form (rows=sample*taxa, such as that produced by [get.otu.melt()]).
+
+# customized binning: for 6 levels (otu,taxon,Genus,Family,Order,Class),
+# collapse taxon if median relative abundance < 0.0005, and preserve Actinobacteria.
+phy.collapse.bins(cid.phy,
+                  level=6,
+                  criteria = median.pctseqs < 0.0005 & Phylum!="Actinobacteria")
+
+# You can also enter the data in long form (rows=sample*taxa, such as that produced by get.otu.melt()).
 otu <- get.otu.melt(cid.phy)
 otu.bin <- phy.collapse.bins(otu,
                              taxranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "taxon"),

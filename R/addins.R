@@ -127,7 +127,7 @@ modify_selected_package_function <- function() {
     fn_name <- parts[1]
     ns <- find(fn_name) %>% str_replace("package:","")
   } else {
-    message("nothing")
+    message("nothing to modify")
     return()
   }
   fn <- getFromNamespace(fn_name,ns)
@@ -141,7 +141,7 @@ modify_selected_package_function <- function() {
 {new.fn} <- {fn_code}
 
 ## assign above function to replace in package {ns}
-{orig.fn} <- {text}
+if (!exists('{orig.fn}')) {orig.fn} <- {text}
 environment({new.fn}) <- asNamespace('{ns}')
 assignInNamespace('{fn_name}', {new.fn}, ns = '{ns}')
 
@@ -152,8 +152,6 @@ assignInNamespace('{fn_name}', {new.fn}, ns = '{ns}')
   message(str_glue("Setting up code for re-assigning function {fn_name} in package {ns}"))
   rstudioapi::documentNew(modtext)
 }
-
-
 
 
 

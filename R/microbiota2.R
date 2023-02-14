@@ -542,127 +542,122 @@ phy.collapse <- function(phy,taxranks=rank_names(phy),short_taxa_names=TRUE) {
 
 
 
-
-
-
-phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels) {
+phy.collapse.base <- function(otudt, taxdt, taxranks, level,
+                              criteria, fillin.levels, return.tax.assignments) {
   # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
-  # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(Genus=="Enterococcus"),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
-
-  requireNamespace("data.table",quietly=TRUE)
+  requireNamespace("data.table", quietly = TRUE)
   criteria <- enquo(criteria)
-  otudt <- data.table::as.data.table(otudt)  #make sure it's data.table
+  otudt <- data.table::as.data.table(otudt)
   taxdt <- data.table::as.data.table(taxdt)
   nsamps <- data.table::uniqueN(otudt$sample)
-  allranks <- c(taxranks,"strain")
-  subscript <- function(x,i) {
-    paste(x,i,sep="_")
+  allranks <- c(taxranks, "strain")
+  subscript <- function(x, i) {
+    paste(x, i, sep = "_")
   }
-  taxdt <- taxdt[,strain:=otu]
-  # look at criteria, determine necessary calculations in make.tax
-  allcalcs <- rlang::exprs(n.detectable = sum(numseqs > 0),
-                           pct.detectable = sum(numseqs > 0)/..nsamps,   # pct.detectable=mean(pctseqs>0),
-                           mean.pctseqs = sum(pctseqs)/..nsamps,
-                           median.pctseqs = median(c(pctseqs, rep(0, length.out = ..nsamps - .N))), # median.pctseqs=median(pctseqs),
-                           max.pctseqs = max(pctseqs),
-                           min.pctseqs = fifelse(..nsamps == .N, min(pctseqs), 0),   # min.pctseqs=min(pctseqs),
-                           total.numseqs = sum(numseqs),
-                           max.numseqs = max(numseqs),
-                           min.numseqs = fifelse(..nsamps == .N, min(numseqs), 0),   # min.numseqs=min(numseqs),
-                           n.samps = ..nsamps)
-  # some calcs depend on other lines, determine the dependencies
-  depends <- allcalcs %>% imap(~all.vars(.x) %>% intersect(names(allcalcs)) %>% c(.y))
-  calcvars <- depends[all.vars(criteria)] %>% unname() %>% simplify()
-  # subset of allcalc that is needed
+  taxdt <- taxdt[, `:=`(strain, otu)]
+  allcalcs <- rlang::exprs(
+    n.detectable = sum(numseqs > 0),
+    pct.detectable = sum(numseqs > 0) / ..nsamps,
+    mean.pctseqs = sum(pctseqs) / ..nsamps,
+    median.pctseqs = median(c(pctseqs, rep(0, length.out = ..nsamps - .N))),
+    max.pctseqs = max(pctseqs), min.pctseqs = fifelse(..nsamps == .N, min(pctseqs), 0),
+    total.numseqs = sum(numseqs), max.numseqs = max(numseqs),
+    min.numseqs = fifelse(..nsamps == .N, min(numseqs), 0),
+    n.samps = ..nsamps
+  )
+  # named vector, if an expression in allcalcs depends on another.
+  depends <- allcalcs %>% imap(~ all.vars(.x) %>%
+    intersect(names(allcalcs)) %>%
+    c(.y))
+  # examine criteria and list items that are needed from allcalcs/depends.
+  calcvars <- depends[all.vars(criteria)] %>%
+    unname() %>%
+    simplify()
+  # the subset of allcalcs
   calcs <- allcalcs[names(allcalcs) %in% calcvars]
-
-
-  make.tax <- function(ss,i) {
+  make.tax <- function(ss, i) {
     by1 <- allranks
-    by2 <- subscript(allranks,"new")
-    collapse_var <- subscript("collapse",i)
-    rank <- length(allranks)+1-i
-    parent.groups <- by1[1:(rank-1)]
-    new.tax.var.exprs <- seq_along(by1) %>% setNames(by2) %>%
-      map(~{
-        if (.x<rank) {
-          cur.rank <- sym(by1[.x])
+    by2 <- subscript(allranks, "new")
+    collapse_var <- subscript("collapse", i)
+    rank <- length(allranks) + 1 - i
+    parent.groups <- by1[1:(rank - 1)]
+    parent <- sym(parent.groups[length(parent.groups)])
+    new.tax.var.exprs <- seq_along(by1) %>%
+      setNames(by2) %>%
+      map(~ {
+        cur.rank <- sym(by1[.x])
+        if (.x < rank) {
           expr(!!cur.rank)
-        } else if (.x==rank) {
-          parent <- sym(by1[rank-1])
-          expr(ifelse(!!sym(collapse_var),
-                      paste("<miscellaneous>",!!parent),
-                      !!sym(by1[.x])))
+        } else if (.x == rank) {
+          expr(ifelse(!!sym(collapse_var), paste("<miscellaneous>", !!parent), !!cur.rank))
         } else {
-          expr(ifelse(!!sym(collapse_var),
-                      NA_character_,
-                      !!sym(by1[.x])))
+          expr(ifelse(!!sym(collapse_var), NA_character_, !!cur.rank))
         }
       })
-    # add this to make current.level available in calculations,
-    # but also to add a placeholder if calcs is empty list up until now.
-    crank <- length(allranks)+1-i
-    calcs <- c(calcs,exprs(current.level=crank))
+    crank <- length(allranks) + 1 - i
+    calcs <- c(calcs, exprs(current.level = crank))
     tt <- inject(
-      ss                                                              # ss %>%
-      [, .(!!!calcs), by = by1]                                       # group_by(!!!syms(by1)) %>% summarize(!!!calcs, .groups = "drop") %>%
-      [, (collapse_var) := !!quo_squash(criteria)]                    # mutate(!!sym(collapse_var) := !!criteria) %>%
-      [, `:=`(!!!new.tax.var.exprs)]                                  # mutate(!!!new.tax.var.exprs) %>%
-      [, `:=`(n.collapse=sum(!!sym(collapse_var)),                    # group_by(!!!syms(parent.groups)) %>%
-              nrows = .N), by=parent.groups]                          #   mutate(n.collapse = sum(!!sym(collapse_var)), nrows = n()) %>%
-      [, (collapse_var) := !!sym(collapse_var) & n.collapse>1]        # mutate(!!sym(collapse_var) := !!sym(collapse_var) & n.collapse > 1) %>%
-      [, c(collapse_var,by1,by2), with=FALSE]                         # select(!!sym(collapse_var), !!!syms(by1), !!!syms(by2))
+      ss
+      [, .(!!!calcs), by = by1]
+      [, `:=`((collapse_var), !!quo_squash(criteria))]
+      [, `:=`(n.collapse = sum(!!sym(collapse_var)), nrows = .N), by = parent.groups]
+      [, `:=`((collapse_var), !!sym(collapse_var) & (n.collapse > 1) & (!is.na(!!parent)))]
+      [, `:=`(!!!new.tax.var.exprs)]
+      [, c(collapse_var, by1, by2), with = FALSE]
     )
     return(tt)
   }
-  make.otu <- function(ss,tt,i) {
+  make.otu <- function(ss, tt, i) {
     by1 <- allranks
-    by2 <- subscript(allranks,"new")
+    by2 <- subscript(allranks, "new")
     ss %>%
-      merge(tt,by=by1) %>%
-      .[, .(pctseqs=sum(pctseqs),numseqs=sum(numseqs)), by=c("sample",by2)]
+      merge(tt, by = by1) %>%
+      .[, .(pctseqs = sum(pctseqs), numseqs = sum(numseqs)), by = c("sample", by2)]
   }
-  # each iteration checks criteria and collapses one level
-  ss <- taxdt %>% merge(otudt,by="otu")
-  taxmap.raw <- taxdt %>% data.table::setnames(old=allranks,new=subscript(allranks,1))
+  ss <- taxdt %>% merge(otudt, by = "otu")
+  taxmap.raw <- taxdt %>% data.table::setnames(old = allranks, new = subscript(allranks, 1))
   trace <- c()
   for (i in 1:level) {
-    # i=1
-    tt <- make.tax(ss,i)
-    ss <- make.otu(ss,tt,i)
-    by1 <- subscript(allranks,i)
-    by2 <- subscript(allranks,i+1)
-    by.new <- subscript(allranks,"new")
-    taxmap.raw <- tt %>% data.table::setnames(old=allranks,new=by1) %>% data.table::setnames(old=by.new,new=by2) %>%
-      data.table::merge.data.table(taxmap.raw,all.y=TRUE, by=by1)
-    trace <- c(trace,nrow(tt))
-    ss <- ss %>% data.table::setnames(old=by.new,new=allranks)
+    tt <- make.tax(ss, i)
+    ss <- make.otu(ss, tt, i)
+    by1 <- subscript(allranks, i)
+    by2 <- subscript(allranks, i + 1)
+    by.new <- subscript(allranks, "new")
+    taxmap.raw <- tt %>%
+      data.table::setnames(old = allranks, new = by1) %>%
+      data.table::setnames(old = by.new, new = by2) %>%
+      data.table::merge.data.table(taxmap.raw, all.y = TRUE, by = by1)
+    trace <- c(trace, nrow(tt))
+    ss <- ss %>% data.table::setnames(old = by.new, new = allranks)
   }
-  #rename back to normal
-  by.tax <- subscript(allranks,i+1) %>% setNames(allranks) %>% map(~expr(!!sym(.x)))
-  taxmap <- inject(taxmap.raw[, .(otu,!!!by.tax)])
-
-  new.tax.otu <- inject(
-    data.table::merge.data.table(otudt,taxmap, all.x=TRUE, by="otu")                     # left_join(taxmap,by="otu") %>%
-    [, .(numseqs=sum(numseqs),                                  # group_by(sample,!!!syms(allranks)) %>%
-         pctseqs=sum(pctseqs)), by=c("sample",allranks)]        #       summarize(numseqs=sum(numseqs),pctseqs=sum(pctseqs),.groups="drop") %>%
-    [, otu:=paste2(!!!syms(allranks),sep="|")]                  # mutate(otu=paste2(!!!syms(allranks),sep="|"))
-  )
-  # new.tax.otu <- as_tibble(new.tax.otu)
+  by.tax <- subscript(allranks, i + 1) %>%
+    setNames(allranks) %>%
+    map(~ expr(!!sym(.x)))
+  taxmap <- inject(taxmap.raw[, .(otu, !!!by.tax)])
+  if (return.tax.assignments) {
+    oldvars <- subscript(allranks, 1)
+    newvars <- subscript(allranks, i + 1)
+    taxmap.summary <- taxmap.raw %>%
+      mutate(new_taxonomy = paste(!!!syms(newvars), sep = "|"), old_taxonomy = paste(!!!syms(oldvars), sep = "|")) %>%
+      group_by(new_taxonomy) %>%
+      summarize(n.taxa = n(), old_taxonomy = paste(old_taxonomy, collapse = "\n"), .groups = "drop")
+    message("Returning tax mapping summary.")
+    return(taxmap.summary)
+  }
+  new.tax.otu <- inject(data.table::merge.data.table(otudt, taxmap, all.x = TRUE, by = "otu")[, .(numseqs = sum(numseqs), pctseqs = sum(pctseqs)), by = c("sample", allranks)][, `:=`(otu, paste(!!!syms(allranks), sep = "|"))])
   if (fillin.levels) {
     for (i in seq_along(taxranks)[-1]) {
       var <- taxranks[i]
       allvars <- taxranks[i:1]
-      inject(new.tax.otu[, (var):=coalesce(!!!syms(allvars))])
-      # new.tax.otu <- new.tax.otu %>% mutate(!!sym(var):=coalesce(!!!syms(allvars)))
+      inject(new.tax.otu[, `:=`((var), coalesce(!!!syms(allvars)))])
     }
   }
-  new.tax <- new.tax.otu[, c("otu",taxranks), with=FALSE] %>% unique()
-  new.otu <- new.tax.otu[, c("otu","sample","numseqs","pctseqs"), with=FALSE]
-  trace <- c(trace,nrow(new.tax)) %>% setNames(rev(allranks)[1:(level+1)])
+  new.tax <- new.tax.otu[, c("otu", taxranks), with = FALSE] %>% unique()
+  new.otu <- new.tax.otu[, c("otu", "sample", "numseqs", "pctseqs"), with = FALSE]
+  trace <- c(trace, nrow(new.tax)) %>% setNames(rev(allranks)[1:(level + 1)])
   message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
   message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
-  list(tax=new.tax,otu=new.otu)
+  list(tax = new.tax, otu = new.otu)
 }
 
 
@@ -674,7 +669,9 @@ phy.collapse.bins <- function(x,...) UseMethod("phy.collapse.bins")
 #' Collapse phyloseq or otu.melt data into smaller tax bins
 #'
 #' Collapse [`phyloseq`][`phyloseq::phyloseq-class`] object into smaller bins, using specified criteria based on the data.
-#' Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and at each level, collapses 2 or more taxa if they meet the specified criteria.
+#' Examines the data at each level (e.g. otu, Species, Genus, Family, and so on), and
+#' collapses into its parent taxon if they meet specified criteria. Additionally, collapsing is performed only if
+#' there are at least 2 or more taxa being combined, and only if the parent taxon is not `NA`.
 #'
 #' The binning criteria can be defined multiple ways. These variables are available for criteria, for each taxon:
 #'
@@ -715,15 +712,26 @@ phy.collapse.bins <- function(x,...) UseMethod("phy.collapse.bins")
 #' # after default binning
 #' phy.collapse.bins(cid.phy)
 #'
-#' # customized binning
-#' phy.collapse.bins(cid.phy, level = 5,
+#' # customized binning: for 4 levels (otu,taxon,Genus,Family),
+#' # collapse taxon if mean relative abundance < 0.001,
+#' # and if detectable in more than 2 samples.
+#' phy.collapse.bins(cid.phy,
+#'                   level = 4,
 #'                   criteria = mean.pctseqs < 0.001 & n.detectable <= 2)
+#'
+#' # customized binning: for 6 levels (otu,taxon,Genus,Family,Order,Class),
+#' # collapse taxon if median relative abundance < 0.0005, and preserve Actinobacteria.
+#' phy.collapse.bins(cid.phy,
+#'                   level=6,
+#'                   criteria = median.pctseqs < 0.0005 & Phylum!="Actinobacteria")
+#'
 #' @rdname phy.collapse.bins
 #' @export
 phy.collapse.bins.phyloseq <- function(phy,
                                        level=length(rank_names(phy)),
                                        fillin.levels=FALSE,
-                                       criteria=max.pctseqs<=0.001 | pct.detectable<=0.005) {
+                                       criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
+                                       return.tax.assignments=FALSE) {
   # phy=cid.phy;criteria <- quo(max.pctseqs<=0.001 | pct.detectable<=0.005);level=7;fillin.levels=FALSE
   # declare.args(phy=cid.phy,yingtools2:::phy.collapse.bins.phyloseq)
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
@@ -732,7 +740,12 @@ phy.collapse.bins.phyloseq <- function(phy,
   taxranks <- rank_names(phy)
   otudt <- get.otu.melt(phy,sample_data=FALSE,tax_data=FALSE) %>% data.table::as.data.table()
   taxdt <- get.tax(phy) %>% data.table::as.data.table()
-  objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
+  objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,
+                              criteria=!!criteria,fillin.levels=fillin.levels,
+                              return.tax.assignments=return.tax.assignments)
+  if (return.tax.assignments) {
+    return(objset)
+  }
   new.tax <- objset$tax %>% as_tibble()
   new.otu <- objset$otu %>%
     data.table::dcast.data.table(formula=otu ~ sample,value.var="numseqs",fill=0) %>%
@@ -750,9 +763,10 @@ phy.collapse.bins.phyloseq <- function(phy,
 #' `FALSE` no sample vars, or a character vector specifying col names in `data` to be included.
 #' @param sample_id name of sample column identifier. Default is `"sample"`.
 #' @param taxa_id name of taxon column identifier. Default is `"otu"`.
+#' @param return.tax.assignments return a table showing taxonomy re-assignments, in detail. Use this to understand what was collapsed. Default is `FALSE`.
 #' @rdname phy.collapse.bins
 #' @examples
-#' # You can also enter the data in long form (rows=sample*taxa, such as that produced by [get.otu.melt()]).
+#' # You can also enter the data in long form (rows=sample*taxa, such as that produced by get.otu.melt()).
 #' otu <- get.otu.melt(cid.phy)
 #' otu.bin <- phy.collapse.bins(otu,
 #'                              taxranks = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "taxon"),
@@ -770,7 +784,8 @@ phy.collapse.bins.data.frame <- function(data,
                                          taxa_id=otu,
                                          abundance_var=numseqs,
                                          criteria=max.pctseqs<=0.001 | pct.detectable<=0.005,
-                                         sample_vars=TRUE) {
+                                         sample_vars=TRUE,
+                                         return.tax.assignments=FALSE) {
   requireNamespace("data.table",quietly=TRUE)
   # declare.args(data=get.otu.melt(cid.phy), taxranks <- rank_names(cid.phy), criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005), yingtools2:::phy.collapse.bins.data.frame)
   criteria <- enquo(criteria)
@@ -812,7 +827,12 @@ phy.collapse.bins.data.frame <- function(data,
     ungroup() %>%
     data.table::as.data.table()
   # sampdt <- samp %>% data.table::as.data.table()
-  objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,criteria=!!criteria,fillin.levels=fillin.levels)
+  objset <- phy.collapse.base(otudt=otudt,taxdt=taxdt,taxranks=taxranks,level=level,
+                              criteria=!!criteria,fillin.levels=fillin.levels,
+                              return.tax.assignments=return.tax.assignments)
+  if (return.tax.assignments) {
+    return(objset)
+  }
   new.otudt <- objset$otu
   new.taxdt <- objset$tax
   new.dt <- new.otudt %>%
