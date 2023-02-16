@@ -12,9 +12,9 @@ pivot_wider_recode(
   names_recodes,
   names_else.value = "other",
   names_sort = TRUE,
-  values_sep = "::",
   values_fill = NULL,
-  values_fn = ~paste(.x, collapse = "|"),
+  values_fn = ~paste2(.x, collapse = "|"),
+  other_fn = ~paste2(names(.x), .x, sep = "::", collapse = "|"),
   unused_fn = NULL
 )
 }
@@ -33,11 +33,11 @@ pivot_wider_recode(
 
 \item{names_sort}{whether to sort columns by order of recode.grep. Default is \code{TRUE}}
 
-\item{values_sep}{character separator between name and value. Default is \code{"::"}}
-
 \item{values_fill}{value used when value is missing. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
 
-\item{values_fn}{How multiple values are combined. Default is \code{~paste(.x,collapse="|")}, which collapses into a single string. Used in \code{\link[tidyr:pivot_wider]{tidyr::pivot_wider()}}.}
+\item{values_fn}{How recoded columns are combined. Default is \code{~paste(.x,collapse="|")}, which collapses into a single string. Specify \code{NULL} to leave as named vector.}
+
+\item{other_fn}{How the \code{names_else.value} column is summarized. Default is \code{~paste2(names(.x),.x,sep="::",collapse="|")}, which displays name and value. Specify \code{NULL} to leave as named vector.}
 
 \item{unused_fn}{A function performed on unused columns. Default is \code{NULL}.}
 }

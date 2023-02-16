@@ -2744,10 +2744,11 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 #' @param names_recodes recodes to be done on `names_from` prior to pivotting. Used in [recode.grep()].
 #' @param names_else.value default value of recoding. Used in [recode.grep()].
 #' @param names_sort whether to sort columns by order of recode.grep. Default is `TRUE`
-#' @param values_sep character separator between name and value. Default is `"::"`
 #' @param values_fill value used when value is missing. Used in [tidyr::pivot_wider()].
-#' @param values_fn How multiple values are combined. Default is `~paste(.x,collapse="|")`, which collapses into a single string. Used in [tidyr::pivot_wider()].
+#' @param values_fn How recoded columns are combined. Default is `~paste(.x,collapse="|")`, which collapses into a single string. Specify `NULL` to leave as named vector.
+#' @param other_fn How the `names_else.value` column is summarized. Default is `~paste2(names(.x),.x,sep="::",collapse="|")`, which displays name and value. Specify `NULL` to leave as named vector.
 #' @param unused_fn A function performed on unused columns. Default is `NULL`.
+#'
 #' @return Pivotted data
 #' @export
 #' @examples
@@ -2762,41 +2763,88 @@ full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
 #'                     "clostridium|fusobact|bacteroides"="anaerobe"),
 #'     values_fill="<none>")
 pivot_wider_recode <- function(data,
-                               id_cols = NULL,
-                               names_from = name,
-                               values_from = value,
-                               names_recodes,
-                               names_else.value = "other",
-                               names_sort = TRUE,
-                               values_sep = "::",
-                               values_fill = NULL,
-                               values_fn = ~paste(.x,collapse="|"),
-                               unused_fn = NULL) {
+                                id_cols = NULL,
+                                names_from = name,
+                                values_from = value,
+                                names_recodes,
+                                names_else.value = "other",
+                                names_sort = TRUE,
+                                values_fill = NULL,
+                                values_fn = ~paste2(.x,collapse="|"),
+                                other_fn = ~paste2(names(.x),.x,sep="::",collapse="|"),
+                                unused_fn = NULL) {
+
   id_cols <- enquo(id_cols)
   names_from <- enquo(names_from)
   values_from <- enquo(values_from)
 
   data2 <- data %>%
     mutate(name_=recode.grep(!!names_from,recodes=names_recodes,else.value=names_else.value,as.factor=TRUE),
-           value_=ifelse(name_!=names_else.value,!!values_from,paste(!!names_from,!!values_from,sep=values_sep)),
            placeholder_=TRUE) %>%
-    complete(name_) %>%
-    select(-!!names_from,-!!values_from)
+    mutate(value_=setNames(!!values_from,!!names_from)) %>%
+    complete(name_)
 
   data3 <- data2 %>%
     pivot_wider(id_cols=c(!!id_cols,placeholder_),
                 names_from=name_,
                 values_from=value_,
                 names_sort=names_sort,
-                values_fill=values_fill,
-                values_fn=values_fn,
+                values_fill=NULL,
+                values_fn = list,
                 unused_fn=unused_fn) %>%
     filter(!is.na(placeholder_)) %>% select(-placeholder_)
+
+  colvars <- levels(data2$name_)
+  othervar <- names_else.value
+  namevars <- setdiff(colvars,names_else.value)
+
+  if (!is.null(values_fn)) {
+    data3 <- data3 %>%
+      mutate(across(all_of(namevars),~map(.x,values_fn)),
+             across(all_of(namevars),simplify))
+  }
+
+  if (!is.null(other_fn)) {
+    data3 <- data3 %>%
+      mutate(across(all_of(othervar),~map(.x,other_fn)),
+             across(all_of(othervar),simplify))
+  }
   return(data3)
 }
 
-
-
+# pivot_wider_recode.OLD <- function(data,
+#                                id_cols = NULL,
+#                                names_from = name,
+#                                values_from = value,
+#                                names_recodes,
+#                                names_else.value = "other",
+#                                names_sort = TRUE,
+#                                values_sep = "::",
+#                                values_fill = NULL,
+#                                values_fn = ~paste(.x,collapse="|"),
+#                                unused_fn = NULL) {
+#   id_cols <- enquo(id_cols)
+#   names_from <- enquo(names_from)
+#   values_from <- enquo(values_from)
+#
+#   data2 <- data %>%
+#     mutate(name_=recode.grep(!!names_from,recodes=names_recodes,else.value=names_else.value,as.factor=TRUE),
+#            value_=ifelse(name_!=names_else.value,!!values_from,paste(!!names_from,!!values_from,sep=values_sep)),
+#            placeholder_=TRUE) %>%
+#     complete(name_) %>%
+#     select(-!!names_from,-!!values_from)
+#
+#   data3 <- data2 %>%
+#     pivot_wider(id_cols=c(!!id_cols,placeholder_),
+#                 names_from=name_,
+#                 values_from=value_,
+#                 names_sort=names_sort,
+#                 values_fill=values_fill,
+#                 values_fn=values_fn,
+#                 unused_fn=unused_fn) %>%
+#     filter(!is.na(placeholder_)) %>% select(-placeholder_)
+#   return(data3)
+# }
 
 pivot_wider_partial <- function(data,
                                 id_cols = NULL,
