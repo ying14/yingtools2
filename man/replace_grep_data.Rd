@@ -22,7 +22,8 @@ replace_grep_data(
 \item{recodes}{a vector of regular expressions. Can be named or unnamed; if named, will replace as: \code{c("replacement1"="pattern1", "replacement2"="pattern2", ...)}.
 If unnamed, will replace \code{c("pattern1","pattern2", ...)} with \code{""}.}
 
-\item{newvar}{bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), \code{var} will be overwritten.}
+\item{newvar}{bare name of column to hold the replaced version of \code{var}. If \code{NULL} (default), no replacement is performed.
+Note: whether you specify this leads to slightly different behavior.}
 
 \item{hits}{bare name of column to hold the text hits. If \code{NULL} (default), hits are not stored. This will store a list of extracted text, similar to the output of \code{str_extract_all()}}
 
@@ -43,6 +44,9 @@ This function attempts to perform multiple text manipulations (replacements and/
 It can be faster than manually running '\code{stringr::str_replace_all()} and/or \code{stringr::str_extract_all()} for a few
 reasons: (1) it performs one search for both replacement and extraction, (2) it performs an initial search and ignores any rows
 that didn't match, which saves time especially if most rows are not hits.
+
+Note that if you specify \code{newvar=NULL}, the original column \code{var} is searched for all patterns.
+However, if you specify a value for \code{newvar}, that new column will be used for searching (and replacing) for each pattern.
 }
 \examples{
 library(stringr)

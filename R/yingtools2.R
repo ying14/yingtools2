@@ -1359,11 +1359,14 @@ replace.grep.data <- function(data,var,recodes,newvar=NULL,replace.text="",hits.
 #' reasons: (1) it performs one search for both replacement and extraction, (2) it performs an initial search and ignores any rows
 #' that didn't match, which saves time especially if most rows are not hits.
 #'
+#' Note that if you specify `newvar=NULL`, the original column `var` is searched for all patterns.
+#' However, if you specify a value for `newvar`, that new column will be used for searching (and replacing) for each pattern.
 #' @param data the data frame to be manipulated.
 #' @param var the bare character vector to be searched.
 #' @param recodes a vector of regular expressions. Can be named or unnamed; if named, will replace as: \code{c("replacement1"="pattern1", "replacement2"="pattern2", ...)}.
 #' If unnamed, will replace `c("pattern1","pattern2", ...)` with `""`.
-#' @param newvar bare name of column to hold the replaced version of `var`. If `NULL` (default), `var` will be overwritten.
+#' @param newvar bare name of column to hold the replaced version of `var`. If `NULL` (default), no replacement is performed.
+#' Note: whether you specify this leads to slightly different behavior.
 #' @param hits bare name of column to hold the text hits. If `NULL` (default), hits are not stored. This will store a list of extracted text, similar to the output of `str_extract_all()`
 #' @param ignore.case whether or not to ignore case, passed to regular expression. Default is `TRUE`
 #' @param collapse.fn optional function to apply to each element of `hits`, to create an atomic vector Non-hits are ignored.
@@ -2798,16 +2801,24 @@ pivot_wider_recode <- function(data,
   othervar <- names_else.value
   namevars <- setdiff(colvars,names_else.value)
 
+  # this handles empty lists
+  simplify2 <- function(obj) {
+    if (is.list(obj) && length(obj)==0)  {
+      return(character())
+    } else {
+      simplify(obj)
+    }
+  }
+
   if (!is.null(values_fn)) {
     data3 <- data3 %>%
       mutate(across(all_of(namevars),~map(.x,values_fn)),
-             across(all_of(namevars),simplify))
+             across(all_of(namevars),simplify2))
   }
-
   if (!is.null(other_fn)) {
     data3 <- data3 %>%
       mutate(across(all_of(othervar),~map(.x,other_fn)),
-             across(all_of(othervar),simplify))
+             across(all_of(othervar),simplify2))
   }
   return(data3)
 }
@@ -3224,6 +3235,71 @@ gg.align.xlim <- function(glist) {
 
 
 
+
+
+
+barwidth_spacing_trans <- function(days,width) {
+  is_date <- lubridate::is.Date(days)
+  n.bars <- length(days)
+  trans <- function(x) {
+    sapply(x,function(xx) {
+      pad <- sum(pmin(pmax(0,as.numeric(xx)-(as.numeric(days)-0.5)),1)) * width
+      xx + pad
+    })
+  }
+  inv <- function(y) {
+    sapply(y,function(yy) {
+      transformed.days <- trans(days)
+      pad <- sum(pmax(pmin(yy-(transformed.days-(width/2)),width),0))
+      ans <- yy - pad
+      return(ans)
+    })
+  }
+  if (is_date) {
+    format <- function(x) {as.Date(x,origin="1970-01-01")}
+  } else {
+    format <- round
+  }
+  scales::trans_new("barwidth_spacing",trans,inv,format=format)
+}
+
+calc.barwidth <- function(days,div,xlim) {
+  width.days <- as.numeric(xlim[2]) - as.numeric(xlim[1]) + 1
+  barwidth <- width.days / (div-length(days))
+  return(barwidth)
+}
+
+#' Time bars
+#'
+#' This geom and scale are used to transform the x-scale such that the scale moves slowly at certain points (`day`).
+#' The x-scale can be numeric or date.
+#'
+#' @param ... arguments passed to [ggplot2::geom_col()] and/or [ggplot2::scale_x_continuous()]
+#' @param xlim 2-value vector specifying the x-axis limits.
+#' @param days vector of values where
+#' @param div size of the bars, specified as reciprocal fraction of plot width. Default is 30 (1 bar is 1/30th of plot width).
+#' @export
+#' @examples
+#' data <- tibble(days=c(1,3,10,50))
+#' xlim <- c(0,100)
+#'
+#' ggplot(data) +
+#'   geom_timebars(aes(x=days,y=1),xlim=xlim,days=data$days) +
+#'   scale_x_timebars(xlim=xlim,days=data$days)
+geom_timebars <- function(... , xlim,days,div=30) {
+  width <- calc.barwidth(days,div,xlim=xlim)
+  geom_col(...,width=width)
+}
+
+#' @rdname geom_timebars
+#' @export
+scale_x_timebars <- function(...,xlim,days,div=30) {
+  width <- calc.barwidth(days,div,xlim=xlim)
+  list(
+    scale_x_continuous(..., expand=c(0,0), trans=barwidth_spacing_trans(days=days,width=width)),
+    coord_cartesian(xlim=xlim)
+  )
+}
 
 
 # data cleanup functions -------------------------------------------------------------------
