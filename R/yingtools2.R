@@ -296,6 +296,50 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
 
 
 
+#' Split String Into Approximately Equal Sized Parts
+#'
+#' Split a string vector into separate lines of approximately equal size.
+#' Typical use for this is formatting labels for plotting.
+#' @param char character vector to be split.
+#' @param nparts number of parts to split into. Default is `2`.
+#' @param sep separator to split by. Default is a space, `" "`
+#' @param collapse character to collapse by, after splitting. Default is `"\n"`. Specify `NULL` to keep as a list.
+#'
+#' @return a character vector (or list) which has been split.
+#' @export
+#'
+#' @examples
+#' str_split_equal_parts(char,4)
+str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
+  npartitions <- nparts -1
+  locs <- str_locate_all(char,sep)
+  lens <- nchar(char)
+  split_char  <- pmap(list(char,locs,lens),function(chr,loc,len) {
+    if (is.na(chr)) {
+      return(NULL)
+    }
+    pos <- loc[,"start"]
+    npartitions <- min(npartitions,length(pos))
+    combn.positions <- combn(pos,npartitions,simplify=FALSE)
+    lengths <- combn.positions %>% map(~{
+      x <- c(.x,len)
+      x-lag(x,default=0)
+    })
+    max.lengths <- map_dbl(lengths,max)
+    max.winners <- which(max.lengths==min(max.lengths))
+    min.winner <- lengths[max.winners] %>% map_dbl(min) %>% which.max()
+    final.winner <- max.winners[min.winner]
+    combn.positions.winner <- combn.positions[[final.winner]]
+    end <- c(combn.positions.winner-1,len)
+
+    start <- c(1,combn.positions.winner+1)
+    str_sub(chr,start=start,end=end)
+  })
+  if (!is.null(collapse)) {
+    split_char <- map_chr(split_char,~paste2(.x,collapse="\n"))
+  }
+  return(split_char)
+}
 
 
 
