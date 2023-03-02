@@ -309,8 +309,11 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
 #' @export
 #'
 #' @examples
-#' str_split_equal_parts(char,4)
+#' str_split_equal_parts(sentences,4)
 str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
+  # declare.args(char="Staphylococcus aureus",str_split_equal_parts)
+  # declare.args(char="S taphylococcus aureus",str_split_equal_parts)
+
   npartitions <- nparts -1
   locs <- str_locate_all(char,sep)
   lens <- nchar(char)
@@ -320,7 +323,14 @@ str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
     }
     pos <- loc[,"start"]
     npartitions <- min(npartitions,length(pos))
-    combn.positions <- combn(pos,npartitions,simplify=FALSE)
+
+    if (length(pos)==1) {
+      # in combn(x,m), if x is a single integer, it converts it to  seq_len(x).
+      combn.positions <- list(pos)
+    } else {
+      combn.positions <- combn(pos,npartitions,simplify=FALSE)
+    }
+
     lengths <- combn.positions %>% map(~{
       x <- c(.x,len)
       x-lag(x,default=0)
@@ -340,6 +350,10 @@ str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
   }
   return(split_char)
 }
+
+
+
+
 
 
 
@@ -3062,7 +3076,7 @@ gg.colors <- function(n=6, h=c(0,360)+15) {
 #'
 #' If a `NULL` value is passed to the plot list, that plot and the corresponding height value will be omitted.
 #'
-#' @param ... ggplot objects to be stacked
+#' @param ... ggplot objects to be stacked. Can also supply a formula where left hand side is ggplot, right hand side is height.
 #' @param heights a numeric vector representing the relative height of each plot. Passed directly to [gridExtra::grid.arrange()].
 #' @param align.xlim logical, whether or not to alter the x-limits in each plot to match. Default is `FALSE`. (Note this is experimental and can potentially fail in strange situations)
 #' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default `TRUE`.
@@ -3079,81 +3093,91 @@ gg.colors <- function(n=6, h=c(0,360)+15) {
 #' @examples
 #' g1 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
 #' g2 <- ggplot(mtcars,aes(x=mpg,y=wt,fill=factor(cyl))) + geom_col() + scale_fill_discrete("Number of Cylinders")
+#' g3 <- ggplot(mtcars,aes(x=mpg,y=wt,label=cyl,fill=factor(cyl))) + geom_label()
+#'
 #' # grid.arrange does not align correctly, basically due to because of legend/axis differences
-#' gridExtra::grid.arrange(g1,g2,ncol=1)
+#' gridExtra::grid.arrange(g1,g2,g3,ncol=1)
 #' # gg.stack aligns correctly
-#' gg.stack(g1,g2)
-gg.stack <- function(...,heights=NULL,align.xlim=FALSE,adjust.themes=TRUE,gg.extras=NULL,gap=0,margin=5.5,units="pt",newpage=TRUE,as.gtable=FALSE) {
-  requireNamespace(c("grid","gridExtra","gtable"),quietly=TRUE)
+#' gg.stack(g1,g2,g3)
+#' # vary the heights
+#' gg.stack(g1,g2,g3,heights=c(1,2,3))
+#' # alternatively, use formulas to specify
+#' gg.stack(g1~3,
+#'          g2~2,
+#'          g3~1,heights=c(1,2,3))
+gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = TRUE, gg.extras = NULL, gap = 0, margin = 5.5, units = "pt", newpage = TRUE, as.gtable = FALSE) {
+  requireNamespace(c("grid", "gridExtra", "gtable"), quietly = TRUE)
   grobs <- list(...)
-  keep <- !sapply(grobs,is.null)
+
+  if (all(map_lgl(grobs, rlang::is_formula))) {
+    default_env <- caller_env()
+    heights <- grobs %>% map(~eval_tidy(f_rhs(.x),env=default_env))
+    grobs <- grobs %>% map(~eval_tidy(f_lhs(.x),env=default_env))
+  }
+
+  keep <- !sapply(grobs, is.null)
   if (!is.null(heights)) {
-    if (length(grobs)!=length(heights)) {
+    if (length(grobs) != length(heights)) {
       stop("YTError: number of grobs does not match the number of heights.")
     }
     heights <- heights[keep]
-  } else {
-    heights <- rep(1,length.out=length(grobs))
+  }
+  else {
+    heights <- rep(1, length.out = length(grobs))
   }
   grobs <- grobs[keep]
   if (align.xlim) {
     grobs <- gg.align.xlim(grobs)
   }
   length.grobs <- length(grobs)
-  if (length.grobs>1) {
+  if (length.grobs > 1) {
     g.top <- grobs[[1]]
-    g.middle.list <- lapply(grobs[c(-1,-length.grobs)],function(g) {
+    g.middle.list <- lapply(grobs[c(-1, -length.grobs)], function(g) {
       g
     })
     g.bottom <- grobs[[length.grobs]]
-
     if (adjust.themes) {
-      top.theme <- theme(plot.margin=unit(c(margin, margin, gap, margin),units),
-                         axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-      middle.theme <- theme(plot.margin=unit(c(gap, margin, gap, margin),units),
-                            axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank())
-      bottom.theme <- theme(plot.margin=unit(c(gap, margin, margin, margin),units))
+      top.theme <- theme(plot.margin = unit(c(margin, margin, gap, margin), units), axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+      middle.theme <- theme(plot.margin = unit(c(gap, margin, gap, margin), units), axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+      bottom.theme <- theme(plot.margin = unit(c(gap, margin, margin, margin), units))
       g.top <- g.top + top.theme
-      g.middle.list <- lapply(g.middle.list,function(g) {
+      g.middle.list <- lapply(g.middle.list, function(g) {
         g + middle.theme
       })
       g.bottom <- g.bottom + bottom.theme
     }
-    grobs1 <- c(list(g.top),g.middle.list,list(g.bottom))
-  } else {
+    grobs1 <- c(list(g.top), g.middle.list, list(g.bottom))
+  }
+  else {
     grobs1 <- grobs
   }
-  #list of ggplotGrobs
-  grobs2 <- lapply(grobs1,function(g) {
+  grobs2 <- lapply(grobs1, function(g) {
     gr <- ggplotGrob(g)
   })
-  #get max number of columns for each ggplot
-  nwidths <- max(sapply(grobs2,function(g) length(g$width)))
-  #if a plot has fewer columns, add null columns to the end.
-  grobs3 <- lapply(grobs2,function(g) {
+  nwidths <- max(sapply(grobs2, function(g) length(g$width)))
+  grobs3 <- lapply(grobs2, function(g) {
     columns.needed <- nwidths - length(g$widths)
-    if (columns.needed>0) {
+    if (columns.needed > 0) {
       for (x in 1:columns.needed) {
-        g <- gtable::gtable_add_cols(g,unit(1,"null"))
+        g <- gtable::gtable_add_cols(g, unit(1, "null"))
       }
     }
     return(g)
   })
-  #normalize null heights to 1 within each plot. should be able to handle facets with varying heights.
-  #then alter heights of null portion of each plot.
-  grobs4 <- mapply(function(gr,ht) {
+  grobs4 <- mapply(function(gr, ht) {
     ht.char <- as.character(gr$heights)
-    null.heights <- grep("null",ht.char)
-    relative.heights <- as.numeric(sub("null","",ht.char[null.heights]))
+    null.heights <- grep("null", ht.char)
+    relative.heights <- as.numeric(sub("null", "", ht.char[null.heights]))
     total.null.height <- sum(relative.heights)
     gr$heights[null.heights] <- gr$heights[null.heights] * (1/total.null.height) * ht
     return(gr)
-  },grobs3,heights,SIMPLIFY=FALSE)
-  args <- c(grobs4,list(size="max"))
-  gtable.final <- do.call(gridExtra::gtable_rbind,args)
+  }, grobs3, heights, SIMPLIFY = FALSE)
+  args <- c(grobs4, list(size = "max"))
+  gtable.final <- do.call(gridExtra::gtable_rbind, args)
   if (as.gtable) {
     return(gtable.final)
-  } else {
+  }
+  else {
     if (newpage) {
       grid::grid.newpage()
     }
@@ -3277,25 +3301,81 @@ gg.align.xlim <- function(glist) {
 }
 
 
+#' Time bars
+#'
+#' This geom and scale are used to transform the x-scale such that the scale moves slowly at certain points (`day`).
+#' The x-scale can be numeric or date.
+#'
+#' @param ... arguments passed to [ggplot2::scale_x_continuous()]
+#' @param xlim 2-value vector specifying the x-axis limits.
+#' @param days vector of values where
+#' @param div size of the bars, specified as reciprocal fraction of plot width. Default is 30 (1 bar is 1/30th of plot width).
+#' @export
+#' @examples
+#' data <- tibble(days=c(1,2,50,100))
+#' xlim <- c(-10,200)
+#' ggplot(data) +
+#'   geom_col(aes(x=days,y=1,fill=factor(days)),width=1) +
+#'   scale_x_timebars(xlim=xlim,days=data$days,div=10)
+scale_x_timebars <- function(... ,days, xlim=NULL, div=30, breaks = NULL) {
+  if (length(days)==0) {
+    message("YTNote: No days specified. X-axis will not be transformed.")
+    return(scale_x_continuous(...))
+  }
+  if (is.null(xlim)) {
+    xlim <- range(days) + c(-1,1)
+  }
+  is.betw <-is.between(days,xlim[1],xlim[2])
+  if (!all(is.betw)) {
+    warning("YTWarning: not all days fall within xlim!")
+    days <- days[is.betw]
+  }
+  if (is.null(breaks))  {
+    breaks <- c(xlim,days) %>% unique() %>% sort()
+  }
+
+  xlim.real <- xlim + c(-0.5,0.5)
+  list(scale_x_continuous(... ,
+                          expand=c(0,0),
+                          breaks=breaks,
+                          trans=barwidth_spacing_trans(days=days,xlim=xlim.real,div=div)),
+       coord_cartesian(xlim=xlim.real)
+  )
+}
 
 
-
-
-
-barwidth_spacing_trans <- function(days,width) {
+#' @export
+#' @rdname scale_x_timebars
+barwidth_spacing_trans <- function(days,xlim,div) {
   is_date <- lubridate::is.Date(days)
-  n.bars <- length(days)
-  trans <- function(x) {
-    sapply(x,function(xx) {
-      pad <- sum(pmin(pmax(0,as.numeric(xx)-(as.numeric(days)-0.5)),1)) * width
-      xx + pad
+
+  xlim <- as.numeric(xlim)
+  xlim.width <- as.numeric(xlim[2]) - as.numeric(xlim[1])
+  n.days <- length(days)
+  t.width <- div
+
+  if (t.width<=n.days){
+    warning("YTWarning: div must be more than length(days). Increasing div.")
+    t.width <- n.days * 1.01
+  }
+  nonbar.rate <- (xlim.width-n.days) / (t.width-n.days)
+  message(str_glue("nonbar.rate={nonbar.rate}"))
+
+  trans <- function(y) {
+    sapply(y,function(yy) {
+      bar.lengths <- sum(pmax(pmin(as.numeric(yy)-(as.numeric(days)-0.5),1),0))
+      nonbar.lengths <- as.numeric(yy)-xlim[1]-bar.lengths
+      ans <- bar.lengths + (nonbar.lengths / nonbar.rate)
+      ans
+      return(ans)
     })
   }
-  inv <- function(y) {
-    sapply(y,function(yy) {
-      transformed.days <- trans(days)
-      pad <- sum(pmax(pmin(yy-(transformed.days-(width/2)),width),0))
-      ans <- yy - pad
+  days.trans <- trans(days)
+  inv <- function(x) {
+    sapply(x,function(xx) {
+      bar.lengths <- sum(pmax(pmin(xx-(days.trans-0.5),1),0))
+      nonbar.lengths <- xx-bar.lengths
+      ans <- bar.lengths + (nonbar.lengths * nonbar.rate) + xlim[1]
       return(ans)
     })
   }
@@ -3304,46 +3384,31 @@ barwidth_spacing_trans <- function(days,width) {
   } else {
     format <- round
   }
-  scales::trans_new("barwidth_spacing",trans,inv,format=format)
+  breaks <- days
+  major <- function() {
+    function(x) {
+      return(breaks)
+    }
+  }
+  minor <- function () {
+    function(b, limits, n) {
+      dlimits <- limits %>% inv()
+      br <- seq(dlimits[1],dlimits[2],by=1)
+      br2 <- br %>% trans()
+      return(br2)
+    }
+  }
+  scales::trans_new("barwidth_spacing",
+                    transform=trans,
+                    inverse=inv,
+                    # breaks=major(),
+                    format=format,
+                    minor=minor())
 }
 
-calc.barwidth <- function(days,div,xlim) {
-  width.days <- as.numeric(xlim[2]) - as.numeric(xlim[1]) + 1
-  barwidth <- width.days / (div-length(days))
-  return(barwidth)
-}
 
-#' Time bars
-#'
-#' This geom and scale are used to transform the x-scale such that the scale moves slowly at certain points (`day`).
-#' The x-scale can be numeric or date.
-#'
-#' @param ... arguments passed to [ggplot2::geom_col()] and/or [ggplot2::scale_x_continuous()]
-#' @param xlim 2-value vector specifying the x-axis limits.
-#' @param days vector of values where
-#' @param div size of the bars, specified as reciprocal fraction of plot width. Default is 30 (1 bar is 1/30th of plot width).
-#' @export
-#' @examples
-#' data <- tibble(days=c(1,3,10,50))
-#' xlim <- c(0,100)
-#'
-#' ggplot(data) +
-#'   geom_timebars(aes(x=days,y=1),xlim=xlim,days=data$days) +
-#'   scale_x_timebars(xlim=xlim,days=data$days)
-geom_timebars <- function(... , xlim,days,div=30) {
-  width <- calc.barwidth(days,div,xlim=xlim)
-  geom_col(...,width=width)
-}
 
-#' @rdname geom_timebars
-#' @export
-scale_x_timebars <- function(...,xlim,days,div=30) {
-  width <- calc.barwidth(days,div,xlim=xlim)
-  list(
-    scale_x_continuous(..., expand=c(0,0), trans=barwidth_spacing_trans(days=days,width=width)),
-    coord_cartesian(xlim=xlim)
-  )
-}
+
 
 
 # data cleanup functions -------------------------------------------------------------------
@@ -4596,6 +4661,83 @@ get.all.dependencies <- function(pkg)  {
 
 
 
+#' Set Namespace Precedence
+#'
+#' @param pkg package name to be prioritized
+#'
+#' @export
+#'
+#' @examples
+#' library(dplyr)
+#' library(plyr)
+#'
+#' # will not work
+#' mtcars %>% rename(mpg1=mpg)
+#'
+#' set_precedence("dplyr")
+#'
+#' # will work
+#' mtcars %>% rename(mpg1=mpg)
+set_precedence <- function(pkg) {
+  detach(paste0("package:", pkg), character.only = TRUE)
+  attachNamespace(pkg)
+}
+
+#' List all functions exported by installed packages
+#'
+#' Find all exported functions from all installed packages. Use this to find namespace collisions.
+#'
+#' @param remove.reexported If `TRUE` (default), remove functions that were re-exported from other packages. (e.g. `ggtree::ggplot` is the same as `ggplot2::ggplot`)
+#' @export
+#' @examples
+#' f <- list.all.exported.functions()
+#' f %>% filter(Function=="rename")
+#' f %>% filter(Function=="slice")
+#' f %>% filter(Function=="rescale")
+#' f %>% filter(Function=="first")
+list.all.exported.functions <- function(remove.reexported=TRUE)  {
+
+  get_exported <- function(pkg) {
+    fs <- tryCatch({
+      getNamespaceExports(pkg)
+    },error=function(e) {
+      NULL
+    })
+    return(fs)
+  }
+  get_imported <- function(pkg) {
+    fs <- tryCatch({
+      getNamespaceImports(pkg)
+    },error=function(e) {
+      NULL
+    })
+    return(fs)
+  }
+
+  pkgs0 <- installed.packages() %>% as_tibble() %>%
+    mutate(loaded=Package %in% .packages(),
+           Function=map(Package,get_exported))
+
+  pkgs <- pkgs0 %>%
+    unnest(Function) %>%
+    select(loaded,Function,Package,everything())
+
+  imp <- tibble(Package=pkgs0$Package) %>%
+    mutate(Function=map(Package,get_imported)) %>%
+    unnest(Function) %>%
+    mutate(origin.pkg=names(Function)) %>%
+    filter(origin.pkg!="base") %>%
+    unnest(Function) %>% mutate(re.exported=TRUE)
+
+  pkgs2 <- pkgs %>% left_join(imp,by=c("Package","Function")) %>%
+    select(Function,Package,origin.pkg,loaded,re.exported,everything()) %>%
+    replace_na(list(re.exported=FALSE))
+
+  if(remove.reexported){
+    pkgs2 <- pkgs2 %>% filter(!re.exported)
+  }
+  return(pkgs2)
+}
 
 
 #' File activity status

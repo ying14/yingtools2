@@ -555,7 +555,7 @@ phy.collapse.base <- function(otudt, taxdt, taxranks, level,
     paste(x, i, sep = "_")
   }
   taxdt <- taxdt[, `:=`(strain, otu)]
-  allcalcs <- rlang::exprs(
+  allcalcs <- exprs(
     n.detectable = sum(numseqs > 0),
     pct.detectable = sum(numseqs > 0) / ..nsamps,
     mean.pctseqs = sum(pctseqs) / ..nsamps,
@@ -1003,7 +1003,7 @@ fungal.palette <- exprs(
 #' g + scale_fill_manual(values=pal2) + legend2
 get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
   # data=phy1;unitvar="Species";tax.palette=yt.palette2
-  requireNamespace(c("phyloseq","formula.tools"),quietly=TRUE)
+  requireNamespace("phyloseq",quietly=TRUE)
   unitvar <- ensym(unitvar)
   if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
     data <- get.tax(data)
@@ -1012,7 +1012,7 @@ get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
     stop("YTError: tax.palette needs to be a list of formulas!")
   }
   vars.needed <- tax.palette %>% map(~{
-    formula.tools::lhs(.x) %>% all.vars()
+    rlang::f_lhs(.x) %>% all.vars()
   }) %>% simplify() %>% c(as_label(unitvar)) %>% unique() %>% as.character()
   if (!all(vars.needed %in% names(data))) {
     missing.vars <- setdiff(vars.needed,names(data))
@@ -1027,11 +1027,11 @@ get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
     return(all(iscolor))
   }
   color.list <- map(tax.palette,function(exp) {
-    colors <- formula.tools::rhs(exp) %>% eval_tidy()
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
     if (!is_color(colors)) {
       stop("YTError: not a valid color set: {paste(colors,collapse=', ')}")
     }
-    criteria <- formula.tools::lhs(exp)
+    criteria <- rlang::f_lhs(exp)
     # message(criteria)
     color.yes.no <- tax %>%
       mutate(criteria=!!criteria,
@@ -1057,10 +1057,9 @@ get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
 #' @export
 #' @examples
 get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
-  requireNamespace("formula.tools",quietly=TRUE)
   glist <- imap(tax.palette,function(exp,label) {
-    colors <- formula.tools::rhs(exp) %>% rlang::eval_tidy()
-    criteria <- formula.tools::lhs(exp)
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
+    criteria <- rlang::f_lhs(exp)
     d <- tibble(color=colors)
     divs <- seq(0,1,length.out=nrow(d)+1)
     d$xmin <- divs[-length(divs)]
@@ -1255,62 +1254,74 @@ geom_hilight <- function(mapping = NULL, data = NULL,
 
 #' @export
 GeomHilight <- ggplot2::ggproto("GeomHilight", ggplot2::Geom,
-                                default_aes = ggplot2::aes(label = NA,
-                                                           colour = "black",
-                                                           fill = "light blue",
-                                                           xend = NA,
-                                                           xadd = NA,
-                                                           linesize = 0.5,
-                                                           linetype = 1, lineheight = 1.2,
-                                                           alpha = NA,
-                                                           size = 3.88,
-                                                           angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1),
-                                required_aes = c("x","y"),
-                                setup_data = function(data, params) {
-                                  data %>% filter(isTip,var==value)
-                                },
-                                draw_group = function(data, panel_scales, coord) {
-                                  linesize <- data$linesize[1]
-                                  topdata <- data[which.max(data$y),,drop=FALSE]
-                                  bottomdata <- data[which.min(data$y),,drop=FALSE]
-                                  xend <- data$xend[1]
-                                  xadd <- data$xadd[1]
-                                  label <- data$label[1]
-                                  if (is.na(label)) {
-                                    label <- data$value[1]
-                                  }
-                                  if (is.na(xend) & is.na(xadd)) {
-                                    xend <- max(data$x,na.rm=TRUE)
-                                    xadd <- 0.5
-                                  } else if (is.na(xend) & !is.na(xadd)) {
-                                    xend <- max(data$x)
-                                  } else if (!is.na(xend) & is.na(xadd)) {
-                                    xadd <- 0
-                                  } else if (!is.na(xend) & !is.na(xadd)) {
-                                    warning("YTWarning: both xend and xadd were specified, only one should be specified")
-                                  } else stop("YTError: should not happen, look for code issues")
-                                  xend <- xend + xadd
-                                  xtop <- topdata$x
-                                  ytop <- topdata$y+0.5
-                                  xbottom <- bottomdata$x
-                                  ybottom <- bottomdata$y-0.5
-                                  rect_data <- data.frame(xmin=data$x,
-                                                          xmax=xend,
-                                                          ymin=data$y-0.5,
-                                                          ymax=data$y+0.5,
-                                                          colour=NA,data[1,,drop=FALSE],row.names=NULL)
-                                  text_data <- data.frame(x=xend,y=(ytop+ybottom)/2,label=label,
-                                                          data[1,,drop=FALSE],row.names=NULL)
-                                  line_data <- data.frame(x=c(xend,xtop,xbottom),y=c(ytop,ytop,ybottom),
-                                                          xend=c(xend,xend,xend),yend=c(ybottom,ytop,ybottom),
-                                                          size=linesize,
-                                                          data[1,,drop=FALSE],row.names=NULL)
-                                  gList(GeomRect$draw_panel(rect_data, panel_scales, coord),
-                                        GeomText$draw_panel(text_data, panel_scales, coord),
-                                        GeomSegment$draw_panel(line_data, panel_scales, coord))}
-                                #draw_key = GeomRect$draw_key
+  default_aes = ggplot2::aes(
+    label = NA,
+    colour = "black",
+    fill = "light blue",
+    xend = NA,
+    xadd = NA,
+    linesize = 0.5,
+    linetype = 1, lineheight = 1.2,
+    alpha = NA,
+    size = 3.88,
+    angle = 0, hjust = 0.5, vjust = 0.5, family = "", fontface = 1
+  ),
+  required_aes = c("x", "y"),
+  setup_data = function(data, params) {
+    data %>% filter(isTip, var == value)
+  },
+  draw_group = function(data, panel_scales, coord) {
+    linesize <- data$linesize[1]
+    topdata <- data[which.max(data$y), , drop = FALSE]
+    bottomdata <- data[which.min(data$y), , drop = FALSE]
+    xend <- data$xend[1]
+    xadd <- data$xadd[1]
+    label <- data$label[1]
+    if (is.na(label)) {
+      label <- data$value[1]
+    }
+    if (is.na(xend) & is.na(xadd)) {
+      xend <- max(data$x, na.rm = TRUE)
+      xadd <- 0.5
+    } else if (is.na(xend) & !is.na(xadd)) {
+      xend <- max(data$x)
+    } else if (!is.na(xend) & is.na(xadd)) {
+      xadd <- 0
+    } else if (!is.na(xend) & !is.na(xadd)) {
+      warning("YTWarning: both xend and xadd were specified, only one should be specified")
+    } else {
+      stop("YTError: should not happen, look for code issues")
+    }
+    xend <- xend + xadd
+    xtop <- topdata$x
+    ytop <- topdata$y + 0.5
+    xbottom <- bottomdata$x
+    ybottom <- bottomdata$y - 0.5
+    rect_data <- data.frame(
+      xmin = data$x,
+      xmax = xend,
+      ymin = data$y - 0.5,
+      ymax = data$y + 0.5,
+      colour = NA, data[1, , drop = FALSE], row.names = NULL
+    )
+    text_data <- data.frame(
+      x = xend, y = (ytop + ybottom) / 2, label = label,
+      data[1, , drop = FALSE], row.names = NULL
+    )
+    line_data <- data.frame(
+      x = c(xend, xtop, xbottom), y = c(ytop, ytop, ybottom),
+      xend = c(xend, xend, xend), yend = c(ybottom, ytop, ybottom),
+      size = linesize,
+      data[1, , drop = FALSE], row.names = NULL
+    )
+    gList(
+      GeomRect$draw_panel(rect_data, panel_scales, coord),
+      GeomText$draw_panel(text_data, panel_scales, coord),
+      GeomSegment$draw_panel(line_data, panel_scales, coord)
+    )
+  }
+  # draw_key = GeomRect$draw_key
 )
-
 
 
 #' Modify Angle for Text on Circular ggtree

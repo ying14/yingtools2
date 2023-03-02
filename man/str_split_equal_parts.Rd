@@ -23,5 +23,5 @@ Split a string vector into separate lines of approximately equal size.
 Typical use for this is formatting labels for plotting.
 }
 \examples{
-str_split_equal_parts(char,4)
+str_split_equal_parts(sentences,4)
 }

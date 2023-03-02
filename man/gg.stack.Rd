@@ -18,7 +18,7 @@ gg.stack(
 )
 }
 \arguments{
-\item{...}{ggplot objects to be stacked}
+\item{...}{ggplot objects to be stacked. Can also supply a formula where left hand side is ggplot, right hand side is height.}
 
 \item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{\link[gridExtra:arrangeGrob]{gridExtra::grid.arrange()}}.}
 
@@ -57,8 +57,16 @@ If a \code{NULL} value is passed to the plot list, that plot and the correspondi
 \examples{
 g1 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
 g2 <- ggplot(mtcars,aes(x=mpg,y=wt,fill=factor(cyl))) + geom_col() + scale_fill_discrete("Number of Cylinders")
+g3 <- ggplot(mtcars,aes(x=mpg,y=wt,label=cyl,fill=factor(cyl))) + geom_label()
+
 # grid.arrange does not align correctly, basically due to because of legend/axis differences
-gridExtra::grid.arrange(g1,g2,ncol=1)
+gridExtra::grid.arrange(g1,g2,g3,ncol=1)
 # gg.stack aligns correctly
-gg.stack(g1,g2)
+gg.stack(g1,g2,g3)
+# vary the heights
+gg.stack(g1,g2,g3,heights=c(1,2,3))
+# alternatively, use formulas to specify
+gg.stack(g1~3,
+         g2~2,
+         g3~1,heights=c(1,2,3))
 }
