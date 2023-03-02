@@ -3153,6 +3153,7 @@ gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = T
   }
   grobs2 <- lapply(grobs1, function(g) {
     gr <- ggplotGrob(g)
+    return(gr)
   })
   nwidths <- max(sapply(grobs2, function(g) length(g$width)))
   grobs3 <- lapply(grobs2, function(g) {
@@ -3359,8 +3360,6 @@ barwidth_spacing_trans <- function(days,xlim,div) {
     t.width <- n.days * 1.01
   }
   nonbar.rate <- (xlim.width-n.days) / (t.width-n.days)
-  message(str_glue("nonbar.rate={nonbar.rate}"))
-
   trans <- function(y) {
     sapply(y,function(yy) {
       bar.lengths <- sum(pmax(pmin(as.numeric(yy)-(as.numeric(days)-0.5),1),0))
