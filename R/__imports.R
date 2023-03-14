@@ -19,10 +19,12 @@
 #' @import stringr
 #' @import purrr
 #' @import rlang
+#' @import grid
 #' @importFrom lubridate is.Date is.POSIXct is.POSIXlt is.POSIXt
 #' @importFrom scales percent trans_new pvalue rescale
 #' @importFrom reshape2 dcast melt
 #' @importFrom plyr adply
+#' @importFrom gridExtra arrangeGrob grid.arrange
 NULL
 
 

@@ -466,6 +466,12 @@ compare.character <- function(x,y) {
   x.name <- deparse1(substitute(x))
   y.name <- deparse1(substitute(y))
 
+  are.equal <- function(v1,v2) {
+    same <- (v1 == v2) | (is.na(v1) & is.na(v2))
+    same[is.na(same)] <- FALSE
+    return(same)
+  }
+
   x.length <- length(x)
   y.length <- length(y)
   x.ndistinct <- n_distinct(x)
@@ -475,8 +481,8 @@ compare.character <- function(x,y) {
   x.range <- table(x) %>% range()
   y.range <- table(y) %>% range()
   xy.samelength <- x.length==y.length
-  xy.identical <- xy.samelength && all(x==y)
-  xy.identical.difforder <- xy.samelength && all(sort(x)==sort(y))
+  xy.identical <- xy.samelength && all(are.equal(x,y))
+  xy.identical.difforder <- xy.samelength && all(are.equal(sort(x),sort(y)))
   x.not.y <- setdiff(x,y)
   y.not.x <- setdiff(y,x)
   x.and.y <- intersect(x,y)
@@ -1904,8 +1910,8 @@ is.between <- function(x,start,stop,check=TRUE) {
 #' @param stop vector of event stop times (numeric or Date).
 #' @param row vector of event types. Can be a list of more than one vector.
 #' @param by optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is `NULL`
-#' @param row.overlap whether or not the same row value can overlap. TRUE: each value is always one row FALSE: each row can occupy several rows if necessary
-#' @param min.gap the minimum gap allowed before 2 different row values can be combined. Inf: different row values can never share the same row position. 0: fit different rows as much as possible.
+#' @param row.overlap whether or not the same row value can overlap. `TRUE`: each row value is always one row and can overlap, FALSE: rows do not overlap and can occupy several rows if necessary
+#' @param min.gap the minimum gap allowed before 2 different row values can be combined. `Inf`: different row values can never share the same row position. `0`: fit different rows as much as possible.
 #' @return Returns a vector of row number assignments for each time event.
 #' @examples
 #' library(tidyverse)
@@ -1936,7 +1942,7 @@ is.between <- function(x,start,stop,check=TRUE) {
 #'   mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) %>%
 #'   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)")
 #' @export
-get.row <- function(start,stop,row=NULL,by=NULL,no.row.overlap=FALSE,min.gap=Inf) {
+get.row <- function(start,stop,row=NULL,by=NULL,row.overlap=TRUE,min.gap=Inf) {
   requireNamespace("IRanges",quietly=TRUE)
   if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
   if (length(start)==0) {return(integer())}
@@ -1959,7 +1965,7 @@ get.row <- function(start,stop,row=NULL,by=NULL,no.row.overlap=FALSE,min.gap=Inf
   row <- combine.one.factor(row)
   t <- data.frame(start,stop,row,by) %>% mutate(i=row_number())
   #arrange elements within each row (minimize number of rows)
-  if (no.row.overlap) {
+  if (!row.overlap) {
     t2 <- t %>% group_by(row,by) %>%
       mutate(row1=get.distinct.row(start,stop)) %>%
       ungroup()
@@ -3188,6 +3194,85 @@ gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = T
 
 
 
+#' Stack and line up ggplot objects in a column
+#'
+#' Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
+#'
+#' Makes use of [`patchwork`][`patchwork-package`] package to align. The previous version ([gg.stack()])
+#' manually adjusted widths to perform the aligment.
+#'
+#' @param ... ggplot objects to be stacked. Can also supply a formula where left hand side is ggplot, right hand side is height.
+#' @param heights a numeric vector representing the relative height of each plot. Passed directly to [gridExtra::grid.arrange()].
+#' @param adjust.themes logical, whether or not to adjust each plot's theme for stacking (change gap/margin, suppress x-axis in upper plots). Default `TRUE`.
+#' @param gg.extras a list of ggplot objects that will be applied to all plots. Default is `NULL`.
+#' @param gap size of gap between stacked plots. Default is `unit(0,"pt")`.
+#' @param margin size of the margin around the plots. Default is `unit(5.5,"pt")`, which is the `ggplot2` default.
+#' @return plot of stacked ggplots
+#' @export
+#' @examples
+#' g1 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
+#' g2 <- ggplot(mtcars,aes(x=mpg,y=wt,fill=factor(cyl))) + geom_col() + scale_fill_discrete("Number of Cylinders")
+#' g3 <- ggplot(mtcars,aes(x=mpg,y=wt,label=cyl,fill=factor(cyl))) + geom_label()
+#'
+#' # grid.arrange does not align correctly, basically due to because of legend/axis differences
+#' gridExtra::grid.arrange(g1,g2,g3,ncol=1)
+#' # gg.stack2 aligns correctly
+#' gg.stack2(g1,g2,g3)
+#' # vary the heights
+#' gg.stack2(g1,g2,g3,heights=c(1,2,3))
+#' # alternatively, use formulas to specify
+#' gg.stack2(g1~3,
+#'          g2~2,
+#'          g3~1,heights=c(1,2,3))
+gg.stack2 <- function(..., heights = NULL, gap=unit(0,"pt"),
+                      margin = theme_get()$plot.margin, adjust.themes = TRUE,
+                      return.gg.list=FALSE) {
+  requireNamespace("grid", quietly = TRUE)
+  grobs <- list(...)
+
+  if (all(map_lgl(grobs, rlang::is_formula))) {
+    default_env <- caller_env()
+    heights <- grobs %>% map(~eval_tidy(f_rhs(.x),env=default_env))
+    grobs <- grobs %>% map(~eval_tidy(f_lhs(.x),env=default_env))
+  }
+  keep <- !sapply(grobs, is.null)
+  grobs <- grobs[keep]
+  length.grobs <- length(grobs)
+  if (length.grobs > 1) {
+    if (adjust.themes) {
+      g.top <- grobs[[1]]
+      g.middle.list <- lapply(grobs[c(-1, -length.grobs)], function(g) {
+        g
+      })
+      g.bottom <- grobs[[length.grobs]]
+      top.theme <- theme(plot.margin = grid::unit.c(margin[1], margin[2], gap, margin[4]),
+                         axis.title.x = element_blank(),
+                         axis.text.x = element_blank(),
+                         axis.ticks.x = element_blank())
+      middle.theme <- theme(plot.margin = grid::unit.c(gap, margin[2], gap, margin[4]),
+                            axis.title.x = element_blank(),
+                            axis.text.x = element_blank(),
+                            axis.ticks.x = element_blank())
+      bottom.theme <- theme(plot.margin = grid::unit.c(gap, margin[2], margin[3], margin[4]))
+      g.top <- g.top + top.theme
+      g.middle.list <- lapply(g.middle.list, function(g) {
+        g + middle.theme
+      })
+      g.bottom <- g.bottom + bottom.theme
+    }
+    grobs1 <- c(list(g.top), g.middle.list, list(g.bottom))
+  } else {
+    grobs1 <- grobs
+  }
+  if (return.gg.list){
+    return(grobs1)
+  }
+
+  Reduce(`+`, grobs1) + plot_layout(ncol=1,heights=heights)
+}
+
+
+
 
 #' Calculate axis limits
 #'
@@ -3318,13 +3403,23 @@ gg.align.xlim <- function(glist) {
 #' ggplot(data) +
 #'   geom_col(aes(x=days,y=1,fill=factor(days)),width=1) +
 #'   scale_x_timebars(xlim=xlim,days=data$days,div=10)
-scale_x_timebars <- function(... ,days, xlim=NULL, div=30, breaks = NULL) {
+#'
+scale_x_timebars <- function(... ,days, xlim=NULL,
+                             div=30, breaks = NULL) {
+  days <- unique(days) %>% sort()
   if (length(days)==0) {
     message("YTNote: No days specified. X-axis will not be transformed.")
     return(scale_x_continuous(...))
   }
   if (is.null(xlim)) {
-    xlim <- range(days) + c(-1,1)
+    xwidth <- max(days)-min(days)+1
+    # x width should be minimum div.
+    min.pad <- (div-xwidth) / 2
+    ndays <-  length(days)
+    average.dist <- xwidth/ndays
+    dist.pad <- average.dist
+    pad <- ceiling(max(min.pad,dist.pad))
+    xlim <- range(days) + c(-pad,pad)
   }
   is.betw <-is.between(days,xlim[1],xlim[2])
   if (!all(is.betw)) {
@@ -3332,17 +3427,18 @@ scale_x_timebars <- function(... ,days, xlim=NULL, div=30, breaks = NULL) {
     days <- days[is.betw]
   }
   if (is.null(breaks))  {
-    breaks <- c(xlim,days) %>% unique() %>% sort()
+    breaks <- days
   }
-
   xlim.real <- xlim + c(-0.5,0.5)
-  list(scale_x_continuous(... ,
-                          expand=c(0,0),
+
+  trans <- barwidth_spacing_trans(days=days,xlim=xlim.real,div=div)
+  list(scale_x_continuous(... , expand=c(0,0),
                           breaks=breaks,
-                          trans=barwidth_spacing_trans(days=days,xlim=xlim.real,div=div)),
+                          trans=trans),
        coord_cartesian(xlim=xlim.real)
   )
 }
+
 
 
 #' @export
@@ -3406,7 +3502,151 @@ barwidth_spacing_trans <- function(days,xlim,div) {
 }
 
 
+#' @export
+GeomTimeline <- ggproto("GeomTimeline", GeomRect,
+                        default_aes = aes(
+                          label = "",
+                          by = NA,
+                          fill = "grey35",
+                          colour = NA,
+                          linewidth = 0.5,
+                          linetype = 1,
+                          alpha = NA,
+                          fontcolour="black",
+                          size=3.88,
+                          angle=0,
+                          hjust=0.5,
+                          vjust=0.5,
+                          fontalpha=NA,
+                          family="",
+                          fontface=1,
+                          lineheight=0.75),
+                        required_aes = c("xstart", "xstop"),
+                        setup_data = function(data, params) {
+                          if (is.null(data$by)) {
+                            qby <- expr(NULL)
+                          } else {
+                            qby <- expr(by)
+                          }
+                          if (is.null(data$label)) {
+                            qlabel <- expr(NULL)
+                          } else {
+                            qlabel <- expr(label)
+                          }
+                          grouping_vars <- setdiff(names(data),c("xstart", "xstop"))
+                          if (params$merge)  {
+                            data <- data %>%
+                              group_by_time(xstart,xstop,!!!syms(grouping_vars),gap=params$merge.gap) %>%
+                              summarize(xstart=min(xstart),
+                                        xstop=max(xstop),
+                                        .groups="drop")
+                          }
+                          newdata <- data %>%
+                            group_by(PANEL) %>%
+                            mutate(y=get.row(xstart,xstop,row=!!qlabel,by=!!qby,
+                                             min.gap = params$min.gap,
+                                             row.overlap=params$row.overlap),
+                                   ymin=y-0.45,
+                                   ymax=y+0.45,
+                                   x=midpoint(xstart,xstop),
+                                   xmin=xstart-0.45,
+                                   xmax=xstop+0.45) %>%
+                            ungroup()
+                          return(newdata)
+                        },
+                        draw_panel = function(self, data, panel_params, coord, lineend = "butt", linejoin = "mitre",
+                                              parse = FALSE, check_overlap = FALSE, inherit.aes = TRUE,
+                                              merge=FALSE, merge.gap=1,
+                                              min.gap = Inf, row.overlap=  TRUE) {
+                          grob1 <- GeomRect$draw_panel(data=data, panel_params = panel_params, coord = coord,
+                                                       lineend = lineend, linejoin = linejoin)
+                          data2 <- data %>% mutate(colour = fontcolour, alpha = fontalpha)
+                          grob2 <- GeomText$draw_panel(data=data2, panel_params=panel_params, coord=coord,
+                                                       parse = parse, na.rm = na.rm,
+                                                       check_overlap = check_overlap)
+                          grid::gTree("timeline_grob", children = gList(grob1, grob2))
+                        }
+)
 
+
+
+
+
+#' Plot timeline bars
+#'
+#' Plot timeline items in the form of bars, such as medication administration over time. The X-axis represents time.
+#'
+#' This custom geom uses [get.row()] to arrange the timeline events into rows, where aesthetics are mapped
+#' to the function parameters:
+#' * `aes(xstart=)` is mapped to `get.row(start=)`
+#' * `aes(xstop=)` is mapped to `get.row(xstop=)`
+#' * `aes(label=)` is mapped to `get.row(row=)`
+#' * `aes(by=)` is mapped to `get.row(by=)`
+#'
+#' @eval ggplot2:::rd_aesthetics("geom", "timeline")
+#' @inheritParams get.row
+#' @inheritParams ggplot2::geom_rect
+#' @inheritParams ggplot2::geom_text
+#' @param mapping
+#' @param data
+#' @param stat
+#' @param position
+#' @param ...
+#' @param merge whether or not to merge adjacent/overlapping bars into 1 row before plotting (using [group_by_time()]). Default is `TRUE`.
+#' Note that merging only occurs if the bars are overlapping, and have the same label and fill.
+#' @param merge.gap if `merge=TRUE`, the maximum distance between two bars that are merged. Default is `1`.
+#' @param min.gap
+#' @param row.overlap
+#' @param check_overlap
+#' @param linejoin
+#' @param na.rm
+#' @param show.legend
+#' @param parse
+#' @param inherit.aes
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' data <- cid.meds %>% filter(Patient_ID=="166")
+#'
+#' # by default: overlapping rows are merged, and overlapping text is removed.
+#' ggplot(data) + geom_timeline(aes(xstart=startday,xstop=endday,
+#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7)
+geom_timeline <- function(mapping = NULL, data = NULL,
+                          stat = "identity", position = "identity",
+                          ...,
+                          merge = TRUE,
+                          min.gap = Inf,
+                          row.overlap=  TRUE,
+                          check_overlap = TRUE,
+                          merge.gap = 1,
+                          linejoin = "mitre",
+                          na.rm = FALSE,
+                          show.legend = NA,
+                          parse = FALSE,
+                          inherit.aes = TRUE) {
+  layer(
+    data = data,
+    mapping = mapping,
+    stat = stat,
+    geom = GeomTimeline,
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = list2(
+      linejoin = linejoin,
+      na.rm = na.rm,
+      parse = parse,
+      check_overlap = check_overlap,
+      min.gap = min.gap,
+      row.overlap = row.overlap,
+      merge = merge,
+      merge.gap = merge.gap,
+      ...
+    )
+  )
+}
 
 
 

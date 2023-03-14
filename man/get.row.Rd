@@ -4,14 +4,7 @@
 \alias{get.row}
 \title{Get Rows (optimized for timeline plots)}
 \usage{
-get.row(
-  start,
-  stop,
-  row = NULL,
-  by = NULL,
-  no.row.overlap = FALSE,
-  min.gap = Inf
-)
+get.row(start, stop, row = NULL, by = NULL, row.overlap = TRUE, min.gap = Inf)
 }
 \arguments{
 \item{start}{vector of event start times (numeric or Date).}
@@ -22,9 +15,9 @@ get.row(
 
 \item{by}{optional grouping variable (vector or list of vectors), where events of the same group will be kept to together. Default is \code{NULL}}
 
-\item{min.gap}{the minimum gap allowed before 2 different row values can be combined. Inf: different row values can never share the same row position. 0: fit different rows as much as possible.}
+\item{row.overlap}{whether or not the same row value can overlap. \code{TRUE}: each row value is always one row and can overlap, FALSE: rows do not overlap and can occupy several rows if necessary}
 
-\item{row.overlap}{whether or not the same row value can overlap. TRUE: each value is always one row FALSE: each row can occupy several rows if necessary}
+\item{min.gap}{the minimum gap allowed before 2 different row values can be combined. \code{Inf}: different row values can never share the same row position. \code{0}: fit different rows as much as possible.}
 }
 \value{
 Returns a vector of row number assignments for each time event.

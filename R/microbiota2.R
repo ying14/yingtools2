@@ -891,6 +891,544 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 
 
 
+
+#' Stacked Taxonomy Bar
+#'
+#' Creates stacked taxonomy barplots.
+#'
+#' @eval ggplot2:::rd_aesthetics("geom", "taxonomy")
+#' @inheritParams ggplot2::layer
+#' @inheritParams ggplot2::geom_col
+#' @inheritParams ggplot2::geom_text
+#' @param mapping
+#' @param data
+#' @param position
+#' @param label.pct.cutoff cutoff abundance by which to label abundances. Default is 0.3.
+#' @param label.split whether to split label into two lines, using `[str_split_equal_parts()]`
+#' @param width Bar width. By default, set to 0.95.
+#' @param na.rm
+#' @param parse
+#' @param check_overlap
+#' @param show.legend
+#' @param inherit.aes
+#' @export
+#'
+#' @examples
+#' otu <- cid.phy %>%
+#'   get.otu.melt() %>%
+#'   filter(Patient_ID == "221") %>%
+#'   arrange(!!!syms(rank_names(cid.phy))) %>%
+#'   mutate(otu = fct_inorder(otu))
+#'
+#' otu %>%
+#'   ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
+#'   geom_taxonomy() +
+#'   scale_fill_taxonomy(data = otu, unitvar = otu, tax.palette = yt.palette3)
+geom_taxonomy <- function(mapping = NULL, data = NULL,
+                          position = "stack",
+                          ...,
+                          label.pct.cutoff=0.3,
+                          label.split=FALSE,
+                          width = 0.95,
+                          na.rm = FALSE,
+                          parse = FALSE,
+                          check_overlap = FALSE,
+                          show.legend = NA,
+                          inherit.aes = TRUE) {
+  layer(data = data, mapping = mapping, stat = "identity",
+        geom = GeomTaxonomy, position = position, show.legend = show.legend,
+        inherit.aes = inherit.aes,
+        params = list(width = width,
+                      parse = parse,
+                      check_overlap = check_overlap,
+                      label.pct.cutoff = label.pct.cutoff,
+                      label.split=label.split,
+                      na.rm = na.rm, ...)
+  )
+}
+
+
+
+#' @export
+GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
+                        required_aes = c("x", "y"),
+                        default_aes = aes(label = NA,
+                          colour = NA, fill = "grey35", linewidth = 0.5, linetype = 1, alpha = NA,
+                          fontcolour = "black", size = 3.88, angle = -90,
+                          hjust = 0.5, vjust = 0.5, fontalpha = NA,
+                          family = "", fontface = 1, lineheight = 0.75
+                        ),
+                        draw_panel = function(data, panel_params, coord, lineend = "butt",
+                                              linejoin = "mitre", width = NULL, flipped_aes = FALSE,
+                                              parse = FALSE, na.rm = FALSE, check_overlap = FALSE,
+                                              label.pct.cutoff = 0.3, label.split = FALSE) {
+
+                          grob1 <- GeomCol$draw_panel(data = data, panel_params = panel_params, coord = coord, lineend = lineend,
+                                                      linejoin = linejoin, width = width, flipped_aes = flipped_aes)
+                          data2 <- data %>%
+                            filter(!is.na(label),
+                                   ymax - ymin >= label.pct.cutoff) %>%
+                            mutate(y = (ymin + ymax) / 2,
+                                   colour = fontcolour,
+                                   alpha = fontalpha)
+                          if (label.split) {
+                            data2$label <- str_split_equal_parts(data2$label)
+                          }
+                          if (nrow(data2)>0) {
+                            grob2 <- GeomText$draw_panel(data = data2, panel_params = panel_params, coord = coord, parse = parse,
+                                                         na.rm = na.rm, check_overlap = check_overlap)
+                          } else {
+                            grob2 <- nullGrob()
+                          }
+                          grid::gTree("taxonomy_grob", children = gList(grob1, grob2))
+                        }
+)
+
+
+
+
+
+#' Calculate taxonomy colors
+#'
+#' Generates taxonomy colors, suitable for plotting.
+#'
+#' Used in [scale_fill_taxonomy()] to generate taxonomy colors.
+#' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
+#' @param unitvar the granular column (bare unquoted) by which colors will be assigned. Default is `Species`.
+#' Sometimes you might want to switch to another granular identifer, such as `otu`. Depending on the situation.
+#' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
+#' @return a data frame with color values, where columns include `unit`=the distinct column ID for coloring (`unitvar`),
+#' `name`=taxonomic label, `color`=assigned color. If a color was not used, it is included as a row in which `unit = NA`.
+#' @export
+get.taxonomy.colordata <- function(data, unitvar = Species,
+                                   tax.palette = yt.palette3) {
+  # data=phy1;unitvar="Species";tax.palette=yt.palette2
+  requireNamespace("phyloseq", quietly = TRUE)
+  unitvar <- ensym(unitvar)
+  if (is(data, "phyloseq") | is(data, "taxonomyTable")) {
+    data <- get.tax(data)
+  }
+  if (!(is.list(tax.palette) && all(map_lgl(tax.palette, is_formula)))) {
+    stop("YTError: tax.palette needs to be a list of formulas!")
+  }
+  vars.needed <- tax.palette %>%
+    map(~{
+      rlang::f_lhs(.x) %>% all.vars()
+    }) %>%
+    simplify() %>%
+    c(as_label(unitvar)) %>%
+    unique() %>%
+    as.character()
+  if (!all(vars.needed %in% names(data))) {
+    missing.vars <- setdiff(vars.needed, names(data))
+    stop("YTError: the tax.palette has vars that were not found in data: ", paste(missing.vars, collapse = ","))
+  }
+  tax <- data %>%
+    select(!!!syms(vars.needed)) %>%
+    unique() %>%
+    assert_grouping_vars(id_vars = !!unitvar, stopIfTRUE = FALSE)
+  is_color <- function(x) {
+    iscolor <- grepl("^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$", x) |
+      (x %in% c(colors(), as.character(1:8), "transparent")) |
+      is.na(x)
+    return(all(iscolor))
+  }
+  color.list <- map(tax.palette, function(exp) {
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
+    if (!is_color(colors)) {
+      stop("YTError: not a valid color set: {paste(colors,collapse=', ')}")
+    }
+    criteria <- rlang::f_lhs(exp)
+    # message(criteria)
+    color.yes.no <- tax %>%
+      mutate(
+        criteria = !!criteria,
+        criteria = criteria & !is.na(criteria)
+      ) %>%
+      pull(criteria)
+    # x.color <- character()
+    x.color <- rep(NA_character_, length.out = nrow(tax))
+    x.color[color.yes.no] <- rep(colors, length.out = sum(color.yes.no))
+    return(x.color)
+  }) %>% do.call(coalesce, .)
+  tax$color <- color.list
+  tax.headers <- tax.palette %>%
+    map_dfr(~ {
+      tibble(color = eval_tidy(rlang::f_rhs(.x)))
+    }, .id = "name") %>%
+    mutate(name = fct_inorder(name))
+  tax.table <- tax.headers %>%
+    left_join(tax, by = "color") %>%
+    rename(unit = !!unitvar)
+  return(tax.table)
+}
+
+
+#' Taxonomy color scales
+#'
+#' Discrete scales for taxonomy.
+#'
+#' This is modified from [ggplot::scale_fill_manual()]. It runs [get.taxonomy.colordata()] to obtain colors.
+#' @inheritParams get.taxonomy.colordata
+#' @param ...
+#' @param aesthetics The names of the aesthetics that this scale works with. Default is `"fill"`
+#' @param guide function used to create a guide. Default is `guide_taxonomy(keywidth = 3)`.
+#' @param drop Should unused factor levels be omitted from the scale? The default, `TRUE`, uses the levels that appear in the data; `FALSE` uses all the levels in the factor.
+#' @param data tax table to be used for determining colors (passed to [get.taxonomy.colordata()]). This
+#' might be the same data used to generate the ggplot (but can be different).
+#' @param tax.palette list of expressions as criteria for the palette (passed to [get.taxonomy.colordata()]).
+#' @param fill the (bare unquoted) column of taxons by which colors will be assigned. This should typically be
+#' the same as what you specify for `aes(fill=xxxxx)`, or at least contain the same values.
+#' Default is `Species` (passed as `unitvar` to [get.taxonomy.colordata()]).
+#' @param na.value The aesthetic value to use for missing (`NA`) values
+#' @export
+#' @examples
+#' otu <- cid.phy %>%
+#'   get.otu.melt() %>%
+#'   filter(Patient_ID == "221") %>%
+#'   arrange(!!!syms(rank_names(cid.phy))) %>%
+#'   mutate(otu = fct_inorder(otu))
+#'
+#' otu %>%
+#'   ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
+#'   geom_taxonomy() +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
+scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
+                                fill = Species,
+                                aesthetics = "fill",
+                                guide = guide_taxonomy(keywidth = 3),
+                                drop = FALSE,
+                                na.value = "grey50") {
+  fill <- ensym(fill)
+  if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
+    data <- get.tax(data)
+  }
+  tax.colors <- get.taxonomy.colordata(data, tax.palette = tax.palette, unitvar = !!fill)
+  values <- tax.colors$color
+  breaks <- tax.colors$unit
+  labels <- tax.colors$name
+  taxnonomy_scale(aesthetics,
+                  values = values, breaks = breaks, labels = labels,
+                  ..., guide = guide, drop = drop, na.value = na.value)
+}
+
+
+
+#' @rdname scale_fill_taxonomy
+#' @export
+scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
+                                 color = otu,
+                                 aesthetics = "color",
+                                 guide = guide_taxonomy(keywidth = 3),
+                                 drop = FALSE,
+                                 na.value = "grey50") {
+  color <- ensym(color)
+  tax.colors <- get.taxonomy.colordata(data, tax.palette = tax.palette, unitvar = !!color)
+  values <- tax.colors$color
+  breaks <- tax.colors$unit
+  labels <- tax.colors$name
+  taxnonomy_scale(aesthetics,
+                  values = values, breaks = breaks, labels = labels,
+                  ..., guide = guide, drop = drop, na.value = na.value)
+}
+
+
+
+#' Taxonomy scale constructor
+#'
+#' Similar to  [ggplot2:::manual_scale]
+#' @export
+taxnonomy_scale <- function(aesthetic, values = NULL, breaks = waiver(), ..., limits = NULL) {
+  # adopted from ggplot2:::manual_scale
+  if (is_missing(values)) {
+    values <- NULL
+  } else {
+    force(values)
+  }
+  if (is.null(limits) && !is.null(names(values))) {
+    limits <- function(x) {
+      intersect(x, names(values)) %||% character()
+    }
+  }
+  if (is.vector(values) && is.null(names(values)) && !ggplot2:::is.waive(breaks) && !is.null(breaks) && !is.function(breaks)) {
+    if (length(breaks) <= length(values)) {
+      names(values) <- breaks
+    } else {
+      names(values) <- breaks[1:length(values)]
+    }
+  }
+  pal <- function(n) {
+    if (n > length(values)) {
+      cli::cli_abort("Insufficient values in manual scale. {n} needed but only {length(values)} provided.")
+    }
+    return(values)
+  }
+  discrete_scale(aesthetic, "manual", pal, breaks = breaks, limits = limits, ...)
+}
+
+
+# same as ggplot2::draw_key_polygon, but with zero gap width. Used in guide_gengrob.taxonomy.
+draw_key_polygon_close <- function(data, params, size) {
+  if (is.null(data$linewidth)) {
+    data$linewidth <- 0.5
+  }
+  lwd <- min(data$linewidth, min(size) / 4)
+  rectGrob(
+    # width = unit(1, "npc") - unit(lwd, "mm"),
+    width = unit(1, "npc"),
+    height = unit(1,"npc") - unit(lwd, "mm"),
+    gp = gpar(col = data$colour %||% NA,
+              fill = alpha(data$fill %||% "grey20", data$alpha),
+              lty = data$linetype %||% 1, lwd = lwd * .pt,
+              linejoin = params$linejoin %||% "mitre", lineend = params$lineend %||% "butt"))
+}
+
+
+
+#' Taxonomy Guide
+#'
+#' Used for making a custom taxonomy legend. Modified from [ggplot2::guide_legend()]. Called by [scale_fill_taxonomy()].
+#' @export
+guide_taxonomy <- function(title = waiver(), title.position = NULL, title.theme = NULL,
+                           title.hjust = NULL, title.vjust = NULL, label = TRUE, label.position = NULL,
+                           label.theme = NULL, label.hjust = NULL, label.vjust = NULL,
+                           keywidth = NULL, keyheight = NULL, direction = NULL, default.unit = "line",
+                           override.aes = list(), nrow = NULL, ncol = NULL, byrow = FALSE,
+                           reverse = FALSE, order = 0, ...) {
+  # modified from guide_legend
+  if (!is.null(keywidth) && !is.unit(keywidth)) {
+    keywidth <- unit(keywidth, default.unit)
+  }
+
+  if (!is.null(keyheight) && !is.unit(keyheight)) {
+    keyheight <- unit(keyheight, default.unit)
+  }
+  structure(
+    list2(
+      title = title, title.position = title.position,
+      title.theme = title.theme, title.hjust = title.hjust,
+      title.vjust = title.vjust, label = label, label.position = label.position,
+      label.theme = label.theme, label.hjust = label.hjust,
+      label.vjust = label.vjust, keywidth = keywidth, keyheight = keyheight,
+      direction = direction, override.aes = ggplot2:::rename_aes(override.aes),
+      nrow = nrow, ncol = ncol, byrow = byrow, reverse = reverse,
+      order = order, available_aes = c("any"), ..., name = "taxonomy"
+    ),
+    class = c("guide", "taxonomy")
+  )
+}
+
+
+#' @export
+guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
+  guide <- ggplot2:::guide_train.legend(guide, scale, aesthetic)
+  # the legend table is converted to list-cols colors.
+  if (!is.null(guide$key)) {
+    guide$key <- guide$key %>%
+      distinct() %>%
+      group_by(.label) %>%
+      summarize(fill = list(fill))
+  }
+  return(guide)
+}
+#' @export
+guide_geom.taxonomy <- function(guide, layers, default_mapping) {
+  ggplot2:::guide_geom.legend(guide, layers, default_mapping)
+}
+#' @export
+guide_gengrob.taxonomy <- function(guide, theme) {
+  # ggplot2:::guide_gengrob.legend(guide,theme)
+  label.position <- guide$label.position %||% "right"
+  if (!label.position %in% c("top", "bottom", "left", "right")) {
+    cli::cli_abort("label position {.var {label.position}} is invalid")
+  }
+  nbreak <- nrow(guide$key)
+  title.theme <- guide$title.theme %||% calc_element("legend.title", theme)
+  title.hjust <- guide$title.hjust %||% theme$legend.title.align %||% title.theme$hjust %||% 0
+  title.vjust <- guide$title.vjust %||% title.theme$vjust %||% 0.5
+  grob.title <- ggplot2:::ggname("guide.title", element_grob(title.theme, label = guide$title, hjust = title.hjust, vjust = title.vjust, margin_x = TRUE, margin_y = TRUE))
+  title_width <- ggplot2:::width_cm(grob.title)
+  title_height <- ggplot2:::height_cm(grob.title)
+  title_fontsize <- title.theme$size %||% calc_element("legend.title", theme)$size %||% calc_element("text", theme)$size %||% 11
+  hgap <- ggplot2:::width_cm(theme$legend.spacing.x %||% (0.5 * unit(title_fontsize, "pt")))
+  vgap <- ggplot2:::height_cm(theme$legend.spacing.y %||% (0.5 * unit(title_fontsize, "pt")))
+  label.theme <- guide$label.theme %||% calc_element("legend.text", theme)
+  if (!guide$label || is.null(guide$key$.label)) {
+    grob.labels <- rep(list(zeroGrob()), nrow(guide$key))
+  } else {
+    just_defaults <- ggplot2:::label_just_defaults.legend(guide$direction, label.position)
+    if (just_defaults$hjust == 0 && any(is.expression(guide$key$.label))) {
+      just_defaults$hjust <- 1
+    }
+    if (is.null(guide$label.theme$hjust) && is.null(theme$legend.text$hjust)) {
+      label.theme$hjust <- NULL
+    }
+    if (is.null(guide$label.theme$vjust) && is.null(theme$legend.text$vjust)) {
+      label.theme$vjust <- NULL
+    }
+    hjust <- guide$label.hjust %||% theme$legend.text.align %||%
+      label.theme$hjust %||% just_defaults$hjust
+    vjust <- guide$label.vjust %||% label.theme$vjust %||%
+      just_defaults$vjust
+    grob.labels <- lapply(guide$key$.label, function(label, ...) {
+      g <- element_grob(element = label.theme, label = label, hjust = hjust, vjust = vjust, margin_x = TRUE, margin_y = TRUE)
+      ggplot2:::ggname("guide.label", g)
+    })
+  }
+  label_widths <- ggplot2:::width_cm(grob.labels)
+  label_heights <- ggplot2:::height_cm(grob.labels)
+  key_width <- ggplot2:::width_cm(guide$keywidth %||% theme$legend.key.width %||% theme$legend.key.size)
+  key_height <- ggplot2:::height_cm(guide$keyheight %||% theme$legend.key.height %||% theme$legend.key.size)
+  key_size <- lapply(guide$geoms, function(g) g$data$size / 10)
+  key_size_mat <- inject(cbind(!!!key_size))
+  if (nrow(key_size_mat) == 0 || ncol(key_size_mat) == 0) {
+    key_size_mat <- matrix(0, ncol = 1, nrow = nbreak)
+  }
+  key_sizes <- apply(key_size_mat, 1, max)
+  if (!is.null(guide$nrow) && !is.null(guide$ncol) && guide$nrow *
+      guide$ncol < nbreak) {
+    cli::cli_abort("{.arg nrow} * {.arg ncol} needs to be larger than the number of breaks ({nbreak})")
+  }
+  if (is.null(guide$nrow) && is.null(guide$ncol)) {
+    if (guide$direction == "horizontal") {
+      guide$nrow <- ceiling(nbreak / 5)
+    } else {
+      guide$ncol <- ceiling(nbreak / 20)
+    }
+  }
+  legend.nrow <- guide$nrow %||% ceiling(nbreak / guide$ncol)
+  legend.ncol <- guide$ncol %||% ceiling(nbreak / guide$nrow)
+  key_sizes <- matrix(c(key_sizes, rep(0, legend.nrow * legend.ncol - nbreak)), legend.nrow, legend.ncol, byrow = guide$byrow)
+  key_widths <- pmax(key_width, apply(key_sizes, 2, max))
+  key_heights <- pmax(key_height, apply(key_sizes, 1, max))
+  label_widths <- apply(matrix(c(label_widths, rep(0, legend.nrow * legend.ncol - nbreak)), legend.nrow, legend.ncol, byrow = guide$byrow), 2, max)
+  label_heights <- apply(matrix(c(label_heights, rep(0, legend.nrow * legend.ncol - nbreak)), legend.nrow, legend.ncol, byrow = guide$byrow), 1, max)
+  if (guide$byrow) {
+    vps <- data_frame0(R = ceiling(seq(nbreak) / legend.ncol), C = (seq(nbreak) - 1) %% legend.ncol + 1)
+  } else {
+    vps <- ggplot2:::mat_2_df(arrayInd(seq(nbreak), dim(key_sizes)), c("R", "C"))
+  }
+  if (guide$byrow == TRUE) {
+    switch(label.position,
+           top = {
+             kl_widths <- pmax(label_widths, key_widths)
+             kl_heights <- utils::head(ggplot2:::interleave(label_heights, vgap, key_heights, vgap), -1)
+             vps <- transform(vps, key.row = R * 4 - 1, key.col = C, label.row = R * 4 - 3, label.col = C)
+           },
+           bottom = {
+             kl_widths <- pmax(label_widths, key_widths)
+             kl_heights <- utils::head(interleaggplot2:::interleaveve(key_heights, vgap, label_heights, vgap), -1)
+             vps <- transform(vps, key.row = R * 4 - 3, key.col = C, label.row = R * 4 - 1, label.col = C)
+           },
+           left = {
+             kl_widths <- utils::head(ggplot2:::interleave(label_widths, hgap, key_widths, hgap), -1)
+             kl_heights <- utils::head(ggplot2:::interleave(pmax(label_heights, key_heights), vgap), -1)
+             vps <- transform(vps, key.row = R * 2 - 1, key.col = C * 4 - 1, label.row = R * 2 - 1, label.col = C * 4 - 3)
+           },
+           right = {
+             kl_widths <- utils::head(ggplot2:::interleave(key_widths, hgap, label_widths, hgap), -1)
+             kl_heights <- utils::head(ggplot2:::interleave(pmax(label_heights, key_heights), vgap), -1)
+             vps <- transform(vps, key.row = R * 2 - 1, key.col = C * 4 - 3, label.row = R * 2 - 1, label.col = C * 4 - 1)
+           }
+    )
+  } else {
+    switch(label.position,
+           top = {
+             kl_widths <- utils::head(ggplot2:::interleave(pmax(label_widths, key_widths), hgap), -1)
+             kl_heights <- utils::head(ggplot2:::interleave(label_heights, vgap, key_heights, vgap), -1)
+             vps <- transform(vps, key.row = R * 4 - 1, key.col = C * 2 - 1, label.row = R * 4 - 3, label.col = C * 2 - 1)
+           },
+           bottom = {
+             kl_widths <- utils::head(ggplot2:::interleave(pmax(label_widths, key_widths), hgap), -1)
+             kl_heights <- utils::head(ggplot2:::interleave(key_heights, vgap, label_heights, vgap), -1)
+             vps <- transform(vps, key.row = R * 4 - 3, key.col = C * 2 - 1, label.row = R * 4 - 1, label.col = C * 2 - 1)
+           },
+           left = {
+             kl_widths <- utils::head(ggplot2:::interleave(label_widths, hgap, key_widths, hgap), -1)
+             kl_heights <- pmax(key_heights, label_heights)
+             vps <- transform(vps, key.row = R, key.col = C * 4 - 1, label.row = R, label.col = C * 4 - 3)
+           },
+           right = {
+             kl_widths <- utils::head(ggplot2:::interleave(key_widths, hgap, label_widths, hgap), -1)
+             kl_heights <- pmax(key_heights, label_heights)
+             vps <- transform(vps, key.row = R, key.col = C * 4 - 3, label.row = R, label.col = C * 4 - 1)
+           }
+    )
+  }
+  switch(guide$title.position,
+         top = {
+           widths <- c(kl_widths, max(0, title_width - sum(kl_widths)))
+           heights <- c(title_height, vgap, kl_heights)
+           vps <- transform(vps, key.row = key.row + 2, key.col = key.col, label.row = label.row + 2, label.col = label.col)
+           vps.title.row <- 1
+           vps.title.col <- 1:length(widths)
+         },
+         bottom = {
+           widths <- c(kl_widths, max(0, title_width - sum(kl_widths)))
+           heights <- c(kl_heights, vgap, title_height)
+           vps <- transform(vps, key.row = key.row, key.col = key.col, label.row = label.row, label.col = label.col)
+           vps.title.row <- length(heights)
+           vps.title.col <- 1:length(widths)
+         },
+         left = {
+           widths <- c(title_width, hgap, kl_widths)
+           heights <- c(kl_heights, max(0, title_height - sum(kl_heights)))
+           vps <- transform(vps, key.row = key.row, key.col = key.col + 2, label.row = label.row, label.col = label.col + 2)
+           vps.title.row <- 1:length(heights)
+           vps.title.col <- 1
+         },
+         right = {
+           widths <- c(kl_widths, hgap, title_width)
+           heights <- c(kl_heights, max(0, title_height - sum(kl_heights)))
+           vps <- transform(vps, key.row = key.row, key.col = key.col, label.row = label.row, label.col = label.col)
+           vps.title.row <- 1:length(heights)
+           vps.title.col <- length(widths)
+         }
+  )
+  key_size <- c(key_width, key_height) * 10
+  # this is re-written to take on list col of colors.
+  draw_key <- function(i) {
+    bg <- element_render(theme, "legend.key")
+    keys <- lapply(guide$geoms, function(g) {
+      # g$draw_key(g$data[i, , drop = FALSE], g$params, key_size)
+      dlist <- g$data[i, , drop = FALSE] %>%
+        unnest(fill) %>%
+        rowwise() %>%
+        group_split()
+      grlist <- dlist %>% map(~ {
+        # this is to avoid the gap between colors.
+        # g$draw_key(.x, g$params, key_size)
+        draw_key_polygon_close(.x, g$params, key_size)
+      })
+      gt <- arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
+      gt
+    })
+    c(list(bg), keys)
+  }
+  grob.keys <- unlist(lapply(seq_len(nbreak), draw_key), recursive = FALSE)
+  grob.background <- element_render(theme, "legend.background")
+  ngeom <- length(guide$geoms) + 1
+  kcols <- rep(vps$key.col, each = ngeom)
+  krows <- rep(vps$key.row, each = ngeom)
+  padding <- convertUnit(theme$legend.margin %||% margin(), "cm", valueOnly = TRUE)
+  widths <- c(padding[4], widths, padding[2])
+  heights <- c(padding[1], heights, padding[3])
+  gt <- gtable::gtable(widths = unit(widths, "cm"), heights = unit(heights, "cm"))
+  gt <- gtable::gtable_add_grob(gt, grob.background, name = "background", clip = "off", t = 1, r = -1, b = -1, l = 1)
+  gt <- gtable::gtable_add_grob(gt, ggplot2:::justify_grobs(grob.title, hjust = title.hjust, vjust = title.vjust, int_angle = title.theme$angle, debug = title.theme$debug), name = "title", clip = "off", t = 1 + min(vps.title.row), r = 1 + max(vps.title.col), b = 1 + max(vps.title.row), l = 1 + min(vps.title.col))
+  gt <- gtable::gtable_add_grob(gt, grob.keys, name = paste("key", krows, kcols, c("bg", seq(ngeom - 1)), sep = "-"), clip = "off", t = 1 + krows, r = 1 + kcols, b = 1 + krows, l = 1 + kcols)
+  # add grob labels
+  gt <- gtable::gtable_add_grob(gt, ggplot2:::justify_grobs(grob.labels, hjust = hjust, vjust = vjust, int_angle = label.theme$angle, debug = label.theme$debug),
+                                name = paste("label", vps$label.row, vps$label.col, sep = "-"),
+                                clip = "off", t = 1 + vps$label.row, r = 1 + vps$label.col,
+                                b = 1 + vps$label.row, l = 1 + vps$label.col
+  )
+  gt
+}
+
+
+
+
 #' YT Palette 2
 #'
 #' The old customary palette for Bacteria.
@@ -964,169 +1502,10 @@ fungal.palette <- exprs(
   "Other" = TRUE ~ shades("gray", variation=0.25)
 )
 
-#' Create a color palette for taxonomy
-#'
-#' Given microbiota data, generate a color palette that can be used in ggplot2 plots.
-#'
-#' Note that the `tax.palette` formula list is evaluated in order, and should probably end in TRUE  (similar to [dplyr::case_when()]).
-#' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
-#' @param unitvar the granular column (bare unquoted) by which colors will be assigned. Default is `Species`.
-#' Sometimes you might want to switch to another granular identifer, such as `otu`. Depending on the situation.
-#' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
-#' @return named vector of colors, which can be used in: `ggplot( ... ) + scale_fill_manual(values = <pal> )`
-#' @export
-#' @examples
-#' # generate a stacked plot for one subject
-#' otusub <- cid.phy %>% get.otu.melt() %>% filter(Patient_ID=="221") %>%
-#'   arrange(!!!syms(rank_names(cid.phy))) %>%
-#'   mutate(otu=fct_inorder(otu))
-#' g <- ggplot(otusub,aes(x=day,y=pctseqs,fill=otu)) +
-#'   geom_col(show.legend=FALSE,width=1) +
-#'   expand_limits(x=50)
-#' g
-#'
-#' # use default bacterial palette (yt.palette3)
-#' pal1 <- get.tax.palette(cid.phy,unitvar="otu")
-#' legend1 <- get.tax.legend() %>%
-#'   annotation_custom(xmin=30, xmax=50, ymin=0.7, ymax=1)
-#' g + scale_fill_manual(values=pal1) + legend1
-#'
-#' # generate a custom palette
-#' custom_pal <- exprs(
-#'   "Gram positives" = Phylum=="Firmicutes" ~ shades("purple",variation=0.25),
-#'   "Gram negatives" = Phylum=="Bacteroidetes" | Phylum=="Proteobacteria" ~ shades("red",variation=0.25),
-#'   "Others" = TRUE ~ shades("gray", variation=0.25)
-#' )
-#' pal2 <- get.tax.palette(cid.phy,unitvar="otu",tax.palette = custom_pal)
-#' legend2 <- get.tax.legend(tax.palette = custom_pal) %>%
-#'   annotation_custom(xmin=30, xmax=50, ymin=0.7, ymax=1)
-#' g + scale_fill_manual(values=pal2) + legend2
-get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
-  # data=phy1;unitvar="Species";tax.palette=yt.palette2
-  requireNamespace("phyloseq",quietly=TRUE)
-  unitvar <- ensym(unitvar)
-  if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
-    data <- get.tax(data)
-  }
-  if (!(is.list(tax.palette) && all(map_lgl(tax.palette,is_formula)))) {
-    stop("YTError: tax.palette needs to be a list of formulas!")
-  }
-  vars.needed <- tax.palette %>% map(~{
-    rlang::f_lhs(.x) %>% all.vars()
-  }) %>% simplify() %>% c(as_label(unitvar)) %>% unique() %>% as.character()
-  if (!all(vars.needed %in% names(data))) {
-    missing.vars <- setdiff(vars.needed,names(data))
-    stop("YTError: the tax.palette has vars that were not found in data: ",paste(missing.vars,collapse=","))
-  }
-  tax <- data %>% select(!!!syms(vars.needed)) %>% unique() %>%
-    assert_grouping_vars(id_vars=!!unitvar,stopIfTRUE = FALSE)
-  is_color <- function(x) {
-    iscolor <- grepl('^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$', x) |
-      (x %in% c(colors(),as.character(1:8),"transparent")) |
-      is.na(x)
-    return(all(iscolor))
-  }
-  color.list <- map(tax.palette,function(exp) {
-    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
-    if (!is_color(colors)) {
-      stop("YTError: not a valid color set: {paste(colors,collapse=', ')}")
-    }
-    criteria <- rlang::f_lhs(exp)
-    # message(criteria)
-    color.yes.no <- tax %>%
-      mutate(criteria=!!criteria,
-             criteria=criteria & !is.na(criteria)) %>%
-      pull(criteria)
-    # x.color <- character()
-    x.color <- rep(NA_character_,length.out=nrow(tax))
-    x.color[color.yes.no] <- rep(colors,length.out=sum(color.yes.no))
-    return(x.color)
-  }) %>% do.call(coalesce,.)
-  tax$color <- color.list
-  pal <- setNames(tax$color,tax[[as_label(unitvar)]])
-  return(pal)
-}
 
 
-#' Generate tax legend
-#'
-#' @param tax.palette a list of formulas specifying the palette. Default is [`yt.palette3`].
-#' @param fontsize Font size. Default is 5.
-#' @return a ggplot object showing the legend.
-#' @describeIn get.tax.palette
-#' @export
-#' @examples
-get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
-  glist <- imap(tax.palette,function(exp,label) {
-    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
-    criteria <- rlang::f_lhs(exp)
-    d <- tibble(color=colors)
-    divs <- seq(0,1,length.out=nrow(d)+1)
-    d$xmin <- divs[-length(divs)]
-    d$xmax <- divs[-1]
-    ggplot() + expand_limits(x=-2) +
-      geom_rect(data=d,aes(xmin=xmin,xmax=xmax,ymin=-0.5,ymax=0.5,fill=color)) +
-      annotate("text",x=0,y=0,label=label,hjust=1,size=fontsize) +
-      scale_fill_identity() + theme_void()
-  })
-  rlang::inject(gridExtra::arrangeGrob(!!!glist,ncol=1))
-}
 
 
-#' Plot tax
-#'
-#' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
-#' @param xvar xvar by which to plot data. This should be a distinct identifier for samples.
-#' @param data whether to return data frame only (`TRUE`), or  proceed with plotting (`FALSE`).
-#' @param pctseqs the relative abundance column name  (default `pctseqs`)
-#' @param unitvar unit variable (bare unquoted). Default `Species`
-#' @param label column name (bare unquoted) for labels var. Default is `Species`.
-#' @param tax.levels tax ranks.
-#' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
-#'
-#' @return either ggplot2 object, or data frame.
-#' @examples
-#' @author Ying Taur
-#' @export
-tax.plot <- function(t,xvar=sample,pctseqs=pctseqs,unitvar=Species,
-                     label=Species,
-                     tax.levels = c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
-                     data=TRUE,label.pct.cutoff=0.3) {
-  #t=get.otu.melt(phy.species)
-  # tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
-  xvar <- ensym(xvar)
-  pctseqs <- ensym(pctseqs)
-  unitvar <- ensym(unitvar)
-  label <- ensym(label)
-
-  vars <- c(as_label(xvar),as_label(pctseqs),tax.levels,as_label(unitvar),as_label(label)) %>% unique()
-
-  if (!all(vars %in% names(t))) {
-    missing.vars <- setdiff(vars,names(t))
-    stop("YTError: missing var:",paste(missing.vars,collapse=","))
-  }
-  t <- t %>% arrange(!!!syms(tax.levels)) %>%
-    mutate(!!unitvar:=fct_inorder(!!unitvar)) %>%
-    group_by(!!xvar) %>% arrange(!!unitvar) %>%
-    mutate(cum.pct=cumsum(!!pctseqs),
-           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
-           y.text=1-y.text) %>%
-    ungroup() %>%
-    select(-cum.pct) %>%
-    mutate(tax.label=ifelse(!!pctseqs>=label.pct.cutoff,as.character(!!label),""))
-  # pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
-  # attr(t,"pal") <- pal
-  if (data) {
-    return(t)
-  } else {
-    g <- ggplot() +
-      geom_bar(data=t,aes(x=!!xvar,y=!!pctseqs,fill=!!unitvar),stat="identity",position="fill") +
-      geom_text(data=t,aes(x=!!xvar,y=y.text,label=tax.label),angle=-90,lineheight=0.9) +
-      scale_fill_manual(values=attr(t,"pal")) +
-      theme(legend.position="none")
-    return(g)
-  }
-}
 
 
 #' The color scheme used in CID manuscript.

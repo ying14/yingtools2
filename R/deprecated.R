@@ -5,6 +5,198 @@
 
 
 
+#' Create a color palette for taxonomy
+#'
+#' Given microbiota data, generate a color palette that can be used in ggplot2 plots.
+#'
+#' Note that the `tax.palette` formula list is evaluated in order, and should probably end in TRUE  (similar to [dplyr::case_when()]).
+#' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
+#' @param unitvar the granular column (bare unquoted) by which colors will be assigned. Default is `Species`.
+#' Sometimes you might want to switch to another granular identifer, such as `otu`. Depending on the situation.
+#' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
+#' @return named vector of colors, which can be used in: `ggplot( ... ) + scale_fill_manual(values = <pal> )`
+#' @export
+#' @examples
+#' # generate a stacked plot for one subject
+#' otusub <- cid.phy %>% get.otu.melt() %>% filter(Patient_ID=="221") %>%
+#'   arrange(!!!syms(rank_names(cid.phy))) %>%
+#'   mutate(otu=fct_inorder(otu))
+#' g <- ggplot(otusub,aes(x=day,y=pctseqs,fill=otu)) +
+#'   geom_col(show.legend=FALSE,width=1) +
+#'   expand_limits(x=50)
+#' g
+#'
+#' # use default bacterial palette (yt.palette3)
+#' pal1 <- get.tax.palette(cid.phy,unitvar="otu")
+#' legend1 <- get.tax.legend() %>%
+#'   annotation_custom(xmin=30, xmax=50, ymin=0.7, ymax=1)
+#' g + scale_fill_manual(values=pal1) + legend1
+#'
+#' # generate a custom palette
+#' custom_pal <- exprs(
+#'   "Gram positives" = Phylum=="Firmicutes" ~ shades("purple",variation=0.25),
+#'   "Gram negatives" = Phylum=="Bacteroidetes" | Phylum=="Proteobacteria" ~ shades("red",variation=0.25),
+#'   "Others" = TRUE ~ shades("gray", variation=0.25)
+#' )
+#' pal2 <- get.tax.palette(cid.phy,unitvar="otu",tax.palette = custom_pal)
+#' legend2 <- get.tax.legend(tax.palette = custom_pal) %>%
+#'   annotation_custom(xmin=30, xmax=50, ymin=0.7, ymax=1)
+#' g + scale_fill_manual(values=pal2) + legend2
+get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
+  # data=phy1;unitvar="Species";tax.palette=yt.palette2
+  warning("YTWarning: Please note that this function is deprecated, consider using geom_taxonomy / scale_fill_taxonomy")
+  requireNamespace("phyloseq",quietly=TRUE)
+  unitvar <- ensym(unitvar)
+  if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
+    data <- get.tax(data)
+  }
+  if (!(is.list(tax.palette) && all(map_lgl(tax.palette,is_formula)))) {
+    stop("YTError: tax.palette needs to be a list of formulas!")
+  }
+  vars.needed <- tax.palette %>% map(~{
+    rlang::f_lhs(.x) %>% all.vars()
+  }) %>% simplify() %>% c(as_label(unitvar)) %>% unique() %>% as.character()
+  if (!all(vars.needed %in% names(data))) {
+    missing.vars <- setdiff(vars.needed,names(data))
+    stop("YTError: the tax.palette has vars that were not found in data: ",paste(missing.vars,collapse=","))
+  }
+  tax <- data %>% select(!!!syms(vars.needed)) %>% unique() %>%
+    assert_grouping_vars(id_vars=!!unitvar,stopIfTRUE = FALSE)
+  is_color <- function(x) {
+    iscolor <- grepl('^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$', x) |
+      (x %in% c(colors(),as.character(1:8),"transparent")) |
+      is.na(x)
+    return(all(iscolor))
+  }
+  color.list <- map(tax.palette,function(exp) {
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
+    if (!is_color(colors)) {
+      stop("YTError: not a valid color set: {paste(colors,collapse=', ')}")
+    }
+    criteria <- rlang::f_lhs(exp)
+    # message(criteria)
+    color.yes.no <- tax %>%
+      mutate(criteria=!!criteria,
+             criteria=criteria & !is.na(criteria)) %>%
+      pull(criteria)
+    # x.color <- character()
+    x.color <- rep(NA_character_,length.out=nrow(tax))
+    x.color[color.yes.no] <- rep(colors,length.out=sum(color.yes.no))
+    return(x.color)
+  }) %>% do.call(coalesce,.)
+  tax$color <- color.list
+  pal <- setNames(tax$color,tax[[as_label(unitvar)]])
+  return(pal)
+}
+
+
+#' Generate tax legend
+#'
+#' @param tax.palette a list of formulas specifying the palette. Default is [`yt.palette3`].
+#' @param fontsize Font size. Default is 5.
+#' @return a ggplot object showing the legend.
+#' @describeIn get.tax.palette
+#' @export
+#' @examples
+get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
+  warning("YTWarning: Please note that this function is deprecated, consider using geom_taxonomy / scale_fill_taxonomy")
+  glist <- imap(tax.palette,function(exp,label) {
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
+    criteria <- rlang::f_lhs(exp)
+    d <- tibble(color=colors)
+    divs <- seq(0,1,length.out=nrow(d)+1)
+    d$xmin <- divs[-length(divs)]
+    d$xmax <- divs[-1]
+    ggplot() + expand_limits(x=-2) +
+      geom_rect(data=d,aes(xmin=xmin,xmax=xmax,ymin=-0.5,ymax=0.5,fill=color)) +
+      annotate("text",x=0,y=0,label=label,hjust=1,size=fontsize) +
+      scale_fill_identity() + theme_void()
+  })
+  rlang::inject(gridExtra::arrangeGrob(!!!glist,ncol=1))
+}
+
+
+get.tax.legend2 <- function(tax.palette=yt.palette3,fontsize=5,ncol=NULL,nrow=NULL) {
+  warning("YTWarning: Please note that this function is deprecated, consider using geom_taxonomy / scale_fill_taxonomy")
+  if (is.null(ncol) && is.null(nrow))  {
+    ncol <- 1
+  }
+  glist <- imap(tax.palette,function(exp,label) {
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
+    criteria <- rlang::f_lhs(exp)
+    d <- tibble(color=colors)
+    divs <- seq(0,1,length.out=nrow(d)+1)
+    d$xmin <- divs[-length(divs)]
+    d$xmax <- divs[-1]
+    ggplot() + expand_limits(x=-2) +
+      geom_rect(data=d,aes(xmin=xmin,xmax=xmax,ymin=-0.5,ymax=0.5,fill=color)) +
+      annotate("text",x=0,y=0,label=label,hjust=1,size=fontsize) +
+      scale_fill_identity() + theme_void()
+  })
+  Reduce(`+`,glist) + plot_layout(ncol=ncol,nrow=nrow)
+}
+
+
+
+#' Plot tax
+#'
+#' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
+#' @param xvar xvar by which to plot data. This should be a distinct identifier for samples.
+#' @param data whether to return data frame only (`TRUE`), or  proceed with plotting (`FALSE`).
+#' @param pctseqs the relative abundance column name  (default `pctseqs`)
+#' @param unitvar unit variable (bare unquoted). Default `Species`
+#' @param label column name (bare unquoted) for labels var. Default is `Species`.
+#' @param tax.levels tax ranks.
+#' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
+#'
+#' @return either ggplot2 object, or data frame.
+#' @examples
+#' @author Ying Taur
+#' @export
+tax.plot <- function(t,xvar=sample,pctseqs=pctseqs,unitvar=Species,
+                     label=Species,
+                     tax.levels = c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                     data=TRUE,label.pct.cutoff=0.3) {
+  warning("YTWarning: Please note that this function is deprecated, consider using geom_taxonomy / scale_fill_taxonomy")
+
+  #t=get.otu.melt(phy.species)
+  # tax.levels <- c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
+  xvar <- ensym(xvar)
+  pctseqs <- ensym(pctseqs)
+  unitvar <- ensym(unitvar)
+  label <- ensym(label)
+
+  vars <- c(as_label(xvar),as_label(pctseqs),tax.levels,as_label(unitvar),as_label(label)) %>% unique()
+
+  if (!all(vars %in% names(t))) {
+    missing.vars <- setdiff(vars,names(t))
+    stop("YTError: missing var:",paste(missing.vars,collapse=","))
+  }
+  t <- t %>% arrange(!!!syms(tax.levels)) %>%
+    mutate(!!unitvar:=fct_inorder(!!unitvar)) %>%
+    group_by(!!xvar) %>% arrange(!!unitvar) %>%
+    mutate(cum.pct=cumsum(!!pctseqs),
+           y.text=(cum.pct + c(0,cum.pct[-length(cum.pct)])) / 2,
+           y.text=1-y.text) %>%
+    ungroup() %>%
+    select(-cum.pct) %>%
+    mutate(tax.label=ifelse(!!pctseqs>=label.pct.cutoff,as.character(!!label),""))
+  # pal <- get.yt.palette(t,use.cid.colors=use.cid.colors)
+  # attr(t,"pal") <- pal
+  if (data) {
+    return(t)
+  } else {
+    g <- ggplot() +
+      geom_bar(data=t,aes(x=!!xvar,y=!!pctseqs,fill=!!unitvar),stat="identity",position="fill") +
+      geom_text(data=t,aes(x=!!xvar,y=y.text,label=tax.label),angle=-90,lineheight=0.9) +
+      scale_fill_manual(values=attr(t,"pal")) +
+      theme(legend.position="none")
+    return(g)
+  }
+}
+
+
+
 old3.phy.collapse.base <- function(otudt,taxdt,taxranks,level,criteria,fillin.levels) {
   # declare.args(    otudt=get.otu.melt(cid.phy,sample_data=FALSE,tax_data=FALSE) %>% as.data.table(),    taxdt=get.tax(cid.phy) %>% as.data.table(),    taxranks=rank_names(cid.phy),    criteria=quo(max.pctseqs<=0.001 | pct.detectable<=0.005),    level=7,    fillin.levels=FALSE,    yingtools2:::phy.collapse.base)
   requireNamespace("data.table",quietly=TRUE)

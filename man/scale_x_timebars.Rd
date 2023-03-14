@@ -28,4 +28,5 @@ xlim <- c(-10,200)
 ggplot(data) +
   geom_col(aes(x=days,y=1,fill=factor(days)),width=1) +
   scale_x_timebars(xlim=xlim,days=data$days,div=10)
+
 }
