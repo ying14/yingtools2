@@ -5,18 +5,18 @@
 \alias{barwidth_spacing_trans}
 \title{Time bars}
 \usage{
-scale_x_timebars(..., days, xlim = NULL, div = 30, breaks = NULL)
+scale_x_timebars(days = NULL, xlim = NULL, div = 30, breaks = NULL, ...)
 
 barwidth_spacing_trans(days, xlim, div)
 }
 \arguments{
-\item{...}{arguments passed to \code{\link[ggplot2:scale_continuous]{ggplot2::scale_x_continuous()}}}
-
 \item{days}{vector of values where}
 
 \item{xlim}{2-value vector specifying the x-axis limits.}
 
 \item{div}{size of the bars, specified as reciprocal fraction of plot width. Default is 30 (1 bar is 1/30th of plot width).}
+
+\item{...}{arguments passed to \code{\link[ggplot2:scale_continuous]{ggplot2::scale_x_continuous()}}}
 }
 \description{
 This geom and scale are used to transform the x-scale such that the scale moves slowly at certain points (\code{day}).
@@ -28,5 +28,4 @@ xlim <- c(-10,200)
 ggplot(data) +
   geom_col(aes(x=days,y=1,fill=factor(days)),width=1) +
   scale_x_timebars(xlim=xlim,days=data$days,div=10)
-
 }

@@ -501,6 +501,7 @@ phy.collapse <- function(phy,taxranks=rank_names(phy),short_taxa_names=TRUE) {
   taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% .[,taxranks,with=FALSE]
   # indices_ <- taxdt %>% group_by(!!!taxranks) %>% group_indices()
   indices_ <- taxdt[, .group:=.GRP, by=taxranks]$.group
+  taxdt[, .group := NULL]
 
   new.otudt <- otudt[,lapply(.SD,sum),by=indices_]
   new.taxdt <- taxdt[,lapply(.SD,first),by=indices_]
@@ -884,6 +885,161 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 
 
 
+# distance metric methods -------------------------------------------------
+
+
+
+
+#' Convert Distance Matrix to Pairwise Distances
+#'
+#' This is the inverse function of {get.dist()}
+#' @param dist distance matrix to be converted
+#' @param diag whether or not to include diagonal
+#'
+#' @return data frame comtaining pairwise distances
+#' @export
+#'
+#' @examples
+#' get.pairwise(dist(mtcars))
+get.pairwise <- function(dist,diag=TRUE) {
+  mat <- as.matrix(dist,diag=diag)
+  # xy <- t(combn(colnames(mat), 2))
+  # data.frame(xy, dist=mat[xy]) %>% as_tibble() %>% rename(sample1=X1,sample2=X2)
+  rows <- rownames(mat)
+  xy <- mat %>% as.data.frame() %>%
+    rownames_to_column("sample1") %>%
+    pivot_longer(cols=-sample1,names_to="sample2",values_to="dist") %>%
+    mutate(sample1=factor(sample1,levels=rows),
+           sample2=factor(sample2,levels=rows)) %>%
+    filter(as.numeric(sample1)<=as.numeric(sample2))
+  xy
+}
+
+
+
+#' Convert pairwise distance table to distance matrix
+#'
+#' This is the inverse function of {get.pairwise()}
+#' @param pw a data frame of pairwise distances.
+#'
+#' @return corresponding distance matrix
+#' @export
+#'
+#' @examples
+#' pw <- get.pairwise(dist(mtcars))
+#' get.dist(pw)
+get.dist <- function(pw) {
+  mat <- pw %>% pivot_wider(id_cols=sample2,names_from=sample1,values_from=dist) %>%
+    column_to_rownames("sample2") %>%
+    as.matrix()
+  as.dist(mat,diag=TRUE)
+}
+
+
+#' View Distance Metric
+#'
+#' Usethis to quicklyview a distance metric.
+#' @param dist distance metric to be viewed
+#' @param show.numbers whether or not to show values.
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' view.dist(dist(mtcars))
+view.dist <- function(dist,show.numbers=FALSE) {
+  pairwise <- get.pairwise(dist) %>%
+    mutate(sample2=fct_rev(sample2))
+  ggplot(pairwise,aes(x=sample1,y=sample2,label=pretty_number(dist),fill=dist)) +
+    geom_tile(color="black") +
+    {if (show.numbers) geom_text(color="yellow") else NULL} +
+    expand_limits(fill=c(0,1)) +
+    scale_x_discrete(position = "top") +
+    theme(axis.text.x=element_text(angle=90,hjust=0))
+}
+
+
+
+
+#' Calculate the `taxhorn` distance
+#'
+#'
+#' Ephraim Slamka helped to develop this metric, in which the Horn distance is calculated over after
+#' collapsing at each taxonomic level and then taking the weighted average of distance values.
+#' @param phy phyloseq object
+#'
+#' @return distance metric of `taxhorn` distances
+#' @export
+#'
+#' @examples
+calc.taxhorn.distance <- function(phy) {
+  fn <- function(x){
+    set <- x[-1]
+    weights <- length(set):1
+    sum(set*weights) / sum(weights)
+  }
+  method <- "horn"
+
+  ranks <- rank_names(phy)
+  samples <- sample_names(phy)
+  # create multiple phyloseq objects, collapsed at the
+  # Superkingdom, Phylum, .... , Species level.
+  phy.levels <- ranks %>% seq_along() %>%
+    map(~ranks[1:.x]) %>% map(~phy.collapse(phy,taxranks=.x)) %>%
+    setNames(ranks)
+  phy.levels <- c(phy.levels,list("asv"=phy))
+  all.levels <- names(phy.levels)
+  # calculate the distance matrix (metric=method) for each level.
+  # this is a list of distance matrices.
+  dist.levels <- phy.levels %>% map(~distance(.x,method=method))
+  # run get.pairwise() to get a list of pairwise distances.
+  pairwise.levels <- dist.levels %>% imap(~{
+    newname <- str_glue("dist.{.y}")
+    get.pairwise(.x) %>% rename(!!sym(newname):=dist)
+  })
+  pairwise.all <- pairwise.levels[[1]]
+
+  for (i in seq_along(all.levels)[-1]) {
+    pairwise.all <- pairwise.all %>% full_join(pairwise.levels[[i]],by=c("sample1","sample2"))
+  }
+  pairwise.melt <- pairwise.all %>% pivot_longer(cols=-c(sample1,sample2),
+                                                 names_to="dist.type",values_to="dist")
+  pairwise.calcdist <- pairwise.melt %>% group_by(sample1,sample2) %>%
+    summarize(dist.list=list(setNames(dist,dist.type)),
+              dist=map_dbl(dist.list,fn),
+              .groups = "drop")
+  # if (show.work) {
+  #   return(pairwise.calcdist)
+  # }
+  taxdist <- get.dist(pairwise.calcdist)
+  taxdist
+}
+
+
+#' Calculate distance matrix from phyloseq data
+#'
+#' Basically same as [phyloseq::distance()], but adds `taxhorn` metric
+#' @param phy phyloseq object
+#' @param method character string indicating distance metric to be calculated. Can be a method from
+#' [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`
+#' @param ... passed to [phyloseq::distance()]
+#'
+#' @return a distance metric
+#' @export
+#'
+#' @examples
+get.distance <- function(phy, method, ...) {
+
+  if (method=="taxhorn") {
+    dist <- calc.taxhorn.distance(phy)
+  } else {
+    dist <- distance(physeq=phy, method=method, ...)
+  }
+  return(dist)
+}
+
+
+
 
 
 
@@ -914,6 +1070,8 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 #' @export
 #'
 #' @examples
+#' library(phyloseq)
+#' library(tidyverse)
 #' otu <- cid.phy %>%
 #'   get.otu.melt() %>%
 #'   filter(Patient_ID == "221") %>%
@@ -923,7 +1081,7 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 #' otu %>%
 #'   ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
 #'   geom_taxonomy() +
-#'   scale_fill_taxonomy(data = otu, unitvar = otu, tax.palette = yt.palette3)
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
 geom_taxonomy <- function(mapping = NULL, data = NULL,
                           position = "stack",
                           ...,
@@ -948,13 +1106,12 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
 }
 
 
-
 #' @export
 GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                         required_aes = c("x", "y"),
                         default_aes = aes(label = NA,
                           colour = NA, fill = "grey35", linewidth = 0.5, linetype = 1, alpha = NA,
-                          fontcolour = "black", size = 3.88, angle = -90,
+                          fontcolour = "black", fontsize = 3.88, angle = -90,
                           hjust = 0.5, vjust = 0.5, fontalpha = NA,
                           family = "", fontface = 1, lineheight = 0.75
                         ),
@@ -970,6 +1127,7 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                    ymax - ymin >= label.pct.cutoff) %>%
                             mutate(y = (ymin + ymax) / 2,
                                    colour = fontcolour,
+                                   size = fontsize,
                                    alpha = fontalpha)
                           if (label.split) {
                             data2$label <- str_split_equal_parts(data2$label)

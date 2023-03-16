@@ -7,13 +7,13 @@
 geom_timeline(
   mapping = NULL,
   data = NULL,
-  stat = "identity",
+  stat = "timeline",
   position = "identity",
   ...,
-  merge = TRUE,
-  min.gap = Inf,
+  merge = FALSE,
+  min.gap = 1,
   row.overlap = TRUE,
-  check_overlap = TRUE,
+  check_overlap = FALSE,
   merge.gap = 1,
   linejoin = "mitre",
   na.rm = FALSE,
@@ -61,7 +61,7 @@ to the paired geom/stat.}
 \item{merge}{whether or not to merge adjacent/overlapping bars into 1 row before plotting (using \code{\link[=group_by_time]{group_by_time()}}). Default is \code{TRUE}.
 Note that merging only occurs if the bars are overlapping, and have the same label and fill.}
 
-\item{min.gap}{the minimum gap allowed before 2 different row values can be combined. \code{Inf}: different row values can never share the same row position. \code{0}: fit different rows as much as possible.}
+\item{min.gap}{The allowable gap before two distinct rows are fitted on the same row, expressed as a proportion of the X-axis length. Note that this different than direct use of \code{\link[=get.row]{get.row()}}}
 
 \item{row.overlap}{whether or not the same row value can overlap. \code{TRUE}: each row value is always one row and can overlap, FALSE: rows do not overlap and can occupy several rows if necessary}
 
@@ -96,18 +96,29 @@ Plot timeline items in the form of bars, such as medication administration over 
 This custom geom uses \code{\link[=get.row]{get.row()}} to arrange the timeline events into rows, where aesthetics are mapped
 to the function parameters:
 \itemize{
-\item \code{aes(xstart=)} is mapped to \code{get.row(start=)}
-\item \code{aes(xstop=)} is mapped to \code{get.row(xstop=)}
+\item \code{aes(xmin=)} is mapped to \code{get.row(start=)}
+\item \code{aes(xmax=)} is mapped to \code{get.row(xstop=)}
 \item \code{aes(label=)} is mapped to \code{get.row(row=)}
 \item \code{aes(by=)} is mapped to \code{get.row(by=)}
+}
+
+Some data prepping is done prior to plotting:
+\enumerate{
+\item Merge any timeline events that overlap using \code{\link[=group_by_time]{group_by_time()}} (optional step if \code{merge=TRUE})
+\item Pad each event by +/- 0.45 days so that they span the length of the days they occur on, and so single day events do not have zero width.
+\item Determine Y = row position for all events, using \code{\link[=get.row]{get.row()}}, using above aesthetic mappings.
+\item Calculate X midpoint of each timeline event, for plotting of the label.
+If X-axis transformations are used (e.g. \code{\link[=scale_x_timebar]{scale_x_timebar()}}), note that merging (#1) and padding (#2) are done
+on un-transformed data, whereas \code{get.row()} (#3) and midpoint (#4) are done after transformation. This is more
+seamless compared with the hassle of doing manually.
 }
 }
 \section{Aesthetics}{
 
 \code{geom_timeline()} understands the following aesthetics (required aesthetics are in bold):
 \itemize{
-\item \strong{\code{xstart}}
-\item \strong{\code{xstop}}
+\item \strong{\code{xmin}}
+\item \strong{\code{xmax}}
 \item \code{alpha}
 \item \code{angle}
 \item \code{by}
@@ -131,8 +142,22 @@ Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 
 \examples{
 data <- cid.meds \%>\% filter(Patient_ID=="166")
-
-# by default: overlapping rows are merged, and overlapping text is removed.
-ggplot(data) + geom_timeline(aes(xstart=startday,xstop=endday,
+# Standard timeline plot without much cleanup
+ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7)
+
+# Make it look nice and clean with merge and check_overlap, use min.gap to share rows where possible.
+ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+                                 label=med.clean,by=med.class,fill=med.class),alpha=0.7,
+                             merge=TRUE,check_overlap=TRUE,min.gap=0.15)
+
+# To see all events separately (even same labelled events never overlap), use row.overlap=FALSE
+ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+                                 label=med.clean,by=med.class,fill=med.class),alpha=0.7,
+                             row.overlap = FALSE)
+
+# To fit in as few rows as possible, try removing by, and set min.gap=0 and merge=TRUE.
+ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+                                 label=med.clean,fill=med.class),alpha=0.7,
+                             merge=TRUE,min.gap=0,check_overlap=TRUE)
 }

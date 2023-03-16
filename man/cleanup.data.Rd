@@ -38,7 +38,7 @@ Cleans up a data frame by performing 5 tasks:
 \enumerate{
 \item Remove any column or row that is all \code{NA} values (\code{\link[=remove.na.rows]{remove.na.rows()}},\code{\link[=remove.na.cols]{remove.na.cols()}})
 \item Make column names well-formatted (\code{\link[=make.names]{make.names()}})
-\item Remove any leading or trailing whitespace from character variables (\code{\link[=trim]{trim()}})
+\item Remove any leading or trailing whitespace from character variables (\code{\link[stringr:str_trim]{stringr::str_trim()}})
 \item Look for variables that look like date/time variables, and convert them to Date or POSIXct format (\code{\link[=convert.dates]{convert.dates()}})
 \item Look for variables that look like MRNs and format them properly (\code{\link[=as.mrn]{as.mrn()}})
 }

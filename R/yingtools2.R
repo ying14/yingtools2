@@ -1902,10 +1902,15 @@ is.between <- function(x,start,stop,check=TRUE) {
 }
 
 
+
+
+
 #' Get Rows (optimized for timeline plots)
 #'
 #' Given timeline event data with event type labels and start/stop times, calculate rows.
 #' If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
+#'
+#' Note that `get.row()` is used in [geom_timeline()].
 #' @param start vector of event start times (numeric or Date).
 #' @param stop vector of event stop times (numeric or Date).
 #' @param row vector of event types. Can be a list of more than one vector.
@@ -1925,22 +1930,22 @@ is.between <- function(x,start,stop,check=TRUE) {
 #' }
 #' pt.meds <- cid.meds %>% filter(Patient_ID=="157")
 #'
-#' # strictly one row per med (no.row.overlap=FALSE and min.gap=Inf), arranged by class
+#' # strictly one row per med (row.overlap=TRUE and min.gap=Inf), arranged by class
 #' pt.meds %>%
 #'   mutate(row=get.row(startday,endday,row=med.clean,by=med.class)) %>%
-#'   plot.meds("strictly one row per med\n(no.row.overlap=FALSE and min.gap=Inf), arranged by class")
-#' # same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)
+#'   plot.meds("strictly one row per med\n(row.overlap=TRUE and min.gap=Inf), arranged by class")
+#' # same meds are in different rows, if they overlap\nthe same time (row.overlap=TRUE)
 #' pt.meds %>%
-#'   mutate(row=get.row(startday,endday,row=med.clean,by=med.class,no.row.overlap=TRUE)) %>%
-#'   plot.meds("same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)")
+#'   mutate(row=get.row(startday,endday,row=med.clean,by=med.class,row.overlap=TRUE)) %>%
+#'   plot.meds("same meds are in different rows, if they overlap\nthe same time (row.overlap=TRUE)")
 #' # To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)
 #' pt.meds %>%
 #'   mutate(row=get.row(startday,endday,row=med.clean,min.gap=1,by=med.class)) %>%
 #'   plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
-#' # Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)
+#' # Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)
 #' pt.meds %>%
 #'   mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) %>%
-#'   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)")
+#'   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)")
 #' @export
 get.row <- function(start,stop,row=NULL,by=NULL,row.overlap=TRUE,min.gap=Inf) {
   requireNamespace("IRanges",quietly=TRUE)
@@ -1982,15 +1987,13 @@ get.row <- function(start,stop,row=NULL,by=NULL,row.overlap=TRUE,min.gap=Inf) {
     select(-start,-stop)
   # join together and create final row
   t3 <- t2 %>% left_join(t.row,by=c("row","by")) %>%
-    arrange(by,row2,row1) %>%
+    # arrange(by,row2,row1) %>%
     mutate(finalrow=paste(by,row2,row1,sep=";;"),
-           finalrow=fct_inorder(finalrow),
+           finalrow=fct_reordern(finalrow,by,row2,row1),
            finalrow=as.numeric(finalrow)) %>%
     arrange(i)
   return(t3$finalrow)
 }
-
-
 
 
 
@@ -3403,9 +3406,7 @@ gg.align.xlim <- function(glist) {
 #' ggplot(data) +
 #'   geom_col(aes(x=days,y=1,fill=factor(days)),width=1) +
 #'   scale_x_timebars(xlim=xlim,days=data$days,div=10)
-#'
-scale_x_timebars <- function(... ,days, xlim=NULL,
-                             div=30, breaks = NULL) {
+scale_x_timebars <- function( days=NULL, xlim=NULL, div=30, breaks = NULL, ... ) {
   days <- unique(days) %>% sort()
   if (length(days)==0) {
     message("YTNote: No days specified. X-axis will not be transformed.")
@@ -3437,6 +3438,18 @@ scale_x_timebars <- function(... ,days, xlim=NULL,
                           trans=trans),
        coord_cartesian(xlim=xlim.real)
   )
+}
+
+function (name = waiver(), breaks = waiver(), minor_breaks = waiver(),
+          n.breaks = NULL, labels = waiver(), limits = NULL, expand = waiver(),
+          oob = censor, na.value = NA_real_, trans = "identity", guide = waiver(),
+          position = "bottom", sec.axis = waiver()) {
+  sc <- continuous_scale(ggplot_global$x_aes, "position_c",
+                         identity, name = name, breaks = breaks, n.breaks = n.breaks,
+                         minor_breaks = minor_breaks, labels = labels, limits = limits,
+                         expand = expand, oob = oob, na.value = na.value, trans = trans,
+                         guide = guide, position = position, super = ScaleContinuousPosition)
+  set_sec_axis(sec.axis, sc)
 }
 
 
@@ -3502,7 +3515,7 @@ barwidth_spacing_trans <- function(days,xlim,div) {
 }
 
 
-#' @export
+
 GeomTimeline <- ggproto("GeomTimeline", GeomRect,
                         default_aes = aes(
                           label = "",
@@ -3521,43 +3534,9 @@ GeomTimeline <- ggproto("GeomTimeline", GeomRect,
                           family="",
                           fontface=1,
                           lineheight=0.75),
-                        required_aes = c("xstart", "xstop"),
-                        setup_data = function(data, params) {
-                          if (is.null(data$by)) {
-                            qby <- expr(NULL)
-                          } else {
-                            qby <- expr(by)
-                          }
-                          if (is.null(data$label)) {
-                            qlabel <- expr(NULL)
-                          } else {
-                            qlabel <- expr(label)
-                          }
-                          grouping_vars <- setdiff(names(data),c("xstart", "xstop"))
-                          if (params$merge)  {
-                            data <- data %>%
-                              group_by_time(xstart,xstop,!!!syms(grouping_vars),gap=params$merge.gap) %>%
-                              summarize(xstart=min(xstart),
-                                        xstop=max(xstop),
-                                        .groups="drop")
-                          }
-                          newdata <- data %>%
-                            group_by(PANEL) %>%
-                            mutate(y=get.row(xstart,xstop,row=!!qlabel,by=!!qby,
-                                             min.gap = params$min.gap,
-                                             row.overlap=params$row.overlap),
-                                   ymin=y-0.45,
-                                   ymax=y+0.45,
-                                   x=midpoint(xstart,xstop),
-                                   xmin=xstart-0.45,
-                                   xmax=xstop+0.45) %>%
-                            ungroup()
-                          return(newdata)
-                        },
+                        required_aes = c("xmin", "xmax"),
                         draw_panel = function(self, data, panel_params, coord, lineend = "butt", linejoin = "mitre",
-                                              parse = FALSE, check_overlap = FALSE, inherit.aes = TRUE,
-                                              merge=FALSE, merge.gap=1,
-                                              min.gap = Inf, row.overlap=  TRUE) {
+                                              parse = FALSE, check_overlap = FALSE, inherit.aes = TRUE) {
                           grob1 <- GeomRect$draw_panel(data=data, panel_params = panel_params, coord = coord,
                                                        lineend = lineend, linejoin = linejoin)
                           data2 <- data %>% mutate(colour = fontcolour, alpha = fontalpha)
@@ -3570,6 +3549,82 @@ GeomTimeline <- ggproto("GeomTimeline", GeomRect,
 
 
 
+# Use this to create rows using get.row. This can't be done in GeomTimeline because
+# the scale transformations are easily available.
+StatTimeline <- ggproto("StatTimeline",Stat,
+                        default_aes = aes(
+                          label = "",
+                          by = NA,
+                          fill = "grey35",
+                          colour = NA,
+                          linewidth = 0.5,
+                          linetype = 1,
+                          alpha = NA,
+                          fontcolour="black",
+                          size=3.88,
+                          angle=0,
+                          hjust=0.5,
+                          vjust=0.5,
+                          fontalpha=NA,
+                          family="",
+                          fontface=1,
+                          lineheight=0.75),
+                        required_aes = c("xmin", "xmax"),
+                        compute_panel = function(self, data, scales,
+                                                 merge=FALSE, merge.gap=1,
+                                                 min.gap = 1, row.overlap=TRUE) {
+                          #transform back to pre-transformation values,
+                          # perform merging and row creation,
+                          # then re-transform.
+                          inv <- scales$x$trans$inverse
+                          trans <- scales$x$trans$transform
+                          grouping_vars <- setdiff(names(data),c("xmin", "xmax"))
+                          data2 <- data %>%
+                            mutate(xmin0=inv(xmin),
+                                   xmax0=inv(xmax))
+                          if (merge)  {
+                            data2 <- data2 %>%
+                              group_by_time(xmin0,xmax0,!!!syms(grouping_vars),gap=merge.gap) %>%
+                              summarize(xmin0=min(xmin0),
+                                        xmax0=max(xmax0),
+                                        .groups="drop")
+                          }
+                          if (is.null(data$by)) {
+                            qby <- expr(NULL)
+                          } else {
+                            qby <- expr(by)
+                          }
+                          if (is.null(data$label)) {
+                            qlabel <- expr(NULL)
+                          } else {
+                            qlabel <- expr(label)
+                          }
+                          #slightly off because of expansion.
+                          xlim1 <- scales$x$dimension()
+                          # xlim2 <- scales$x$range$range
+                          xwidth <- xlim1[2] - xlim1[1]
+                          min.gap.true  <-  min.gap * xwidth
+
+                          newdata <- data2 %>%
+                            mutate(xmin0=xmin0-0.45,
+                                   xmax0=xmax0+0.45,
+                                   xmin=trans(xmin0),
+                                   xmax=trans(xmax0)) %>%
+                            group_by(PANEL) %>%
+                            mutate(y=get.row(xmin,xmax,row=!!qlabel,by=!!qby,
+                                             min.gap = min.gap.true,
+                                             row.overlap=row.overlap)) %>%
+                            ungroup() %>%
+                            mutate(ymin=y-0.45,
+                                   ymax=y+0.45,
+                                   x=midpoint(xmin,xmax)) %>%
+                            select(-xmin0,-xmax0)
+
+                          ggproto_parent(StatIdentity, self)$compute_layer(newdata, params, layout)
+                        })
+
+
+
 
 
 #' Plot timeline bars
@@ -3578,11 +3633,19 @@ GeomTimeline <- ggproto("GeomTimeline", GeomRect,
 #'
 #' This custom geom uses [get.row()] to arrange the timeline events into rows, where aesthetics are mapped
 #' to the function parameters:
-#' * `aes(xstart=)` is mapped to `get.row(start=)`
-#' * `aes(xstop=)` is mapped to `get.row(xstop=)`
+#' * `aes(xmin=)` is mapped to `get.row(start=)`
+#' * `aes(xmax=)` is mapped to `get.row(xstop=)`
 #' * `aes(label=)` is mapped to `get.row(row=)`
 #' * `aes(by=)` is mapped to `get.row(by=)`
 #'
+#' Some data prepping is done prior to plotting:
+#' 1. Merge any timeline events that overlap using [group_by_time()] (optional step if `merge=TRUE`)
+#' 2. Pad each event by +/- 0.45 days so that they span the length of the days they occur on, and so single day events do not have zero width.
+#' 3. Determine Y = row position for all events, using [get.row()], using above aesthetic mappings.
+#' 4. Calculate X midpoint of each timeline event, for plotting of the label.
+#' If X-axis transformations are used (e.g. [scale_x_timebar()]), note that merging (#1) and padding (#2) are done
+#' on un-transformed data, whereas `get.row()` (#3) and midpoint (#4) are done after transformation. This is more
+#' seamless compared with the hassle of doing manually.
 #' @eval ggplot2:::rd_aesthetics("geom", "timeline")
 #' @inheritParams get.row
 #' @inheritParams ggplot2::geom_rect
@@ -3595,7 +3658,7 @@ GeomTimeline <- ggproto("GeomTimeline", GeomRect,
 #' @param merge whether or not to merge adjacent/overlapping bars into 1 row before plotting (using [group_by_time()]). Default is `TRUE`.
 #' Note that merging only occurs if the bars are overlapping, and have the same label and fill.
 #' @param merge.gap if `merge=TRUE`, the maximum distance between two bars that are merged. Default is `1`.
-#' @param min.gap
+#' @param min.gap The allowable gap before two distinct rows are fitted on the same row, expressed as a proportion of the X-axis length. Note that this different than direct use of [get.row()]
 #' @param row.overlap
 #' @param check_overlap
 #' @param linejoin
@@ -3609,17 +3672,31 @@ GeomTimeline <- ggproto("GeomTimeline", GeomRect,
 #'
 #' @examples
 #' data <- cid.meds %>% filter(Patient_ID=="166")
-#'
-#' # by default: overlapping rows are merged, and overlapping text is removed.
-#' ggplot(data) + geom_timeline(aes(xstart=startday,xstop=endday,
+#' # Standard timeline plot without much cleanup
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
 #'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7)
+#'
+#' # Make it look nice and clean with merge and check_overlap, use min.gap to share rows where possible.
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7,
+#'                              merge=TRUE,check_overlap=TRUE,min.gap=0.15)
+#'
+#' # To see all events separately (even same labelled events never overlap), use row.overlap=FALSE
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7,
+#'                              row.overlap = FALSE)
+#'
+#' # To fit in as few rows as possible, try removing by, and set min.gap=0 and merge=TRUE.
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,fill=med.class),alpha=0.7,
+#'                              merge=TRUE,min.gap=0,check_overlap=TRUE)
 geom_timeline <- function(mapping = NULL, data = NULL,
-                          stat = "identity", position = "identity",
+                          stat = "timeline", position = "identity",
                           ...,
-                          merge = TRUE,
-                          min.gap = Inf,
+                          merge = FALSE,
+                          min.gap = 1,
                           row.overlap=  TRUE,
-                          check_overlap = TRUE,
+                          check_overlap = FALSE,
                           merge.gap = 1,
                           linejoin = "mitre",
                           na.rm = FALSE,
@@ -3650,7 +3727,115 @@ geom_timeline <- function(mapping = NULL, data = NULL,
 
 
 
+
+
+#' List items within ggplot object
+#'
+#' A recursive function that lists all objects in a `ggplot` object.
+#' @param ggobj ggplot object
+#' @param prefix for internal use, to track super.
+#' @param depth for internal use, to keep track of depth.
+#'
+#' @return a data frame listing of all objects.
+#' @export
+#'
+#' @examples
+list.gg.items <- function(ggobj,prefix=NULL,depth=1) {
+  # ggobj=gg
+  get.inheritance <- function(ggproto,name) {
+    # ggproto=GeomCol;name="draw_panel"
+    if (!is.ggproto(ggproto)) {
+      return(NA_character_)
+    }
+    obj <- ggproto
+    for (i in 1:length(class(ggproto))) {
+      ggclass <- class(obj)[1]
+      if (name %in% ls(envir=obj)) {
+        fname <- paste0(ggclass,"$",name)
+
+        # if (fname=="GeomBar2$setup_data"){
+        #   browser()
+        # }
+
+        is.fn <- tryCatch({
+          is.function(eval_tidy(parse_expr(fname)))
+        }, error=function(e)  {
+          FALSE
+        })
+        if (is.fn) {
+          fmls <- tryCatch({
+            eval_tidy(ggformals(!!parse_expr(fname))) %>% names() %>% paste(collapse=", ")
+          },error=function(e){
+            "..."
+          })
+          text <- str_glue("{fname}({fmls})")
+        } else {
+          text <- fname
+        }
+        return(text)
+      } else {
+        obj <- obj$super()
+      }
+    }
+    warning("YTWarning: inheritance not found")
+    return(NA_character_)
+  }
+
+  if (is.null(prefix)) {
+    prefix <-  deparse1(substitute(ggobj))
+  }
+  if (is.ggplot(ggobj)) {
+    ggobj <- as.list(ggobj)
+  }
+  if (is.ggproto(ggobj)) {
+    ggiterable <- as.list(ggobj)
+  } else {
+    ggiterable <- ggobj
+  }
+
+  tbl <- imap_dfr(ggiterable,function(obj,name) {
+    if (grepl("^[0-9]+$",name)) {
+      label <- paste0("[[",name,"]]")
+    } else {
+      label <- paste0("$",name)
+    }
+    class <- paste(class(obj),collapse="|")
+    inheritance <- get.inheritance(ggobj,name)
+    t <- tibble(depth=depth,
+                name=paste0(prefix,label),
+                class=class,
+                inheritance=inheritance)
+    if (is.ggproto(obj) | (is.list(obj) & !is.data.frame(obj))) {
+      t2 <- list.gg.items(obj,prefix=t$name,depth=depth+1)
+      t <- bind_rows(t,t2)
+    }
+    return(t)
+  })
+  return(tbl)
+}
+
+
 # data cleanup functions -------------------------------------------------------------------
+
+
+
+#' Reorder factor levels based on other variables.
+#'
+#' A `forcats`-like function which allows factor re-ordering based on sorting of multiple variables.
+#'
+#' This is similar to `data %>% arrange(...) %>% mutate(.f=fct_inorder(.f))`. This was a feature
+#' request in `forcats` but for some reason it was never added. If it is added I'll remmove this.
+#' @param .f the factor to be re-ordered.
+#' @param ... variables to sort by
+#'
+#' @return the re-ordered factor
+#' @export
+#'
+#' @examples
+fct_reordern <- function(.f, ...) {
+  f <- forcats:::check_factor(.f)
+  fct_reorder(f,order(order(...)),.fun=first)
+}
 
 
 
@@ -3663,7 +3848,7 @@ trim.default <- function(string) {
 #' @export
 trim.data.frame <- function(data,verbose=TRUE) {
   strvars <- sapply(data,is.character)
-  data[,strvars] <- sapply(data[,strvars],trim)
+  data[,strvars] <- sapply(data[,strvars],str_trim)
   if (verbose) {
     msg <- paste0("trim: looked through ",sum(strvars)," character variables to trim.")
     message(msg)
@@ -3719,7 +3904,7 @@ convert.dates <- function(data,verbose=FALSE) {
 #' @export
 is.mrn <- function(mrn,like=FALSE) {
   if (like) { #if numeric or factor, and if leading zeroes gone, can still hit.
-    mrn <- as.character(trim(mrn))
+    mrn <- as.character(str_trim(mrn))
     mrn <- mrn[!is.na(mrn) & mrn!=""]
     answer <- all.grepl("^[03][0-9]{7}$|^[0-9]{1,7}$",mrn)
     if (answer & is.numeric(mrn)) {
@@ -3763,7 +3948,7 @@ as.mrn.default <- function(mrn) {
   if (length(mrn)==0) {
     return(mrn)
   }
-  mrn <- trim(as.character(mrn))
+  mrn <- str_trim(as.character(mrn))
   mrn[mrn==""] <- NA
   mrn <- sapply(mrn,function(x) {
     if (is.na(x)) {
@@ -3912,7 +4097,7 @@ fill_in_blanks <- function(vec,blank="",include.na=TRUE) {
 #' Cleans up a data frame by performing 5 tasks:
 #' 1. Remove any column or row that is all `NA` values ([remove.na.rows()],[remove.na.cols()])
 #' 2. Make column names well-formatted ([make.names()])
-#' 3. Remove any leading or trailing whitespace from character variables ([trim()])
+#' 3. Remove any leading or trailing whitespace from character variables ([stringr::str_trim()])
 #' 4. Look for variables that look like date/time variables, and convert them to Date or POSIXct format ([convert.dates()])
 #' 5. Look for variables that look like MRNs and format them properly ([as.mrn()])
 #'
@@ -3953,7 +4138,6 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
   }
   return(data)
 }
-
 
 
 

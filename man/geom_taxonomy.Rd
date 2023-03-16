@@ -96,19 +96,21 @@ Creates stacked taxonomy barplots.
 \item \code{fontalpha}
 \item \code{fontcolour}
 \item \code{fontface}
+\item \code{fontsize}
 \item \code{group}
 \item \code{hjust}
 \item \code{label}
 \item \code{lineheight}
 \item \code{linetype}
 \item \code{linewidth}
-\item \code{size}
 \item \code{vjust}
 }
 Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 }
 
 \examples{
+library(phyloseq)
+library(tidyverse)
 otu <- cid.phy \%>\%
   get.otu.melt() \%>\%
   filter(Patient_ID == "221") \%>\%
@@ -118,5 +120,5 @@ otu <- cid.phy \%>\%
 otu \%>\%
   ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
   geom_taxonomy() +
-  scale_fill_taxonomy(data = otu, unitvar = otu, tax.palette = yt.palette3)
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
 }

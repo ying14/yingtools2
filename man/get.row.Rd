@@ -26,6 +26,9 @@ Returns a vector of row number assignments for each time event.
 Given timeline event data with event type labels and start/stop times, calculate rows.
 If requested, this will attempt to save vertical plot space by placing two event types on the same row, where possible.
 }
+\details{
+Note that \code{get.row()} is used in \code{\link[=geom_timeline]{geom_timeline()}}.
+}
 \examples{
 library(tidyverse)
 library(gridExtra)
@@ -38,20 +41,20 @@ plot.meds <- function(data,title) {
 }
 pt.meds <- cid.meds \%>\% filter(Patient_ID=="157")
 
-# strictly one row per med (no.row.overlap=FALSE and min.gap=Inf), arranged by class
+# strictly one row per med (row.overlap=TRUE and min.gap=Inf), arranged by class
 pt.meds \%>\%
   mutate(row=get.row(startday,endday,row=med.clean,by=med.class)) \%>\%
-  plot.meds("strictly one row per med\n(no.row.overlap=FALSE and min.gap=Inf), arranged by class")
-# same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)
+  plot.meds("strictly one row per med\n(row.overlap=TRUE and min.gap=Inf), arranged by class")
+# same meds are in different rows, if they overlap\nthe same time (row.overlap=TRUE)
 pt.meds \%>\%
-  mutate(row=get.row(startday,endday,row=med.clean,by=med.class,no.row.overlap=TRUE)) \%>\%
-  plot.meds("same meds are in different rows, if they overlap\nthe same time (no.row.overlap=TRUE)")
+  mutate(row=get.row(startday,endday,row=med.clean,by=med.class,row.overlap=TRUE)) \%>\%
+  plot.meds("same meds are in different rows, if they overlap\nthe same time (row.overlap=TRUE)")
 # To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)
 pt.meds \%>\%
   mutate(row=get.row(startday,endday,row=med.clean,min.gap=1,by=med.class)) \%>\%
   plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
-# Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)
+# Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)
 pt.meds \%>\%
   mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) \%>\%
-  plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, no.row.overlap=TRUE)")
+  plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)")
 }
