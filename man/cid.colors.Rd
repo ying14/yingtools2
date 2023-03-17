@@ -3,7 +3,7 @@
 \docType{data}
 \name{cid.colors}
 \alias{cid.colors}
-\title{The color scheme used in CID manuscript.}
+\title{The color scheme used in CID manuscript (\link{https://academic.oup.com/cid/article/55/7/905/428203}).}
 \format{
 An object of class \code{character} of length 21.
 }
@@ -11,7 +11,7 @@ An object of class \code{character} of length 21.
 cid.colors
 }
 \description{
-The color scheme used in CID manuscript.
+The color scheme used in CID manuscript (\link{https://academic.oup.com/cid/article/55/7/905/428203}).
 }
 \author{
 Ying Taur

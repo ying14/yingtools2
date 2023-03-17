@@ -4,7 +4,7 @@
 \alias{cut2}
 \title{Ying's Cut 2}
 \usage{
-cut2(x, lower, upper, quantiles, percentiles, lvls)
+cut2(x, lower, upper, n.quantiles, percentiles, lvls, rename.lvls = TRUE)
 }
 \arguments{
 \item{x}{a numeric vector (or Date) to be converted to factor by cutting.}
@@ -13,7 +13,7 @@ cut2(x, lower, upper, quantiles, percentiles, lvls)
 
 \item{upper}{a vector of upper bounds}
 
-\item{quantiles}{an integer specifying number of quantiles.}
+\item{n.quantiles}{an integer specifying number of quantiles.}
 
 \item{percentiles}{a vector of percentile breakpoints}
 

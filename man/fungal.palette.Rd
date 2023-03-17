@@ -11,6 +11,6 @@ An object of class \code{list} of length 8.
 fungal.palette
 }
 \description{
-The customary palette for Fungi.
+The customary palette for Fungi. This is the one used by Thierry Rolling.
 }
 \keyword{datasets}

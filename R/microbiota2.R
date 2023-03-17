@@ -1590,8 +1590,6 @@ guide_gengrob.taxonomy <- function(guide, theme) {
 #' YT Palette 2
 #'
 #' The old customary palette for Bacteria.
-#'
-#'
 #' @export
 yt.palette2 <- exprs(
   "Bacteroidetes (phylum)"=Phylum == "Bacteroidetes" ~ shades("#51AB9B", variation = 0.25),
@@ -1643,8 +1641,7 @@ yt.palette3 <- exprs(
 
 #' Fungal Palette
 #'
-#' The customary palette for Fungi.
-#'
+#' The customary palette for Fungi. This is the one used by Thierry Rolling.
 #' @export
 fungal.palette <- exprs(
   "Saccharomyces cerevisiae (species)" = Species == "Saccharomyces cerevisiae" ~  "#DA8686",
@@ -1663,10 +1660,7 @@ fungal.palette <- exprs(
 
 
 
-
-
-
-#' The color scheme used in CID manuscript.
+#' The color scheme used in CID manuscript ([https://academic.oup.com/cid/article/55/7/905/428203]).
 #' @author Ying Taur
 #' @export
 cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f69ea0",
@@ -1893,7 +1887,7 @@ fan.angle <- function(angle,hjust=FALSE,right=FALSE) {
 #' Conversion from Taxonomy Variables to Phylogenetic Trees (YT converted)
 #'
 #' Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
-#' Modified from a version from Liam J. Revell, University of Massachusetts, (https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html)
+#' Modified from a version from Liam J. Revell, University of Massachusetts, ([http://blog.phytools.org/2016/03/asphyloformula-in-which-given-taxonomic.html])
 #'
 #' Here are the changes:
 #' (1) Corrected branch lengths. The original ape::as.phylo.formula does not work well because it uses ape::read.tree to read in data,

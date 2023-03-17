@@ -4,10 +4,10 @@
 \alias{\%find\%}
 \title{Find Regular Expression Operator}
 \usage{
-x \%find\% y
+x \%find\% ...
 }
 \description{
-Shorthand operator for finding a pattern.
+Shorthand operator for finding a regex pattern.
 }
 \examples{
 sentences \%find\% "fish"

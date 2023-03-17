@@ -5,6 +5,87 @@
 
 
 
+#' Calculate axis limits
+#'
+#' Determines the actual limits of X and Y, for a given ggplot object. This is used by [gg.align.xlim()].
+#' @param gg the ggplot object
+#' @return a list containing inforation about limits for X and Y.
+#' @example
+#' g1 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram()
+#' g2 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
+#' g3 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram(bins=3) + coord_cartesian(expand=FALSE)
+#' g4 <- ggplot(mtcars,aes(x=mpg,y=disp)) + geom_point() + coord_cartesian(xlim=c(2,55),expand=TRUE)
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#'
+#' g1 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram() + scale_x_log10()
+#' g2 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point() + scale_x_log10()
+#' g3 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram(bins=3) + coord_cartesian(expand=FALSE) + scale_x_log10()
+#' g4 <- ggplot(mtcars,aes(x=mpg,y=disp)) + geom_point() + coord_cartesian(expand=FALSE,xlim=c(2,55)) + scale_x_log10()
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#'
+#' g1 <- ggplot(starwars,aes(x=eye_color)) + geom_bar()
+#' g2 <- ggplot(starwars,aes(x=eye_color,y=height)) + geom_boxplot()
+#' g3 <- ggplot(starwars,aes(x=eye_color,fill=species)) + geom_bar(width=3)
+#' g4 <- ggplot(starwars,aes(x=eye_color,y=height)) + geom_boxplot()
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#'
+#' g1 <- ggplot(presidential,aes(x=start)) + geom_histogram()
+#' g2 <- ggplot(presidential,aes(x=end)) + geom_histogram()
+#' g3 <- ggplot(presidential,aes(y=name,yend=name,x=start,xend=end)) + geom_segment(size=5)
+#' g4 <- ggplot(presidential,aes(y=name,yend=name,x=start,xend=end,fill=party)) + geom_segment(size=5)
+#' gg.axis.limits(g1)
+#' gg.axis.limits(g2)
+#' gg.axis.limits(g3)
+#' gg.axis.limits(g4)
+#' @export
+gg.axis.limits <- function(gg) {
+  message("YTNote: gg.axis.limits is deprecated. ggfun::xrange() and ggfun::yrange() perform this function.")
+
+  gb <- suppressMessages(ggplot_build(gg))
+  coord_flip <- is(gb$layout$coord,"CoordFlip")
+  # expand <- gb$layout$coord$expand
+  x <- list(
+    lim = gb$layout$panel_params[[1]]$x.range, #****the ultimate plot limits, post transform, post expansion, post coord lim
+    # lim.fct = gb$layout$panel_scales_x[[1]]$range_c$range, #exists if categorical, and is numeric representation of lim
+    # lim2 = gb$layout$panel_scales_x[[1]]$range$range, #lim is the data limits, can be numeric or factor, pre-expansion, post-transform, if not overruled by coord.
+    # lim3 = gb$layout$panel_params[[1]]$x$limits, #basically same as lim
+    # lim4 = gb$layout$panel_params[[1]]$x$continuous_range,
+    # lim5 = gb$layout$panel_params[[1]]$x$get_limits(),
+    # lim.coord=gb$layout$coord$limits$x,
+    # expansion = gb$layout$panel_scales_x[[1]]$expand,
+    transform = gb$layout$panel_scales_x[[1]]$trans$transform,
+    inverse = gb$layout$panel_scales_x[[1]]$trans$inverse
+  )
+  y <- list(
+    lim = gb$layout$panel_params[[1]]$y.range,
+    transform = gb$layout$panel_scales_y[[1]]$trans$transform,
+    inverse = gb$layout$panel_scales_y[[1]]$trans$inverse
+  )
+  if (is.null(x$inverse)) {
+    x$coord_lim <- x$lim
+  } else {
+    x$coord_lim <- x$inverse(x$lim)
+  }
+
+  if (is.null(y$inverse)) {
+    y$coord_lim <- y$lim
+  } else {
+    y$coord_lim <- y$inverse(y$lim)
+  }
+  return(list(x=x,y=y,coord_flip=coord_flip))
+}
+
+
+
 #' Create a color palette for taxonomy
 #'
 #' Given microbiota data, generate a color palette that can be used in ggplot2 plots.

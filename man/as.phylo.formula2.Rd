@@ -27,7 +27,7 @@ An object of class phylo.
 }
 \description{
 Used to convert taxonomy table into a phylo object for plotting. A revised version of ape::as.phylo.formula.
-Modified from a version from Liam J. Revell, University of Massachusetts, (https://stat.ethz.ch/pipermail/r-sig-phylo/2013-August/003017.html)
+Modified from a version from Liam J. Revell, University of Massachusetts, (\link{http://blog.phytools.org/2016/03/asphyloformula-in-which-given-taxonomic.html})
 }
 \details{
 Here are the changes:

@@ -50,13 +50,72 @@
 
 #' Find Regular Expression Operator
 #'
-#' Shorthand operator for finding a pattern.
+#' Shorthand operator for finding a regex pattern.
 #' @export
 #' @examples
 #' sentences %find% "fish"
-"%find%" = function(x,y) {
-  grep(y,x,ignore.case=TRUE,value=TRUE) %>% unique()
+`%find%` <- function(x,...) {
+  UseMethod("%find%",x)
 }
+
+#' @export
+`%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
+  requireNamespace(c("cli","pillar"),quietly = TRUE)
+  pattern <- regex(pattern,ignore_case = TRUE)
+  if (is.null(name)) {
+    name <- deparse1(substitute(x))
+  }
+  width <- cli::console_width()
+  which.hits <- str_which(x,pattern=pattern)
+  n.hits <- length(which.hits)
+  hits <- x[which.hits]
+  if (n.hits>0) {
+    cli::cli_text("{name}: {n.hits} {ifelse(n.hits==1,'hit','hits')}")
+
+    sub.hits <- hits %>% head(n=maxhits)
+    sub.which.hits <- which.hits %>% head(n=maxhits)
+    bullet <- str_glue("[{sub.which.hits}]") %>% pillar::align()
+    loc <- str_locate_all(sub.hits,pattern)
+    text <- stringi::stri_sub_all(sub.hits,loc)
+    emphtext <- text %>% map(cli::col_red)
+    newhits <- stringi::stri_sub_replace_all(sub.hits,loc,replacement=emphtext)
+    first.hit.loc <- loc %>% map_int(~.x[1,1])
+    add.middle.ellipsis <- function(string,loc.first,pre.ellipsis=5,post.ellipsis=5,padded.criteria=5,
+                                    ellipsis=cli::symbol$ellipsis) {
+      part1 <- ansi_substr(newhits,1,pre.ellipsis)
+      part2 <- ansi_substr(newhits,loc.first-post.ellipsis,ansi_nchar(newhits))
+      length.cutoff <- nchar(ellipsis) + pre.ellipsis + post.ellipsis + padded.criteria
+      if_else(loc.first>length.cutoff,str_c(part1,ellipsis,part2),newhits)
+    }
+    # ellipsis <- symbol$ellipsis
+    ellipsis <- cli::symbol$ellipsis
+    pre.ellipsis = floor(width / 6)
+    post.ellipsis = floor(width / 6)
+    padded.criteria = floor(width * 1/3)
+    newhits2 <- add.middle.ellipsis(newhits,loc=first.hit.loc,
+                                    pre.ellipsis = pre.ellipsis,
+                                    post.ellipsis = post.ellipsis,
+                                    padded.criteria = padded.criteria,
+                                    ellipsis=ellipsis)
+
+    report <- str_glue("{bullet}: {newhits2}") %>%
+      ansi_strtrim(width = console_width(), ellipsis = ellipsis)
+    cli::cat_line(report)
+    if (n.hits>maxhits) {
+      cli::cli_text("... [truncated]")
+    }
+
+  }
+  invisible(hits)
+}
+
+#' @export
+`%find%.data.frame` <- function(x,pattern,name=NULL,maxhits=5) {
+  hitlist <- x %>% imap(~`%find%.default`(.x,pattern=pattern,maxhits=5,name=paste0("$ ",.y)))
+  invisible(hitlist)
+}
+
+
 
 # simple vector operations ------------------------------------------------
 
@@ -235,37 +294,46 @@ min2 <- function(...,na.rm=FALSE) {
 }
 
 
-
-
 #' Ying's Cut 2
 #'
 #' Similar to cut, but with several options for grouping.
 #' @param x a numeric vector (or Date) to be converted to factor by cutting.
 #' @param lower a vector of lower bounds
 #' @param upper a vector of upper bounds
-#' @param quantiles an integer specifying number of quantiles.
+#' @param n.quantiles an integer specifying number of quantiles.
 #' @param percentiles a vector of percentile breakpoints
 #' @param lvls optional vector for renaming the levels
 #' @return a factor derived from grouping of x
 #' @export
-cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
+cut2 <- function(x,lower,upper,n.quantiles,percentiles,lvls,rename.lvls=TRUE) {
+  requireNamespace("cli",quietly = TRUE)
   if (!missing(lower)) {
     breaks <- unique(c(-Inf,lower,Inf))
     right=FALSE
   } else if (!missing(upper)) {
     breaks <- unique(c(-Inf,upper,Inf))
     right=TRUE
-  } else if (!missing(quantiles)) {
-    breaks=quantiles
+  } else if (!missing(n.quantiles)) {
+    if (n.quantiles<=1) {
+      stop("YTError: n.quantiles needs two or more cutoffs")
+    }
+    probs <- seq(0,1,length.out=n.quantiles+1)
+    probs <- probs[c(-1,-length(probs))]
+    quantiles <- quantile(x,probs=probs)
+    breaks <- unname(quantiles) %>% c(-Inf,.,Inf) %>% unique()
     right=TRUE
   } else if (!missing(percentiles)) {
-    breaks <- quantile(x,seq(0,1,1/percentiles))
+    probs <- percentiles %>% unique()
+    breaks <- quantile(x,probs=probs) %>% unname() %>% c(-Inf,.,Inf) %>% unique()
     right=TRUE
   } else {
     print("Error, need parameters!")
     return(NULL)
   }
   new.x <- cut(x,breaks,right=right,include.lowest=TRUE)
+  if (!rename.lvls) {
+    return(new.x)
+  }
   if (class(x)=="Date") {
     #don't change anything
   } else if (is.wholenumber(x)) {
@@ -279,14 +347,28 @@ cut2 <- function(x,lower,upper,quantiles,percentiles,lvls) {
       newlvl
     })
   } else { #e.g. 20<=X<30
-    levels(new.x) <- sapply(levels(new.x),function(y) {
-      b1 <- ifelse(grepl("\\[",y),"<=","<")
-      b2 <- ifelse(grepl("\\]",y),"<=","<")
-      num <- unlist(str_extract_all(y,"-?[0-9.Inf]+"))
-      newlvl <- paste0(num[1],b1,"X",b2,num[2])
-      newlvl
-    })
-    levels(new.x) <- gsub("-Inf<=?|<=?Inf","",levels(new.x))
+    parts <- levels(new.x) %>% str_match("^([\\[\\(])([^,]+),([^,]+)([\\]\\)])$")
+    if (any(is.na(parts))) {
+      stop("YTError: not sure how to read levels!")
+    }
+    colnames(parts) <- c("all","l.bracket","lower","upper","u.bracket")
+    parts <- as_tibble(parts,.name_repair = "check_unique") %>%
+      mutate(l.bound=if_else(l.bracket=="[",cli::symbol$leq,"<"),
+                     u.bound=if_else(u.bracket=="]",cli::symbol$leq,"<"),
+                     lower.text=na_if(str_trim(lower),"-Inf"),
+                     upper.text=na_if(str_trim(upper),"Inf"),
+                     lower.text=str_c(lower.text,l.bound),
+                     upper.text=str_c(u.bound,upper.text),
+                     text=paste2(lower.text,"X",upper.text,sep=""))
+    levels(new.x) <- parts$text
+    # levels(new.x) <- sapply(levels(new.x),function(y) {
+    #   b1 <- ifelse(grepl("\\[",y),symbol$leq,"<")
+    #   b2 <- ifelse(grepl("\\]",y),symbol$leq,"<")
+    #   num <- unlist(str_extract_all(y,"-?(Inf|[0-9.]+)"))
+    #   newlvl <- paste0(num[1],b1,"X",b2,num[2])
+    #   newlvl
+    # })
+    # levels(new.x) <- gsub("^-Inf<=?|<=?Inf$","",levels(new.x))
   }
   if (!missing(lvls)) {
     levels(new.x) <- lvls
@@ -3277,82 +3359,6 @@ gg.stack2 <- function(..., heights = NULL, gap=unit(0,"pt"),
 
 
 
-#' Calculate axis limits
-#'
-#' Determines the actual limits of X and Y, for a given ggplot object. This is used by [gg.align.xlim()].
-#' @param gg the ggplot object
-#' @return a list containing inforation about limits for X and Y.
-#' @example
-#' g1 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram()
-#' g2 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point()
-#' g3 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram(bins=3) + coord_cartesian(expand=FALSE)
-#' g4 <- ggplot(mtcars,aes(x=mpg,y=disp)) + geom_point() + coord_cartesian(xlim=c(2,55),expand=TRUE)
-#' gg.axis.limits(g1)
-#' gg.axis.limits(g2)
-#' gg.axis.limits(g3)
-#' gg.axis.limits(g4)
-#'
-#' g1 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram() + scale_x_log10()
-#' g2 <- ggplot(mtcars,aes(x=mpg,y=disp,color=factor(cyl))) + geom_point() + scale_x_log10()
-#' g3 <- ggplot(mtcars,aes(x=mpg)) + geom_histogram(bins=3) + coord_cartesian(expand=FALSE) + scale_x_log10()
-#' g4 <- ggplot(mtcars,aes(x=mpg,y=disp)) + geom_point() + coord_cartesian(expand=FALSE,xlim=c(2,55)) + scale_x_log10()
-#' gg.axis.limits(g1)
-#' gg.axis.limits(g2)
-#' gg.axis.limits(g3)
-#' gg.axis.limits(g4)
-#'
-#' g1 <- ggplot(starwars,aes(x=eye_color)) + geom_bar()
-#' g2 <- ggplot(starwars,aes(x=eye_color,y=height)) + geom_boxplot()
-#' g3 <- ggplot(starwars,aes(x=eye_color,fill=species)) + geom_bar(width=3)
-#' g4 <- ggplot(starwars,aes(x=eye_color,y=height)) + geom_boxplot()
-#' gg.axis.limits(g1)
-#' gg.axis.limits(g2)
-#' gg.axis.limits(g3)
-#' gg.axis.limits(g4)
-#'
-#' g1 <- ggplot(presidential,aes(x=start)) + geom_histogram()
-#' g2 <- ggplot(presidential,aes(x=end)) + geom_histogram()
-#' g3 <- ggplot(presidential,aes(y=name,yend=name,x=start,xend=end)) + geom_segment(size=5)
-#' g4 <- ggplot(presidential,aes(y=name,yend=name,x=start,xend=end,fill=party)) + geom_segment(size=5)
-#' gg.axis.limits(g1)
-#' gg.axis.limits(g2)
-#' gg.axis.limits(g3)
-#' gg.axis.limits(g4)
-#' @export
-gg.axis.limits <- function(gg) {
-  gb <- suppressMessages(ggplot_build(gg))
-  coord_flip <- is(gb$layout$coord,"CoordFlip")
-  # expand <- gb$layout$coord$expand
-  x <- list(
-    lim = gb$layout$panel_params[[1]]$x.range, #****the ultimate plot limits, post transform, post expansion, post coord lim
-    # lim.fct = gb$layout$panel_scales_x[[1]]$range_c$range, #exists if categorical, and is numeric representation of lim
-    # lim2 = gb$layout$panel_scales_x[[1]]$range$range, #lim is the data limits, can be numeric or factor, pre-expansion, post-transform, if not overruled by coord.
-    # lim3 = gb$layout$panel_params[[1]]$x$limits, #basically same as lim
-    # lim4 = gb$layout$panel_params[[1]]$x$continuous_range,
-    # lim5 = gb$layout$panel_params[[1]]$x$get_limits(),
-    # lim.coord=gb$layout$coord$limits$x,
-    # expansion = gb$layout$panel_scales_x[[1]]$expand,
-    transform = gb$layout$panel_scales_x[[1]]$trans$transform,
-    inverse = gb$layout$panel_scales_x[[1]]$trans$inverse
-  )
-  y <- list(
-    lim = gb$layout$panel_params[[1]]$y.range,
-    transform = gb$layout$panel_scales_y[[1]]$trans$transform,
-    inverse = gb$layout$panel_scales_y[[1]]$trans$inverse
-  )
-  if (is.null(x$inverse)) {
-    x$coord_lim <- x$lim
-  } else {
-    x$coord_lim <- x$inverse(x$lim)
-  }
-
-  if (is.null(y$inverse)) {
-    y$coord_lim <- y$lim
-  } else {
-    y$coord_lim <- y$inverse(y$lim)
-  }
-  return(list(x=x,y=y,coord_flip=coord_flip))
-}
 
 
 
@@ -3366,26 +3372,10 @@ gg.axis.limits <- function(gg) {
 #' @return a modified list of ggplot objects, with modified x-limits
 #' @export
 gg.align.xlim <- function(glist) {
-  gg.limits <- glist %>% map(gg.axis.limits)
-  xlims <- gg.limits %>% map(~.x$x$coord_lim)
-  xmin <- xlims %>% map(~.x[1])
-  xmax <- xlims %>% map(~.x[2])
-  new.xlim <- c(xmin[[which.min(xmin)]],xmax[[which.max(xmax)]])
-  new.glist <- map2(glist,gg.limits,~{
-    if (.y$coord_flip) {
-      coord <- coord_flip(
-        xlim=.y$y$coord_lim,
-        ylim=new.xlim,
-        expand=FALSE)
-    } else {
-      coord <- coord_cartesian(
-        xlim=new.xlim,
-        ylim=.y$y$coord_lim,
-        expand=FALSE,
-        default=TRUE)
-    }
-    suppressWarnings({.x + coord})
-  })
+  requireNamespace(c("ggfun","aplot"),quietly=TRUE)
+  new.xlim <- glist %>% map(ggfun::xrange) %>% transpose() %>%
+    simplify_all() %>% map2_dbl(list(min,max),~.y(.x))
+  new.glist <- glist %>% map(~.x + aplot::xlim2(limits=new.xlim))
   return(new.glist)
 }
 
@@ -5019,7 +5009,7 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
     return(NULL)
   }
   dsize <- lapply(objects,function(objname) {
-    obj <- get(objname)
+    obj <- get(objname,envir=envir)
     bytes <- get.size(obj)
     # mb <- format(size,units="Mb")
     size <- utils:::format.object_size(bytes, "auto")
@@ -5028,9 +5018,6 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
   }) %>% bind_rows() %>% arrange(desc(bytes)) %>% select(-bytes)
   return(dsize)
 }
-
-
-
 
 
 #' Determine all dependent packages
