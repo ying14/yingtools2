@@ -17,15 +17,16 @@
 #' @import ggplot2
 #' @import forcats
 #' @import stringr
-#' @import purrr
-#' @import rlang
+#' @rawNamespace import(purrr, except=c(invoke,splice,as_function,%@%))
+#' @rawNamespace import(rlang, except=c(invoke,flatten,flatten_raw,flatten_dbl,flatten_chr,flatten_lgl,flatten_int,splice))
 #' @import grid
 #' @importFrom lubridate is.Date is.POSIXct is.POSIXlt is.POSIXt
 #' @importFrom scales percent trans_new pvalue rescale
 #' @importFrom reshape2 dcast melt
 #' @importFrom plyr adply
-#' @importFrom gridExtra arrangeGrob grid.arrange
+#' @importFrom gridExtra arrangeGrob grid.arrange arrangeGrob marrangeGrob
 NULL
+
 
 
 #' Pipe operator
@@ -168,7 +169,7 @@ if (FALSE) {
 
 ## to force a fresh pull from github:
 # git fetch --all
-# git reset --hard origin/master
+# git reset --hard origin/master (or main)
 # git pull origin master
 
 

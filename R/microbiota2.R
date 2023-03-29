@@ -373,6 +373,42 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 }
 
 
+#' Filter phyloseq object
+#'
+#' Subset a phyloseq using `dplyr`-style.
+#' @param phy phylseq object
+#' @param ... filter criteria
+#' @param prune_unused_taxa whether or not to remove unused taxa. Default is `TRUE`
+#' @export
+filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE) {
+  ssub <- phy %>% get.samp() %>% filter(...)
+  physub <- prune_samples(ssub$sample,phy)
+  if (prune_unused_taxa) {
+    physub <- prune_unused_taxa(physub)
+  }
+  return(physub)
+}
+
+
+#' Mutate phyloseq object
+#'
+#' Mutate operations on phyloseq object
+#' @param phy phyloseq object
+#' @param ... mutate commands
+#'
+#' @return
+#' @export
+#'
+#' @examples
+mutate.phyloseq <- function(phy, ...) {
+  s <- phy %>% get.samp() %>%
+    mutate(...)
+  sample_data(phy) <- s %>% set.samp()
+  return(phy)
+}
+
+
+
 #' Check if taxonomy levels are distinct.
 #'
 #' @param data tax data to be tested. Can be a [`phyloseq`][`phyloseq::phyloseq-class`], tax table (from [get.tax()]), or otu-melt table (from [get.otu.melt()]).

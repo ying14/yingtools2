@@ -3,14 +3,13 @@
 
 
 
-
 # custom operators --------------------------------------------------------
 
 #' Not In
 #'
 #' Convenience function. `a %!in% b` is equivalent to `!(a %in% b)`
 #' @export
-"%!in%" = function(x,y) {
+`%!in%` = function(x,y) {
   !(x %in% y)
 }
 
@@ -18,7 +17,7 @@
 #'
 #' Convenience function. `a %allin% b` is equivalent to `all(a %in% b, na.rm=FALSE)`
 #' @export
-"%allin%" = function(x,y) {
+`%allin%` = function(x,y) {
   all(x %in% y)
 }
 
@@ -34,7 +33,7 @@
 #' @export
 #' @examples
 #' Sys.Date() %-% as.Date("1975-02-21")
-"%-%" = function(x,y) {
+`%-%` = function(x,y) {
   as.numeric(difftime(x,y,units="days"))
 }
 
@@ -44,7 +43,7 @@
 #' @export
 #' @examples
 #' sentences %like% "fish"
-"%like%" = function(x,y) {
+`%like%` = function(x,y) {
   grepl(y,x,ignore.case=TRUE)
 }
 
@@ -57,6 +56,8 @@
 `%find%` <- function(x,...) {
   UseMethod("%find%",x)
 }
+
+
 
 #' @export
 `%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
@@ -71,7 +72,6 @@
   hits <- x[which.hits]
   if (n.hits>0) {
     cli::cli_text("{name}: {n.hits} {ifelse(n.hits==1,'hit','hits')}")
-
     sub.hits <- hits %>% head(n=maxhits)
     sub.which.hits <- which.hits %>% head(n=maxhits)
     bullet <- str_glue("[{sub.which.hits}]") %>% pillar::align()
@@ -82,8 +82,8 @@
     first.hit.loc <- loc %>% map_int(~.x[1,1])
     add.middle.ellipsis <- function(string,loc.first,pre.ellipsis=5,post.ellipsis=5,padded.criteria=5,
                                     ellipsis=cli::symbol$ellipsis) {
-      part1 <- ansi_substr(newhits,1,pre.ellipsis)
-      part2 <- ansi_substr(newhits,loc.first-post.ellipsis,ansi_nchar(newhits))
+      part1 <- cli::ansi_substr(newhits,1,pre.ellipsis)
+      part2 <- cli::ansi_substr(newhits,loc.first-post.ellipsis,cli::ansi_nchar(newhits))
       length.cutoff <- nchar(ellipsis) + pre.ellipsis + post.ellipsis + padded.criteria
       if_else(loc.first>length.cutoff,str_c(part1,ellipsis,part2),newhits)
     }
@@ -99,7 +99,7 @@
                                     ellipsis=ellipsis)
 
     report <- str_glue("{bullet}: {newhits2}") %>%
-      ansi_strtrim(width = console_width(), ellipsis = ellipsis)
+      cli::ansi_strtrim(width = width, ellipsis = ellipsis)
     cli::cat_line(report)
     if (n.hits>maxhits) {
       cli::cli_text("... [truncated]")
@@ -485,6 +485,7 @@ cummax.Date <- function(x) {
 
 # data inspection tools --------------------------------------------------------
 
+
 #' Compare objects
 #'
 #' Compare two objects (vector or data frame), and displays a summary of similarities and differences.
@@ -494,7 +495,7 @@ cummax.Date <- function(x) {
 #' @param by variable(s) to join by and compare (for data frames only)
 #' @return displays a report of the comparison, and invisibly returns a table of comparison details.
 #' @examples
-#' suppressMessages(library(tidyverse))
+#' library(tidyverse)
 #' vec <- stringr::sentences[1:100]
 #' compare(vec,vec)
 #' compare(vec,rev(vec))
@@ -540,28 +541,26 @@ compare.default <- function(x,y) {
   }
 }
 
-
 #' @rdname compare
 #' @export
 compare.character <- function(x,y) {
   #using deparse1(substitute) because as_label doesn't seem to work in UseMethod situations, for some reason.
   x.name <- deparse1(substitute(x))
   y.name <- deparse1(substitute(y))
+  x.type <- format(pillar::new_pillar_type(x))
+  y.type <- format(pillar::new_pillar_type(y))
 
   are.equal <- function(v1,v2) {
     same <- (v1 == v2) | (is.na(v1) & is.na(v2))
     same[is.na(same)] <- FALSE
     return(same)
   }
-
   x.length <- length(x)
   y.length <- length(y)
   x.ndistinct <- n_distinct(x)
   y.ndistinct <- n_distinct(y)
   x.is.distinct <- x.length==x.ndistinct
   y.is.distinct <- y.length==y.ndistinct
-  x.range <- table(x) %>% range()
-  y.range <- table(y) %>% range()
   xy.samelength <- x.length==y.length
   xy.identical <- xy.samelength && all(are.equal(x,y))
   xy.identical.difforder <- xy.samelength && all(are.equal(sort(x),sort(y)))
@@ -573,66 +572,98 @@ compare.character <- function(x,y) {
   y.subsetof.x <-length(y.not.x)==0 && length(x.not.y)>0
   xy.nooverlap <- length(x.and.y)==0
 
-  message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
+  cli_text("X ",
+           col_cyan("<{x.name}>"),
+           x.type,
+           " vs. ",
+           "Y ",
+           col_cyan("<{y.name}>"),
+           y.type)
 
   if (x.is.distinct) {
-    x.message <- str_glue("X is distinct (N={x.length})")
+    cli_text("X is distinct ",style_italic(col_grey("(N={x.length})")))
   } else {
-    x.message <- str_glue("X is non-distinct (N={x.length}, {x.ndistinct} distinct values)")
+    cli_text("X is non-distinct ",style_italic(col_grey("(N={x.length}, {x.ndistinct} distinct)")))
+  }
+  if (y.is.distinct) {
+    cli_text("Y is distinct ",style_italic(col_grey("(N={y.length})")))
+  } else {
+    cli_text("Y is non-distinct ",style_italic(col_grey("(N={y.length}, {y.ndistinct} distinct)")))
   }
 
-  if (y.is.distinct) {
-    y.message <- str_glue("Y is distinct (N={y.length})")
-  } else {
-    y.message <- str_glue("Y is non-distinct (N={y.length}, {y.ndistinct} distinct values)")
-  }
-  message(x.message)
-  message(y.message)
+  report.sets <- FALSE
 
   if (xy.identical) {
-    message(str_glue("X and Y are identical"))
+    cli_text("X and Y are identical")
   } else if (xy.identical.difforder) {
-    message(str_glue("X and Y are identical, but in different order"))
+    cli_text("X and Y are identical, but in different order")
   } else if (setequal.xy) {
     if (!x.is.distinct && y.is.distinct) {
-      message(str_glue("X and Y are equal sets, where X has duplicates"))
+      cli_text("X and Y are equal sets, where X has duplicates")
     } else if (x.is.distinct && !y.is.distinct) {
-      message(str_glue("X and Y are equal sets, where Y has duplicates"))
+      cli_text("X and Y are equal sets, where Y has duplicates")
     } else if (!x.is.distinct && !y.is.distinct) {
-      message(str_glue("X and Y are equal sets, but with different freqs"))
+      cli_text("X and Y are equal sets, but with different freqs")
     } else {
-      message("?????")
+      cli_text("?????")
     }
   } else if (x.subsetof.y) {
-    message(str_glue("X is a subset of Y ({x.ndistinct} out of {y.ndistinct})"))
+    # cli_text("X is a subset of Y ",style_italic(col_grey("({x.ndistinct} out of {y.ndistinct})")))
+    cli_text("X is a subset of Y")
+    report.sets <- TRUE
   } else if (y.subsetof.x) {
-    message(str_glue("Y is a subset of X ({y.ndistinct} out of {x.ndistinct})"))
+    # cli_text("Y is a subset of X ",style_italic(col_grey("({y.ndistinct} out of {x.ndistinct})")))
+    cli_text("Y is a subset of X")
+    report.sets <- TRUE
   } else if (xy.nooverlap) {
-    message(str_glue("X and Y do not overlap"))
+    cli_text("X and Y do not overlap")
+    report.sets <- TRUE
   } else {
-    message(str_glue("X and Y partially overlap: {length(x.not.y)} values both X and Y, {length(y.not.x)} values in Y only, {length(x.and.y)} values in X only"))
+    # cli_text(str_glue("X and Y partially overlap: {length(x.not.y)} values both X and Y, {length(y.not.x)} values in Y only, {length(x.and.y)} values in X only"))
+    cli_text("X and Y partially overlap")
+    report.sets <- TRUE
+  }
+  if (report.sets) {
+    header <- c("X and Y",
+                "X only",
+                "Y only") %>% pillar::align()
+    items <- list(x.and.y,x.not.y,y.not.x)
+    show <- items %>% map_lgl(~length(.x)>0)
+    counts <- items %>% map_int(length) %>% str_c("[",.,"]") %>%
+      col_grey() %>% pillar::align()
+    body <- items %>% map_chr(pillar:::format_glimpse_1)
+    report <- str_c(header,counts,body,sep=" ") %>% ansi_strtrim()
+    cat_line(report[show])
   }
 
-  tbl <- bind_rows(tibble(value=x,source="x"),tibble(value=y,source="y")) %>%
-    count(value,source) %>%
-    pivot_wider(id_cols=value,names_from=source,values_from=n,values_fill=0) %>%
-    select(value,x,y) %>%
-    mutate(.status=case_when(
-      x>0 & y>0 ~ str_glue("both X and Y"),
-      x>0 & y==0 ~ str_glue("X not Y"),
-      x==0 & y>0 ~ str_glue("Y not X")
-    ))
+  tbl <- list(x.and.y=x.and.y,
+              x.only=x.not.y,
+              y.only=y.not.x)
+
   invisible(tbl)
 }
+
+
+
+
 
 
 #' @rdname compare
 #' @export
 compare.data.frame <- function(x,y,by=NULL) {
-  # declare.args(x=m,y=m.col,by="car")
-  # declare.args(x=m.top,y=m.bottom,by="car", x[12,2] <- 3)
   x.name <- deparse1(substitute(x))
   y.name <- deparse1(substitute(y))
+  x.type <- format(pillar::new_pillar_type(x))
+  y.type <- format(pillar::new_pillar_type(y))
+  cli_text("X ",
+           col_cyan("<{x.name}>"),
+           x.type,
+           " vs. ",
+           "Y ",
+           col_cyan("<{y.name}>"),
+           y.type)
+  # message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
+
   xy.cols <- intersect(names(x),names(y))
   x.cols <- setdiff(names(x),names(y))
   y.cols <- setdiff(names(y),names(x))
@@ -641,7 +672,6 @@ compare.data.frame <- function(x,y,by=NULL) {
   }
   by.x <- (names(by) %||% by) %>% if_else(.=="",by,.) %>% unname()  # similar to coalesce; if names(by) is NULL, then =by.
   by.y <- unname(by)
-  message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
   # are by vars distinct?
   x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
   y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
@@ -657,8 +687,8 @@ compare.data.frame <- function(x,y,by=NULL) {
   } else {
     by.y.label <- paste(by.y,collapse=",")
   }
-  message(str_glue("-X: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,'distinct','not distinct')} across {by.x.label})"))
-  message(str_glue("-Y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,'distinct','not distinct')} across {by.y.label})"))
+  cli_text("-X: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,'distinct','not distinct')} across {by.x.label})")
+  cli_text("-Y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,'distinct','not distinct')} across {by.y.label})")
   # cols
   column.report <- "Columns: "
   if (length(x.cols)==0 && length(y.cols)==0) {
@@ -671,9 +701,12 @@ compare.data.frame <- function(x,y,by=NULL) {
       column.report <- c(column.report, str_glue("-Y has {length(y.cols)} cols not in X: {paste(y.cols,collapse=', ')}"))
     }
   }
-  message(paste(column.report,collapse="\n"))
+  # message(paste(column.report,collapse="\n"))
+  cat_line(column.report)
+
+
   if (length(by)==0) {
-    message("-No cols to compare.")
+    cli_text("-No cols to compare.")
     return(invisible(NULL))
   }
   #compare x and y
@@ -703,15 +736,15 @@ compare.data.frame <- function(x,y,by=NULL) {
   byvals.identical <- byvals.samelength && byvals.setequal && all(x.byvals==y.byvals)
   byvals.relationship <- str_glue("{if_else(x.is.distinct,'1','many')}-to-{if_else(y.is.distinct,'1','many')}")
 
-  message("Joining:")
+  cli_text("Joining:")
   if (byvals.setequal) {
-    message(str_glue("-X and Y join completely, {byvals.relationship}"))
+    cli_text("-X and Y join completely, {byvals.relationship}")
   } else if (byvals.y.subsetof.x) {
-    message(str_glue("-Y is a subset of X, {byvals.relationship}"))
+    cli_text("-Y is a subset of X, {byvals.relationship}")
   } else if (byvals.x.subsetof.y) {
-    message(str_glue("-X is a subset of Y, {byvals.relationship}"))
+    cli_text("-X is a subset of Y, {byvals.relationship}")
   } else {
-    message(str_glue("-X and Y partially overlap, {byvals.relationship}"))
+    cli_text("-X and Y partially overlap, {byvals.relationship}")
   }
   # recalculate in case of weirdness with col names
   compare.vars <- intersect(names(x),names(y))
@@ -755,12 +788,10 @@ compare.data.frame <- function(x,y,by=NULL) {
   alldiffs <- alldiff.summary %>% filter(.status=="both X and Y rows") %>% pull(n.diffs)
   n.compared.rows <- alldiff.summary %>% filter(.status=="both X and Y rows") %>% pull(n.rows)
   if (is.na(alldiffs)) {
-    message(str_glue("-no mismatches"))
+    cli_text("-no mismatches")
   } else {
-    message(str_glue("-mismatched values in col(s): {alldiffs}"))
+    cli_text("-mismatched values in col(s): {alldiffs}")
   }
-  # message(str_glue("{paste(diff.summary,collapse='\n')}"))
-  # message("(returning X-Y joined dataset)")
   invisible(all)
 }
 
@@ -4980,6 +5011,84 @@ shell.exec <- function(file) {
   } else {
     stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
   }
+}
+
+
+#' Traverse a list (or other iterable object)
+#'
+#' Everyone knows I like recursion. This function recursively iterates through nested lists and runs a specified expression.
+#' @param .obj object list to be traversed
+#' @param expr expression to run on each object in the list. Reserved words can be used, as follows:
+#' * `.obj`: the current object
+#' * `.name`: a name for the object
+#' * `.class`: the class of the object
+#' * `.level`: an integer specifying the number of levels of recursion.
+#' * `.parents`: a list of parent objects (first element is most direct parent)
+#' * `.circular`: whether the object points to a parent
+#' @param .name used for passing information to other instances. Leave these be.
+#' @param .level used for passing information to other instances. Leave these be.
+#' @param .parents used for passing information to other instances. Leave these be.
+#'
+#' @return a list of objects generated from `expr`
+#' @export
+#'
+#' @examples
+#' g <- ggplot(mtcars,aes(x=mpg,y=hp)) + geom_point()
+#' g.info <- traverse(g,expr=tibble(name=.name,class=.class,level=.level)) %>%
+#'   bind_rows()
+#' g.info
+traverse <- function(.obj, expr=NULL, .name=NULL,.level=1,.parents=list(caller_env=rlang:::caller_env())) {
+  expr <- enquo(expr)
+  if (is.null(.name))  {
+    .name <-  deparse1(substitute(.obj))
+  }
+  .class <- paste(class(.obj),collapse="|")
+  circular.check <- map_lgl(.parents,~identical(.x,.obj))
+  .circular <- any(circular.check)
+  env <- rlang::quo_get_env(expr)
+  env$.class <- .class
+  env$.name <- .name
+  env$.parents <- .parents
+  env$.circular <- .circular
+  env$.level <- .level
+  env$.obj <- .obj
+  data <- rlang::eval_tidy(expr,env=env)
+
+  ldata <- list(data)
+  if ((is.list(.obj) || is.environment(.obj)) && length(.obj)>0 && !.circular) {
+    len <- length(.obj)
+    index1 <-  names(.obj)
+    index2 <- 1:len
+
+    if (is.null(index1)) {
+      index <- index2 %>% as.list()
+    } else {
+      index <- map2(index1,index2,~{
+        if (.x!="") {
+          return(.x)
+        } else {
+          return(.y)
+        }
+      })
+    }
+    .objname <- index %>% map(~{
+      if (is.numeric(.x)) {
+        paste0("[[",.x,"]]")
+      } else {
+        paste0("$",.x)
+      }
+    })
+    lineage <- c(.parents,setNames(list(.obj),.name))
+
+    children <- map2(index,.objname,~{
+      # message(.name,.y)
+      child <- .obj[[.x]]
+      full.name <- paste0(.name,.y)
+      traverse(.obj=child, expr=!!expr, .name=full.name, .level=.level+1,.parents=lineage)
+    }) %>% do.call(c,.)
+    ldata <- c(ldata,children)
+  }
+  return(ldata)
 }
 
 

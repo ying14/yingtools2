@@ -29,7 +29,7 @@ displays a report of the comparison, and invisibly returns a table of comparison
 Compare two objects (vector or data frame), and displays a summary of similarities and differences.
 }
 \examples{
-suppressMessages(library(tidyverse))
+library(tidyverse)
 vec <- stringr::sentences[1:100]
 compare(vec,vec)
 compare(vec,rev(vec))
