@@ -4,7 +4,7 @@
 \alias{get.pairwise}
 \title{Convert Distance Matrix to Pairwise Distances}
 \usage{
-get.pairwise(dist, diag = TRUE)
+get.pairwise(dist)
 }
 \arguments{
 \item{dist}{distance matrix to be converted}

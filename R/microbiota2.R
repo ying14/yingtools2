@@ -788,10 +788,9 @@ phy.collapse.bins.phyloseq <- function(phy,
     data.table::dcast.data.table(formula=otu ~ sample,value.var="numseqs",fill=0) %>%
     as_tibble()
   # new.otu <- new.otu %>% as_tibble() %>% pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fn = sum,values_fill=0)
-  new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy))
+  new.phy <- phyloseq(set.otu(new.otu),set.tax(new.tax),sample_data(phy,errorIfNULL=FALSE))
   return(new.phy)
 }
-
 
 #' @param data data frame, formatted as [get.otu.melt()] data. Note, it must have columns `otu`, `sample`, `numseqs`, `pctseqs`, and all values in `taxranks`.
 #' @param taxranks character vector of taxonomic ranks in `data`.
@@ -800,6 +799,7 @@ phy.collapse.bins.phyloseq <- function(phy,
 #' `FALSE` no sample vars, or a character vector specifying col names in `data` to be included.
 #' @param sample_id name of sample column identifier. Default is `"sample"`.
 #' @param taxa_id name of taxon column identifier. Default is `"otu"`.
+#' @param abundance_var name of the abundance column, which is typically absolute abundance, but can be relative abundance. Default is `numseqs`.
 #' @param return.tax.assignments return a table showing taxonomy re-assignments, in detail. Use this to understand what was collapsed. Default is `FALSE`.
 #' @rdname phy.collapse.bins
 #' @examples
@@ -926,6 +926,7 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 
 
 
+
 #' Convert Distance Matrix to Pairwise Distances
 #'
 #' This is the inverse function of {get.dist()}
@@ -937,10 +938,10 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 #'
 #' @examples
 #' get.pairwise(dist(mtcars))
-get.pairwise <- function(dist,diag=TRUE) {
-  mat <- as.matrix(dist,diag=diag)
-  # xy <- t(combn(colnames(mat), 2))
-  # data.frame(xy, dist=mat[xy]) %>% as_tibble() %>% rename(sample1=X1,sample2=X2)
+get.pairwise <- function(dist) {
+  # mat <- as.matrix(dist,diag=TRUE)
+  mat <- as.matrix(dist)
+
   rows <- rownames(mat)
   xy <- mat %>% as.data.frame() %>%
     rownames_to_column("sample1") %>%
@@ -950,6 +951,8 @@ get.pairwise <- function(dist,diag=TRUE) {
     filter(as.numeric(sample1)<=as.numeric(sample2))
   xy
 }
+
+
 
 
 
@@ -983,7 +986,7 @@ get.dist <- function(pw) {
 #'
 #' @examples
 #' view.dist(dist(mtcars))
-view.dist <- function(dist,show.numbers=FALSE) {
+view.distance.matrix <- function(dist,show.numbers=FALSE) {
   pairwise <- get.pairwise(dist) %>%
     mutate(sample2=fct_rev(sample2))
   ggplot(pairwise,aes(x=sample1,y=sample2,label=pretty_number(dist),fill=dist)) +
@@ -1016,6 +1019,7 @@ calc.taxhorn.distance <- function(phy) {
   }
   method <- "horn"
 
+  phy <- phyloseq(otu_table(phy),tax_table(phy))
   ranks <- rank_names(phy)
   samples <- sample_names(phy)
   # create multiple phyloseq objects, collapsed at the
@@ -1052,6 +1056,8 @@ calc.taxhorn.distance <- function(phy) {
 }
 
 
+
+
 #' Calculate distance matrix from phyloseq data
 #'
 #' Basically same as [phyloseq::distance()], but adds `taxhorn` metric
@@ -1064,7 +1070,7 @@ calc.taxhorn.distance <- function(phy) {
 #' @export
 #'
 #' @examples
-get.distance <- function(phy, method, ...) {
+calc.distance <- function(phy, method, ...) {
 
   if (method=="taxhorn") {
     dist <- calc.taxhorn.distance(phy)
@@ -1074,6 +1080,39 @@ get.distance <- function(phy, method, ...) {
   return(dist)
 }
 
+
+
+
+#' Calculate distances for specified samples from phyloseq
+#'
+#' Calculate distances from a phyloseq object. This is the similar to [calc.distance()],
+#' except that this does not return a distance matrix. Instead, it returns a vector of distances,
+#' only calculating the comparisons you specified.
+#' @param sample1 a character vector specifying the first sample(s) for comparison. Should be a sample in `phy`.
+#' @param sample2 a character vector specifying the second sample(s) for comparison. Should be a sample in `phy`.
+#' @param phy a phyloseq object containing the samples to be compared.
+#' @param method the distance metric method to be used. Can be a method from
+#' [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`.
+#'
+#' @return a vector of distances, corresponding to `sample1` and `sample2`.
+#' @export
+#'
+#' @examples
+#' library(tidyverse)
+#' tbl <- tibble(sample1=c("191A", "228A", "132A", "1045", "179B"),
+#'               sample2=c("198A", "205B", "202C", "175B", "192D"))
+#' tbl.dists <- tbl %>%
+#'   mutate(taxhorn.dist=calc.pairwise(sample1,sample2,cid.phy,method="taxhorn"))
+calc.pairwise <- function(sample1,sample2,phy,method="bray") {
+  stopifnot(length(sample1)==length(sample2))
+  stopifnot(all(c(sample1,sample2) %in% sample_names(phy)))
+  dist <- map2_dbl(as.character(sample1),as.character(sample2),~{
+    if (.x==.y) return(0)
+    physub <- prune_samples(c(.x,.y),phy)
+    calc.distance(physub,method=method)
+  })
+  return(dist)
+}
 
 
 
@@ -1126,36 +1165,39 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
                           width = 0.95,
                           na.rm = FALSE,
                           parse = FALSE,
+                          tax.palette = NULL,
                           check_overlap = FALSE,
                           show.legend = NA,
                           inherit.aes = TRUE) {
+
   layer(data = data, mapping = mapping, stat = "identity",
         geom = GeomTaxonomy, position = position, show.legend = show.legend,
         inherit.aes = inherit.aes,
+        layer_class = LayerTaxonomy,
         params = list(width = width,
                       parse = parse,
                       check_overlap = check_overlap,
                       label.pct.cutoff = label.pct.cutoff,
-                      label.split=label.split,
+                      label.split = label.split,
+                      tax.palette = tax.palette,
                       na.rm = na.rm, ...)
   )
 }
-
 
 #' @export
 GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                         required_aes = c("x", "y"),
                         default_aes = aes(label = NA,
-                          colour = NA, fill = "grey35", linewidth = 0.5, linetype = 1, alpha = NA,
-                          fontcolour = "black", fontsize = 3.88, angle = -90,
-                          hjust = 0.5, vjust = 0.5, fontalpha = NA,
-                          family = "", fontface = 1, lineheight = 0.75
+                                          colour = NA, fill = "grey35", linewidth = 0.5, linetype = 1, alpha = NA,
+                                          fontcolour = "black", fontsize = 3.88, angle = -90,
+                                          hjust = 0.5, vjust = 0.5, fontalpha = NA,
+                                          family = "", fontface = 1, lineheight = 0.75
                         ),
+                        extra_params = c("tax.palette","na.rm"),
                         draw_panel = function(data, panel_params, coord, lineend = "butt",
                                               linejoin = "mitre", width = NULL, flipped_aes = FALSE,
                                               parse = FALSE, na.rm = FALSE, check_overlap = FALSE,
                                               label.pct.cutoff = 0.3, label.split = FALSE) {
-
                           grob1 <- GeomCol$draw_panel(data = data, panel_params = panel_params, coord = coord, lineend = lineend,
                                                       linejoin = linejoin, width = width, flipped_aes = flipped_aes)
                           data2 <- data %>%
@@ -1177,6 +1219,26 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                           grid::gTree("taxonomy_grob", children = gList(grob1, grob2))
                         }
 )
+
+
+#' @export
+LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
+                         compute_aesthetics = function (self, data, plot) {
+                           tax.palette <- self$geom_params$tax.palette
+                           if (!is.null(tax.palette)) {
+                             aesthetics <- self$computed_mapping
+                             unitvar <- aesthetics$fill
+                             tax.colors <- get.taxonomy.colordata(data, tax.palette = tax.palette, unitvar = !!unitvar)
+                             tax.factor <- tax.colors %>% filter(!is.na(unit)) %>%
+                               arrange(name,unit)
+                             data <- data %>% mutate(!!unitvar:=factor(!!unitvar,levels=tax.factor$unit))
+                           }
+                           data2 <- ggproto_parent(ggplot2:::Layer, self)$compute_aesthetics(data,plot)
+                           return(data2)
+                         })
+
+
+
 
 
 
@@ -1361,24 +1423,6 @@ taxnonomy_scale <- function(aesthetic, values = NULL, breaks = waiver(), ..., li
 }
 
 
-# same as ggplot2::draw_key_polygon, but with zero gap width. Used in guide_gengrob.taxonomy.
-draw_key_polygon_close <- function(data, params, size) {
-  if (is.null(data$linewidth)) {
-    data$linewidth <- 0.5
-  }
-  lwd <- min(data$linewidth, min(size) / 4)
-  rectGrob(
-    # width = unit(1, "npc") - unit(lwd, "mm"),
-    width = unit(1, "npc"),
-    height = unit(1,"npc") - unit(lwd, "mm"),
-    gp = gpar(col = data$colour %||% NA,
-              fill = alpha(data$fill %||% "grey20", data$alpha),
-              lty = data$linetype %||% 1, lwd = lwd * .pt,
-              linejoin = params$linejoin %||% "mitre", lineend = params$lineend %||% "butt"))
-}
-
-
-
 #' Taxonomy Guide
 #'
 #' Used for making a custom taxonomy legend. Modified from [ggplot2::guide_legend()]. Called by [scale_fill_taxonomy()].
@@ -1413,6 +1457,10 @@ guide_taxonomy <- function(title = waiver(), title.position = NULL, title.theme 
 }
 
 
+#' guide_train.taxonomy
+#'
+#' Adopted from `ggplot2:::guide_train.legend`, but converts items to list-col colors.
+#' Called by name, by `guide_taxonomy`.
 #' @export
 guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
   guide <- ggplot2:::guide_train.legend(guide, scale, aesthetic)
@@ -1425,10 +1473,21 @@ guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
   }
   return(guide)
 }
+
+
+
+#' guide_geom.taxonomy
+#'
+#' Called by name, by `guide_taxonomy`.
 #' @export
 guide_geom.taxonomy <- function(guide, layers, default_mapping) {
   ggplot2:::guide_geom.legend(guide, layers, default_mapping)
 }
+
+
+#' guide_gengrob.taxonomy
+#'
+#' Called by name, by `guide_taxonomy`.
 #' @export
 guide_gengrob.taxonomy <- function(guide, theme) {
   # ggplot2:::guide_gengrob.legend(guide,theme)
@@ -1620,6 +1679,23 @@ guide_gengrob.taxonomy <- function(guide, theme) {
   gt
 }
 
+
+
+# same as ggplot2::draw_key_polygon, but with zero gap width. Used in guide_gengrob.taxonomy.
+draw_key_polygon_close <- function(data, params, size) {
+  if (is.null(data$linewidth)) {
+    data$linewidth <- 0.5
+  }
+  lwd <- min(data$linewidth, min(size) / 4)
+  rectGrob(
+    # width = unit(1, "npc") - unit(lwd, "mm"),
+    width = unit(1, "npc"),
+    height = unit(1,"npc") - unit(lwd, "mm"),
+    gp = gpar(col = data$colour %||% NA,
+              fill = alpha(data$fill %||% "grey20", data$alpha),
+              lty = data$linetype %||% 1, lwd = lwd * .pt,
+              linejoin = params$linejoin %||% "mitre", lineend = params$lineend %||% "butt"))
+}
 
 
 

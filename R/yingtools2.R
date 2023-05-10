@@ -771,7 +771,7 @@ compare.data.frame <- function(x,y,by=NULL) {
     yy <- all[[.y]]
     xy.diff <- xx != yy
     xy.both.na <- is.na(xx) & is.na(yy)
-    xy.diff | xy.both.na
+    xy.diff | !xy.both.na
   }) %>% setNames(compare.vars) %>% as_tibble()
   alldiff <- all %>% select(.status) %>% cbind(diff)
   alldiff.summary <- alldiff %>%
@@ -4987,6 +4987,35 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
 
 
 # miscellaneous system operation functions --------------------------------
+
+
+
+
+
+send.text.message <- function(text,
+                              to=Sys.getenv("TWILIO_DEFAULT_TO"),
+                              from=Sys.getenv("TWILIO_DEFAULT_FROM")) {
+  requireNamespace("twilio")
+  if (to=="" | from=="") {
+    TWILIO_DEFAULT_TO
+    stop("YTError: to use defaults, need TWILIO_DEFAULT_TO and TWILIO_DEFAULT_FROM in the R environment.")
+  }
+
+  # twilio::tw_send_message(to="9149802489",from="8445581194",body="testing!",)
+  # (to, from, body = NULL, media_url = NULL)
+
+  # need these in r_environ:
+  # TWILIO_SID = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  # TWILIO_TOKEN = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  # TWILIO_DEFAULT_TO = 123456789
+  # TWILIO_DEFAULT_FROM = 987654321
+  twilio::tw_send_message(to=to,from=from,body=text)
+}
+
+
+
+
+
 
 
 

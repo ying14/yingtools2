@@ -14,6 +14,7 @@ geom_taxonomy(
   width = 0.95,
   na.rm = FALSE,
   parse = FALSE,
+  tax.palette = NULL,
   check_overlap = FALSE,
   show.legend = NA,
   inherit.aes = TRUE

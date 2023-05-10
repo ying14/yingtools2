@@ -48,6 +48,8 @@ phy.collapse.bins(x, ...)
 
 \item{taxa_id}{name of taxon column identifier. Default is \code{"otu"}.}
 
+\item{abundance_var}{name of the abundance column, which is typically absolute abundance, but can be relative abundance. Default is \code{numseqs}.}
+
 \item{sample_vars}{whether to include sample variables in the data.
 Can be \code{TRUE} (include sample vars, and try to determine which ones),
 \code{FALSE} no sample vars, or a character vector specifying col names in \code{data} to be included.}
