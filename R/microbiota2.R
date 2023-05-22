@@ -1313,6 +1313,10 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
       tibble(color = eval_tidy(rlang::f_rhs(.x)))
     }, .id = "name") %>%
     mutate(name = fct_inorder(name))
+
+  if (anyDuplicated(tax.headers$color)) {
+    stop("YTError: colors are duplicated in the palette!")
+  }
   tax.table <- tax.headers %>%
     left_join(tax, by = "color") %>%
     rename(unit = !!unitvar)
