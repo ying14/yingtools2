@@ -1748,10 +1748,9 @@ yt.palette3 <- exprs(
   "Streptococcus (genus)" = Genus=="Streptococcus" ~ shades("#9FB846", variation = 0.15),
   "Staphylococcus (genus)"  = Genus=="Staphylococcus" ~ shades("#f1eb25", variation = 0.15),
   "Lactobacillus (genus)" = Genus=="Lactobacillus" ~ shades("#3b51a3", variation = 0.15),
-  "Proteobacteria (phylum)" = Phylum=="Proteobacteria" ~ shades("red", variation = 0.4),
+  "Proteobacteria (phylum)" = Phylum %in% c("Proteobacteria","Pseudomonadota") ~ shades("red", variation = 0.4),
   "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
 )
-
 
 
 
@@ -1821,6 +1820,7 @@ hilight.clade <- function(gdata, var=NULL, value=NULL,
                           label="{value}\n({var})",
                           fill.color=NA,line.color="dark gray",
                           alpha=1,
+                          title.offset=c(0,0),
                           xmax=NULL,xscalar=1.5,fill.in=FALSE,font.size=4) {
   requireNamespace(c("ggtree","glue"),quietly=TRUE)
   if (is(gdata,"ggtree")) {
@@ -1871,7 +1871,8 @@ hilight.clade <- function(gdata, var=NULL, value=NULL,
     annotate("segment",x=xmin1,xend=xmax,y=ylow,yend=ylow,color=line.color),
     annotate("segment",x=xmin2,xend=xmax,y=yhigh,yend=yhigh,color=line.color),
     annotate("segment",x=xmax,xend=xmax,y=ylow,yend=yhigh,color=line.color),
-    annotate("text",x=xmax,y=ymid,label=glabel,lineheight=0.9,size=font.size))
+    annotate("text",x=xmax+title.offset[1],y=ymid+title.offset[2],
+             label=glabel,lineheight=0.75,size=font.size))
   return(c(rect.list,segment.list))
 }
 

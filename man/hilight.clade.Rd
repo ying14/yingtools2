@@ -15,6 +15,7 @@ hilight.clade(
   fill.color = NA,
   line.color = "dark gray",
   alpha = 1,
+  title.offset = c(0, 0),
   xmax = NULL,
   xscalar = 1.5,
   fill.in = FALSE,

@@ -1336,10 +1336,10 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
 #' @author Ying Taur
 #' @export
 recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,replace=FALSE,multi.hits=FALSE,ignore.case=TRUE,perl=FALSE,useBytes=TRUE) {
-  if (is.null(names(recodes))) {
+
+  if (is.null(names(recodes)) & length(recodes)>0) {
     stop("Variable recodes needs to be a named vector or list")
   }
-
   if (replace & (!multi.hits | !regexp)) {
     warning("You specified replace=TRUE, setting regexp and multi.hits to TRUE.")
     multi.hits <- TRUE
@@ -1369,7 +1369,7 @@ recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,repl
   }
   var.recode <- rep(na_value,length(var)) #create NA vector
 
-  for (i in 1:length(recodes)) {
+  for (i in seq_along(recodes)) {
     pattern <- names(recodes)[i]
     newname <- recodes[i]
     if (multi.hits) { #which indices to evaluate.
@@ -1411,8 +1411,6 @@ recode2 <- function(var,recodes,else.value=NULL,as.factor=NULL,regexp=FALSE,repl
   }
   return(var.recode)
 }
-
-
 
 
 
