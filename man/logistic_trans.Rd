@@ -32,6 +32,10 @@ into a particular space. You can play with parameters to get the transformation 
 wbc <- seq(0,20,by=0.1)
 wbc.logist <- trans.logistic(wbc,inner.range=c(0.2,10))
 ggplot(data.frame(wbc,wbc.logist)) + geom_point(aes(x=wbc,y=wbc.logist))
+data <- tibble(wbc=seq(0,20,by=0.01))
+ggplot(data,aes(x=wbc,y=wbc)) + geom_point() + expand_limits(y=0) +
+  scale_y_continuous("log-transformed wbc",trans=logistic_trans(.1,5),
+                     breaks=c(0,0.5,1,5,20))
 }
 \author{
 Ying Taur

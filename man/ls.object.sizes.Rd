@@ -7,7 +7,7 @@
 ls.object.sizes(envir = .GlobalEnv)
 }
 \arguments{
-\item{envir}{the environment to list objects. Default is \code{.GlobalEnv}}
+\item{envir}{the environment (or object) from which to list objects. Default is \code{.GlobalEnv}}
 }
 \value{
 a data frame showing objects and the object size, in Mb.

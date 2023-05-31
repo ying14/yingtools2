@@ -4226,12 +4226,12 @@ log_epsilon_trans_breaks <- function(epsilon) {
 #' wbc <- seq(0,20,by=0.1)
 #' wbc.logist <- trans.logistic(wbc,inner.range=c(0.2,10))
 #' ggplot(data.frame(wbc,wbc.logist)) + geom_point(aes(x=wbc,y=wbc.logist))
-#' @author Ying Taur
-#' @export
 #' data <- tibble(wbc=seq(0,20,by=0.01))
 #' ggplot(data,aes(x=wbc,y=wbc)) + geom_point() + expand_limits(y=0) +
 #'   scale_y_continuous("log-transformed wbc",trans=logistic_trans(.1,5),
 #'                      breaks=c(0,0.5,1,5,20))
+#' @author Ying Taur
+#' @export
 logistic_trans <- function(value1,value2,pct.value1=0.1,pct.value2=0.9) {
   inner.range <- c(value1,value2)
   percentiles <- c(pct.value1,pct.value2)
@@ -5120,12 +5120,10 @@ traverse <- function(.obj, expr=NULL, .name=NULL,.level=1,.parents=list(caller_e
 
 
 
-
-
 #' Display sizes of objects in memory
 #'
 #' Use this to see what is occupying memory
-#' @param envir the environment to list objects. Default is `.GlobalEnv`
+#' @param envir the environment (or object) from which to list objects. Default is `.GlobalEnv`
 #' @return a data frame showing objects and the object size, in Mb.
 #' @export
 ls.object.sizes <- function(envir=.GlobalEnv) {
@@ -5139,13 +5137,13 @@ ls.object.sizes <- function(envir=.GlobalEnv) {
     }
     return(size)
   }
-  objects <- ls(envir=envir)
+  objects <- ls(pos=envir)
   if (length(objects)==0) {
     message("No objects found.")
     return(NULL)
   }
   dsize <- lapply(objects,function(objname) {
-    obj <- get(objname,envir=envir)
+    obj <- get(objname,pos=envir)
     bytes <- get.size(obj)
     # mb <- format(size,units="Mb")
     size <- utils:::format.object_size(bytes, "auto")
