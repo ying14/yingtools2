@@ -1127,6 +1127,15 @@ calc.pairwise <- function(sample1,sample2,phy,method="bray") {
 #'
 #' Creates stacked taxonomy barplots.
 #'
+#' This geom is similar to [ggplot::geom_col()], where you can draw stacked barplots.
+#' However there are a few additional capabilities:
+#' 1. You can specify the aesthetic `label` to write text labels inside the bars.
+#' The text labels can be further tweaked using aesthetics (`fontsize`, `fontcolour`, `fontface`, `fontalpha`),
+#' or other parameters (`fit.text`, `reflow`, `contrast`, `label.split`, `parse`, `check_overlap`)
+#' 2. If Y-axis is transformed, the total Y bar height will be correct.
+#' In [ggplot::geom_col()], stacking of individual transformed Y values often leads to strange results.
+#' Here, the transformed Y totals for each bar is calculated and plotted.
+#' Fill colors occupy the barspace proportionally.
 #' @eval ggplot2:::rd_aesthetics("geom", "taxonomy")
 #' @inheritParams ggplot2::layer
 #' @inheritParams ggplot2::geom_col
@@ -1134,9 +1143,13 @@ calc.pairwise <- function(sample1,sample2,phy,method="bray") {
 #' @param mapping
 #' @param data
 #' @param position
+#' @param fit.text whether or not the tax labels will be auto-fitted. `TRUE`: use [ggfittext::geom_fit_text()]; `FALSE`: use [ggplot2::geom_text()] (the default).
+#' @param reflow if `fit.text=TRUE`, whether or not to reflow the text. Default is `FALSE`
+#' @param contrast if `fit.text=TRUE`, whether or not to vary font color based on background fill. Default is `FALSE`
 #' @param label.pct.cutoff cutoff abundance by which to label abundances. Default is 0.3.
 #' @param label.split whether to split label into two lines, using `[str_split_equal_parts()]`
 #' @param width Bar width. By default, set to 0.95.
+#' @param transition.lines whether or not to display transition lines in the background. Default is `FALSE`.
 #' @param na.rm
 #' @param parse
 #' @param check_overlap
@@ -1147,16 +1160,59 @@ calc.pairwise <- function(sample1,sample2,phy,method="bray") {
 #' @examples
 #' library(phyloseq)
 #' library(tidyverse)
+#' library(gridExtra)
+#'
 #' otu <- cid.phy %>%
 #'   get.otu.melt() %>%
-#'   filter(Patient_ID == "221") %>%
+#'   filter(Patient_ID == "179") %>%
 #'   arrange(!!!syms(rank_names(cid.phy))) %>%
 #'   mutate(otu = fct_inorder(otu))
 #'
-#' otu %>%
-#'   ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
-#'   geom_taxonomy() +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
+#' # regular stack plot
+#' g.tax1.manual <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu)) +
+#'   geom_col() +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   ggtitle("Using geom_col")
+#' g.tax1 <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu, label=Genus)) +
+#'   geom_taxonomy(fit.text=TRUE) +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   ggtitle("Using geom_taxonomy")
+#' grid.arrange(g.tax1.manual,g.tax1,ncol=1)
+#'
+#' g.tax2.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu),) +
+#'   geom_col(width=0.95) +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   ggtitle("Using geom_col")
+#' g.tax2 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
+#'   geom_taxonomy(fit.text=TRUE) +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   ggtitle("Using geom_taxonomy")
+#' grid.arrange(g.tax2.manual,g.tax2,ncol=1)
+#'
+#'
+#' g.tax3.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu)) +
+#'   geom_col(width=0.95) +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   scale_y_continuous(trans="log10") +
+#'   ggtitle("Using geom_col (aberrent Y values)")
+#' g.tax3.manual.corrected <- otu %>%
+#'   group_by(Sample_ID) %>%
+#'   mutate(totalreads=sum(numseqs),
+#'          pctseqs=numseqs/totalreads) %>%
+#'   ungroup() %>%
+#'   mutate(height=log10(totalreads),
+#'          tr.height=height*pctseqs) %>%
+#'   ggplot(aes(x=Sample_ID,y=tr.height,fill=otu)) +
+#'   geom_col(width=0.95) +
+#'   scale_y_continuous(labels=function(x) 10^x) +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   ggtitle("Using geom_col (manually corrected)")
+#' g.tax3 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
+#'   geom_taxonomy(fit.text = TRUE) +
+#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+#'   scale_y_continuous(trans="log10") +
+#'   ggtitle("Using geom_taxonomy")
+#' gridExtra::grid.arrange(g.tax3.manual,g.tax3.manual.corrected,g.tax3,ncol=1)
 geom_taxonomy <- function(mapping = NULL, data = NULL,
                           position = "stack",
                           ...,
@@ -1166,59 +1222,253 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
                           na.rm = FALSE,
                           parse = FALSE,
                           tax.palette = NULL,
+                          fit.text = FALSE,
+                          reflow = FALSE,
+                          contrast = FALSE,
                           check_overlap = FALSE,
                           show.legend = NA,
+                          transition.lines = FALSE,
                           inherit.aes = TRUE) {
+  if (!fit.text & contrast) {
+    warning("YTWarning: you specified fit.text=FALSE and contrast=TRUE. Ignoring contrast.")
+  }
+  if (!fit.text & reflow) {
+    warning("YTWarning: you specified fit.text=FALSE and reflow=TRUE. Ignoring reflow.")
+  }
+  if (fit.text & check_overlap) {
+    warning("YTWarning: you specified fit.text=TRUE and check_overlap=TRUE. Ignoring check_overlap")
+  }
 
-  layer(data = data, mapping = mapping, stat = "identity",
-        geom = GeomTaxonomy, position = position, show.legend = show.legend,
-        inherit.aes = inherit.aes,
-        layer_class = LayerTaxonomy,
-        params = list(width = width,
-                      parse = parse,
-                      check_overlap = check_overlap,
-                      label.pct.cutoff = label.pct.cutoff,
-                      label.split = label.split,
-                      tax.palette = tax.palette,
-                      na.rm = na.rm, ...)
+  bar.layer <- layer(data = data, mapping = mapping,
+                     stat = StatTaxonomy,
+                     geom = GeomTaxonomy,
+                     position = position, show.legend = show.legend,
+                     inherit.aes = inherit.aes,
+                     layer_class = LayerTaxonomy,
+                     params = list(width = width,
+                                   parse = parse,
+                                   fit.text = fit.text,
+                                   reflow = reflow,
+                                   contrast = contrast,
+                                   check_overlap = check_overlap,
+                                   label.pct.cutoff = label.pct.cutoff,
+                                   label.split = label.split,
+                                   tax.palette = tax.palette,
+                                   na.rm = na.rm, ...)
   )
+
+  if (transition.lines) {
+    area.layer <- layer(
+      data = data,
+      mapping = mapping,
+      stat = StatTaxTransition,
+      geom = GeomTaxTransition,
+      position = position,
+      show.legend = show.legend,
+      inherit.aes = inherit.aes,
+      params = list2(
+        na.rm = na.rm,
+        orientation = NA,
+        outline.type = "upper",
+        width = width,
+        ...
+      )
+    )
+  } else {
+    area.layer <- NULL
+  }
+  list(area.layer,bar.layer)
 }
+
+
+
+
+
 
 #' @export
 GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                         required_aes = c("x", "y"),
                         default_aes = aes(label = NA,
-                                          colour = NA, fill = "grey35", linewidth = 0.5, linetype = 1, alpha = NA,
-                                          fontcolour = "black", fontsize = 3.88, angle = -90,
-                                          hjust = 0.5, vjust = 0.5, fontalpha = NA,
-                                          family = "", fontface = 1, lineheight = 0.75
-                        ),
+                                          colour = NA,
+                                          fill = "grey35",
+                                          linewidth = 0.5,
+                                          linetype = 1,
+                                          alpha = NA,
+                                          fontcolour = "black",
+                                          fontsize = 3.88,
+                                          angle = -90,
+                                          hjust = 0.5,
+                                          vjust = 0.5,
+                                          fontalpha = NA,
+                                          family = "",
+                                          fontface = 1,
+                                          lineheight = 0.75),
                         extra_params = c("tax.palette","na.rm"),
-                        draw_panel = function(data, panel_params, coord, lineend = "butt",
-                                              linejoin = "mitre", width = NULL, flipped_aes = FALSE,
-                                              parse = FALSE, na.rm = FALSE, check_overlap = FALSE,
-                                              label.pct.cutoff = 0.3, label.split = FALSE) {
-                          grob1 <- GeomCol$draw_panel(data = data, panel_params = panel_params, coord = coord, lineend = lineend,
-                                                      linejoin = linejoin, width = width, flipped_aes = flipped_aes)
-                          data2 <- data %>%
-                            filter(!is.na(label),
-                                   ymax - ymin >= label.pct.cutoff) %>%
-                            mutate(y = (ymin + ymax) / 2,
-                                   colour = fontcolour,
-                                   size = fontsize,
-                                   alpha = fontalpha)
+                        draw_panel = function(data, panel_params, coord,
+                                              lineend = "butt",
+                                              linejoin = "mitre",
+                                              width = NULL,
+                                              flipped_aes = FALSE,
+                                              parse = FALSE,
+                                              na.rm = FALSE,
+                                              fit.text = FALSE,
+                                              reflow = FALSE,
+                                              contrast = FALSE,
+                                              check_overlap = FALSE,
+                                              label.pct.cutoff = 0.3,
+                                              label.split = FALSE) {
                           if (label.split) {
-                            data2$label <- str_split_equal_parts(data2$label)
+                            data <- data %>% mutate(label=str_split_equal_parts(label))
                           }
-                          if (nrow(data2)>0) {
-                            grob2 <- GeomText$draw_panel(data = data2, panel_params = panel_params, coord = coord, parse = parse,
-                                                         na.rm = na.rm, check_overlap = check_overlap)
+                          # draw col
+                          grob_col <- GeomCol$draw_panel(data = data, panel_params = panel_params, coord = coord, lineend = lineend,
+                                                         linejoin = linejoin, width = width, flipped_aes = flipped_aes)
+                          # draw text
+                          if (fit.text) {
+                            fontsize_factor <- 11/3.88
+                            data_fittext <- data %>%
+                              # to save time: if size is small, label is NA.
+                              # probably could be better here.
+                              mutate(label=ifelse(ymax-ymin>=0.01,label,NA_character_)) %>%
+                              transmute(fill, x, y, label, PANEL, group,
+                                        xmin, xmax, ymin, ymax,
+                                        angle, family,
+                                        fontface, lineheight,
+                                        size=fontsize * fontsize_factor,
+                                        alpha=fontalpha,
+                                        colour=fontcolour)
+                            # hjust/vjust are not aesthetics, get rid of them
+                            # flipped_aes/linewidth/linetype not applicable
+                            min.size <- min(data_fittext$size,na.rm=TRUE)
+                            # geom_fit_text uses different font sizing?
+                            # min.size
+                            # data$fontsize
+                            # data_fittext$size
+
+                            grob_text <- ggfittext:::GeomFitText$draw_panel(
+                              data=data_fittext,
+                              panel_scales=panel_params,
+                              coord=coord,
+                              padding.x = grid::unit(0, "mm"),
+                              padding.y = grid::unit(0, "mm"),
+                              min.size = min.size,
+                              reflow = reflow,
+                              contrast = contrast,
+                              grow = FALSE,
+                              hjust = NULL, vjust = NULL, fullheight = NULL,
+                              width = NULL, height = NULL, formatter = NULL,
+                              place = "centre", outside = FALSE)
+
                           } else {
-                            grob2 <- nullGrob()
+                            # regular geom_text
+                            data_text <- data %>%
+                              filter(!is.na(label),
+                                     ymax - ymin >= label.pct.cutoff) %>%
+                              mutate(y = (ymin + ymax) / 2,
+                                     colour = fontcolour,
+                                     size = fontsize,
+                                     alpha = fontalpha)
+                            if (nrow(data_text)>0) {
+                              grob_text <- GeomText$draw_panel(data = data_text, panel_params = panel_params,
+                                                               coord = coord, parse = parse,
+                                                               na.rm = na.rm, check_overlap = check_overlap)
+                            } else {
+                              grob_text <- nullGrob()
+                            }
                           }
-                          grid::gTree("taxonomy_grob", children = gList(grob1, grob2))
+
+                          grid::gTree("taxonomy_grob", children = gList(grob_col, grob_text))
                         }
 )
+
+
+
+
+
+#' @export
+StatTaxonomy <- ggproto("StatTaxonomy",Stat,
+                        required_aes = c("x", "y"),
+                        default_aes = aes(label = NA,
+                                          colour = NA,
+                                          fill = "grey35",
+                                          linewidth = 0.5,
+                                          linetype = 1,
+                                          alpha = NA,
+                                          fontcolour = "black",
+                                          fontsize = 3.88,
+                                          angle = -90,
+                                          hjust = 0.5,
+                                          vjust = 0.5,
+                                          fontalpha = NA,
+                                          family = "",
+                                          fontface = 1,
+                                          lineheight = 0.75),
+                        compute_panel = function(self, data, scales) {
+                          inv <- scales$y$trans$inverse
+                          trans <- scales$y$trans$transform
+                          # Y-transformed abundances do not stack correctly.
+                          # this is a trick to alter abundances such that they display to
+                          # the correct total abundance.
+                          newdata <- data %>%
+                            group_by(x,PANEL) %>%
+                            mutate(reads=inv(y),
+                                   totalreads=sum(reads),
+                                   pctseqs=reads/totalreads) %>%
+                            ungroup() %>%
+                            mutate(height=trans(totalreads),
+                                   tr.height=height*pctseqs,
+                                   new.reads=inv(tr.height),
+                                   y=trans(new.reads)) %>%
+                            select(all_of(names(data)))
+                          ggproto_parent(StatIdentity, self)$compute_layer(newdata, params, layout)
+                        })
+
+
+
+#' @export
+GeomTaxTransition <- ggproto("GeomTaxTransition",GeomArea,
+                             default_aes=aes("colour"=NA,
+                                             "fill"="grey20",
+                                             "linewidth"=0.5,
+                                             "linetype"=1,
+                                             "alpha"=0.3))
+
+#' @export
+StatTaxTransition <- ggproto("StatTaxTransition",StatAlign,
+                             extra_params = c("na.rm","orientation","width"),
+                             compute_panel=function(self, data, scales, ...) {
+                               newdata <- data
+                               inv <- scales$y$trans$inverse
+                               trans <- scales$y$trans$transform
+                               # Y-transformed abundances do not stack correctly.
+                               # this is a trick to alter abundances such that they display to
+                               # the correct total abundance.
+                               newdata <- newdata %>%
+                                 group_by(x,PANEL) %>%
+                                 mutate(reads=inv(y),
+                                        totalreads=sum(reads),
+                                        pctseqs=reads/totalreads) %>%
+                                 ungroup() %>%
+                                 mutate(height=trans(totalreads),
+                                        tr.height=height*pctseqs,
+                                        new.reads=inv(tr.height),
+                                        y=trans(new.reads)) %>%
+                                 select(all_of(names(data)))
+                               # fill in zeroes
+                               newdata <- newdata %>%
+                                 complete(x,nesting(fill,group,PANEL),fill=list(y=0))
+                               # transition at the edge of the bar. needs fixing for dynamic width
+                               width <- 0.95
+                               # browser()
+                               # newdata <- bind_rows(mutate(newdata,x+width/2),
+                               #                      mutate(newdata,x-width/2))
+                               ggproto_parent(StatAlign, self)$compute_panel(newdata, scales, ...)
+                             }
+)
+
+
+
+
 
 
 #' @export
@@ -1434,7 +1684,8 @@ taxnonomy_scale <- function(aesthetic, values = NULL, breaks = waiver(), ..., li
 guide_taxonomy <- function(title = waiver(), title.position = NULL, title.theme = NULL,
                            title.hjust = NULL, title.vjust = NULL, label = TRUE, label.position = NULL,
                            label.theme = NULL, label.hjust = NULL, label.vjust = NULL,
-                           keywidth = NULL, keyheight = NULL, direction = NULL, default.unit = "line",
+                           keywidth = 3,
+                           keyheight = NULL, direction = NULL, default.unit = "line",
                            override.aes = list(), nrow = NULL, ncol = NULL, byrow = FALSE,
                            reverse = FALSE, order = 0, ...) {
   # modified from guide_legend

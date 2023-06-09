@@ -15,8 +15,12 @@ geom_taxonomy(
   na.rm = FALSE,
   parse = FALSE,
   tax.palette = NULL,
+  fit.text = FALSE,
+  reflow = FALSE,
+  contrast = FALSE,
   check_overlap = FALSE,
   show.legend = NA,
+  transition.lines = FALSE,
   inherit.aes = TRUE
 )
 }
@@ -63,6 +67,12 @@ a warning. If \code{TRUE}, missing values are silently removed.}
 \item{parse}{If \code{TRUE}, the labels will be parsed into expressions and
 displayed as described in \code{?plotmath}.}
 
+\item{fit.text}{whether or not the tax labels will be auto-fitted. \code{TRUE}: use \code{\link[ggfittext:geom_fit_text]{ggfittext::geom_fit_text()}}; \code{FALSE}: use \code{\link[ggplot2:geom_text]{ggplot2::geom_text()}} (the default).}
+
+\item{reflow}{if \code{fit.text=TRUE}, whether or not to reflow the text. Default is \code{FALSE}}
+
+\item{contrast}{if \code{fit.text=TRUE}, whether or not to vary font color based on background fill. Default is \code{FALSE}}
+
 \item{check_overlap}{If \code{TRUE}, text that overlaps previous text in the
 same layer will not be plotted. \code{check_overlap} happens at draw time and in
 the order of the data. Therefore data should be arranged by the label
@@ -75,6 +85,8 @@ supported by \code{geom_label()}.}
 It can also be a named logical vector to finely select the aesthetics to
 display.}
 
+\item{transition.lines}{whether or not to display transition lines in the background. Default is \code{FALSE}.}
+
 \item{inherit.aes}{If \code{FALSE}, overrides the default aesthetics,
 rather than combining with them. This is most useful for helper functions
 that define both data and aesthetics and shouldn't inherit behaviour from
@@ -82,6 +94,19 @@ the default plot specification, e.g. \code{\link[ggplot2:borders]{borders()}}.}
 }
 \description{
 Creates stacked taxonomy barplots.
+}
+\details{
+This geom is similar to \code{\link[ggplot:geom_col]{ggplot::geom_col()}}, where you can draw stacked barplots.
+However there are a few additional capabilities:
+\enumerate{
+\item You can specify the aesthetic \code{label} to write text labels inside the bars.
+The text labels can be further tweaked using aesthetics (\code{fontsize}, \code{fontcolour}, \code{fontface}, \code{fontalpha}),
+or other parameters (\code{fit.text}, \code{reflow}, \code{contrast}, \code{label.split}, \code{parse}, \code{check_overlap})
+\item If Y-axis is transformed, the total Y bar height will be correct.
+In \code{\link[ggplot:geom_col]{ggplot::geom_col()}}, stacking of individual transformed Y values often leads to strange results.
+Here, the transformed Y totals for each bar is calculated and plotted.
+Fill colors occupy the barspace proportionally.
+}
 }
 \section{Aesthetics}{
 
@@ -112,14 +137,57 @@ Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 \examples{
 library(phyloseq)
 library(tidyverse)
+library(gridExtra)
+
 otu <- cid.phy \%>\%
   get.otu.melt() \%>\%
-  filter(Patient_ID == "221") \%>\%
+  filter(Patient_ID == "179") \%>\%
   arrange(!!!syms(rank_names(cid.phy))) \%>\%
   mutate(otu = fct_inorder(otu))
 
-otu \%>\%
-  ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
-  geom_taxonomy() +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
+# regular stack plot
+g.tax1.manual <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu)) +
+  geom_col() +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  ggtitle("Using geom_col")
+g.tax1 <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu, label=Genus)) +
+  geom_taxonomy(fit.text=TRUE) +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  ggtitle("Using geom_taxonomy")
+grid.arrange(g.tax1.manual,g.tax1,ncol=1)
+
+g.tax2.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu),) +
+  geom_col(width=0.95) +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  ggtitle("Using geom_col")
+g.tax2 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
+  geom_taxonomy(fit.text=TRUE) +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  ggtitle("Using geom_taxonomy")
+grid.arrange(g.tax2.manual,g.tax2,ncol=1)
+
+
+g.tax3.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu)) +
+  geom_col(width=0.95) +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  scale_y_continuous(trans="log10") +
+  ggtitle("Using geom_col (aberrent Y values)")
+g.tax3.manual.corrected <- otu \%>\%
+  group_by(Sample_ID) \%>\%
+  mutate(totalreads=sum(numseqs),
+         pctseqs=numseqs/totalreads) \%>\%
+  ungroup() \%>\%
+  mutate(height=log10(totalreads),
+         tr.height=height*pctseqs) \%>\%
+  ggplot(aes(x=Sample_ID,y=tr.height,fill=otu)) +
+  geom_col(width=0.95) +
+  scale_y_continuous(labels=function(x) 10^x) +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  ggtitle("Using geom_col (manually corrected)")
+g.tax3 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
+  geom_taxonomy(fit.text = TRUE) +
+  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
+  scale_y_continuous(trans="log10") +
+  ggtitle("Using geom_taxonomy")
+gridExtra::grid.arrange(g.tax3.manual,g.tax3.manual.corrected,g.tax3,ncol=1)
 }

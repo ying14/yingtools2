@@ -55,6 +55,6 @@ pt.meds \%>\%
   plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
 # Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)
 pt.meds \%>\%
-  mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) \%>\%
+  mutate(row=get.row(startday,endday,row.overlap=FALSE)) \%>\%
   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)")
 }

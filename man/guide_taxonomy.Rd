@@ -15,7 +15,7 @@ guide_taxonomy(
   label.theme = NULL,
   label.hjust = NULL,
   label.vjust = NULL,
-  keywidth = NULL,
+  keywidth = 3,
   keyheight = NULL,
   direction = NULL,
   default.unit = "line",

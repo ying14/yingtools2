@@ -2055,7 +2055,7 @@ is.between <- function(x,start,stop,check=TRUE) {
 #'   plot.meds("To save space, different meds can be in the same row,\nas long as they are sufficiently separated (min.gap=1)")
 #' # Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)
 #' pt.meds %>%
-#'   mutate(row=get.row(startday,endday,no.row.overlap=TRUE)) %>%
+#'   mutate(row=get.row(startday,endday,row.overlap=FALSE)) %>%
 #'   plot.meds("Arrange everything in as few rows as possible\n(row=NULL, by=NULL, row.overlap=FALSE)")
 #' @export
 get.row <- function(start,stop,row=NULL,by=NULL,row.overlap=TRUE,min.gap=Inf) {
@@ -4184,9 +4184,17 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @export
 log_epsilon_trans <- function(epsilon=0.001) {
   requireNamespace("scales",quietly=TRUE)
-  trans <- function(x) sign(x)*(log(abs(x)+epsilon/8)-log(epsilon/8))
-  inv <- function(y) sign(y)*epsilon/8*(exp(abs(y))-1)
-  scales::trans_new(paste0("log_epsilon-",format(epsilon)),trans,inv,
+  trans <- function(x) {
+    # if (is.null(epsilon)) {return(x)}
+    sign(x)*(log(abs(x)+epsilon/8)-log(epsilon/8))
+  }
+  inv <- function(y) {
+    # if (is.null(epsilon)) {return(y)}
+    sign(y)*epsilon/8*(exp(abs(y))-1)
+  }
+  scales::trans_new(paste0("log_epsilon-",format(epsilon)),
+                    transform = trans,
+                    inverse = inv,
                     breaks=log_epsilon_trans_breaks(epsilon),
                     format=pretty_number,
                     domain=c(-Inf,Inf))
@@ -4199,13 +4207,15 @@ log_epsilon_trans <- function(epsilon=0.001) {
 #' @return break function returning break values.
 #' @export
 log_epsilon_trans_breaks <- function(epsilon) {
+  # if (is.null(epsilon)) {return(scales::extended_breaks())}
   function(x) {
     firsttick <- round(log(epsilon,10))
     lasttick <- floor(log(x[2],10))
-    c(0,10^(firsttick:lasttick))
+    x <- c(0,10^(firsttick:lasttick))
+    by <- length(x) %/% 5
+    x[seq(1,length(x),by=by)]
   }
 }
-
 
 
 
