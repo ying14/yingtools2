@@ -4,7 +4,15 @@
 \alias{make_table}
 \title{Make Table}
 \usage{
-make_table(data, ..., by = NULL, denom = FALSE, maxgroups = 10, fisher = TRUE)
+make_table(
+  data,
+  ...,
+  by = NULL,
+  denom = FALSE,
+  maxgroups = 10,
+  accuracy = 0.1,
+  fisher = TRUE
+)
 }
 \arguments{
 \item{data}{Data frame containing data to be described.}

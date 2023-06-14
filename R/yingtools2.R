@@ -300,12 +300,13 @@ min2 <- function(...,na.rm=FALSE) {
 #' @param x a numeric vector (or Date) to be converted to factor by cutting.
 #' @param lower a vector of lower bounds
 #' @param upper a vector of upper bounds
-#' @param n.quantiles an integer specifying number of quantiles.
 #' @param percentiles a vector of percentile breakpoints
+#' @param n.quantiles an integer specifying number of quantiles.
+#' @param n.splits split range of x into equal sized parts.
 #' @param lvls optional vector for renaming the levels
 #' @return a factor derived from grouping of x
 #' @export
-cut2 <- function(x,lower,upper,n.quantiles,percentiles,lvls,rename.lvls=TRUE) {
+cut2 <- function(x,lower,upper,n.quantiles,percentiles,n.splits,lvls,rename.lvls=TRUE) {
   requireNamespace("cli",quietly = TRUE)
   if (!missing(lower)) {
     breaks <- unique(c(-Inf,lower,Inf))
@@ -313,19 +314,26 @@ cut2 <- function(x,lower,upper,n.quantiles,percentiles,lvls,rename.lvls=TRUE) {
   } else if (!missing(upper)) {
     breaks <- unique(c(-Inf,upper,Inf))
     right=TRUE
+  } else if (!missing(percentiles)) {
+    probs <- percentiles %>% unique()
+    breaks <- quantile(x,probs=probs,na.rm=TRUE) %>% unname() %>% c(-Inf,.,Inf) %>% unique()
+    right=TRUE
   } else if (!missing(n.quantiles)) {
     if (n.quantiles<=1) {
       stop("YTError: n.quantiles needs two or more cutoffs")
     }
     probs <- seq(0,1,length.out=n.quantiles+1)
     probs <- probs[c(-1,-length(probs))]
-    quantiles <- quantile(x,probs=probs)
+    quantiles <- quantile(x,probs=probs,na.rm=TRUE)
     breaks <- unname(quantiles) %>% c(-Inf,.,Inf) %>% unique()
     right=TRUE
-  } else if (!missing(percentiles)) {
-    probs <- percentiles %>% unique()
-    breaks <- quantile(x,probs=probs) %>% unname() %>% c(-Inf,.,Inf) %>% unique()
-    right=TRUE
+  } else if (!missing(n.splits)) {
+    if (n.splits<=1) {
+      stop("YTError: n.splits needs two or more cutoffs")
+    }
+    seq0 <- seq(from=min(x,na.rm=TRUE),to=max(x,na.rm=TRUE),length.out=n.splits+1)
+    breaks <- c(-Inf,seq0[c(-1,-length(seq0))],Inf)
+    right <- FALSE
   } else {
     print("Error, need parameters!")
     return(NULL)
@@ -375,6 +383,7 @@ cut2 <- function(x,lower,upper,n.quantiles,percentiles,lvls,rename.lvls=TRUE) {
   }
   return(new.x)
 }
+
 
 
 
@@ -960,7 +969,7 @@ dt <- function(data,fontsize=14,pageLength=Inf,maxchars=250,maxrows=500,rownames
 #' make_table(mtcars,cyl,gear)
 #' @author Ying Taur
 #' @export
-make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
+make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,accuracy=0.1,fisher=TRUE) {
   requireNamespace(c("rlang","purrr"),quietly=TRUE)
   vars <- enquos(...)
   by <- enquo(by)
@@ -983,10 +992,9 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
       complete(value,fill=list(n=0)) %>%
       mutate(sum=sum(n),
              pct=n/sum,
-             percent=scales::percent(pct,accuracy=0.1),
+             percent=scales::label_percent(accuracy=accuracy)(pct),
              var=as_name(var),
-             text=purrr::when(denom ~ str_glue("{n} ({percent})"),
-                              ~ str_glue("{n}/{sum} ({percent})"))) %>%
+             text=if (denom) str_glue("{n}/{sum} ({percent})") else str_glue("{n} ({percent})")) %>%
       select(var,value,all=text)
   }) %>% bind_rows()
 
@@ -998,10 +1006,9 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,fisher=TRUE) {
         group_by(col) %>%
         mutate(sum=sum(n),
                pct=n/sum,
-               percent=scales::percent(pct,accuracy=0.1),
+               percent=scales::label_percent(accuracy=accuracy)(pct),
                var=as_name(var),
-               text=purrr::when(denom ~ str_glue("{n} ({percent})"),
-                                ~ str_glue("{n}/{sum} ({percent})"))) %>%
+               text=if (denom) str_glue("{n}/{sum} ({percent})") else str_glue("{n} ({percent})")) %>%
         ungroup() %>%
         pivot_wider(id_cols=c(var,value),names_from=col,values_from=text)
     }) %>% bind_rows()
@@ -1719,51 +1726,38 @@ copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
 #' @author Ying Taur
 #' @export
 copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
-  #converts x to R-code.
-  if (is.vector(x)) {
-    x <- as.character(x)
-    sql <- paste0("(",paste0("'",x,"'",collapse=","),")")
-    if (fit) {
-      sql <- fit(sql,width=width,copy.clipboard=FALSE)
+  if (is.atomic(x)) {
+    if (is.numeric(x)) {
+      sql <- as.character(x)
+    } else if (is.character(x) | is.factor(x)) {
+      sql <- str_glue("'{x}'")
+    } else if (lubridate::is.Date(x)) {
+      sql <- str_glue("date('{x}')")
+    }
+    if (length(x)>1) {
+      sql <- str_glue("({paste(sql,collapse=',')})")
     }
   } else if (is.data.frame(x)) {
-    #   select '12345678' as mrn, 12 as number, '2016-01-01' as trans_dte
-    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
-    #   union all
-    #   select '12345679' as mrn, 13 as number, '2016-01-01' as trans_dte
-    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
-    #   union all
-    #   select '12345668' as mrn, 12 as number, '2016-01-01' as trans_dte
-    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
-    #   union all
-    #   select '12345448' as mrn, 14 as number, '2016-01-01' as trans_dte
-    #   from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'
-
-    #add quotations if necessary
-    format.value <- function(col) {
-      if (is.numeric(col)) {
-        newcol <- as.character(col)
-      } else {
-        newcol <- paste0("'",as.character(col),"'")
-      }
-      return(newcol)
+    tbl <- x %>%
+      rowwise() %>%
+      mutate(across(.fns=~copy.as.sql2(.x,copy.clipboard=FALSE))) %>%
+      ungroup()
+    for (var in names(tbl)) {
+      tbl[[var]] <- str_glue("{tbl[[var]]} as {var}")
     }
-    # data2 <- mutate_all(x,funs(format.value))
-    data2 <- mutate_all(x,format.value)
-    for (var in names(data2)) {
-      data2[[var]] <- paste(data2[[var]],"as",var)
-    }
-    sql.values <- apply(data2,1,function(x) {
+    sql.rows <- apply(tbl,1,function(x) {
       paste(x,collapse=",")
     })
-    sql <- paste("select",sql.values,"from idb.oms_ord_catalog where OOC_MSTR_ITEM_GUID = '1000001000074005'",collapse="\nunion all\n")
+    sql.rows2 <- str_glue("(select {sql.rows} from idb.oms_ord_catalog fetch first 1 rows only)")
+    sql <- paste(sql.rows2,collapse=" union all\n")
+    sql <- str_glue("({sql})")
   }
+
   if (copy.clipboard) {
     copy.to.clipboard(sql)
   }
   return(sql)
 }
-
 
 #' Copy to clipboard as tribble
 #'
@@ -4212,7 +4206,7 @@ log_epsilon_trans_breaks <- function(epsilon) {
     firsttick <- round(log(epsilon,10))
     lasttick <- floor(log(x[2],10))
     x <- c(0,10^(firsttick:lasttick))
-    by <- length(x) %/% 5
+    by <- ceiling(length(x) / 5)
     x[seq(1,length(x),by=by)]
   }
 }

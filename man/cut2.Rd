@@ -4,7 +4,16 @@
 \alias{cut2}
 \title{Ying's Cut 2}
 \usage{
-cut2(x, lower, upper, n.quantiles, percentiles, lvls, rename.lvls = TRUE)
+cut2(
+  x,
+  lower,
+  upper,
+  n.quantiles,
+  percentiles,
+  n.splits,
+  lvls,
+  rename.lvls = TRUE
+)
 }
 \arguments{
 \item{x}{a numeric vector (or Date) to be converted to factor by cutting.}
@@ -16,6 +25,8 @@ cut2(x, lower, upper, n.quantiles, percentiles, lvls, rename.lvls = TRUE)
 \item{n.quantiles}{an integer specifying number of quantiles.}
 
 \item{percentiles}{a vector of percentile breakpoints}
+
+\item{n.splits}{split range of x into equal sized parts.}
 
 \item{lvls}{optional vector for renaming the levels}
 }
