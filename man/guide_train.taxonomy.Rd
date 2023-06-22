@@ -8,5 +8,5 @@
 }
 \description{
 Adopted from \code{ggplot2:::guide_train.legend}, but converts items to list-col colors.
-Called by name, by \code{guide_taxonomy}.
+Called by name, by \code{\link[=guide_taxonomy]{guide_taxonomy()}}.
 }

@@ -986,7 +986,7 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,accuracy=0.1,fi
     select(!!!allvars,!!by) %>%
     mutate(across(where(is.character),fct_infreq),
            across(where(~!is.character(.) & !is.factor(.)),as.character),
-           across(where(~n_distinct(.)>5),~fct_lump_n(.,n=5,ties.method="first")))
+           across(where(~n_distinct(.)>maxgroups),~fct_lump_n(.,n=maxgroups,ties.method="first")))
   tbl <- lapply(allvars,function(var) {
     d %>% count(value=!!var) %>%
       complete(value,fill=list(n=0)) %>%
@@ -3403,6 +3403,9 @@ gg.align.xlim <- function(glist) {
 }
 
 
+
+
+
 #' Time bars
 #'
 #' This geom and scale are used to transform the x-scale such that the scale moves slowly at certain points (`day`).
@@ -3453,17 +3456,6 @@ scale_x_timebars <- function( days=NULL, xlim=NULL, div=30, breaks = NULL, ... )
   )
 }
 
-function (name = waiver(), breaks = waiver(), minor_breaks = waiver(),
-          n.breaks = NULL, labels = waiver(), limits = NULL, expand = waiver(),
-          oob = censor, na.value = NA_real_, trans = "identity", guide = waiver(),
-          position = "bottom", sec.axis = waiver()) {
-  sc <- continuous_scale(ggplot_global$x_aes, "position_c",
-                         identity, name = name, breaks = breaks, n.breaks = n.breaks,
-                         minor_breaks = minor_breaks, labels = labels, limits = limits,
-                         expand = expand, oob = oob, na.value = na.value, trans = trans,
-                         guide = guide, position = position, super = ScaleContinuousPosition)
-  set_sec_axis(sec.axis, sc)
-}
 
 
 
@@ -3526,6 +3518,108 @@ barwidth_spacing_trans <- function(days,xlim,div) {
                     format=format,
                     minor=minor())
 }
+
+
+
+
+#' Plot timeline bars
+#'
+#' Plot timeline items in the form of bars, such as medication administration over time. The X-axis represents time.
+#'
+#' This custom geom uses [get.row()] to arrange the timeline events into rows, where aesthetics are mapped
+#' to the function parameters:
+#' * `aes(xmin=)` is mapped to `get.row(start=)`
+#' * `aes(xmax=)` is mapped to `get.row(xstop=)`
+#' * `aes(label=)` is mapped to `get.row(row=)`
+#' * `aes(by=)` is mapped to `get.row(by=)`
+#'
+#' Some data prepping is done prior to plotting:
+#' 1. Merge any timeline events that overlap using [group_by_time()] (optional step if `merge=TRUE`)
+#' 2. Pad each event by +/- 0.45 days so that they span the length of the days they occur on, and so single day events do not have zero width.
+#' 3. Determine Y = row position for all events, using [get.row()], using above aesthetic mappings.
+#' 4. Calculate X midpoint of each timeline event, for plotting of the label.
+#' If X-axis transformations are used (e.g. [scale_x_timebar()]), note that merging (#1) and padding (#2) are done
+#' on un-transformed data, whereas `get.row()` (#3) and midpoint (#4) are done after transformation. This is more
+#' seamless compared with the hassle of doing manually.
+#' @eval ggplot2:::rd_aesthetics("geom", "timeline")
+#' @inheritParams get.row
+#' @inheritParams ggplot2::geom_rect
+#' @inheritParams ggplot2::geom_text
+#' @param mapping
+#' @param data
+#' @param stat
+#' @param position
+#' @param ...
+#' @param merge whether or not to merge adjacent/overlapping bars into 1 row before plotting (using [group_by_time()]). Default is `TRUE`.
+#' Note that merging only occurs if the bars are overlapping, and have the same label and fill.
+#' @param merge.gap if `merge=TRUE`, the maximum distance between two bars that are merged. Default is `1`.
+#' @param min.gap The allowable gap before two distinct rows are fitted on the same row, expressed as a proportion of the X-axis length. Note that this different than direct use of [get.row()]
+#' @param row.overlap
+#' @param check_overlap
+#' @param linejoin
+#' @param na.rm
+#' @param show.legend
+#' @param parse
+#' @param inherit.aes
+#' @return
+#' @export
+#' @examples
+#' library(tidyverse)
+#' data <- cid.meds %>% filter(Patient_ID=="166")
+#' # Standard timeline plot without much cleanup
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7)
+#'
+#' # Make it look nice and clean with merge and check_overlap, use min.gap to share rows where possible.
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7,
+#'                              merge=TRUE,check_overlap=TRUE,min.gap=0.15)
+#'
+#' # To see all events separately (even same labelled events never overlap), use row.overlap=FALSE
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7,
+#'                              row.overlap = FALSE)
+#'
+#' # To fit in as few rows as possible, try removing by, and set min.gap=0 and merge=TRUE.
+#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
+#'                                  label=med.clean,fill=med.class),alpha=0.7,
+#'                              merge=TRUE,min.gap=0,check_overlap=TRUE)
+geom_timeline <- function(mapping = NULL, data = NULL,
+                          stat = "timeline", position = "identity",
+                          ...,
+                          merge = FALSE,
+                          min.gap = 1,
+                          row.overlap=  TRUE,
+                          check_overlap = FALSE,
+                          merge.gap = 1,
+                          linejoin = "mitre",
+                          na.rm = FALSE,
+                          show.legend = NA,
+                          parse = FALSE,
+                          inherit.aes = TRUE) {
+  layer(
+    data = data,
+    mapping = mapping,
+    stat = stat,
+    geom = GeomTimeline,
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = list2(
+      linejoin = linejoin,
+      na.rm = na.rm,
+      parse = parse,
+      check_overlap = check_overlap,
+      min.gap = min.gap,
+      row.overlap = row.overlap,
+      merge = merge,
+      merge.gap = merge.gap,
+      ...
+    )
+  )
+}
+
+
 
 
 
@@ -3640,104 +3734,438 @@ StatTimeline <- ggproto("StatTimeline",Stat,
 
 
 
-#' Plot timeline bars
+
+#' Draw Brackets
 #'
-#' Plot timeline items in the form of bars, such as medication administration over time. The X-axis represents time.
+#' Draw brackets in a ggplot.
 #'
-#' This custom geom uses [get.row()] to arrange the timeline events into rows, where aesthetics are mapped
-#' to the function parameters:
-#' * `aes(xmin=)` is mapped to `get.row(start=)`
-#' * `aes(xmax=)` is mapped to `get.row(xstop=)`
-#' * `aes(label=)` is mapped to `get.row(row=)`
-#' * `aes(by=)` is mapped to `get.row(by=)`
-#'
-#' Some data prepping is done prior to plotting:
-#' 1. Merge any timeline events that overlap using [group_by_time()] (optional step if `merge=TRUE`)
-#' 2. Pad each event by +/- 0.45 days so that they span the length of the days they occur on, and so single day events do not have zero width.
-#' 3. Determine Y = row position for all events, using [get.row()], using above aesthetic mappings.
-#' 4. Calculate X midpoint of each timeline event, for plotting of the label.
-#' If X-axis transformations are used (e.g. [scale_x_timebar()]), note that merging (#1) and padding (#2) are done
-#' on un-transformed data, whereas `get.row()` (#3) and midpoint (#4) are done after transformation. This is more
-#' seamless compared with the hassle of doing manually.
-#' @eval ggplot2:::rd_aesthetics("geom", "timeline")
-#' @inheritParams get.row
-#' @inheritParams ggplot2::geom_rect
+#' This draws brackets by using grid-drawking methods from [geom_text()], [geom_segment()], and [geom_curve()].
+#' @eval ggplot2:::rd_aesthetics("geom", "bracket")
+#' @inheritParams ggplot2::geom_segment
 #' @inheritParams ggplot2::geom_text
 #' @param mapping
 #' @param data
 #' @param stat
 #' @param position
 #' @param ...
-#' @param merge whether or not to merge adjacent/overlapping bars into 1 row before plotting (using [group_by_time()]). Default is `TRUE`.
-#' Note that merging only occurs if the bars are overlapping, and have the same label and fill.
-#' @param merge.gap if `merge=TRUE`, the maximum distance between two bars that are merged. Default is `1`.
-#' @param min.gap The allowable gap before two distinct rows are fitted on the same row, expressed as a proportion of the X-axis length. Note that this different than direct use of [get.row()]
-#' @param row.overlap
-#' @param check_overlap
-#' @param linejoin
 #' @param na.rm
-#' @param show.legend
+#' @param bracket.width size of bracket edges. Default is `unit(0.75,'char')`.
+#' @param tip The style of bracket to use. Can be one of: `"round", "bare", "square", "ibeam", "arrow", "iarrow", "curly"`. Default is `"round"`.
+#' @param arrow The style of arrow to use, if `tip="arrow"` or `tip="iarrow"`. Default selection is based on `bracket.width`.
+#' @param arrow.fill Fill color to use for closed arrowheads, if `tip="arrow"` or `tip="iarrow"`.
+#' @param lineend
+#' @param linejoin
 #' @param parse
+#' @param check_overlap
 #' @param inherit.aes
 #'
 #' @return
 #' @export
 #'
 #' @examples
-#' data <- cid.meds %>% filter(Patient_ID=="166")
-#' # Standard timeline plot without much cleanup
-#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
-#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7)
+#' library(tidyverse)
+#' mt <- mtcars %>%
+#'   mutate(mpg.group=cut2(mpg, n.splits=3, lvls=c("Low MPG", "Med MPG", "High MPG")))
+#' g <- ggplot(mt) +
+#'   geom_point(aes(x=mpg, y=hp, color=mpg.group), size=3)
 #'
-#' # Make it look nice and clean with merge and check_overlap, use min.gap to share rows where possible.
-#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
-#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7,
-#'                              merge=TRUE,check_overlap=TRUE,min.gap=0.15)
+#' # whole-data brackets
+#' g + geom_bracket(aes(x=mpg, y=350), label="MPG values") +
+#'   geom_bracket(aes(x=35, y=hp), label="HP values", flip=TRUE)
 #'
-#' # To see all events separately (even same labelled events never overlap), use row.overlap=FALSE
-#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
-#'                                  label=med.clean,by=med.class,fill=med.class),alpha=0.7,
-#'                              row.overlap = FALSE)
+#' # brackets by group
+#' g + geom_bracket(aes(x=mpg, y=350, label=mpg.group))
 #'
-#' # To fit in as few rows as possible, try removing by, and set min.gap=0 and merge=TRUE.
-#' ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,
-#'                                  label=med.clean,fill=med.class),alpha=0.7,
-#'                              merge=TRUE,min.gap=0,check_overlap=TRUE)
-geom_timeline <- function(mapping = NULL, data = NULL,
-                          stat = "timeline", position = "identity",
-                          ...,
-                          merge = FALSE,
-                          min.gap = 1,
-                          row.overlap=  TRUE,
-                          check_overlap = FALSE,
-                          merge.gap = 1,
-                          linejoin = "mitre",
-                          na.rm = FALSE,
-                          show.legend = NA,
-                          parse = FALSE,
-                          inherit.aes = TRUE) {
-  layer(
-    data = data,
-    mapping = mapping,
-    stat = stat,
-    geom = GeomTimeline,
-    position = position,
-    show.legend = show.legend,
-    inherit.aes = inherit.aes,
-    params = list2(
-      linejoin = linejoin,
-      na.rm = na.rm,
-      parse = parse,
-      check_overlap = check_overlap,
-      min.gap = min.gap,
-      row.overlap = row.overlap,
-      merge = merge,
-      merge.gap = merge.gap,
-      ...
-    )
-  )
+#' # adjust the brackets with padding
+#' g + geom_bracket(aes(x=mpg - 0.25, xend=mpg + 0.25, y=350, label=mpg.group))
+#'
+#' # brackets by group, vary height
+#' g + geom_bracket(aes(x=mpg, y=ave(hp,mpg.group,FUN=max)+20, yend=ave(hp,mpg.group,FUN=max)+20, label=mpg.group))
+#'
+#' # manually specified brackets
+#' g + geom_bracket(aes(x=18, y=225, yend=350, label="Tier 1"),flip=TRUE) +
+#'   geom_bracket(aes(x=18, y=220, xend=25,yend=150, label="Tier 2")) +
+#'   geom_bracket(aes(x=26,xend=35, y=150, label="Tier 3"))
+#'
+#' # customization
+#' g + geom_bracket(aes(x=27, y=200, yend=350, label="200+ HP"), flip=TRUE,
+#'   linewidth=2, color="purple", fontsize=7, angle=0, hjust=0, fontface="italic", bracket.width=unit(0.5,"in"))
+#'
+#' # various tip styles
+#' ggplot() +
+#'   geom_bracket(aes(x=1, xend=5, y=7, label="round"), tip="round") +
+#'   geom_bracket(aes(x=1, xend=5, y=6, label="bare"), tip="bare") +
+#'   geom_bracket(aes(x=1, xend=5, y=5, label="square"), tip="square") +
+#'   geom_bracket(aes(x=1, xend=5, y=4, label="ibeam"), tip="ibeam") +
+#'   geom_bracket(aes(x=1, xend=5, y=3, label="arrow"), tip="arrow") +
+#'   geom_bracket(aes(x=1, xend=5, y=2, label="iarrow"), tip="iarrow") +
+#'   geom_bracket(aes(x=1, xend=5, y=1, label="curly"), tip="curly") +
+#'   xlim(0,6)
+geom_bracket <- function(mapping = NULL,
+                         data = NULL,
+                         stat = StatBracket,
+                         position = "identity",
+                         ### fixed params ###
+                         ... ,
+                         na.rm = FALSE,
+                         bracket.width = unit(0.75,"char"),
+                         tip="round",
+                         arrow = grid::arrow(angle = 20, length = bracket.width, ends = "both", type = "closed"),
+                         arrow.fill=NULL,
+                         lineend = "butt",
+                         linejoin = "round",
+                         parse = FALSE,
+                         check_overlap = FALSE,
+                         ####################
+                         show.legend = NA,
+                         inherit.aes = TRUE) {
+  layer(data = data,
+        mapping = mapping,
+        stat = stat,
+        geom = GeomBracket,
+        position = position,
+        show.legend = show.legend,
+        inherit.aes = inherit.aes,
+        params = list2(na.rm = na.rm,
+                       bracket.width = bracket.width,
+                       tip = tip,
+                       arrow = arrow,
+                       arrow.fill = arrow.fill,
+                       lineend = lineend,
+                       linejoin = linejoin,
+                       parse = parse,
+                       check_overlap = check_overlap,
+                       ...))
 }
 
+
+#' @export
+GeomBracket <- ggproto("GeomBracket",Geom,
+                       required_aes = c("x", "y", "xend", "yend"),
+                       default_aes = aes(
+                         "flip"=FALSE,     # text
+                         "label"=NA,       # text
+                         "colour"="black", # segment+text
+                         "linewidth"=0.5,  # segment
+                         "linetype"=1,     # segment
+                         "angle"=NA,       # text
+                         "vjust"=NA,       # text
+                         "hjust"=NA,       # text
+                         "alpha"=NA,       # segment+text
+                         "fontsize"=3.88,  # text
+                         "family"="",      # text
+                         "fontface"=1,     # text
+                         "lineheight"=0.8  # text
+                       ),
+                       # draw_layer = function(self, data, params, layout, coord) {
+                       #   ggproto_parent(GeomSegment, self)$draw_layer(data, params, layout, coord)
+                       # },
+                       draw_panel = function (self, data, panel_params, coord,
+                                              na.rm = FALSE,
+                                              bracket.width = unit(1,"cm"),
+                                              tip="round",
+                                              arrow = NULL,
+                                              arrow.fill = NULL,
+                                              lineend = "butt",
+                                              linejoin = "round",
+                                              parse = FALSE,
+                                              check_overlap = FALSE) {
+                         # checks copied from GeomSegment$draw_panel
+                         data <- ggplot2:::check_linewidth(data, snake_class(self))
+                         data <- remove_missing(data, na.rm = na.rm, c("x", "y", "xend", "yend", "linetype", "linewidth", "shape"),
+                                                name = "geom_backet")
+                         if (ggplot2:::empty(data))
+                           return(zeroGrob())
+                         data <- data %>% mutate(x0=x,xend0=xend,y0=y,yend0=yend,
+                                                 x=ifelse(flip,xend0,x0),
+                                                 xend=ifelse(flip,x0,xend0),
+                                                 y=ifelse(flip,yend0,y0),
+                                                 yend=ifelse(flip,y0,yend0)) %>%
+                           select(-x0,-xend0,-y0,-yend0,-flip)
+                         if (coord$is_linear()) {
+                           coord <- coord$transform(data, panel_params)
+                           arrow.fill <- arrow.fill %||% coord$colour
+
+                           grob_bracket <- bracketGrob(
+                             x0 = coord$x,
+                             y0 = coord$y,
+                             x1 = coord$xend,
+                             y1 = coord$yend,
+                             default.units = "native",
+                             bracket.width = bracket.width,
+                             tip = tip,
+                             arrow = arrow,
+                             gp.segment = gpar(
+                               col = alpha(coord$colour,coord$alpha),
+                               fill = alpha(arrow.fill, coord$alpha),
+                               lwd = coord$linewidth * .pt,
+                               lty = coord$linetype,
+                               lineend = lineend,
+                               linejoin = linejoin
+                             ),
+                             label=coord$label,
+                             angle=coord$angle,
+                             hjust=coord$hjust,
+                             vjust=coord$vjust,
+                             check.overlap = check_overlap,
+                             gp.text = gpar(
+                               col = alpha(coord$colour,data$alpha),
+                               fontsize = coord$fontsize * .pt,
+                               fontfamily = coord$family,
+                               fontface = coord$fontface,
+                               lineheight = coord$lineheight
+                             ))
+
+                         } else { #non linear coord....
+                           data_segment$group <- 1:nrow(data_segment)
+                           starts <- subset(data_segment, select = c(-xend, -yend))
+                           ends <- rename(subset(data_segment, select = c(-x, -y)), c(xend = "x", yend = "y"))
+                           pieces <- vec_rbind0(starts, ends)
+                           pieces <- pieces[order(pieces$group), ]
+                           grob_bracket <- GeomPath$draw_panel(pieces, panel_params, coord, arrow = arrow, lineend = lineend)
+                         }
+
+                         #### assembled ####
+                         ggplot2:::ggname("bracket_grob", grid::gTree(children = grid::gList(grob_bracket)))
+                       }
+)
+
+
+
+#' @export
+StatBracket <- ggproto("StatBracket",Stat,
+                       required_aes = c("x","y"),
+                       compute_layer = function(self, data, params, layout) {
+                         newdata <- data %>%
+                           mutate(xend={if ("xend" %in% names(.)) xend else x},
+                                  yend={if ("yend" %in% names(.)) yend else y}) %>%
+                           group_by(across(-all_of(c("x","y","xend","yend")))) %>%
+                           summarize(x=min(x),
+                                     xend=max(xend),
+                                     y=min(y),
+                                     yend=max(yend),
+                                     .groups="drop")
+                         return(newdata)
+                       })
+
+
+
+
+#' bracketGrob
+#'
+#' This creates the brackets in [geom_bracket()].
+#' @examples
+#' library(tidyverse)
+#' x0=0.15; x1=0.85; y0=0.5; y1=0.5; bw=0.1
+#' ggplot(mtcars) +
+#'   geom_bracket(aes(x=x0,xend=x1,y=y0,yend=y1,label="[Bracket label]"),linewidth=1.25,fontsize=6,bracket.width = unit(bw,"npc")) +
+#'   annotate("segment",x=x0,y=y0,xend=x1,yend=y1,linetype="longdash",color="blue") +
+#'   annotate("point",x=x0,y=y0,color="blue") +
+#'   annotate("text",x=x0,y=y0+0.01,label="(x,y)",color="blue") +
+#'   annotate("point",x=x1,y=y1,color="blue") +
+#'   annotate("text",x=x1,y=y1+0.01,label="(xend,yend)",color="blue") +
+#'   geom_bracket(aes(x=x0-0.35*bw,y=y0,yend=y0-bw,label="bracket.width"),curly=FALSE,color="blue",flip=TRUE) +
+#'   geom_bracket(aes(x=0.6,y=y0,yend=y0+bw,label="bracket.width"),curly=FALSE,color="blue",flip=TRUE) +
+#'   geom_bracket(aes(x=x0,xend=x0+2.5*bw,y=y0-1.25*bw,label="curve starts at\n2.5 * bracket.width"),curly=FALSE,color="blue",flip=TRUE) +
+#'   coord_fixed(xlim=c(0,1),ylim=c(0,1),expand=FALSE) +
+#'   theme_void()
+#' @export
+bracketGrob <- function (x0 = unit(0, "npc"),
+                         y0 = unit(0, "npc"),
+                         x1 = unit(1, "npc"),
+                         y1 = unit(1, "npc"),
+                         default.units = "npc",
+                         bracket.width = unit(1,"cm"),
+                         tip = "round",
+                         arrow = NULL,
+                         gp.segment = gpar(),
+                         label = NA,
+                         angle = NA,
+                         hjust = NULL,
+                         vjust = NULL,
+                         check.overlap = FALSE,
+                         gp.text = gpar(),
+                         name = NULL,
+                         vp = NULL) {
+  # tip <- match.arg(arg = "tip", choices = c("round", "square"))
+
+  if (!is.unit(x0))
+    x0 <- unit(x0, default.units)
+  if (!is.unit(x1))
+    x1 <- unit(x1, default.units)
+  if (!is.unit(y0))
+    y0 <- unit(y0, default.units)
+  if (!is.unit(y1))
+    y1 <- unit(y1, default.units)
+
+  gTree(
+    x0 = x0,
+    y0 = y0,
+    x1 = x1,
+    y1 = y1,
+    label = label,
+    bracket.width = bracket.width,
+    tip = tip,
+    hjust = hjust,
+    vjust = vjust,
+    angle = angle,
+    check.overlap = check.overlap,
+    arrow = arrow, name = name,
+    gp.segment = gp.segment,
+    gp.text = gp.text,
+    vp = vp, cl = "bracket")
+}
+
+
+
+#' @export
+makeContent.bracket <- function(x) {
+
+  x0 <- convertX(x$x0, "mm", valueOnly = TRUE)
+  x1 <- convertX(x$x1, "mm", valueOnly = TRUE)
+  y0 <- convertY(x$y0, "mm", valueOnly = TRUE)
+  y1 <- convertY(x$y1, "mm", valueOnly = TRUE)
+  bracket.width <- convertUnit(x$bracket.width, unitTo = "mm",valueOnly = TRUE)
+  tip <- x$tip
+  arrow <- x$arrow
+  label <- x$label
+  check.overlap = x$check.overlap
+  gp.segment <- x$gp.segment
+  gp.text <- x$gp.text
+  vp <- x$vp
+  #calculate vectors
+  xdiff <- x1 - x0
+  ydiff <- y1 - y0
+  length.segment <- sqrt(xdiff^2 + ydiff^2)
+  x.vector <- xdiff/length.segment
+  y.vector <- ydiff/length.segment
+  x.right.vector <- y.vector
+  y.right.vector <- -x.vector
+
+  text.angle.calc <- atan((y1 - y0)/(x1 - x0)) * 180/pi
+  text.angle <- coalesce(x$angle, text.angle.calc)
+  vjust <- coalesce(x$vjust, 0.5)
+  hjust <- coalesce(x$hjust, 0.5)
+  skew <- 1.75
+
+  if (tip=="round") {
+    curve.too.big <- 2*bracket.width*skew > length.segment
+
+    if (any(curve.too.big)) {
+      skew = min(length.segment)/2/bracket.width
+      warning(str_glue("YTWarning: segment length (length.segment/2) is smaller than bracket width*skew. Changing skew to {skew}"))
+    }
+  } else if (tip=="curly") {
+    curve.too.big <- 4*bracket.width*skew > length.segment
+    if (any(curve.too.big)) {
+      skew = min(length.segment)/4/bracket.width
+      warning(str_glue("YTWarning: segment length (length.segment/2) is smaller than bracket width*skew. Changing skew to {skew}"))
+    }
+  }
+
+  xmiddle <- midpoint(x0, x1)
+  ymiddle <- midpoint(y0, y1)
+  # round, curly
+  x0.inset <- x0 + skew * x.vector * bracket.width
+  y0.inset <- y0 + skew * y.vector * bracket.width
+  x1.inset <- x1 - skew * x.vector * bracket.width
+  y1.inset <- y1 - skew * y.vector * bracket.width
+  # round, curly, square
+  x1.tick1 <- x0 + x.right.vector * bracket.width
+  y1.tick1 <- y0 + y.right.vector * bracket.width
+  x1.tick2 <- x1 + x.right.vector * bracket.width
+  y1.tick2 <- y1 + y.right.vector * bracket.width
+  # ibeam, iarrow
+  x1.ibeam1 <- x0 + x.right.vector * bracket.width/2
+  y1.ibeam1 <- y0 + y.right.vector * bracket.width/2
+  x1.ibeam2 <- x1 + x.right.vector * bracket.width/2
+  y1.ibeam2 <- y1 + y.right.vector * bracket.width/2
+  x1.ibeam1.opp <- x0 - x.right.vector * bracket.width/2
+  y1.ibeam1.opp <- y0 - y.right.vector * bracket.width/2
+  x1.ibeam2.opp <- x1 - x.right.vector * bracket.width/2
+  y1.ibeam2.opp <- y1 - y.right.vector * bracket.width/2
+  # curly
+  x.mid.curly <- xmiddle - x.right.vector * bracket.width
+  y.mid.curly <- ymiddle - y.right.vector * bracket.width
+  x0.mid.segment <- xmiddle - skew * x.vector * bracket.width
+  y0.mid.segment <- ymiddle - skew * y.vector * bracket.width
+  x1.mid.segment <- xmiddle + skew * x.vector * bracket.width
+  y1.mid.segment <- ymiddle + skew * y.vector * bracket.width
+
+  if (tip=="curly") {
+    x.text <- xmiddle - 2*x.right.vector * bracket.width
+    y.text <- ymiddle - 2*y.right.vector * bracket.width
+  } else {
+    x.text <- xmiddle - x.right.vector * bracket.width
+    y.text <- ymiddle - y.right.vector * bracket.width
+  }
+
+
+  if (tip=="bare") {
+    grob_segment <- segmentsGrob(x0 = x0, y0 = y0, x1 = x1, y1 = y1, default.units = "mm", gp = gp.segment, vp = vp)
+  } else if (tip == "round") {
+    theta <- 360 * atan(1/skew)/pi
+    curvature <- arcCurvature(theta)
+    angle <- 90
+    shape <- 0.5
+    ncp <- 20
+    grob_segment <- gList(
+      segmentsGrob(x0 = x0.inset, y0 = y0.inset, x1 = x1.inset, y1 = y1.inset, default.units = "mm", gp = gp.segment, vp = vp),
+      curveGrob(x1 = x0.inset, y1 = y0.inset, x2 = x1.tick1, y2 = y1.tick1, default.units = "mm", curvature = curvature, angle = angle, shape = shape, ncp=ncp, square=FALSE, gp = gp.segment, vp = vp),
+      curveGrob(x1 = x1.inset, y1 = y1.inset, x2 = x1.tick2, y2 = y1.tick2, default.units = "mm", curvature = -curvature, angle = 180 - angle, shape = shape, ncp = ncp, square=FALSE, gp = gp.segment, vp = vp)
+    )
+  } else if (tip == "curly") {
+    theta <- 360 * atan(1/skew)/pi
+    curvature <- arcCurvature(theta)
+    angle <- 90
+    shape <- 0.5
+    ncp <- 20
+
+    grob_segment <- gList(
+      segmentsGrob(x0 = x0.inset, y0 = y0.inset, x1 = x0.mid.segment, y1 = y0.mid.segment, default.units = "mm", gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x1.inset, y0 = y1.inset, x1 = x1.mid.segment, y1 = y1.mid.segment, default.units = "mm", gp = gp.segment, vp = vp),
+      curveGrob(x1 = x0.mid.segment, y1 = y0.mid.segment, x2 = x.mid.curly, y2 = y.mid.curly, default.units = "mm", curvature=curvature,angle=angle,shape=shape,ncp=ncp, square=FALSE, gp = gp.segment, vp = vp),
+      curveGrob(x1 = x1.mid.segment, y1 = y1.mid.segment, x2 = x.mid.curly, y2 = y.mid.curly, default.units = "mm", curvature=-curvature,angle=180 - angle,shape=shape,ncp=ncp, gp = gp.segment, vp = vp, square=FALSE),
+      curveGrob(x1 = x0.inset, y1 = y0.inset, x2 = x1.tick1, y2 = y1.tick1,  default.units = "mm", curvature = curvature, angle = angle, shape = shape, ncp=ncp, square=FALSE,gp = gp.segment, vp = vp),
+      curveGrob(x1 = x1.inset, y1 = y1.inset, x2 = x1.tick2, y2 = y1.tick2, default.units = "mm", curvature = -curvature, angle = 180 - angle, shape = shape, ncp = ncp, square=FALSE,gp = gp.segment, vp = vp)
+    )
+  } else if (tip == "square") {
+    grob_segment <- gList(
+      segmentsGrob(x0 = x0, y0 = y0, x1 = x1, y1 = y1, default.units = "mm", gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x0, y0 = y0, x1 = x1.tick1, y1 = y1.tick1, default.units = "mm", gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x1, y0 = y1, x1 = x1.tick2, y1 = y1.tick2,  default.units = "mm", gp = gp.segment, vp = vp)
+    )
+  } else if (tip == "ibeam") {
+    grob_segment <- gList(
+      segmentsGrob(x0 = x0, y0 = y0, x1 = x1, y1 = y1, default.units = "mm", gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x1.ibeam1, y0 = y1.ibeam1, x1 = x1.ibeam1.opp, y1 = y1.ibeam1.opp, default.units = "mm", gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x1.ibeam2, y0 = y1.ibeam2, x1 = x1.ibeam2.opp, y1 = y1.ibeam2.opp, default.units = "mm", gp = gp.segment, vp = vp)
+    )
+  } else if (tip == "iarrow") {
+    # double.arrow <- arrow(angle = 20, length = unit(bracket.width.mm,"mm"), ends = "both", type = "closed")
+    grob_segment <- gList(
+      segmentsGrob(x0 = x0, y0 = y0, x1 = x1, y1 = y1, default.units = "mm", arrow=arrow, gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x1.ibeam1, y0 = y1.ibeam1, x1 = x1.ibeam1.opp, y1 = y1.ibeam1.opp, default.units = "mm", gp = gp.segment, vp = vp),
+      segmentsGrob(x0 = x1.ibeam2, y0 = y1.ibeam2, x1 = x1.ibeam2.opp, y1 = y1.ibeam2.opp, default.units = "mm", gp = gp.segment, vp = vp)
+    )
+  } else if (tip == "arrow") {
+    # double.arrow <- arrow(angle = 20, length = unit(bracket.width.mm,"mm"), ends = "both", type = "closed")
+    grob_segment <- gList(
+      segmentsGrob(x0 = x0, y0 = y0, x1 = x1, y1 = y1, default.units = "mm", arrow=arrow, gp = gp.segment, vp = vp)
+    )
+  } else {
+    stop("YTError: tip not recognized")
+  }
+
+  ## handle text label
+  grob_segment_text <- textGrob(label=label,x = x.text, y = y.text,
+                                default.units = "mm",
+                                hjust=hjust,vjust=vjust,
+                                rot=text.angle,check.overlap=check.overlap,gp = gp.text, vp = vp)
+
+  # put together
+  setChildren(x, gList(grob_segment, grob_segment_text))
+}
 
 
 

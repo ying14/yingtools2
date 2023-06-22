@@ -6,12 +6,14 @@
 \usage{
 taxnonomy_scale(
   aesthetic,
-  values = NULL,
-  breaks = waiver(),
+  data,
+  tax.palette,
+  unitvar,
+  guide = guide_taxonomy(keywidth = 3),
   ...,
   limits = NULL
 )
 }
 \description{
-Similar to  \link[ggplot2:::manual_scale]{ggplot2::::manual_scale}
+Similar to  \code{\link[ggplot2:::manual_scale]{ggplot2::::manual_scale()}}
 }

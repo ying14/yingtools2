@@ -7,6 +7,7 @@
 geom_taxonomy(
   mapping = NULL,
   data = NULL,
+  stat = StatTaxonomy,
   position = "stack",
   ...,
   label.pct.cutoff = 0.3,
@@ -14,13 +15,14 @@ geom_taxonomy(
   width = 0.95,
   na.rm = FALSE,
   parse = FALSE,
-  tax.palette = NULL,
-  fit.text = FALSE,
+  tax.palette = yt.palette3,
+  fit.text = TRUE,
   reflow = FALSE,
   contrast = FALSE,
   check_overlap = FALSE,
+  show.ribbon = FALSE,
+  ribbon.alpha = 0.25,
   show.legend = NA,
-  transition.lines = FALSE,
   inherit.aes = TRUE
 )
 }
@@ -45,6 +47,11 @@ the plot data. The return value must be a \code{data.frame}, and
 will be used as the layer data. A \code{function} can be created
 from a \code{formula} (e.g. \code{~ head(.x, 10)}).}
 
+\item{stat}{The statistical transformation to use on the data for this
+layer, either as a \code{ggproto} \code{Geom} subclass or as a string naming the
+stat stripped of the \code{stat_} prefix (e.g. \code{"count"} rather than
+\code{"stat_count"})}
+
 \item{position}{Position adjustment, either as a string naming the adjustment
 (e.g. \code{"jitter"} to use \code{position_jitter}), or the result of a call to a
 position adjustment function. Use the latter if you need to change the
@@ -55,37 +62,36 @@ often aesthetics, used to set an aesthetic to a fixed value, like
 \code{colour = "red"} or \code{size = 3}. They may also be parameters
 to the paired geom/stat.}
 
-\item{label.pct.cutoff}{cutoff abundance by which to label abundances. Default is 0.3.}
+\item{label.pct.cutoff}{cutoff abundance by which to label abundances. Default is 0.3. Only applies if \code{fit.text=FALSE}.}
 
-\item{label.split}{whether to split label into two lines, using \verb{[str_split_equal_parts()]}}
+\item{label.split}{whether to split label into two lines, using \code{\link[=str_split_equal_parts]{str_split_equal_parts()}}}
 
 \item{width}{Bar width. By default, set to 0.95.}
 
 \item{na.rm}{If \code{FALSE}, the default, missing values are removed with
 a warning. If \code{TRUE}, missing values are silently removed.}
 
-\item{parse}{If \code{TRUE}, the labels will be parsed into expressions and
-displayed as described in \code{?plotmath}.}
+\item{parse}{The same argument used in \code{\link[=geom_text]{geom_text()}}. Only applies if \code{fit.text=FALSE}.}
 
-\item{fit.text}{whether or not the tax labels will be auto-fitted. \code{TRUE}: use \code{\link[ggfittext:geom_fit_text]{ggfittext::geom_fit_text()}}; \code{FALSE}: use \code{\link[ggplot2:geom_text]{ggplot2::geom_text()}} (the default).}
+\item{tax.palette}{a list of formulas used to assign colors. Each element should take the form: \verb{"<label>" = <true/false expression> ~ <color vector>}. See \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} for examples and details.}
 
-\item{reflow}{if \code{fit.text=TRUE}, whether or not to reflow the text. Default is \code{FALSE}}
+\item{fit.text}{whether or not the tax labels will be auto-fitted. \code{TRUE}: use \code{\link[ggfittext:geom_fit_text]{ggfittext::geom_fit_text()}} (the default); \code{FALSE}: use \code{\link[ggplot2:geom_text]{ggplot2::geom_text()}}.}
 
-\item{contrast}{if \code{fit.text=TRUE}, whether or not to vary font color based on background fill. Default is \code{FALSE}}
+\item{reflow}{Whether or not to reflow the text. Default is \code{FALSE}. Only applies if \code{fit.text=TRUE}.}
 
-\item{check_overlap}{If \code{TRUE}, text that overlaps previous text in the
-same layer will not be plotted. \code{check_overlap} happens at draw time and in
-the order of the data. Therefore data should be arranged by the label
-column before calling \code{geom_text()}. Note that this argument is not
-supported by \code{geom_label()}.}
+\item{contrast}{Whether or not to vary font color based on background fill. Default is \code{FALSE}. Only applies if \code{fit.text=TRUE}.}
+
+\item{check_overlap}{The same argument used in \code{\link[=geom_text]{geom_text()}}. This is only applicable if if \code{fit.text=FALSE}.}
+
+\item{show.ribbon}{whether or not to display transition lines in the background. Default is \code{FALSE}.}
+
+\item{ribbon.alpha}{alpha value of the ribbon. Default is \code{0.25}.}
 
 \item{show.legend}{logical. Should this layer be included in the legends?
 \code{NA}, the default, includes if any aesthetics are mapped.
 \code{FALSE} never includes, and \code{TRUE} always includes.
 It can also be a named logical vector to finely select the aesthetics to
 display.}
-
-\item{transition.lines}{whether or not to display transition lines in the background. Default is \code{FALSE}.}
 
 \item{inherit.aes}{If \code{FALSE}, overrides the default aesthetics,
 rather than combining with them. This is most useful for helper functions
@@ -129,65 +135,40 @@ Fill colors occupy the barspace proportionally.
 \item \code{lineheight}
 \item \code{linetype}
 \item \code{linewidth}
+\item \code{sample.colour}
+\item \code{sample.linetype}
+\item \code{sample.linewidth}
 \item \code{vjust}
 }
 Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 }
 
 \examples{
-library(phyloseq)
 library(tidyverse)
-library(gridExtra)
+# by sample
+ggplot(data=otu,aes(x=sample,y=pctseqs,fill=otu,label=Genus)) +
+  geom_taxonomy()
 
-otu <- cid.phy \%>\%
-  get.otu.melt() \%>\%
-  filter(Patient_ID == "179") \%>\%
-  arrange(!!!syms(rank_names(cid.phy))) \%>\%
-  mutate(otu = fct_inorder(otu))
+# by day
+ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus)) +
+  geom_taxonomy(width=2)
 
-# regular stack plot
-g.tax1.manual <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu)) +
-  geom_col() +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  ggtitle("Using geom_col")
-g.tax1 <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu, label=Genus)) +
-  geom_taxonomy(fit.text=TRUE) +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  ggtitle("Using geom_taxonomy")
-grid.arrange(g.tax1.manual,g.tax1,ncol=1)
+# absolute abundance
+ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
+  geom_taxonomy(width=2)
 
-g.tax2.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu),) +
-  geom_col(width=0.95) +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  ggtitle("Using geom_col")
-g.tax2 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
-  geom_taxonomy(fit.text=TRUE) +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  ggtitle("Using geom_taxonomy")
-grid.arrange(g.tax2.manual,g.tax2,ncol=1)
+# absolute abundance
+ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
+  geom_taxonomy(width=2) +
+  scale_y_continuous(trans=log_epsilon_trans(100))
 
+# if Y is transformed, colors are distributed proportionally
+# (i.e. does not get messed up)
+ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
+  geom_taxonomy(width=2) +
+  scale_y_continuous(trans=log_epsilon_trans(100))
 
-g.tax3.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu)) +
-  geom_col(width=0.95) +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  scale_y_continuous(trans="log10") +
-  ggtitle("Using geom_col (aberrent Y values)")
-g.tax3.manual.corrected <- otu \%>\%
-  group_by(Sample_ID) \%>\%
-  mutate(totalreads=sum(numseqs),
-         pctseqs=numseqs/totalreads) \%>\%
-  ungroup() \%>\%
-  mutate(height=log10(totalreads),
-         tr.height=height*pctseqs) \%>\%
-  ggplot(aes(x=Sample_ID,y=tr.height,fill=otu)) +
-  geom_col(width=0.95) +
-  scale_y_continuous(labels=function(x) 10^x) +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  ggtitle("Using geom_col (manually corrected)")
-g.tax3 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
-  geom_taxonomy(fit.text = TRUE) +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-  scale_y_continuous(trans="log10") +
-  ggtitle("Using geom_taxonomy")
-gridExtra::grid.arrange(g.tax3.manual,g.tax3.manual.corrected,g.tax3,ncol=1)
+# show ribbon transitions
+ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus)) +
+  geom_taxonomy(width=2, show.ribbon = TRUE)
 }

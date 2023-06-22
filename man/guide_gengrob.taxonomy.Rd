@@ -7,5 +7,5 @@
 \method{guide_gengrob}{taxonomy}(guide, theme)
 }
 \description{
-Called by name, by \code{guide_taxonomy}.
+Called by name, by \code{\link[=guide_taxonomy]{guide_taxonomy()}}.
 }

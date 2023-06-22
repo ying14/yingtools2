@@ -1123,6 +1123,8 @@ calc.pairwise <- function(sample1,sample2,phy,method="bray") {
 
 
 
+
+
 #' Stacked Taxonomy Bar
 #'
 #' Creates stacked taxonomy barplots.
@@ -1143,77 +1145,52 @@ calc.pairwise <- function(sample1,sample2,phy,method="bray") {
 #' @param mapping
 #' @param data
 #' @param position
-#' @param fit.text whether or not the tax labels will be auto-fitted. `TRUE`: use [ggfittext::geom_fit_text()]; `FALSE`: use [ggplot2::geom_text()] (the default).
-#' @param reflow if `fit.text=TRUE`, whether or not to reflow the text. Default is `FALSE`
-#' @param contrast if `fit.text=TRUE`, whether or not to vary font color based on background fill. Default is `FALSE`
-#' @param label.pct.cutoff cutoff abundance by which to label abundances. Default is 0.3.
-#' @param label.split whether to split label into two lines, using `[str_split_equal_parts()]`
+#' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See [scale_fill_taxonomy()] for examples and details.
 #' @param width Bar width. By default, set to 0.95.
-#' @param transition.lines whether or not to display transition lines in the background. Default is `FALSE`.
+#' @param show.ribbon whether or not to display transition lines in the background. Default is `FALSE`.
+#' @param ribbon.alpha alpha value of the ribbon. Default is `0.25`.
+#' @param fit.text whether or not the tax labels will be auto-fitted. `TRUE`: use [ggfittext::geom_fit_text()] (the default); `FALSE`: use [ggplot2::geom_text()].
+#' @param reflow Whether or not to reflow the text. Default is `FALSE`. Only applies if `fit.text=TRUE`.
+#' @param contrast Whether or not to vary font color based on background fill. Default is `FALSE`. Only applies if `fit.text=TRUE`.
+#' @param label.split whether to split label into two lines, using [str_split_equal_parts()]
+#' @param label.pct.cutoff cutoff abundance by which to label abundances. Default is 0.3. Only applies if `fit.text=FALSE`.
+#' @param parse The same argument used in [geom_text()]. Only applies if `fit.text=FALSE`.
+#' @param check_overlap The same argument used in [geom_text()]. This is only applicable if if `fit.text=FALSE`.
 #' @param na.rm
-#' @param parse
-#' @param check_overlap
 #' @param show.legend
 #' @param inherit.aes
 #' @export
 #'
 #' @examples
-#' library(phyloseq)
 #' library(tidyverse)
-#' library(gridExtra)
+#' # by sample
+#' ggplot(data=otu,aes(x=sample,y=pctseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy()
 #'
-#' otu <- cid.phy %>%
-#'   get.otu.melt() %>%
-#'   filter(Patient_ID == "179") %>%
-#'   arrange(!!!syms(rank_names(cid.phy))) %>%
-#'   mutate(otu = fct_inorder(otu))
+#' # by day
+#' ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy(width=2)
 #'
-#' # regular stack plot
-#' g.tax1.manual <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu)) +
-#'   geom_col() +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   ggtitle("Using geom_col")
-#' g.tax1 <- ggplot(otu,aes(x = Sample_ID, y = pctseqs, fill = otu, label=Genus)) +
-#'   geom_taxonomy(fit.text=TRUE) +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   ggtitle("Using geom_taxonomy")
-#' grid.arrange(g.tax1.manual,g.tax1,ncol=1)
+#' # absolute abundance
+#' ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy(width=2)
 #'
-#' g.tax2.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu),) +
-#'   geom_col(width=0.95) +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   ggtitle("Using geom_col")
-#' g.tax2 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
-#'   geom_taxonomy(fit.text=TRUE) +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   ggtitle("Using geom_taxonomy")
-#' grid.arrange(g.tax2.manual,g.tax2,ncol=1)
+#' # absolute abundance
+#' ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy(width=2) +
+#'   scale_y_continuous(trans=log_epsilon_trans(100))
 #'
+#' # if Y is transformed, colors are distributed proportionally
+#' # (i.e. does not get messed up)
+#' ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy(width=2) +
+#'   scale_y_continuous(trans=log_epsilon_trans(100))
 #'
-#' g.tax3.manual <- ggplot(otu,aes(x=Sample_ID,y=numseqs,fill=otu)) +
-#'   geom_col(width=0.95) +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   scale_y_continuous(trans="log10") +
-#'   ggtitle("Using geom_col (aberrent Y values)")
-#' g.tax3.manual.corrected <- otu %>%
-#'   group_by(Sample_ID) %>%
-#'   mutate(totalreads=sum(numseqs),
-#'          pctseqs=numseqs/totalreads) %>%
-#'   ungroup() %>%
-#'   mutate(height=log10(totalreads),
-#'          tr.height=height*pctseqs) %>%
-#'   ggplot(aes(x=Sample_ID,y=tr.height,fill=otu)) +
-#'   geom_col(width=0.95) +
-#'   scale_y_continuous(labels=function(x) 10^x) +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   ggtitle("Using geom_col (manually corrected)")
-#' g.tax3 <- ggplot(otu,aes(x = Sample_ID, y = numseqs, fill = otu,label=Genus)) +
-#'   geom_taxonomy(fit.text = TRUE) +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3) +
-#'   scale_y_continuous(trans="log10") +
-#'   ggtitle("Using geom_taxonomy")
-#' gridExtra::grid.arrange(g.tax3.manual,g.tax3.manual.corrected,g.tax3,ncol=1)
+#' # show ribbon transitions
+#' ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy(width=2, show.ribbon = TRUE)
 geom_taxonomy <- function(mapping = NULL, data = NULL,
+                          stat = StatTaxonomy,
                           position = "stack",
                           ...,
                           label.pct.cutoff=0.3,
@@ -1221,13 +1198,14 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
                           width = 0.95,
                           na.rm = FALSE,
                           parse = FALSE,
-                          tax.palette = NULL,
-                          fit.text = FALSE,
+                          tax.palette = yt.palette3,
+                          fit.text = TRUE,
                           reflow = FALSE,
                           contrast = FALSE,
                           check_overlap = FALSE,
+                          show.ribbon = FALSE,
+                          ribbon.alpha = 0.25,
                           show.legend = NA,
-                          transition.lines = FALSE,
                           inherit.aes = TRUE) {
   if (!fit.text & contrast) {
     warning("YTWarning: you specified fit.text=FALSE and contrast=TRUE. Ignoring contrast.")
@@ -1238,53 +1216,30 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
   if (fit.text & check_overlap) {
     warning("YTWarning: you specified fit.text=TRUE and check_overlap=TRUE. Ignoring check_overlap")
   }
-
-  bar.layer <- layer(data = data, mapping = mapping,
-                     stat = StatTaxonomy,
-                     geom = GeomTaxonomy,
-                     position = position, show.legend = show.legend,
-                     inherit.aes = inherit.aes,
-                     layer_class = LayerTaxonomy,
-                     params = list(width = width,
-                                   parse = parse,
-                                   fit.text = fit.text,
-                                   reflow = reflow,
-                                   contrast = contrast,
-                                   check_overlap = check_overlap,
-                                   label.pct.cutoff = label.pct.cutoff,
-                                   label.split = label.split,
-                                   tax.palette = tax.palette,
-                                   na.rm = na.rm, ...)
-  )
-
-  if (transition.lines) {
-    area.layer <- layer(
-      data = data,
-      mapping = mapping,
-      stat = StatTaxTransition,
-      geom = GeomTaxTransition,
-      position = position,
-      show.legend = show.legend,
-      inherit.aes = inherit.aes,
-      params = list2(
-        na.rm = na.rm,
-        orientation = NA,
-        outline.type = "upper",
-        width = width,
-        ...
-      )
-    )
-  } else {
-    area.layer <- NULL
-  }
-  list(area.layer,bar.layer)
+  layer(data = data, mapping = mapping,
+        stat = stat,
+        geom = GeomTaxonomy,
+        position = position, show.legend = show.legend,
+        inherit.aes = inherit.aes,
+        layer_class = LayerTaxonomy,
+        params = list(width = width,
+                      parse = parse,
+                      fit.text = fit.text,
+                      reflow = reflow,
+                      contrast = contrast,
+                      check_overlap = check_overlap,
+                      show.ribbon = show.ribbon,
+                      ribbon.alpha = ribbon.alpha,
+                      label.pct.cutoff = label.pct.cutoff,
+                      label.split = label.split,
+                      tax.palette = tax.palette,
+                      na.rm = na.rm, ...))
 }
 
 
-
-
-
-
+#' GeomTaxonomy
+#'
+#' The ggproto object for stacked taxonomy.
 #' @export
 GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                         required_aes = c("x", "y"),
@@ -1294,6 +1249,9 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                           linewidth = 0.5,
                                           linetype = 1,
                                           alpha = NA,
+                                          sample.colour = "black",
+                                          sample.linewidth = 0.5,
+                                          sample.linetype = 1,
                                           fontcolour = "black",
                                           fontsize = 3.88,
                                           angle = -90,
@@ -1315,21 +1273,76 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                               reflow = FALSE,
                                               contrast = FALSE,
                                               check_overlap = FALSE,
+                                              show.ribbon = FALSE,
+                                              ribbon.alpha = 0.25,
                                               label.pct.cutoff = 0.3,
                                               label.split = FALSE) {
+                          # sample
+                          if (!all(is.na(data$sample.colour))) {
+
+                            data_sample <- data %>% group_by(PANEL,x) %>%
+                              assert_grouping_vars(test_vars=c(sample.colour,
+                                                               sample.linewidth,
+                                                               sample.linetype),
+                                                   stopIfTRUE = TRUE) %>%
+                              group_by(xmin,xmax,
+                                       sample.colour,
+                                       sample.linewidth,
+                                       sample.linetype,.add=TRUE) %>%
+                              summarize(ymin=min(ymin),
+                                        ymax=max(ymax),
+                                        .groups="drop") %>%
+                              transmute(
+                                x,ymin,ymax,xmin,xmax,PANEL,
+                                y=ymax,
+                                group=-1,flipped_aes=FALSE,
+                                colour=sample.colour,
+                                fill=NA,
+                                linewidth=sample.linewidth,
+                                linetype=sample.linetype,
+                                alpha=1)
+                            grob_sample <- GeomRect$draw_panel(data=data_sample,panel_params,coord,
+                                                               lineend = "butt", linejoin = "mitre")
+                          } else {
+                            grob_sample <- nullGrob()
+                          }
+
+                          # ribbon
+                          if (show.ribbon) {
+                            data_ribbon <- bind_rows(mutate(data,x=xmin),mutate(data,x=xmax)) %>%
+                              arrange(x,group) %>%
+                              transmute(fill,x,ymin,ymax,group,PANEL,y,
+                                        flipped_aes=FALSE,colour=NA,
+                                        linewidth=0.5,linetype=1,alpha=ribbon.alpha)
+                            groups <- split(data_ribbon, factor(data_ribbon$group))
+                            grobs <- lapply(groups, function(group) {
+                              GeomRibbon$draw_group(group, panel_params, coord, lineend = "butt",
+                                                    linejoin = "round", linemitre = 10, na.rm = FALSE, flipped_aes = FALSE,
+                                                    outline.type = "both")
+                            })
+                            grob_ribbon <- gTree(children = inject(gList(!!!grobs)))
+                          } else {
+                            grob_ribbon <- nullGrob()
+                          }
+
+                          # draw col
+                          data_col <- data %>%
+                            select(x,y,colour,fill,linewidth,linetype,alpha,
+                                   xmin,xmax,ymin,ymax)
+                          grob_col <- GeomCol$draw_panel(data = data_col, panel_params = panel_params, coord = coord, lineend = lineend,
+                                                         linejoin = linejoin, width = width, flipped_aes = flipped_aes)
+                          # draw text
                           if (label.split) {
                             data <- data %>% mutate(label=str_split_equal_parts(label))
                           }
-                          # draw col
-                          grob_col <- GeomCol$draw_panel(data = data, panel_params = panel_params, coord = coord, lineend = lineend,
-                                                         linejoin = linejoin, width = width, flipped_aes = flipped_aes)
-                          # draw text
-                          if (fit.text) {
-                            fontsize_factor <- 11/3.88
+                          if (all(is.na(data$label))) {
+                            grob_text <- nullGrob()
+                          } else if (fit.text) {
+                            fontsize_factor <- 11/3.88 # to convert fontsizes of geom_fit_text
                             data_fittext <- data %>%
                               # to save time: if size is small, label is NA.
                               # probably could be better here.
-                              mutate(label=ifelse(ymax-ymin>=0.01,label,NA_character_)) %>%
+                              # mutate(label=ifelse(ymax-ymin>=0.01,label,NA_character_)) %>%
                               transmute(fill, x, y, label, PANEL, group,
                                         xmin, xmax, ymin, ymax,
                                         angle, family,
@@ -1340,12 +1353,8 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                             # hjust/vjust are not aesthetics, get rid of them
                             # flipped_aes/linewidth/linetype not applicable
                             min.size <- min(data_fittext$size,na.rm=TRUE)
-                            # geom_fit_text uses different font sizing?
-                            # min.size
-                            # data$fontsize
-                            # data_fittext$size
-
-                            grob_text <- ggfittext:::GeomFitText$draw_panel(
+                            # similar to ggfittext:::GeomFitText$draw_panel()
+                            grob_text <- taxfittextGrob(
                               data=data_fittext,
                               panel_scales=panel_params,
                               coord=coord,
@@ -1358,57 +1367,107 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                               hjust = NULL, vjust = NULL, fullheight = NULL,
                               width = NULL, height = NULL, formatter = NULL,
                               place = "centre", outside = FALSE)
-
                           } else {
                             # regular geom_text
                             data_text <- data %>%
-                              filter(!is.na(label),
-                                     ymax - ymin >= label.pct.cutoff) %>%
+                              filter(ymax-ymin>=label.pct.cutoff) %>%
                               mutate(y = (ymin + ymax) / 2,
                                      colour = fontcolour,
                                      size = fontsize,
                                      alpha = fontalpha)
-                            if (nrow(data_text)>0) {
-                              grob_text <- GeomText$draw_panel(data = data_text, panel_params = panel_params,
-                                                               coord = coord, parse = parse,
-                                                               na.rm = na.rm, check_overlap = check_overlap)
-                            } else {
-                              grob_text <- nullGrob()
-                            }
+                            grob_text <- GeomText$draw_panel(data = data_text, panel_params = panel_params,
+                                                             coord = coord, parse = parse,
+                                                             na.rm = na.rm, check_overlap = check_overlap)
                           }
-
-                          grid::gTree("taxonomy_grob", children = gList(grob_col, grob_text))
+                          grid::gTree("taxonomy_grob", children = grid::gList(grob_ribbon, grob_col, grob_text, grob_sample))
                         }
 )
 
 
 
 
+#' taxfittextGrob
+#'
+#' called by: `GeomTaxonomy::draw_panel()` for fitted tax labels
+#' modified version of `ggfittext:::GeomFitText$draw_panel()`
+#' @export
+taxfittextGrob <- function(data, panel_scales, coord,
+                            padding.x = grid::unit(1, "mm"),
+                            padding.y = grid::unit(1, "mm"),
+                            min.size = 4, grow = FALSE, reflow = FALSE,
+                            hjust = NULL, vjust = NULL,
+                            fullheight = NULL, width = NULL, height = NULL, formatter = NULL,
+                            contrast = FALSE, place = "centre", outside = FALSE) {
+  is_polar <- "CoordPolar" %in% class(coord)
+  if (!is_polar) {
+    data <- coord$transform(data, panel_scales)
+  }
+  else if (is_polar) {
+    if (is.null(data$x))
+      data$x <- 1
+    if (is.null(data$y))
+      data$y <- 1
+    data <- coord$transform(data, panel_scales)
+    if (!is.null(data$xmin))
+      data$xmin <- ggplot2:::theta_rescale(coord, data$xmin, panel_scales)
+    if (!is.null(data$xmax))
+      data$xmax <- ggplot2:::theta_rescale(coord, data$xmax, panel_scales)
+    if (!is.null(data$ymin))
+      data$ymin <- ggplot2:::r_rescale(coord, data$ymin, panel_scales$r.range)
+    if (!is.null(data$ymax))
+      data$ymax <- ggplot2:::r_rescale(coord, data$ymax, panel_scales$r.range)
+  }
 
+  if (contrast && ("fill" %in% names(data))) {
+    complement <- as.character(shades::complement(shades::shade(data$colour)))
+    data$colour <- ifelse(shades::lightness(data$fill) < 50, complement, data$colour)
+  }
+  if (place %in% c("middle", "center")) {
+    place <- "centre"
+  }
+  gt <- grid::gTree(data = data, padding.x = padding.x, padding.y = padding.y,
+                    place = place, outside = outside, min.size = min.size,
+                    grow = grow, reflow = reflow, hjust = hjust, vjust = vjust,
+                    fullheight = fullheight, width = width, height = height,
+                    contrast = contrast, cl = ifelse(is_polar, "fittexttreepolar", "taxfittexttree"))
+  gt$name <- grid::grobName(gt, "geom_fit_text")
+  gt
+}
+
+
+#' makeContent.taxfittexttree
+#'
+#' called by: `GeomTaxonomy::draw_panel()` > [taxfittextGrob()] for fitted tax labels
+#' modified version of `ggfittext:::makeContent.fittexttree()`.
+#' To save time rendering the labels, remove rows where height  is less than `unit(1,"char")`.
+#' @export
+makeContent.taxfittexttree <- function(x) {
+  min.height <- unit(1,"char") %>% convertUnit(unitTo="npc",valueOnly = TRUE)
+  x$data <- x$data %>% filter(!is.na(label),ymax-ymin>=min.height)
+  if (nrow(x$data)>0) {
+    ggfittext:::makeContent.fittexttree(x)
+  }
+}
+
+
+
+
+#' StatTaxonomy
+#'
+#' The stat object for taxonomy data. This allows for transformed Y-axis.
 #' @export
 StatTaxonomy <- ggproto("StatTaxonomy",Stat,
                         required_aes = c("x", "y"),
-                        default_aes = aes(label = NA,
-                                          colour = NA,
-                                          fill = "grey35",
-                                          linewidth = 0.5,
-                                          linetype = 1,
-                                          alpha = NA,
-                                          fontcolour = "black",
-                                          fontsize = 3.88,
-                                          angle = -90,
-                                          hjust = 0.5,
-                                          vjust = 0.5,
-                                          fontalpha = NA,
-                                          family = "",
-                                          fontface = 1,
-                                          lineheight = 0.75),
-                        compute_panel = function(self, data, scales) {
+                        compute_panel = function(self, data, scales, show.ribbon) {
                           inv <- scales$y$trans$inverse
                           trans <- scales$y$trans$transform
                           # Y-transformed abundances do not stack correctly.
                           # this is a trick to alter abundances such that they display to
                           # the correct total abundance.
+                          if (show.ribbon) {
+                            data <- data %>%
+                              complete(nesting(x,PANEL),nesting(fill,group),fill=list(y=0))
+                          }
                           newdata <- data %>%
                             group_by(x,PANEL) %>%
                             mutate(reads=inv(y),
@@ -1420,158 +1479,60 @@ StatTaxonomy <- ggproto("StatTaxonomy",Stat,
                                    new.reads=inv(tr.height),
                                    y=trans(new.reads)) %>%
                             select(all_of(names(data)))
+
                           ggproto_parent(StatIdentity, self)$compute_layer(newdata, params, layout)
                         })
 
 
 
-#' @export
-GeomTaxTransition <- ggproto("GeomTaxTransition",GeomArea,
-                             default_aes=aes("colour"=NA,
-                                             "fill"="grey20",
-                                             "linewidth"=0.5,
-                                             "linetype"=1,
-                                             "alpha"=0.3))
-
-#' @export
-StatTaxTransition <- ggproto("StatTaxTransition",StatAlign,
-                             extra_params = c("na.rm","orientation","width"),
-                             compute_panel=function(self, data, scales, ...) {
-                               newdata <- data
-                               inv <- scales$y$trans$inverse
-                               trans <- scales$y$trans$transform
-                               # Y-transformed abundances do not stack correctly.
-                               # this is a trick to alter abundances such that they display to
-                               # the correct total abundance.
-                               newdata <- newdata %>%
-                                 group_by(x,PANEL) %>%
-                                 mutate(reads=inv(y),
-                                        totalreads=sum(reads),
-                                        pctseqs=reads/totalreads) %>%
-                                 ungroup() %>%
-                                 mutate(height=trans(totalreads),
-                                        tr.height=height*pctseqs,
-                                        new.reads=inv(tr.height),
-                                        y=trans(new.reads)) %>%
-                                 select(all_of(names(data)))
-                               # fill in zeroes
-                               newdata <- newdata %>%
-                                 complete(x,nesting(fill,group,PANEL),fill=list(y=0))
-                               # transition at the edge of the bar. needs fixing for dynamic width
-                               width <- 0.95
-                               # browser()
-                               # newdata <- bind_rows(mutate(newdata,x+width/2),
-                               #                      mutate(newdata,x-width/2))
-                               ggproto_parent(StatAlign, self)$compute_panel(newdata, scales, ...)
-                             }
-)
 
 
 
 
 
 
+
+#' LayerTaxonomy
+#'
+#' The Layer object for [geom_taxonomy()].
+#'
+#' Two things are done here:
+#' 1. If `scale_fill` is not specified, the [scale_fill_taxonomy()] scale is applied.
+#' 2. The fill aesthetic is converted to a factor, ordered by `tax.palette` colors,
+#' to allow for stacking in the correct order.
 #' @export
 LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
                          compute_aesthetics = function (self, data, plot) {
                            tax.palette <- self$geom_params$tax.palette
-                           if (!is.null(tax.palette)) {
-                             aesthetics <- self$computed_mapping
+                           aesthetics <- self$computed_mapping
+
+                           if (!is.null(tax.palette) & ("fill" %in% names(aesthetics))) {
                              unitvar <- aesthetics$fill
                              tax.colors <- get.taxonomy.colordata(data, tax.palette = tax.palette, unitvar = !!unitvar)
                              tax.factor <- tax.colors %>% filter(!is.na(unit)) %>%
                                arrange(name,unit)
                              data <- data %>% mutate(!!unitvar:=factor(!!unitvar,levels=tax.factor$unit))
+
+                             values <- tax.colors$color
+                             breaks <- tax.colors$unit
+                             labels <- tax.colors$name
+                             # tax_scale <- scale_fill_taxonomy(data=data,tax.palette=tax.palette,fill=!!unitvar,guide = guide_taxonomy(keywidth = 3))
+                             already_has_scale_fill <- any(map_lgl(plot$scales$scales, ~any(.x[["aesthetics"]]=="fill")))
+                             if (!already_has_scale_fill) {
+                               tax_scale <- ggplot2:::manual_scale(aesthetic="fill",
+                                                                   values = values,
+                                                                   breaks =breaks,
+                                                                   labels = labels,
+                                                                   guide = guide_taxonomy(keywidth = 3),
+                                                                   drop=FALSE,
+                                                                   na.value="grey50",
+                                                                   limits = NULL)
+                               plot$scales$scales <- c(plot$scales$scales,list(tax_scale))
+                             }
                            }
-                           data2 <- ggproto_parent(ggplot2:::Layer, self)$compute_aesthetics(data,plot)
-                           return(data2)
+                           ggproto_parent(ggplot2:::Layer, self)$compute_aesthetics(data,plot)
                          })
 
-
-
-
-
-
-
-
-#' Calculate taxonomy colors
-#'
-#' Generates taxonomy colors, suitable for plotting.
-#'
-#' Used in [scale_fill_taxonomy()] to generate taxonomy colors.
-#' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
-#' @param unitvar the granular column (bare unquoted) by which colors will be assigned. Default is `Species`.
-#' Sometimes you might want to switch to another granular identifer, such as `otu`. Depending on the situation.
-#' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
-#' @return a data frame with color values, where columns include `unit`=the distinct column ID for coloring (`unitvar`),
-#' `name`=taxonomic label, `color`=assigned color. If a color was not used, it is included as a row in which `unit = NA`.
-#' @export
-get.taxonomy.colordata <- function(data, unitvar = Species,
-                                   tax.palette = yt.palette3) {
-  # data=phy1;unitvar="Species";tax.palette=yt.palette2
-  requireNamespace("phyloseq", quietly = TRUE)
-  unitvar <- ensym(unitvar)
-  if (is(data, "phyloseq") | is(data, "taxonomyTable")) {
-    data <- get.tax(data)
-  }
-  if (!(is.list(tax.palette) && all(map_lgl(tax.palette, is_formula)))) {
-    stop("YTError: tax.palette needs to be a list of formulas!")
-  }
-  vars.needed <- tax.palette %>%
-    map(~{
-      rlang::f_lhs(.x) %>% all.vars()
-    }) %>%
-    simplify() %>%
-    c(as_label(unitvar)) %>%
-    unique() %>%
-    as.character()
-  if (!all(vars.needed %in% names(data))) {
-    missing.vars <- setdiff(vars.needed, names(data))
-    stop("YTError: the tax.palette has vars that were not found in data: ", paste(missing.vars, collapse = ","))
-  }
-  tax <- data %>%
-    select(!!!syms(vars.needed)) %>%
-    unique() %>%
-    assert_grouping_vars(id_vars = !!unitvar, stopIfTRUE = FALSE)
-  is_color <- function(x) {
-    iscolor <- grepl("^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$", x) |
-      (x %in% c(colors(), as.character(1:8), "transparent")) |
-      is.na(x)
-    return(all(iscolor))
-  }
-  color.list <- map(tax.palette, function(exp) {
-    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
-    if (!is_color(colors)) {
-      stop("YTError: not a valid color set: {paste(colors,collapse=', ')}")
-    }
-    criteria <- rlang::f_lhs(exp)
-    # message(criteria)
-    color.yes.no <- tax %>%
-      mutate(
-        criteria = !!criteria,
-        criteria = criteria & !is.na(criteria)
-      ) %>%
-      pull(criteria)
-    # x.color <- character()
-    x.color <- rep(NA_character_, length.out = nrow(tax))
-    x.color[color.yes.no] <- rep(colors, length.out = sum(color.yes.no))
-    return(x.color)
-  }) %>% do.call(coalesce, .)
-  tax$color <- color.list
-  tax.headers <- tax.palette %>%
-    map_dfr(~ {
-      tibble(color = eval_tidy(rlang::f_rhs(.x)))
-    }, .id = "name") %>%
-    mutate(name = fct_inorder(name))
-
-  if (anyDuplicated(tax.headers$color)) {
-    stop("YTError: colors are duplicated in the palette!")
-  }
-  tax.table <- tax.headers %>%
-    left_join(tax, by = "color") %>%
-    rename(unit = !!unitvar)
-  return(tax.table)
-}
 
 
 #' Taxonomy color scales
@@ -1593,32 +1554,33 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
 #' @param na.value The aesthetic value to use for missing (`NA`) values
 #' @export
 #' @examples
-#' otu <- cid.phy %>%
+#' otu <- prune_samples("179A",cid.phy) %>%
+#'   phy.collapse.bins(level=2) %>%
 #'   get.otu.melt() %>%
-#'   filter(Patient_ID == "221") %>%
-#'   arrange(!!!syms(rank_names(cid.phy))) %>%
-#'   mutate(otu = fct_inorder(otu))
+#'   arrange(Kingdom,Phylum,Class,Order,Family,Genus,taxon) %>%
+#'   mutate(otu=fct_inorder(otu))
 #'
-#' otu %>%
-#'   ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
-#'   geom_taxonomy() +
-#'   scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
+#' ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
+#'   geom_col() +
+#'   scale_y_continuous(trans=log_epsilon_trans(0.01)) +
+#'   scale_fill_taxonomy(data=otu,fill=otu)
+#'
+#' ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
+#'   geom_col() +
+#'   scale_y_continuous(trans=log_epsilon_trans(0.01)) +
+#'   scale_fill_taxonomy(data=otu,fill=otu,
+#'                       guide=guide_taxonomy(keywidth=1.5,
+#'                                            keyheight=0.85,ncol=2))
 scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                 fill = Species,
                                 aesthetics = "fill",
                                 guide = guide_taxonomy(keywidth = 3),
+                                # guide=guide_legend2(),
                                 drop = FALSE,
                                 na.value = "grey50") {
   fill <- ensym(fill)
-  if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
-    data <- get.tax(data)
-  }
-  tax.colors <- get.taxonomy.colordata(data, tax.palette = tax.palette, unitvar = !!fill)
-  values <- tax.colors$color
-  breaks <- tax.colors$unit
-  labels <- tax.colors$name
   taxnonomy_scale(aesthetics,
-                  values = values, breaks = breaks, labels = labels,
+                  data=data, tax.palette=tax.palette, unitvar=!!fill,
                   ..., guide = guide, drop = drop, na.value = na.value)
 }
 
@@ -1633,49 +1595,33 @@ scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                  drop = FALSE,
                                  na.value = "grey50") {
   color <- ensym(color)
-  tax.colors <- get.taxonomy.colordata(data, tax.palette = tax.palette, unitvar = !!color)
-  values <- tax.colors$color
-  breaks <- tax.colors$unit
-  labels <- tax.colors$name
-  taxnonomy_scale(aesthetics,
-                  values = values, breaks = breaks, labels = labels,
+  taxnonomy_scale(aesthetic=aesthetics,
+                  data=data, tax.palette=tax.palette, unitvar=!!color,
                   ..., guide = guide, drop = drop, na.value = na.value)
 }
 
 
-
 #' Taxonomy scale constructor
 #'
-#' Similar to  [ggplot2:::manual_scale]
+#' Similar to  [ggplot2:::manual_scale()]
 #' @export
-taxnonomy_scale <- function(aesthetic, values = NULL, breaks = waiver(), ..., limits = NULL) {
-  # adopted from ggplot2:::manual_scale
-  if (is_missing(values)) {
-    values <- NULL
-  } else {
-    force(values)
+taxnonomy_scale <- function(aesthetic,
+                            data, tax.palette, unitvar,
+                            guide=guide_taxonomy(keywidth = 3),
+                            ..., limits = NULL) {
+  unitvar <- ensym(unitvar)
+  if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
+    data <- get.tax(data)
   }
-  if (is.null(limits) && !is.null(names(values))) {
-    limits <- function(x) {
-      intersect(x, names(values)) %||% character()
-    }
-  }
-  if (is.vector(values) && is.null(names(values)) && !ggplot2:::is.waive(breaks) && !is.null(breaks) && !is.function(breaks)) {
-    if (length(breaks) <= length(values)) {
-      names(values) <- breaks
-    } else {
-      names(values) <- breaks[1:length(values)]
-    }
-  }
-  pal <- function(n) {
-    if (n > length(values)) {
-      cli::cli_abort("Insufficient values in manual scale. {n} needed but only {length(values)} provided.")
-    }
-    return(values)
-  }
-  discrete_scale(aesthetic, "manual", pal, breaks = breaks, limits = limits, ...)
-}
+  tax.colors <- get.taxonomy.colordata(data=data, tax.palette = tax.palette, unitvar = !!unitvar)
+  values <- tax.colors$color
+  breaks <- tax.colors$unit
+  labels <- tax.colors$name
 
+  ggplot2:::manual_scale(aesthetic=aesthetic, values = values, breaks =breaks, labels=labels,
+                         guide=guide, ..., limits = limits)
+
+}
 
 #' Taxonomy Guide
 #'
@@ -1692,7 +1638,6 @@ guide_taxonomy <- function(title = waiver(), title.position = NULL, title.theme 
   if (!is.null(keywidth) && !is.unit(keywidth)) {
     keywidth <- unit(keywidth, default.unit)
   }
-
   if (!is.null(keyheight) && !is.unit(keyheight)) {
     keyheight <- unit(keyheight, default.unit)
   }
@@ -1711,38 +1656,37 @@ guide_taxonomy <- function(title = waiver(), title.position = NULL, title.theme 
   )
 }
 
-
 #' guide_train.taxonomy
 #'
 #' Adopted from `ggplot2:::guide_train.legend`, but converts items to list-col colors.
-#' Called by name, by `guide_taxonomy`.
+#' Called by name, by [guide_taxonomy()].
 #' @export
 guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
   guide <- ggplot2:::guide_train.legend(guide, scale, aesthetic)
-  # the legend table is converted to list-cols colors.
+  ##### the legend table is converted to list-cols colors. ######
   if (!is.null(guide$key)) {
     guide$key <- guide$key %>%
       distinct() %>%
       group_by(.label) %>%
-      summarize(fill = list(fill))
+      summarize(fill = list(fill),
+                .groups="drop") %>%
+      as.data.frame(stringsAsFactors=FALSE)
   }
+  ##############################################################
   return(guide)
 }
 
-
-
 #' guide_geom.taxonomy
 #'
-#' Called by name, by `guide_taxonomy`.
+#' Called by name, by [guide_taxonomy()].
 #' @export
-guide_geom.taxonomy <- function(guide, layers, default_mapping) {
-  ggplot2:::guide_geom.legend(guide, layers, default_mapping)
-}
+guide_geom.taxonomy <- ggplot2:::guide_geom.legend
+
 
 
 #' guide_gengrob.taxonomy
 #'
-#' Called by name, by `guide_taxonomy`.
+#' Called by name, by [guide_taxonomy()].
 #' @export
 guide_gengrob.taxonomy <- function(guide, theme) {
   # ggplot2:::guide_gengrob.legend(guide,theme)
@@ -1894,11 +1838,13 @@ guide_gengrob.taxonomy <- function(guide, theme) {
          }
   )
   key_size <- c(key_width, key_height) * 10
-  # this is re-written to take on list col of colors.
   draw_key <- function(i) {
     bg <- element_render(theme, "legend.key")
+    ####### this section of draw_key is re-written to take on list col of colors. #######
+    # keys <- lapply(guide$geoms, function(g) {
+    #   g$draw_key(g$data[i, , drop = FALSE], g$params, key_size)
+    # })
     keys <- lapply(guide$geoms, function(g) {
-      # g$draw_key(g$data[i, , drop = FALSE], g$params, key_size)
       dlist <- g$data[i, , drop = FALSE] %>%
         unnest(fill) %>%
         rowwise() %>%
@@ -1908,9 +1854,9 @@ guide_gengrob.taxonomy <- function(guide, theme) {
         # g$draw_key(.x, g$params, key_size)
         draw_key_polygon_close(.x, g$params, key_size)
       })
-      gt <- arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
-      gt
+      gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
     })
+    ####################################################################################
     c(list(bg), keys)
   }
   grob.keys <- unlist(lapply(seq_len(nbreak), draw_key), recursive = FALSE)
@@ -1935,8 +1881,11 @@ guide_gengrob.taxonomy <- function(guide, theme) {
 }
 
 
-
-# same as ggplot2::draw_key_polygon, but with zero gap width. Used in guide_gengrob.taxonomy.
+#' draw_key_polygon_close
+#'
+#' Same as [ggplot2::draw_key_polygon()], but with zero gap width.
+#' Used in [guide_gengrob.taxonomy()].
+#' @export
 draw_key_polygon_close <- function(data, params, size) {
   if (is.null(data$linewidth)) {
     data$linewidth <- 0.5
@@ -1951,6 +1900,98 @@ draw_key_polygon_close <- function(data, params, size) {
               lty = data$linetype %||% 1, lwd = lwd * .pt,
               linejoin = params$linejoin %||% "mitre", lineend = params$lineend %||% "butt"))
 }
+
+
+
+
+
+
+
+
+
+
+
+
+#' Calculate taxonomy colors
+#'
+#' Generates taxonomy colors, suitable for plotting.
+#'
+#' Used in [scale_fill_taxonomy()] to generate taxonomy colors.
+#' @param data taxonomic data, can be [`phyloseq`][`phyloseq::phyloseq-class`], [get.otu.melt()] data frame, or [get.tax()] data frame.
+#' @param unitvar the granular column (bare unquoted) by which colors will be assigned. Default is `Species`.
+#' Sometimes you might want to switch to another granular identifer, such as `otu`. Depending on the situation.
+#' @param tax.palette a list of formulas used to assign colors. Each element should take the form: `"<label>" = <true/false expression> ~ <color vector>`. See examples and details.
+#' @return a data frame with color values, where columns include `unit`=the distinct column ID for coloring (`unitvar`),
+#' `name`=taxonomic label, `color`=assigned color. If a color was not used, it is included as a row in which `unit = NA`.
+#' @export
+get.taxonomy.colordata <- function(data, unitvar = Species,
+                                   tax.palette = yt.palette3) {
+  # data=phy1;unitvar="Species";tax.palette=yt.palette2
+  requireNamespace("phyloseq", quietly = TRUE)
+  unitvar <- ensym(unitvar)
+  if (is(data, "phyloseq") | is(data, "taxonomyTable")) {
+    data <- get.tax(data)
+  }
+  if (!(is.list(tax.palette) && all(map_lgl(tax.palette, is_formula)))) {
+    stop("YTError: tax.palette needs to be a list of formulas!")
+  }
+  vars.needed <- tax.palette %>%
+    map(~{
+      rlang::f_lhs(.x) %>% all.vars()
+    }) %>%
+    simplify() %>%
+    c(as_label(unitvar)) %>%
+    unique() %>%
+    as.character()
+  if (!all(vars.needed %in% names(data))) {
+    missing.vars <- setdiff(vars.needed, names(data))
+    stop("YTError: the tax.palette has vars that were not found in data: ", paste(missing.vars, collapse = ","))
+  }
+  tax <- data %>%
+    select(!!!syms(vars.needed)) %>%
+    unique() %>%
+    assert_grouping_vars(id_vars = !!unitvar, stopIfTRUE = FALSE)
+  is_color <- function(x) {
+    iscolor <- grepl("^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$", x) |
+      (x %in% c(colors(), as.character(1:8), "transparent")) |
+      is.na(x)
+    return(all(iscolor))
+  }
+  color.list <- map(tax.palette, function(exp) {
+    colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
+    if (!is_color(colors)) {
+      stop("YTError: not a valid color set: {paste(colors,collapse=', ')}")
+    }
+    criteria <- rlang::f_lhs(exp)
+    # message(criteria)
+    color.yes.no <- tax %>%
+      mutate(
+        criteria = !!criteria,
+        criteria = criteria & !is.na(criteria)
+      ) %>%
+      pull(criteria)
+    # x.color <- character()
+    x.color <- rep(NA_character_, length.out = nrow(tax))
+    x.color[color.yes.no] <- rep(colors, length.out = sum(color.yes.no))
+    return(x.color)
+  }) %>% do.call(coalesce, .)
+  tax$color <- color.list
+  tax.headers <- tax.palette %>%
+    map_dfr(~ {
+      tibble(color = eval_tidy(rlang::f_rhs(.x)))
+    }, .id = "name") %>%
+    mutate(name = fct_inorder(name))
+
+  if (anyDuplicated(tax.headers$color)) {
+    stop("YTError: colors are duplicated in the palette!")
+  }
+  tax.table <- tax.headers %>%
+    left_join(tax, by = "color") %>%
+    rename(unit = !!unitvar)
+  return(tax.table)
+}
+
+
 
 
 
@@ -1971,7 +2012,6 @@ yt.palette2 <- exprs(
   "Proteobacteria (phylum)"=Phylum == "Proteobacteria" ~ shades("red", variation = 0.4),
   "Other Bacteria"=TRUE ~ shades("gray", variation = 0.25)
 )
-
 
 
 #' YT Palette 3

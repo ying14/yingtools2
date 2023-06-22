@@ -52,14 +52,21 @@ Discrete scales for taxonomy.
 This is modified from \code{\link[ggplot:scale_fill_manual]{ggplot::scale_fill_manual()}}. It runs \code{\link[=get.taxonomy.colordata]{get.taxonomy.colordata()}} to obtain colors.
 }
 \examples{
-otu <- cid.phy \%>\%
+otu <- prune_samples("179A",cid.phy) \%>\%
+  phy.collapse.bins(level=2) \%>\%
   get.otu.melt() \%>\%
-  filter(Patient_ID == "221") \%>\%
-  arrange(!!!syms(rank_names(cid.phy))) \%>\%
-  mutate(otu = fct_inorder(otu))
+  arrange(Kingdom,Phylum,Class,Order,Family,Genus,taxon) \%>\%
+  mutate(otu=fct_inorder(otu))
 
-otu \%>\%
-  ggplot(aes(x = day, y = pctseqs, fill = otu, label=Genus)) +
-  geom_taxonomy() +
-  scale_fill_taxonomy(data = otu, fill = otu, tax.palette = yt.palette3)
+ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
+  geom_col() +
+  scale_y_continuous(trans=log_epsilon_trans(0.01)) +
+  scale_fill_taxonomy(data=otu,fill=otu)
+
+ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
+  geom_col() +
+  scale_y_continuous(trans=log_epsilon_trans(0.01)) +
+  scale_fill_taxonomy(data=otu,fill=otu,
+                      guide=guide_taxonomy(keywidth=1.5,
+                                           keyheight=0.85,ncol=2))
 }

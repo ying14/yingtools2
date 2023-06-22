@@ -87,7 +87,10 @@ display.}
 \item{parse}{If \code{TRUE}, the labels will be parsed into expressions and
 displayed as described in \code{?plotmath}.}
 
-\item{inherit.aes}{}
+\item{inherit.aes}{If \code{FALSE}, overrides the default aesthetics,
+rather than combining with them. This is most useful for helper functions
+that define both data and aesthetics and shouldn't inherit behaviour from
+the default plot specification, e.g. \code{\link[ggplot2:borders]{borders()}}.}
 }
 \description{
 Plot timeline items in the form of bars, such as medication administration over time. The X-axis represents time.
@@ -141,6 +144,7 @@ Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 }
 
 \examples{
+library(tidyverse)
 data <- cid.meds \%>\% filter(Patient_ID=="166")
 # Standard timeline plot without much cleanup
 ggplot(data) + geom_timeline(aes(xmin=startday,xmax=endday,

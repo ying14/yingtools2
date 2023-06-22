@@ -7,5 +7,5 @@
 \method{guide_geom}{taxonomy}(guide, layers, default_mapping)
 }
 \description{
-Called by name, by \code{guide_taxonomy}.
+Called by name, by \code{\link[=guide_taxonomy]{guide_taxonomy()}}.
 }
