@@ -2,7 +2,6 @@
 % Please edit documentation in R/microbiota2.R
 \name{scale_fill_taxonomy}
 \alias{scale_fill_taxonomy}
-\alias{scale_color_taxonomy}
 \title{Taxonomy color scales}
 \usage{
 scale_fill_taxonomy(
@@ -11,17 +10,6 @@ scale_fill_taxonomy(
   tax.palette = yt.palette3,
   fill = Species,
   aesthetics = "fill",
-  guide = guide_taxonomy(keywidth = 3),
-  drop = FALSE,
-  na.value = "grey50"
-)
-
-scale_color_taxonomy(
-  ...,
-  data,
-  tax.palette = yt.palette3,
-  color = otu,
-  aesthetics = "color",
   guide = guide_taxonomy(keywidth = 3),
   drop = FALSE,
   na.value = "grey50"
@@ -52,21 +40,35 @@ Discrete scales for taxonomy.
 This is modified from \code{\link[ggplot:scale_fill_manual]{ggplot::scale_fill_manual()}}. It runs \code{\link[=get.taxonomy.colordata]{get.taxonomy.colordata()}} to obtain colors.
 }
 \examples{
+library(tidyverse)
+library(phyloseq)
+
 otu <- prune_samples("179A",cid.phy) \%>\%
   phy.collapse.bins(level=2) \%>\%
   get.otu.melt() \%>\%
   arrange(Kingdom,Phylum,Class,Order,Family,Genus,taxon) \%>\%
   mutate(otu=fct_inorder(otu))
 
-ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
-  geom_col() +
-  scale_y_continuous(trans=log_epsilon_trans(0.01)) +
-  scale_fill_taxonomy(data=otu,fill=otu)
+g <- ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
+  geom_col(color="black") +
+  scale_y_continuous(trans=log_epsilon_trans(0.01))
 
-ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
-  geom_col() +
-  scale_y_continuous(trans=log_epsilon_trans(0.01)) +
-  scale_fill_taxonomy(data=otu,fill=otu,
-                      guide=guide_taxonomy(keywidth=1.5,
-                                           keyheight=0.85,ncol=2))
+g + scale_fill_taxonomy(data=otu,fill=otu)
+
+# drop unused colors
+g + scale_fill_taxonomy(data=otu,fill=otu,drop=TRUE)
+
+# override tax.palette displayed (warns if inconsistent)
+yt.palette3a <- list("Bacteroidetes (phylum)"=Phylum \%in\% c("Bacteroidetes", "Bacteroidota") ~ shades("#51AB9B", variation = 0.25),
+                     "Lachnospiraceae (family)"=Family == "Lachnospiraceae" ~ shades("#EC9B96", variation = 0.25),
+                     "Ruminococcaceae (family)"=Family \%in\% c("Ruminococcaceae", "Oscillospiraceae") ~ shades("#9AAE73", variation = 0.25),
+                     "Clostridiales (order)"=Order \%in\% c("Clostridiales", "Eubacteriales") ~ shades("#9C854E", variation = 0.25),
+                     "Other Bacteria"=TRUE ~ shades("gray", variation = 0.25))
+g + scale_fill_taxonomy(data=otu,fill=otu,
+                        guide=guide_taxonomy(override.tax.palette = yt.palette3a))
+
+# customizations
+g + scale_fill_taxonomy(data=otu,fill=otu,
+                        guide=guide_taxonomy(keywidth=1.5,
+                                             keyheight=0.85,ncol=2))
 }

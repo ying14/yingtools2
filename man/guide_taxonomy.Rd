@@ -6,6 +6,7 @@
 \usage{
 guide_taxonomy(
   title = waiver(),
+  override.tax.palette = NULL,
   title.position = NULL,
   title.theme = NULL,
   title.hjust = NULL,
@@ -29,5 +30,6 @@ guide_taxonomy(
 )
 }
 \description{
-Used for making a custom taxonomy legend. Modified from \code{\link[ggplot2:guide_legend]{ggplot2::guide_legend()}}. Called by \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}}.
+Used by \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} to create a custom taxonomy legend.
+Adapted from \code{\link[ggplot2:guide_legend]{ggplot2::guide_legend()}}.
 }

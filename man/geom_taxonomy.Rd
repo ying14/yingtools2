@@ -16,6 +16,7 @@ geom_taxonomy(
   na.rm = FALSE,
   parse = FALSE,
   tax.palette = yt.palette3,
+  drop = FALSE,
   fit.text = TRUE,
   reflow = FALSE,
   contrast = FALSE,
@@ -145,6 +146,10 @@ Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 
 \examples{
 library(tidyverse)
+otu <- cid.phy \%>\%
+  get.otu.melt() \%>\%
+  filter(Patient_ID=="179")
+
 # by sample
 ggplot(data=otu,aes(x=sample,y=pctseqs,fill=otu,label=Genus)) +
   geom_taxonomy()

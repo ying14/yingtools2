@@ -10,7 +10,12 @@ taxnonomy_scale(
   tax.palette,
   unitvar,
   guide = guide_taxonomy(keywidth = 3),
-  ...,
+  drop = FALSE,
+  na.value = "grey50",
+  na.translate = TRUE,
+  expand = waiver(),
+  name = waiver(),
+  position = "left",
   limits = NULL
 )
 }
