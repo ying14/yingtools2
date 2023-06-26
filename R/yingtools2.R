@@ -4169,6 +4169,144 @@ makeContent.bracket <- function(x) {
 
 
 
+#' Annotation Ruler
+#'
+#' Add a ruler to the plot, for sizing, eyeballing purposes.
+#' @param units Units to use. Default is `"cm"`. Can be values from [unit::grid()]
+#' @param colour Color to use. Default is `"blue"`.
+#' @param size Line size to use. Default is `0.5`.
+#' @param linetype Line type to use. Default is `1`.
+#' @param alpha Alpha to use. Default is `1`.
+#' @return
+#' @export
+#'
+#' @examples
+#' library(tidyverse)
+#' g <- ggplot(iris,aes(x=Petal.Length,y=Petal.Width,color=Species,label=Species)) +
+#'   geom_point(size=5,alpha=0.5) +
+#'   geom_text(color="black",check_overlap = TRUE)
+#' g + annotation_ruler("cm")
+#' g + annotation_ruler("inches")
+#' g + annotation_ruler("mm")
+annotation_ruler <- function(units="cm",
+                             colour = "black",
+                             size = 0.5,
+                             linetype = 1,
+                             alpha = 1) {
+  layer(data = ggplot2:::dummy_data(),
+        mapping = NULL,
+        stat = StatIdentity,
+        geom = GeomRuler,
+        position = PositionIdentity,
+        show.legend = FALSE,
+        inherit.aes = FALSE,
+        params = list(units = units,
+                      colour = colour,
+                      size = size,
+                      linetype = linetype,
+                      alpha = alpha))
+}
+
+#' @export
+GeomRuler <- ggproto("GeomRuler", Geom,
+                     default_aes = aes(colour = "black",
+                                       size = 0.5,
+                                       linetype = 1,
+                                       alpha = 1),
+                     handle_na = function(data, params) {
+                       data
+                     },
+                     draw_panel = function(data, panel_params, coord, units) {
+                       gTree(units=units,cl="ruler")
+                     }
+)
+
+#' @export
+makeContent.ruler <- function(x) {
+  units <- x$units
+  gp.line <- gpar(col = "blue")
+  gp.text <- gpar(col = "blue", fontsize = 9)
+  major.tick.size <- unit(2,"mm")
+  minor.tick.size <- unit(1,"mm")
+  major.interval.size <- unit(1,"cm")
+  minor.interval.size <- unit(0.5,"cm")
+  digits <- 15
+  Q.major <- c(1,1)
+  Q.minor <- c(1,5)
+
+  # x line
+  y.intercept <- 0.5
+  xlim <- c(0,1)
+  xlim.units <- convertX(unit(xlim,"npc"),unitTo=units,valueOnly = TRUE)
+  x.ruler <- segmentsGrob(x0=0, y0=y.intercept, x1=1, y1=y.intercept, gp=gp.line)
+  # x ticks
+  m.major.tick.x <- floor(convertX(unit(1,"npc"),unitTo="mm",valueOnly = TRUE) /
+                            convertX(major.interval.size,unitTo="mm",valueOnly = TRUE))
+  x.major.breaks.units <- labeling::extended(dmin=xlim.units[1],dmax=xlim.units[2],
+                                             m=m.major.tick.x,Q=Q.major) %>%
+    signif(digits=digits) %>% {.[between(.,xlim.units[1],xlim.units[2])]}
+  x.major.breaks <- convertX(unit(x.major.breaks.units,units=units),unitTo = "npc",valueOnly=TRUE)
+  x.major.ticks <- segmentsGrob(x0=x.major.breaks, y0=y.intercept,
+                                x1=x.major.breaks, y1=y.intercept+convertX(major.tick.size,"npc",valueOnly = TRUE),
+                                gp=gp.line)
+  m.minor.tick.x <- floor(convertX(unit(1,"npc"),unitTo="mm",valueOnly = TRUE) /
+                            convertX(minor.interval.size,unitTo="mm",valueOnly = TRUE))
+  x.minor.breaks.units <- labeling::extended(dmin=xlim.units[1],dmax=xlim.units[2],
+                                             m=m.minor.tick.x,Q=Q.minor) %>%
+    signif(digits=digits) %>% {.[between(.,xlim.units[1],xlim.units[2])]} %>%
+    setdiff(x.major.breaks.units)
+  x.minor.breaks <- convertX(unit(x.minor.breaks.units,units=units),unitTo = "npc",valueOnly=TRUE)
+  x.minor.ticks <- segmentsGrob(x0=x.minor.breaks, y0=y.intercept,
+                                x1=x.minor.breaks, y1=y.intercept+convertX(minor.tick.size,"npc",valueOnly = TRUE), gp=gp.line)
+  # x numbers
+  x.labels <- textGrob(label=x.major.breaks.units,
+                       x=x.major.breaks,
+                       y=y.intercept+convertX(major.tick.size,"npc",valueOnly = TRUE),gp=gp.text,vjust=0)
+  x.unitlabel <- textGrob(label=units,x=0,y=y.intercept,gp=gp.text,hjust=-0.05,vjust=1)
+  # y line
+  x.intercept <- 0.5
+  ylim <- c(0,1)
+  ylim.units <- convertY(unit(ylim,"npc"),unitTo=units,valueOnly = TRUE)
+  y.ruler <- segmentsGrob(x0=x.intercept, y0=0, x1=x.intercept, y1=1, gp=gp.line)
+  # y ticks
+  m.major.tick.y <- floor(convertY(unit(1,"npc"),unitTo="mm",valueOnly = TRUE) /
+                            convertY(major.interval.size,unitTo="mm",valueOnly = TRUE))
+  y.major.breaks.units <- labeling::extended(dmin=ylim.units[1],dmax=ylim.units[2],
+                                             m=m.major.tick.y,Q=Q.major) %>%
+    signif(digits=digits) %>% {.[between(.,ylim.units[1],ylim.units[2])]}
+  y.major.breaks <- convertY(unit(y.major.breaks.units,units=units),unitTo = "npc",valueOnly=TRUE)
+  y.major.ticks <- segmentsGrob(x0=x.intercept, y0=y.major.breaks,
+                                x1=x.intercept+convertY(major.tick.size,"npc",valueOnly = TRUE),
+                                y1=y.major.breaks, gp=gp.line)
+  m.minor.tick.y <- floor(convertY(unit(1,"npc"),unitTo="mm",valueOnly = TRUE) /
+                            convertY(minor.interval.size,unitTo="mm",valueOnly = TRUE))
+  y.minor.breaks.units <- labeling::extended(dmin=ylim.units[1],dmax=ylim.units[2],
+                                             m=m.minor.tick.y,Q=Q.minor) %>%
+    signif(digits=digits) %>% {.[between(.,ylim.units[1],ylim.units[2])]} %>%
+    setdiff(y.major.breaks.units)
+  y.minor.breaks <- convertY(unit(y.minor.breaks.units,units=units),unitTo = "npc",valueOnly=TRUE)
+  y.minor.ticks <- segmentsGrob(x0=x.intercept, y0=y.minor.breaks,
+                                x1=x.intercept+convertY(minor.tick.size,"npc",valueOnly = TRUE),
+                                y1=y.minor.breaks,
+                                gp=gp.line)
+  # y numbers
+  y.labels <- textGrob(label=y.major.breaks.units,
+                       x=x.intercept+convertY(major.tick.size,"npc",valueOnly = TRUE),
+                       y=y.major.breaks,gp=gp.text,hjust=0)
+  y.unitlabel <- textGrob(label=units,x=x.intercept,y=0,gp=gp.text,hjust=1.05,vjust=0)
+
+  gTree(children = gList(x.ruler, x.major.ticks,
+                         x.minor.ticks,
+                         x.labels,x.unitlabel,
+                         y.ruler, y.major.ticks,
+                         y.minor.ticks,
+                         y.labels,y.unitlabel))
+}
+
+
+
+
+
 
 #' List items within ggplot object
 #'
