@@ -22,7 +22,7 @@ geom_taxonomy(
   contrast = FALSE,
   check_overlap = FALSE,
   show.ribbon = FALSE,
-  ribbon.alpha = 0.25,
+  ribbon.alpha = 0.35,
   show.legend = NA,
   inherit.aes = TRUE
 )
@@ -176,4 +176,10 @@ ggplot(data=otu,aes(x=day,y=numseqs,fill=otu,label=Genus)) +
 # show ribbon transitions
 ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus)) +
   geom_taxonomy(width=2, show.ribbon = TRUE)
+
+# highlight a taxon of interest
+ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus,
+                    color=Genus=="Blautia")) +
+  geom_taxonomy(width=2,linewidth=2) +
+  scale_colour_manual(values=c("TRUE"="red","FALSE"="transparent"))
 }

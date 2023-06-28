@@ -1193,6 +1193,12 @@ calc.pairwise <- function(sample1,sample2,phy,method="bray") {
 #' # show ribbon transitions
 #' ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus)) +
 #'   geom_taxonomy(width=2, show.ribbon = TRUE)
+#'
+#' # highlight a taxon of interest
+#' ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus,
+#'                     color=Genus=="Blautia")) +
+#'   geom_taxonomy(width=2,linewidth=2) +
+#'   scale_colour_manual(values=c("TRUE"="red","FALSE"="transparent"))
 geom_taxonomy <- function(mapping = NULL, data = NULL,
                           stat = StatTaxonomy,
                           position = "stack",
@@ -1209,7 +1215,7 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
                           contrast = FALSE,
                           check_overlap = FALSE,
                           show.ribbon = FALSE,
-                          ribbon.alpha = 0.25,
+                          ribbon.alpha = 0.35,
                           show.legend = NA,
                           inherit.aes = TRUE) {
   if (!fit.text & contrast) {
@@ -1280,12 +1286,11 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                               contrast = FALSE,
                                               check_overlap = FALSE,
                                               show.ribbon = FALSE,
-                                              ribbon.alpha = 0.25,
+                                              ribbon.alpha = 0.35,
                                               label.pct.cutoff = 0.3,
                                               label.split = FALSE) {
                           # sample
                           if (!all(is.na(data$sample.colour))) {
-
                             data_sample <- data %>% group_by(PANEL,x) %>%
                               assert_grouping_vars(test_vars=c(sample.colour,
                                                                sample.linewidth,
@@ -1312,7 +1317,6 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                           } else {
                             grob_sample <- nullGrob()
                           }
-
                           # ribbon
                           if (show.ribbon) {
                             data_ribbon <- bind_rows(mutate(data,x=xmin),mutate(data,x=xmax)) %>%
@@ -1330,13 +1334,17 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                           } else {
                             grob_ribbon <- nullGrob()
                           }
-
                           # draw col
                           data_col <- data %>%
-                            select(x,y,colour,fill,linewidth,linetype,alpha,
-                                   xmin,xmax,ymin,ymax)
+                            transmute(x,y,colour=NA_character_,fill,linewidth,linetype,alpha,
+                                      xmin,xmax,ymin,ymax)
                           grob_col <- GeomCol$draw_panel(data = data_col, panel_params = panel_params, coord = coord, lineend = lineend,
                                                          linejoin = linejoin, width = width, flipped_aes = flipped_aes)
+                          data_col_edge <- data %>%
+                            transmute(x,y,colour,fill=NA_character_,linewidth,linetype,alpha,
+                                      xmin,xmax,ymin,ymax)
+                          grob_col_edge <- GeomCol$draw_panel(data = data_col_edge, panel_params = panel_params, coord = coord, lineend = lineend,
+                                                              linejoin = linejoin, width = width, flipped_aes = flipped_aes)
                           # draw text
                           if (label.split) {
                             data <- data %>% mutate(label=str_split_equal_parts(label))
@@ -1385,9 +1393,15 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                                              coord = coord, parse = parse,
                                                              na.rm = na.rm, check_overlap = check_overlap)
                           }
-                          grid::gTree("taxonomy_grob", children = grid::gList(grob_ribbon, grob_col, grob_text, grob_sample))
+                          grid::gTree("taxonomy_grob",
+                                      children = grid::gList(grob_ribbon,
+                                                             grob_col,
+                                                             grob_sample,
+                                                             grob_col_edge,
+                                                             grob_text))
                         }
 )
+
 
 
 
@@ -1465,15 +1479,11 @@ makeContent.taxfittexttree <- function(x) {
 StatTaxonomy <- ggproto("StatTaxonomy",Stat,
                         required_aes = c("x", "y"),
                         compute_panel = function(self, data, scales, show.ribbon) {
-                          inv <- scales$y$trans$inverse
-                          trans <- scales$y$trans$transform
                           # Y-transformed abundances do not stack correctly.
                           # this is a trick to alter abundances such that they display to
                           # the correct total abundance.
-                          if (show.ribbon) {
-                            data <- data %>%
-                              complete(nesting(x,PANEL),nesting(fill,group),fill=list(y=0))
-                          }
+                          inv <- scales$y$trans$inverse
+                          trans <- scales$y$trans$transform
                           newdata <- data %>%
                             group_by(x,PANEL) %>%
                             mutate(reads=inv(y),
@@ -1485,30 +1495,25 @@ StatTaxonomy <- ggproto("StatTaxonomy",Stat,
                                    new.reads=inv(tr.height),
                                    y=trans(new.reads)) %>%
                             select(all_of(names(data)))
-
-                          ggproto_parent(StatIdentity, self)$compute_layer(newdata, params, layout)
+                          # data2 <- ggproto_parent(StatIdentity, self)$compute_layer(newdata, params, layout)
+                          return(newdata)
                         })
-
-
-
-
-
-
-
-
 
 
 #' LayerTaxonomy
 #'
 #' The Layer object for [geom_taxonomy()].
 #'
-#' Two things are done here:
+#' Three things are done here:
 #' 1. If `scale_fill` is not specified, the [scale_fill_taxonomy()] scale is applied.
 #' 2. The fill aesthetic is converted to a factor, ordered by `tax.palette` colors,
 #' to allow for stacking in the correct order.
+#' 3. If `show.ribbon=TRUE`, it ensures `group` aesthetic does not vary by `x`, and makes sure there
+#' is exactly one row for every sample (`x`/`PANEL`) and `group`.
 #' @export
 LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
                          compute_aesthetics = function (self, data, plot) {
+
                            tax.palette <- self$geom_params$tax.palette
                            drop <- self$geom_params$drop
                            aesthetics <- self$computed_mapping
@@ -1523,7 +1528,7 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
                                                               fill=!!unitvar)
                              plot$scales$scales <- c(plot$scales$scales,list(tax_scale))
                            }
-                           #check for tax.palette in scales, and factorize using that.
+                           # check for tax.palette in scales, and factorize using that.
                            pal <- map(plot$scales$scales,~{
                              is.fill <- "fill" %in% .x[["aesthetics"]]
                              has.tax.palette <- !is.null(.x[["tax.palette"]])
@@ -1539,7 +1544,21 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
                                arrange(name,unit)
                              data <- data %>% mutate(!!unitvar:=factor(!!unitvar,levels=tax.factor$unit))
                            }
-                           ggproto_parent(ggplot2:::Layer, self)$compute_aesthetics(data,plot)
+                           newdata <- ggproto_parent(ggplot2:::Layer, self)$compute_aesthetics(data,plot)
+                           # if show.ribbon=TRUE, fix data:
+                           # 1. make sure group respresents taxa and does not correspond to x
+                           # 2. make sure there is exactly one row for every group and sample
+                           if (self$geom_params$show.ribbon) {
+                             group.vars <- names(newdata) %>% setdiff(c("x","y","group","PANEL"))
+                             newdata <- newdata %>%
+                               group_by(PANEL,x,!!!syms(group.vars)) %>%
+                               summarize(y=sum(y),
+                                         .groups="drop") %>%
+                               complete(nesting(x,PANEL),nesting(!!!syms(group.vars)),fill=list(y=0))
+                             #group aesthetic corrected:
+                             newdata$group <- ggplot2:::id(newdata[group.vars],drop=TRUE)
+                           }
+                           newdata
                          })
 
 
@@ -2019,12 +2038,20 @@ draw_key_polygon_close <- function(data, params, size) {
 
 
 
-
-
-
-
-
-
+#' Scale for sample.colour
+#'
+#' In [geom_taxonomy()], used as default scale for aesthetic `sample.colour`. Same as [ggplot2::scale_colour_hue()].
+#'
+#' If `sample.colour` is specified as an aesthetic, the layer will search for a default scale by name
+#' (`ggplot2:::Layer$compute_aesthetics` > `ggplot2:::scales_add_defaults` > `ggplot2:::find_scale`).
+#' @export
+scale_sample.colour_discrete <- function (..., h = c(0, 360) + 15, c = 100, l = 65, h.start = 0,
+                                          direction = 1, na.value = "grey50",
+                                          aesthetics = "sample.colour") {
+  discrete_scale(aesthetics, "hue",
+                 hue_pal(h, c, l, h.start,
+                         direction), na.value = na.value, ...)
+}
 
 
 

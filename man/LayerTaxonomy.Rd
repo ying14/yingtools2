@@ -14,11 +14,13 @@ LayerTaxonomy
 The Layer object for \code{\link[=geom_taxonomy]{geom_taxonomy()}}.
 }
 \details{
-Two things are done here:
+Three things are done here:
 \enumerate{
 \item If \code{scale_fill} is not specified, the \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} scale is applied.
 \item The fill aesthetic is converted to a factor, ordered by \code{tax.palette} colors,
 to allow for stacking in the correct order.
+\item If \code{show.ribbon=TRUE}, it ensures \code{group} aesthetic does not vary by \code{x}, and makes sure there
+is exactly one row for every sample (\code{x}/\code{PANEL}) and \code{group}.
 }
 }
 \keyword{datasets}
