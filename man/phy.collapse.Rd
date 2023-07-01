@@ -4,12 +4,19 @@
 \alias{phy.collapse}
 \title{Collapse Phyloseq Into Taxonomy}
 \usage{
-phy.collapse(phy, taxranks = rank_names(phy), short_taxa_names = TRUE)
+phy.collapse(
+  phy,
+  taxranks = rank_names(phy),
+  keep_otu = FALSE,
+  short_taxa_names = TRUE
+)
 }
 \arguments{
 \item{phy}{A phylsoeq object.}
 
 \item{taxranks}{tax levels to collapse by. Default is \code{c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")}.}
+
+\item{keep_otu}{whether to collapse otu. If \code{TRUE}, only levels will be removed.}
 
 \item{short_taxa_names}{How to name the collapsed OTUs. If \code{TRUE}, use name of first OTU plus number of OTUs being collapsed. If \code{FALSE}, paste the OTU names together.}
 }

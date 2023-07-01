@@ -520,6 +520,7 @@ make_taxonomy_distinct.data.frame <- function(data,taxranks=c("Superkingdom","Ph
 #'
 #' @param phy A phylsoeq object.
 #' @param taxranks tax levels to collapse by. Default is `c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")`.
+#' @param keep_otu whether to collapse otu. If `TRUE`, only levels will be removed.
 #' @param short_taxa_names How to name the collapsed OTUs. If `TRUE`, use name of first OTU plus number of OTUs being collapsed. If `FALSE`, paste the OTU names together.
 #' @return A [`phyloseq`][`phyloseq::phyloseq-class`] object with OTUs collapsed.
 #' @export
@@ -528,11 +529,16 @@ make_taxonomy_distinct.data.frame <- function(data,taxranks=c("Superkingdom","Ph
 #' cid.phy.family <- phy.collapse(cid.phy,taxranks=c("Kingdom", "Phylum", "Class", "Order", "Family"))
 #' cid.phy
 #' cid.phy.family
-phy.collapse <- function(phy,taxranks=rank_names(phy),short_taxa_names=TRUE) {
+phy.collapse <- function(phy,taxranks=rank_names(phy),keep_otu=FALSE,short_taxa_names=TRUE) {
   # declare.args(phy=cid.phy,phy.collapse)
 
   # phy=phy1;taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species")
   requireNamespace(c("phyloseq","data.table"),quietly=TRUE)
+  if (keep_otu) {
+    newphy <- phy
+    tax_table(newphy) <- get.tax(newphy) %>% select(otu,!!!syms(taxranks)) %>% set.tax()
+    return(newphy)
+  }
   otudt <- phyloseq::otu_table(phy) %>% as("matrix") %>% data.table::data.table()
   taxdt = as(phyloseq::tax_table(phy,errorIfNULL=TRUE),"matrix") %>% data.table::data.table() %>% .[,taxranks,with=FALSE]
   # indices_ <- taxdt %>% group_by(!!!taxranks) %>% group_indices()
@@ -1621,7 +1627,8 @@ scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                  drop = FALSE,
                                  na.value = "grey50") {
   fill <- ensym(fill)
-  taxnonomy_scale(aesthetic=aesthetics,
+
+  taxonomy_scale(aesthetic=aesthetics,
                    data=data, tax.palette=tax.palette, unitvar=!!fill,
                    ..., guide = guide, drop = drop, na.value = na.value)
 }
@@ -1634,7 +1641,7 @@ scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                   drop = FALSE,
                                   na.value = "grey50") {
   color <- ensym(color)
-  taxnonomy2_scale(aesthetic=aesthetics,
+  taxonomy_scale(aesthetic=aesthetics,
                    data=data, tax.palette=tax.palette, unitvar=!!color,
                    ..., guide = guide, drop = drop, na.value = na.value)
 }
@@ -1648,7 +1655,7 @@ scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
 #'
 #' Similar to  [ggplot2:::manual_scale()]
 #' @export
-taxnonomy_scale <- function(aesthetic,
+taxonomy_scale <- function(aesthetic,
                              data, tax.palette, unitvar,
                              guide=guide_taxonomy(keywidth = 3),
                              drop = FALSE,
@@ -1720,9 +1727,6 @@ taxnonomy_scale <- function(aesthetic,
           guide = guide,
           tax.palette=tax.palette,
           position = position)
-
-
-
 }
 
 
