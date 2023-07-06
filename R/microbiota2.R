@@ -1649,8 +1649,6 @@ scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
 
 
 
-
-
 #' Taxonomy scale constructor
 #'
 #' Similar to  [ggplot2:::manual_scale()]
@@ -1715,7 +1713,7 @@ taxonomy_scale <- function(aesthetic,
           aesthetics = aesthetics,
           scale_name = "manual",
           palette = pal,
-          range = ggplot2:::discrete_range(),
+          range = scales::DiscreteRange$new(),
           limits = limits,
           na.value = na.value,
           na.translate = na.translate,
@@ -1728,7 +1726,6 @@ taxonomy_scale <- function(aesthetic,
           tax.palette=tax.palette,
           position = position)
 }
-
 
 
 
