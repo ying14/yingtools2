@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.153
+Version: 0.0.1.154
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -46,6 +46,8 @@ Suggests:
     phyloseq,
     phytools,
     ggtree,
-    twilio
+    twilio,
+    testthat (>= 3.0.0)
 RoxygenNote: 7.2.3
 Roxygen: list(markdown = TRUE)
+Config/testthat/edition: 3

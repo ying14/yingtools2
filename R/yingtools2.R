@@ -1248,7 +1248,7 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
       keep <- !is.na(value) & value
       if_else(keep,lbl,NA_character_)
     }) %>% transpose() %>%
-    simplify_all() %>%
+    map(list_simplify, strict = FALSE) %>%
     map_chr(~{
       .x <- .x[!is.na(.x)]
       if (first.hit.only) {
@@ -1287,7 +1287,9 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
     } else {
       paste0(lbl,sep,value)
     }
-  }) %>% transpose() %>% simplify_all() %>% map_chr(~paste2(.x,collapse=collapse))
+  }) %>% transpose() %>%
+    map(list_simplify, strict = FALSE) %>%
+    map_chr(~paste2(.x,collapse=collapse))
   return(text)
 }
 
