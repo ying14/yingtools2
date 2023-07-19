@@ -1236,19 +1236,22 @@ regex.widget <- function(vec,port=4567) {
 #' @export
 coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALSE) {
   vars <- enquos(..., .named=TRUE)
-  # text <- vars %>% map(eval_tidy) %>%
-  #   imap(function(value,lbl) {
-  #     keep <- !is.na(value) & value
-  #     if_else(keep,lbl,NA_character_)
-  #   }) %>% transpose() %>%
-  #   simplify_all() %>%
-  #   map_chr(~paste2(.x,collapse="|"))
+
+  if (packageVersion("purrr") <"1.0.0") {
+    do.simplify.list <- purrr::simplify_all
+  } else {
+    do.simplify.list <- function(x) {
+      map(x, purrr::list_simplify, strict=FALSE)
+    }
+  }
   text <- vars %>% map(eval_tidy) %>%
     imap(function(value,lbl) {
       keep <- !is.na(value) & value
       if_else(keep,lbl,NA_character_)
     }) %>% transpose() %>%
-    map(list_simplify, strict = FALSE) %>%
+    do.simplify.list() %>%
+    # simplify_all() %>%
+    # map(list_simplify, strict = FALSE) %>%
     map_chr(~{
       .x <- .x[!is.na(.x)]
       if (first.hit.only) {
@@ -1259,8 +1262,6 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
   text[is.na(text)] <- else.value
   return(text)
 }
-
-
 
 
 
@@ -1279,6 +1280,15 @@ coalesce_indicators <- function(...,else.value=NA_character_,first.hit.only=FALS
 #'   count(demographics,sort=TRUE)
 coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
   vars <- enquos(..., .named=TRUE)
+
+  if (packageVersion("purrr") <"1.0.0") {
+    do.simplify.list <- purrr::simplify_all
+  } else {
+    do.simplify.list <- function(x) {
+      map(x, purrr::list_simplify, strict=FALSE)
+    }
+  }
+
   # values <- vars %>% map(eval_tidy)
   text <- vars %>% imap(function(quo,lbl) {
     value <- eval_tidy(quo) %>% as.character()
@@ -1288,7 +1298,8 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
       paste0(lbl,sep,value)
     }
   }) %>% transpose() %>%
-    map(list_simplify, strict = FALSE) %>%
+    do.simplify.list() %>%
+    # map(list_simplify, strict = FALSE) %>%
     map_chr(~paste2(.x,collapse=collapse))
   return(text)
 }
