@@ -10,7 +10,7 @@ calc.distance(phy, method, ...)
 \item{phy}{phyloseq object}
 
 \item{method}{character string indicating distance metric to be calculated. Can be a method from
-\code{\link[phyloseq:distanceMethodList]{phyloseq}}, or \verb{"taxhorn'}}
+\code{\link[phyloseq:distanceMethodList]{phyloseq}}, or \verb{"taxhorn'}, or a function.}
 
 \item{...}{passed to \code{\link[phyloseq:distance]{phyloseq::distance()}}}
 }

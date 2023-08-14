@@ -1069,7 +1069,7 @@ calc.taxhorn.distance <- function(phy) {
 #' Basically same as [phyloseq::distance()], but adds `taxhorn` metric
 #' @param phy phyloseq object
 #' @param method character string indicating distance metric to be calculated. Can be a method from
-#' [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`
+#' [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`, or a function.
 #' @param ... passed to [phyloseq::distance()]
 #'
 #' @return a distance metric
@@ -1077,11 +1077,14 @@ calc.taxhorn.distance <- function(phy) {
 #'
 #' @examples
 calc.distance <- function(phy, method, ...) {
-
-  if (method=="taxhorn") {
-    dist <- calc.taxhorn.distance(phy)
-  } else {
-    dist <- distance(physeq=phy, method=method, ...)
+  if (rlang::is_function(method)) {
+    dist <- method(phy)
+  } else if (is.character(method)) {
+    if (method=="taxhorn") {
+      dist <- calc.taxhorn.distance(phy)
+    } else {
+      dist <- distance(physeq=phy, method=method, ...)
+    }
   }
   return(dist)
 }

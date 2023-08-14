@@ -7,16 +7,49 @@
 \alias{full_join_replace}
 \title{Inner/Left/Right/Full Join with Replace}
 \usage{
-inner_join_replace(x, y, by = NULL, errorIfDifferent = TRUE)
+inner_join_replace(
+  x,
+  y,
+  by = NULL,
+  conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error")
+)
 
-left_join_replace(x, y, by = NULL, errorIfDifferent = FALSE)
+left_join_replace(
+  x,
+  y,
+  by = NULL,
+  conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error")
+)
 
-right_join_replace(x, y, by = NULL, errorIfDifferent = FALSE)
+right_join_replace(
+  x,
+  y,
+  by = NULL,
+  conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error")
+)
 
-full_join_replace(x, y, by = NULL, errorIfDifferent = FALSE)
+full_join_replace(
+  x,
+  y,
+  by = NULL,
+  conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error")
+)
 }
 \arguments{
-\item{errorIfDifferent}{whether to throw an error if a difference is detected (default is \code{TRUE})}
+\item{x}{first data frame to be joined}
+
+\item{y}{second data frame to be joined}
+
+\item{by}{a character vector of variables to be joined by.}
+
+\item{conflict}{what to do if columns conflict.
+\enumerate{
+\item \code{y} always keep the y-value.
+\item \code{x} always keep the x-value.
+\item \code{y.coalesce} keep the y-value unless it is \code{NA}.
+\item \code{x.coalesce} keep the x-value unless it is \code{NA}.
+\item \code{error} throw error if there is a conflict.
+}}
 }
 \description{
 Same as \code{inner_join}, \code{left_join}, \code{right_join}, and \code{full_join} in the \code{dplyr} package, except that variables with the

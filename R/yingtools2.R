@@ -2832,7 +2832,11 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 
 
 
+
+
 # data reshaping functions -----------------------------------------------------
+
+
 
 
 #' Inner/Left/Right/Full Join with Replace
@@ -2842,77 +2846,102 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #' Instead, the variables will be turned into one column if the variables are equal. If they are not equal, an error (or warning) is thrown.
 #'
 #' This is a convenience function that just avoids the renaming of columns.
-#' @param errorIfDifferent whether to throw an error if a difference is detected (default is `TRUE`)
+#' @param x first data frame to be joined
+#' @param y second data frame to be joined
+#' @param by a character vector of variables to be joined by.
+#' @param conflict what to do if columns conflict.
+#' 1. `y` always keep the y-value.
+#' 2. `x` always keep the x-value.
+#' 3. `y.coalesce` keep the y-value unless it is `NA`.
+#' 4. `x.coalesce` keep the x-value unless it is `NA`.
+#' 5. `error` throw error if there is a conflict.
 #'
 #' @export
-inner_join_replace <- function(x,y,by=NULL,errorIfDifferent=TRUE) {
-  requireNamespace("stringi",quietly=TRUE)
+inner_join_replace <- function(x,y,by=NULL, conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
 
-  data <- inner_join(x,y,by=by)
-  x.vars0 <- str_extract_all(names(data),"(?<=^).+(?=\\.x$)") %>% unlist()
-  y.vars0 <- str_extract_all(names(data),"(?<=^).+(?=\\.y$)") %>% unlist()
-  overlap.vars <- intersect(x.vars0,y.vars0)
-  is.identical <- overlap.vars %>% map_lgl(~{
-    xvar <- stringi::stri_join(.x,".x")
-    yvar <- stringi::stri_join(.x,".y")
-    identical(data[[xvar]],data[[yvar]])
-  })
-  ident.vars <- overlap.vars[is.identical]
-  non.ident.vars <- overlap.vars[!is.identical]
-  ident.vars.x <- stringi::stri_join(ident.vars,".x")
-  ident.vars.y <- stringi::stri_join(ident.vars,".y")
-  non.ident.vars.x <- stringi::stri_join(non.ident.vars,".x")
-  non.ident.vars.y <- stringi::stri_join(non.ident.vars,".y")
-  if (length(non.ident.vars)>0) {
-    if (errorIfDifferent) {
-      stop(str_glue("YTError: overlapping variables do not match in value: {paste(non.ident.vars,collapse=\",\")}"))
+  mutual.vars <- intersect(names(x),names(y))
+  by.vars <- by %||% mutual.vars
+  overlap.vars <- setdiff(mutual.vars,by.vars)
+  suffix <- paste0("__",c(rlang::hash(x),rlang::hash(y)))
+  data <- inner_join(x,y,by=by.vars,suffix=suffix)
+  if (length(overlap.vars)==0) {
+    return(data)
+  }
+  non.ident.vars <- c()
+  ident.vars <- c()
+  conflict <- arg_match(conflict)
+
+  for (var in overlap.vars) {
+    xvar <- paste0(var,suffix[1])
+    yvar <- paste0(var,suffix[2])
+    is.identical <- identical(data[[xvar]],data[[yvar]])
+    if (!is.identical) {
+      non.ident.vars <- c(non.ident.vars, var)
     } else {
-      warning(str_glue("YTWarning: overlapping variables have different values. These will be kept separate: {paste(sort(c(non.ident.vars.x,non.ident.vars.y)),collapse=\", \")}"))
+      ident.vars <- c(ident.vars, var)
     }
-
+    data[[var]] <- switch(conflict,
+                          yonly=data[[yvar]],
+                          xonly=data[[xvar]],
+                          ycoalesce=coalesce(data[[yvar]],data[[xvar]]),
+                          xcoalesce=coalesce(data[[xvar]],data[[yvar]]),
+                          error={
+                            if (is.identical) {
+                              data[[yvar]]
+                            } else {
+                              stop(str_glue("YTError: conflicting column: {var}"))
+                            }
+                          })
+    data[[xvar]] <- NULL
+    data[[yvar]] <- NULL
   }
-  data2 <- data %>% select(-all_of(ident.vars.x)) %>%
-    rename(!!!syms(setNames(ident.vars.y,ident.vars)))
-  #double check names
-  old.names <- c(names(x),names(y))
-  new.names <- names(data2)
-  if (!setequal(old.names,new.names)) {
-    warning(str_glue("YTWarning: weird name change: {paste(setdiff(old.names,new.names),setdiff(new.names,old.names),sep=\", \")}"))
-  }
-  return(data2)
+  msg <- switch(conflict,
+                yonly=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Using Y col values: {paste(non.ident.vars,collapse=', ')}"),
+                xonly=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Using X col values: {paste(non.ident.vars,collapse=', ')}"),
+                ycoalesce=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Choosing values with coalesce(y,x): {paste(non.ident.vars,collapse=', ')}"),
+                xcoalesce=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Choosing values with coalesce(x,y): {paste(non.ident.vars,collapse=', ')}"),
+                error=str_glue("Encountered {length(non.ident.vars)} conflicting columns."))
+  warning(str_glue("YTWarning: {msg}"))
+  return(data)
 }
-
 
 
 #' @rdname inner_join_replace
 #' @export
-left_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
-  data1 <- inner_join_replace(x,y,by=by,errorIfDifferent=errorIfDifferent)
+left_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
   data2 <- anti_join(x,y,by=by)
   bind_rows(data1,data2)
 }
 
-
-
-
 #' @rdname inner_join_replace
 #' @export
-right_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
-  left_join_replace(y,x,by=by,errorIfDifferent=errorIfDifferent)
+right_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+
+  flip <- function(by) {
+    by.names <- names(by)
+    if (is.null(by.names)) {
+      return(by)
+    }
+    by.vals <- unname(by)
+    by.names <- coalesce(na_if(by.names,""),by.vals)
+    setNames(by.names,by.vals)
+  }
+
+  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
+  data2 <- anti_join(y,x,by=flip(by))
+  bind_rows(data1,data2)
 }
 
 
-
-
 #' @rdname inner_join_replace
 #' @export
-full_join_replace <- function(x,y,by=NULL,errorIfDifferent=FALSE) {
-  data1 <- inner_join_replace(x,y,by=by,errorIfDifferent=errorIfDifferent)
+full_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
   data2 <- anti_join(x,y,by=by)
-  data3 <- anti_join(y,x,by=by)
+  data3 <- anti_join(y,x,by=flip(by))
   bind_rows(data1,data2,data3)
 }
-
 
 
 
