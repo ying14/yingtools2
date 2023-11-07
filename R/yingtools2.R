@@ -1982,7 +1982,7 @@ overlaps <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA
 #'   3,      4,
 #'   4,      6
 #' )
-#' any.overlap(times1$start,times1$stop)
+#' any_overlap(times1$start,times1$stop)
 #'
 #' times2 <- tribble(
 #'   ~start, ~stop,
@@ -1990,8 +1990,8 @@ overlaps <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA
 #'   3,      5,
 #'   4,      6
 #' )
-#' any.overlap(times2$start,times2$stop)
-any.overlap <- function(start,stop,check=TRUE,na.rm=TRUE) {
+#' any_overlap(times2$start,times2$stop)
+any_overlap <- function(start,stop,check=TRUE,na.rm=TRUE) {
 
   if (check && any(start>stop,na.rm=TRUE)) {
     stop("YTError: start is greater than stop!")

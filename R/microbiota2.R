@@ -1398,9 +1398,15 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                      colour = fontcolour,
                                      size = fontsize,
                                      alpha = fontalpha)
-                            grob_text <- GeomText$draw_panel(data = data_text, panel_params = panel_params,
-                                                             coord = coord, parse = parse,
-                                                             na.rm = na.rm, check_overlap = check_overlap)
+
+
+                            if (nrow(data_text)>0) {
+                              grob_text <- GeomText$draw_panel(data = data_text, panel_params = panel_params,
+                                                               coord = coord, parse = parse,
+                                                               na.rm = na.rm, check_overlap = check_overlap)
+                            } else {
+                              grob_text <- nullGrob()
+                            }
                           }
                           grid::gTree("taxonomy_grob",
                                       children = grid::gList(grob_ribbon,
@@ -1475,6 +1481,8 @@ makeContent.taxfittexttree <- function(x) {
   x$data <- x$data %>% filter(!is.na(label),ymax-ymin>=min.height)
   if (nrow(x$data)>0) {
     ggfittext:::makeContent.fittexttree(x)
+  } else {
+    nullGrob()
   }
 }
 
