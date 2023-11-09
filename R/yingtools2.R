@@ -1726,52 +1726,6 @@ copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
 
 
 
-#' Convert vector to SQL code.
-#'
-#' Produces SQL code for a vector of values.
-#'
-#' @param x vector to be converted to SQL code.
-#' @param copy.clipboard logical, if `TRUE`, will copy the SQL code to the Clipboard.
-#' @return Returns the SQL code.
-#' @examples
-#' values <- c("35171234","35507574")
-#' copy.as.sql(values) %>% cat()
-#' @author Ying Taur
-#' @export
-copy.as.sql <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
-  if (is.atomic(x)) {
-    if (is.numeric(x)) {
-      sql <- as.character(x)
-    } else if (is.character(x) | is.factor(x)) {
-      sql <- str_glue("'{x}'")
-    } else if (lubridate::is.Date(x)) {
-      sql <- str_glue("date('{x}')")
-    }
-    if (length(x)>1) {
-      sql <- str_glue("({paste(sql,collapse=',')})")
-    }
-  } else if (is.data.frame(x)) {
-    tbl <- x %>%
-      rowwise() %>%
-      mutate(across(.fns=~copy.as.sql2(.x,copy.clipboard=FALSE))) %>%
-      ungroup()
-    for (var in names(tbl)) {
-      tbl[[var]] <- str_glue("{tbl[[var]]} as {var}")
-    }
-    sql.rows <- apply(tbl,1,function(x) {
-      paste(x,collapse=",")
-    })
-    sql.rows2 <- str_glue("(select {sql.rows} from idb.oms_ord_catalog fetch first 1 rows only)")
-    sql <- paste(sql.rows2,collapse=" union all\n")
-    sql <- str_glue("({sql})")
-  }
-
-  if (copy.clipboard) {
-    copy.to.clipboard(sql)
-  }
-  return(sql)
-}
-
 #' Copy to clipboard as tribble
 #'
 #' @param tbl a data frame to be copied
