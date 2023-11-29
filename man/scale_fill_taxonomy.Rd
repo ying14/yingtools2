@@ -2,6 +2,7 @@
 % Please edit documentation in R/microbiota2.R
 \name{scale_fill_taxonomy}
 \alias{scale_fill_taxonomy}
+\alias{scale_color_taxonomy}
 \title{Taxonomy color scales}
 \usage{
 scale_fill_taxonomy(
@@ -10,6 +11,17 @@ scale_fill_taxonomy(
   tax.palette = yt.palette3,
   fill = Species,
   aesthetics = "fill",
+  guide = guide_taxonomy(keywidth = 3),
+  drop = FALSE,
+  na.value = "grey50"
+)
+
+scale_color_taxonomy(
+  ...,
+  data,
+  tax.palette = yt.palette3,
+  color = Species,
+  aesthetics = "colour",
   guide = guide_taxonomy(keywidth = 3),
   drop = FALSE,
   na.value = "grey50"

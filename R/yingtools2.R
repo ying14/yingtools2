@@ -1762,6 +1762,37 @@ copy.as.tribble <- function(tbl,spaces=1) {
 }
 
 
+#' Copy select statement
+#'
+#' @param data data frame to be copied
+#'
+#' @return
+#' @export
+#'
+#' @examples
+copy.as.select <- function(data) {
+  # data <- d1.proc
+  # data=d6.abxsrx_q
+
+  if (is(data,"tbl_sql")) {
+    data <- data %>% head(10) %>% collect()
+  }
+  vartext <- data %>% imap(~{
+    tibble(var=.y,
+           desc=str_trunc(pillar:::format_glimpse_1(.x),100))
+  }) %>% list_rbind() %>%
+    mutate(
+      comma=ifelse(row_number()==n(),"",","),
+      text=str_glue("{var}{comma} # {desc}")) %>%
+    pull(text)
+
+  copy.text <- str_glue("select(\n{paste(vartext,collapse='\n')}\n)")
+  copy.to.clipboard(copy.text)
+}
+
+
+
+
 #' Get Code Info
 #'
 #' Read code (as an expression, text, or function) and provide information on

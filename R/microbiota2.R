@@ -1645,9 +1645,12 @@ scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
 }
 
 
+
+#' @rdname scale_fill_taxonomy
+#' @export
 scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                   color = Species,
-                                  aesthetics = "color",
+                                  aesthetics = "colour",
                                   guide = guide_taxonomy(keywidth = 3),
                                   drop = FALSE,
                                   na.value = "grey50") {
@@ -1785,7 +1788,6 @@ guide_taxonomy <- function(title = waiver(),
 #' Called by name, by [guide_taxonomy()].
 #' @export
 guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
-
   guide <- ggplot2:::guide_train.legend(guide, scale, aesthetic)
 
   if (!is.null(guide$override.tax.palette)) {
@@ -1813,8 +1815,8 @@ guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
     guide$key <- guide$key %>%
       distinct() %>%
       group_by(.label) %>%
-      summarize(fill = list(fill),
-                .groups="drop") %>%
+      summarize(!!aesthetic := list(!!sym(aesthetic)), .groups = "drop") %>%
+      # summarize(fill = list(fill),.groups="drop") %>%
       as.data.frame(stringsAsFactors=FALSE)
   }
   ##############################################################
@@ -1991,7 +1993,7 @@ guide_gengrob.taxonomy <- function(guide, theme) {
     # })
     keys <- lapply(guide$geoms, function(g) {
       dlist <- g$data[i, , drop = FALSE] %>%
-        unnest(fill) %>%
+        unnest(fill,colour) %>%
         rowwise() %>%
         group_split()
       grlist <- dlist %>% map(~ {
