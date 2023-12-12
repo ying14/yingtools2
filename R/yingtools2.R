@@ -4884,12 +4884,14 @@ logistic_trans_breaks <- function(inner.range) {
 #' @author Ying Taur
 #' @export
 chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
+  message("YTNote: chop.endpoint() is deprecated. Try using make.surv.endpt().")
   newvar <- ensym(newvar)
   oldvar <- enquo(oldvar)
   oldvar_day <- paste0(as_name(oldvar),"_day")
   oldvar_day <- sym(oldvar_day)
   newvar <- as_name(newvar)
   newvar_day <- paste0(as_name(newvar),"_day")
+
   vars <- enquos(...)
   ov <- pull(data,!!oldvar)
   if (!is.logical(ov) & !all(ov %in% 0:1,na.rm=TRUE)) {stop("YTError: oldvar should be a logical or 0-1!")}
@@ -4928,9 +4930,10 @@ chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
 #'
 #' @param data the data to be modified, containing the endpoints to be combined
 #' @param newvar the name (unquoted) of the new competing survival endpoint to be created (creates `newvar`, plus `paste0(newvar,"_day")`)
-#' @param primary the original survival endpoint, to be converted to a competing endpoint
-#' @param ... columns representing competing endpoints.
+#' @param primary the original survival endpoint to be modified. Can be time-to-event or vector of events (with NA otherwise).
+#' @param ... columns representing competing endpoints. If `competing=FALSE`, these are treated as censoring times.
 #' @param censor variable representing censoring times. Default is to use censoring times from the primary... or time=`Inf`, if it doesn't exist.
+#' Use this if you do not want to use censoring times from primary. This is primarily useful for distinguishing between censor and competing endpoint.
 #' @param competing whether to code as competing. If FALSE, competing endpoints will be censored.
 #'
 #' @return Returns `data`, with a newly defined survival endpoint (`newvar`), which represents the combined competing endpoint.
@@ -4974,7 +4977,6 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
   get.surv <- function(var) {
     var <- enquo(var)
     varname <- as_label(var)
-    print(varname)
     varday <- paste0(as_label(var),"_day")
     if (quo_is_null(var)) { #censor
       if (vartype(data,!!primary) %in% c("survival","competing")) {
@@ -5009,29 +5011,34 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
   }
   varrecodes <- setNames(varnumbers,varnames)
   survlist <- varlist %>%
-    lapply(function(var) {
+    map(function(var) {
       get.surv(!!var)
     })
   endpts <- survlist %>% bind_rows() %>%
     mutate(.var=factor(.var,levels=varnames),
            .varnum=varrecodes[as.character(.var)],
            .var_label=as.character(.var),
-           .var_label=ifelse(.var_label=="NULL","<censor>",.var_label),
+           .var_label=if_else(.var_label=="NULL","<censor>",.var_label),
            .info=paste0(.var_label,"[t=",.vd,"]"),
            .is.na=is.na(.v)|is.na(.vd),
-           .vd=ifelse(.is.na,NA_real_,.vd), #NAs in any column will be carried forward
-           .varnum=ifelse(.is.na,NA_integer_,.varnum))
-
+           .vd=if_else(.is.na,NA_real_,.vd), #NAs in any column will be carried forward
+           .varnum=if_else(.is.na,NA_integer_,.varnum))
+  ### use data.table to make this slightly faster
   final <- endpts %>%
-    group_by(.row) %>%
-    arrange(!.is.na,desc(.v),.vd,.var) %>% #sort by NA, then =1 values, then time, then var order.
-    summarize(.final_v=first(.varnum),
-              .final_vd=first(.vd),
-              .final_code=first(.var_label),
-              .final_info=paste(.info[.v==1],collapse=", "),
-              .groups='drop') %>%
-    arrange(.row)
-
+    as.data.table() %>%
+    .[order(.row,!.is.na,desc(.v),.vd,.var)] %>%
+    .[,by=.row,.(.final_v=.varnum[1],
+                 .final_vd=.vd[1],
+                 .final_code=.var_label[1],
+                 .final_info=paste(.info[.v==1],collapse=", "))] %>%
+    as_tibble()
+  # final <- endpts %>% group_by(.row) %>%
+  #   arrange(!.is.na,desc(.v),.vd,.var) %>% #sort by NA, then =1 values, then time, then var order.
+  #   summarize(.final_v=.varnum[1],
+  #             .final_vd=.vd[1],
+  #             .final_code=.var_label[1],
+  #             .final_info=paste(.info[.v==1],collapse=", "),
+  #             .groups='drop') %>% arrange(.row)
   newdata <- data %>%
     mutate(!!newvar:=final$.final_v,
            !!newvar_day:=final$.final_vd,

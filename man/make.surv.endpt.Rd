@@ -11,11 +11,12 @@ make.surv.endpt(data, newvar, primary, ..., censor = NULL, competing = FALSE)
 
 \item{newvar}{the name (unquoted) of the new competing survival endpoint to be created (creates \code{newvar}, plus \code{paste0(newvar,"_day")})}
 
-\item{primary}{the original survival endpoint, to be converted to a competing endpoint}
+\item{primary}{the original survival endpoint to be modified. Can be time-to-event or vector of events (with NA otherwise).}
 
-\item{...}{columns representing competing endpoints.}
+\item{...}{columns representing competing endpoints. If \code{competing=FALSE}, these are treated as censoring times.}
 
-\item{censor}{variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.}
+\item{censor}{variable representing censoring times. Default is to use censoring times from the primary... or time=\code{Inf}, if it doesn't exist.
+Use this if you do not want to use censoring times from primary. This is primarily useful for distinguishing between censor and competing endpoint.}
 
 \item{competing}{whether to code as competing. If FALSE, competing endpoints will be censored.}
 }

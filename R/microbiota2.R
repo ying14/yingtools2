@@ -1993,7 +1993,7 @@ guide_gengrob.taxonomy <- function(guide, theme) {
     # })
     keys <- lapply(guide$geoms, function(g) {
       dlist <- g$data[i, , drop = FALSE] %>%
-        unnest(fill,colour) %>%
+        unnest(any_of(c("fill","colour"))) %>%
         rowwise() %>%
         group_split()
       grlist <- dlist %>% map(~ {
