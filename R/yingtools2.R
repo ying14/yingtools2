@@ -4948,6 +4948,7 @@ chop.endpoint <- function(data,newvar,oldvar,...,censor.as.tdvar=FALSE) {
 #' @author Ying Taur
 #' @export
 make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=FALSE) {
+  requireNamespace("data.table",quietly=TRUE)
   newvar <- ensym(newvar)
   newvar_day <- paste0(as_name(newvar),"_day")
   newvar_code <- paste0(as_name(newvar),"_code")
@@ -5025,7 +5026,7 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
            .varnum=if_else(.is.na,NA_integer_,.varnum))
   ### use data.table to make this slightly faster
   final <- endpts %>%
-    as.data.table() %>%
+    data.table::as.data.table() %>%
     .[order(.row,!.is.na,desc(.v),.vd,.var)] %>%
     .[,by=.row,.(.final_v=.varnum[1],
                  .final_vd=.vd[1],
