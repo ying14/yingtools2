@@ -2114,6 +2114,7 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
       is.na(x)
     return(all(iscolor))
   }
+  # exp=tax.palette[[1]]
   color.list <- map(tax.palette, function(exp) {
     colors <- rlang::f_rhs(exp) %>% rlang::eval_tidy()
     if (!is_color(colors)) {
@@ -2129,7 +2130,11 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
       pull(criteria)
     # x.color <- character()
     x.color <- rep(NA_character_, length.out = nrow(tax))
-    x.color[color.yes.no] <- rep(colors, length.out = sum(color.yes.no))
+    # x.color[color.yes.no] <- rep(colors, length.out = sum(color.yes.no))
+    tax_integers <- tax[color.yes.no,,drop=FALSE] %>% pull(!!unitvar) %>% digest::digest2int()
+    tax_index <- (tax_integers %% length(colors)) + 1
+    hash_mapped_colors <- colors[tax_index]
+    x.color[color.yes.no] <- hash_mapped_colors
     return(x.color)
   }) %>% do.call(coalesce, .)
   tax$color <- color.list
@@ -2147,7 +2152,6 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
     rename(unit = !!unitvar)
   return(tax.table)
 }
-
 
 
 
