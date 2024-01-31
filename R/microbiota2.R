@@ -2554,7 +2554,7 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
   phy <- phytools::read.newick(text = string) ## so that singles will be read without error
   phy$edge.length <- rep(1,nrow(phy$edge))
   if (collapse.singles) {
-    phy <- collapse.singles(phy)
+    phy <- ape::collapse.singles(phy)
   }
   phy$tip.label <- phy$tip.label %>% map_chr(~taxnames[match(.,nodenames)])
   phy$node.label <- phy$node.label %>% map_chr(~coalesce(taxnames[match(.,nodenames)],.))
