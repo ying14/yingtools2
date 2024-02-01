@@ -15,7 +15,7 @@ get.pairwise(dist)
 data frame comtaining pairwise distances
 }
 \description{
-This is the inverse function of {get.dist()}
+This is the inverse function of \code{\link[=get.dist]{get.dist()}}
 }
 \examples{
 get.pairwise(dist(mtcars))

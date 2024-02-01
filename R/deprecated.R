@@ -4,6 +4,124 @@
 
 
 
+#' Calculate the `taxhorn` distance
+#'
+#'
+#' Ephraim Slamka helped to develop this metric, in which the Horn distance is calculated over after
+#' collapsing at each taxonomic level and then taking the weighted average of distance values.
+#' @param phy phyloseq object
+#'
+#' @return distance metric of `taxhorn` distances
+#' @export
+#'
+#' @examples
+calc.taxhorn.distance <- function(phy) {
+  message("YTNote: calc.taxhorn.distance is deprecated. Consider using distance2(phy, 'mean.horn')")
+
+  fn <- function(x){
+    set <- x[-1]
+    weights <- length(set):1
+    sum(set*weights) / sum(weights)
+  }
+  method <- "horn"
+
+  phy <- phyloseq(otu_table(phy),tax_table(phy))
+  ranks <- rank_names(phy)
+  samples <- sample_names(phy)
+  # create multiple phyloseq objects, collapsed at the
+  # Superkingdom, Phylum, .... , Species level.
+  phy.levels <- ranks %>% seq_along() %>%
+    map(~ranks[1:.x]) %>% map(~phy.collapse(phy,taxranks=.x)) %>%
+    setNames(ranks)
+  phy.levels <- c(phy.levels,list("asv"=phy))
+  all.levels <- names(phy.levels)
+  # calculate the distance matrix (metric=method) for each level.
+  # this is a list of distance matrices.
+  dist.levels <- phy.levels %>% map(~distance(.x,method=method))
+  # run get.pairwise() to get a list of pairwise distances.
+  pairwise.levels <- dist.levels %>% imap(~{
+    newname <- str_glue("dist.{.y}")
+    get.pairwise(.x) %>% rename(!!sym(newname):=dist)
+  })
+  pairwise.all <- pairwise.levels[[1]]
+
+  for (i in seq_along(all.levels)[-1]) {
+    pairwise.all <- pairwise.all %>% full_join(pairwise.levels[[i]],by=c("sample1","sample2"))
+  }
+  pairwise.melt <- pairwise.all %>% pivot_longer(cols=-c(sample1,sample2),
+                                                 names_to="dist.type",values_to="dist")
+  pairwise.calcdist <- pairwise.melt %>% group_by(sample1,sample2) %>%
+    summarize(dist.list=list(setNames(dist,dist.type)),
+              dist=map_dbl(dist.list,fn),
+              .groups = "drop")
+  # if (show.work) {
+  #   return(pairwise.calcdist)
+  # }
+  taxdist <- get.dist(pairwise.calcdist)
+  taxdist
+}
+
+# Calculate distances for specified samples from phyloseq
+#
+# Calculate distances from a phyloseq object. This is the similar to [calc.distance()],
+# except that this does not return a distance matrix. Instead, it returns a vector of distances,
+# only calculating the comparisons you specified.
+# @param sample1 a character vector specifying the first sample(s) for comparison. Should be a sample in `phy`.
+# @param sample2 a character vector specifying the second sample(s) for comparison. Should be a sample in `phy`.
+# @param phy a phyloseq object containing the samples to be compared.
+# @param method the distance metric method to be used. Can be a method from
+# [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`.
+#
+# @return a vector of distances, corresponding to `sample1` and `sample2`.
+# @export
+#
+# @examples
+# library(tidyverse)
+# tbl <- tibble(sample1=c("191A", "228A", "132A", "1045", "179B"),
+#               sample2=c("198A", "205B", "202C", "175B", "192D"))
+# tbl.dists <- tbl %>%
+#   mutate(taxhorn.dist=calc.pairwise(sample1,sample2,cid.phy,method="taxhorn"))
+# calc.pairwise <- function(sample1,sample2,phy,method="bray") {
+#   message("YTNote: calc.pairwise is deprecated. Consider using calc.pairwise.dist")
+#   stopifnot(length(sample1)==length(sample2))
+#   stopifnot(all(c(sample1,sample2) %in% sample_names(phy)))
+#   dist <- map2_dbl(as.character(sample1),as.character(sample2),~{
+#     if (.x==.y) return(0)
+#     physub <- prune_samples(c(.x,.y),phy)
+#     calc.distance(physub,method=method)
+#   })
+#   return(dist)
+# }
+
+
+
+# Calculate distance matrix from phyloseq data
+#
+# Basically same as [phyloseq::distance()], but adds `taxhorn` metric
+# @param phy phyloseq object
+# @param method character string indicating distance metric to be calculated. Can be a method from
+# [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`, or a function.
+# @param ... passed to [phyloseq::distance()]
+#
+# @return a distance metric
+# @export
+# #'
+# #' @examples
+# calc.distance <- function(phy, method, ...) {
+#   message("YTNote: calc.distance is deprecated. Consider using distance2")
+#   if (rlang::is_function(method)) {
+#     dist <- method(phy)
+#   } else if (is.character(method)) {
+#     if (method=="taxhorn") {
+#       dist <- calc.taxhorn.distance(phy)
+#     } else {
+#       dist <- distance(physeq=phy, method=method, ...)
+#     }
+#   }
+#   return(dist)
+# }
+
+
 
 #' Calculate axis limits
 #'

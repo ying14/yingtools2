@@ -6,8 +6,6 @@
 # phyloseq manipulation ---------------------------------------------------
 
 
-
-
 #' Extract Phyloseq sample_data
 #'
 #' Returns [sample_data][phyloseq::sample_data-class] component from phyloseq object, as a data frame.
@@ -92,6 +90,9 @@ set.tax <- function(tdata) {
     as.matrix() %>% phyloseq::tax_table()
   return(tt)
 }
+
+
+
 
 
 
@@ -935,7 +936,7 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
 
 #' Convert Distance Matrix to Pairwise Distances
 #'
-#' This is the inverse function of {get.dist()}
+#' This is the inverse function of [get.dist()]
 #' @param dist distance matrix to be converted
 #' @param diag whether or not to include diagonal
 #'
@@ -964,8 +965,12 @@ get.pairwise <- function(dist) {
 
 #' Convert pairwise distance table to distance matrix
 #'
-#' This is the inverse function of {get.pairwise()}
+#' This is the inverse function of [get.pairwise()]
+#'
 #' @param pw a data frame of pairwise distances.
+#' @param sample1 column name (bare) of 1st sample column
+#' @param sample2 column name (bare) of 2nd sample column
+#' @param dist column name (bare) of distance column
 #'
 #' @return corresponding distance matrix
 #' @export
@@ -973,8 +978,25 @@ get.pairwise <- function(dist) {
 #' @examples
 #' pw <- get.pairwise(dist(mtcars))
 #' get.dist(pw)
-get.dist <- function(pw) {
-  mat <- pw %>% pivot_wider(id_cols=sample2,names_from=sample1,values_from=dist) %>%
+get.dist <- function(pw,sample1=sample1,sample2=sample2,dist=dist) {
+  sample1 <- enquo(sample1)
+  sample2 <- enquo(sample2)
+  dist <- enquo(dist)
+
+  s1 <- pw %>% pull(!!sample1)
+  s2 <- pw %>% pull(!!sample2)
+
+  # check if pairwise dists are well-formed
+  n.samps <- n_distinct(s1)
+  has.all.pairwise.combos <- length(s1)==length(s2) &&
+    setequal(s1,s2) &&
+    anyDuplicated(select(pw,sample1,sample2))==0 &&
+    nrow(pw)==choose(n.samps,2)+n.samps
+  if (!has.all.pairwise.combos) {
+    stop("YTError: the sample1 and sample2 columns don't look like pairwise combinations")
+  }
+
+  mat <- pw %>% pivot_wider(id_cols=!!sample2,names_from=!!sample1,values_from=!!dist) %>%
     column_to_rownames("sample2") %>%
     as.matrix()
   as.dist(mat,diag=TRUE)
@@ -987,11 +1009,11 @@ get.dist <- function(pw) {
 #' @param dist distance metric to be viewed
 #' @param show.numbers whether or not to show values.
 #'
-#' @return
+#' @return a ggplot of the distance matrix
 #' @export
 #'
 #' @examples
-#' view.dist(dist(mtcars))
+#' view.distance.matrix(dist(mtcars))
 view.distance.matrix <- function(dist,show.numbers=FALSE) {
   pairwise <- get.pairwise(dist) %>%
     mutate(sample2=fct_rev(sample2))
@@ -1005,85 +1027,253 @@ view.distance.matrix <- function(dist,show.numbers=FALSE) {
 
 
 
-
-#' Calculate the `taxhorn` distance
+#' Perform taxonomic unfolding on phyloseq data
 #'
+#' Taxonomic unfolding refers to converting all taxonomic levels into separate taxa rows in the OTU table.
+#' Primarily used for making a distance metric more "taxonomy-aware".
+#' Used by [calc.distance()] when `unfold=TRUE`.
 #'
-#' Ephraim Slamka helped to develop this metric, in which the Horn distance is calculated over after
-#' collapsing at each taxonomic level and then taking the weighted average of distance values.
-#' @param phy phyloseq object
+#' Basically the operation runs [phy.collapse()] at each tax level of `phy`, then binds them all together
+#' in a single OTU table with taxa features at every level.
+#' Note that sample counts will be elevated and will no longer reflect the sequencing depth.
+#' @param phy phyloseq to be unfolded
+#' @param verbose whether or not to print progress
 #'
-#' @return distance metric of `taxhorn` distances
+#' @return a modified phyloseq object
 #' @export
 #'
 #' @examples
-calc.taxhorn.distance <- function(phy) {
-  fn <- function(x){
-    set <- x[-1]
-    weights <- length(set):1
-    sum(set*weights) / sum(weights)
+phy.unfold.taxranks <- function(phy,verbose=TRUE) {
+  # samp <- sample_data(phy)
+  # phy <- phyloseq(otu_table(phy),tax_table(phy))
+  # phy <- yingtools2:::make_taxonomy_distinct.phyloseq(phy,add.rank=TRUE)
+  ranks <- rank_names(phy)
+  # list of phyloseqs
+  phy.levels <- ranks %>% seq_along() %>%
+    map(~ranks[1:.x]) %>% map(~{
+      phy_ <- phy.collapse(phy,taxranks=.x)
+      t <- get.tax(phy_) %>%
+        mutate(newotu=paste(!!!syms(.x),sep="|"))
+      taxa_names(phy_) <- t$newotu
+      return(phy_)
+    }) %>%
+    setNames(ranks) %>% c(list("asv"=phy))
+  # all.levels <- names(phy.levels) # all ranks including 'asv'
+  all.tax <- phy.levels %>% map(get.tax) %>% list_rbind()
+  all.otu <- phy.levels %>% map(get.otu,as.matrix=FALSE) %>% list_rbind()
+  if (anyDuplicated(all.tax$otu)!=0) {
+    stop("YTError: There were duplicated taxa names when unfolding!")
   }
-  method <- "horn"
+  phy.unfold <- phyloseq(set.otu(all.otu),set.tax(all.tax),sample_data(phy))
+  n.taxa <- phy.levels %>% map_int(ntaxa) %>% rev()
+  n.taxa.text <- n.taxa %>% paste(collapse=" + ") %>% paste0(" = ",nrow(all.tax)," taxa")
+  if (verbose) {
+    message(str_glue("Created new unfolded phyloseq:\n{n.taxa.text}"))
+  }
+  return(phy.unfold)
+}
 
+
+
+
+
+
+#' Use phyloseq taxonomy table as phylo tree
+#'
+#' Creates a tree from taxonomy (using [as.phylo.formula()]), and uses that as the phyloseq object's
+#' [phyloseq::phy_tree()] element.
+#' @param phy phyloseq object to be modified (should contain [phyloseq::tax_table()] element)
+#' @param collapse.singles argument passed on to [as.phylo.formula()]. Default is `TRUE`. Note that this is necessary for
+#' making sure number of nodes in the tree does not exceed number of tips; turns out to be a problem if you are using
+#' this to calculate Unifrac distances in [calc.distance()]
+#' @return a modified phyloseq object
+#' @export
+#'
+#' @examples
+#' phy.use.tax.tree(cid.phy)
+phy.use.tax.tree <- function(phy, collapse.singles=TRUE) {
+  form <- as.formula(paste("~",paste(c(rank_names(phy),"otu"),collapse="/")))
+  tax <- get.tax(phy)
+  tax.tree <- as.phylo.formula2(form,data=tax,collapse.singles=collapse.singles)
+  phy_tree(phy) <- tax.tree
+  return(phy)
+}
+
+
+
+#' Calculate distance matrix at all taxonomic levels and take weighted average
+#'
+#'
+#' @param phy phyloseq data
+#' @param method distance metric method. Passed to [calc.distance()]
+#' @param weights vector of weights to be used when averaging distances.
+#' A value should be provided for each taxonomic level, plus one for OTU-level.
+#' Default (`NULL`) is higher levels are weighted higher, and top level is 0.
+#' For example, for 8 levels (`Superkingdom`, `Phylum`, `Class`, `Order`, `Family`, `Genus`, `Species`, `otu`),
+#' the weights would be `c(0,7,6,5,4,3,2,1)`
+#' @param verbose whether or not to display progress info while calculating.
+#'
+#' @return a distance matrix representing the averaged distances from `phy`
+#' @export
+#'
+#' @examples
+calc.mean.distance <- function(phy,method,weights=NULL,verbose=TRUE) {
+  # method="horn"
+  # weights <- c(0,7,6,5,4,3,2,1)
+  if (is.null(weights)) {
+    weights <- c(0,length(rank_names(phy)):1)
+  }
+  if (length(weights)!=length(rank_names(phy))+1) {
+    stop("YTError: length of weights should be equal to number of ranks + 1!")
+  }
   phy <- phyloseq(otu_table(phy),tax_table(phy))
   ranks <- rank_names(phy)
-  samples <- sample_names(phy)
-  # create multiple phyloseq objects, collapsed at the
-  # Superkingdom, Phylum, .... , Species level.
+  # list of phyloseqs
   phy.levels <- ranks %>% seq_along() %>%
-    map(~ranks[1:.x]) %>% map(~phy.collapse(phy,taxranks=.x)) %>%
-    setNames(ranks)
-  phy.levels <- c(phy.levels,list("asv"=phy))
-  all.levels <- names(phy.levels)
+    map(~ranks[1:.x]) %>% map(~phy.collapse(phy)) %>%
+    setNames(ranks) %>% c(list("asv"=phy))
+  all.levels <- names(phy.levels) # all ranks including 'asv'
+
+  if (verbose) {
+    weight.text <- str_glue("{all.levels}:{weights}",.sep="x") %>% paste(collapse=", ")
+    message(str_glue("Weights to be assigned: {weight.text}"))
+  }
   # calculate the distance matrix (metric=method) for each level.
   # this is a list of distance matrices.
-  dist.levels <- phy.levels %>% map(~distance(.x,method=method))
-  # run get.pairwise() to get a list of pairwise distances.
-  pairwise.levels <- dist.levels %>% imap(~{
-    newname <- str_glue("dist.{.y}")
-    get.pairwise(.x) %>% rename(!!sym(newname):=dist)
-  })
-  pairwise.all <- pairwise.levels[[1]]
-
-  for (i in seq_along(all.levels)[-1]) {
-    pairwise.all <- pairwise.all %>% full_join(pairwise.levels[[i]],by=c("sample1","sample2"))
+  if (is.character(method)) {
+    dist.levels <- phy.levels %>% map(~distance(.x,method=method))
+  } else if (is_function(method) | is_formula(method)) {
+    fun <- as_mapper(method)
+    dist.levels <- phy.levels %>% map(fun)
   }
-  pairwise.melt <- pairwise.all %>% pivot_longer(cols=-c(sample1,sample2),
-                                                 names_to="dist.type",values_to="dist")
-  pairwise.calcdist <- pairwise.melt %>% group_by(sample1,sample2) %>%
-    summarize(dist.list=list(setNames(dist,dist.type)),
-              dist=map_dbl(dist.list,fn),
-              .groups = "drop")
-  # if (show.work) {
-  #   return(pairwise.calcdist)
-  # }
+  # run get.pairwise() to get a list of pairwise distances.
+  wts <- tibble(taxlevel=all.levels,weight=weights)
+  pairwise.all <- dist.levels %>%
+    map(get.pairwise) %>%
+    list_rbind(names_to = "taxlevel") %>%
+    left_join(wts,by="taxlevel")
+  pairwise.calcdist <- pairwise.all %>% group_by(sample1,sample2) %>%
+    summarize(dist=sum(dist*weight)/sum(weight),
+              .groups="drop")
   taxdist <- get.dist(pairwise.calcdist)
   taxdist
 }
 
 
 
-
-#' Calculate distance matrix from phyloseq data
+#' Calculate Distance
 #'
-#' Basically same as [phyloseq::distance()], but adds `taxhorn` metric
-#' @param phy phyloseq object
-#' @param method character string indicating distance metric to be calculated. Can be a method from
-#' [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`, or a function.
-#' @param ... passed to [phyloseq::distance()]
+#' Calculates distance matrix from phyloseq object.
 #'
-#' @return a distance metric
+#' This is a modification of [phyloseq::distance()], where modifications to the data can be done, using arguments or prefixes in the method.
+#' @param phy Phyloseq object from which to calculate the distance matrix
+#' @param method Character string or `purrr`-style function corresponding to the type of distance to be calculated.
+#' If character string, can be any of those listed in [phyloseq::distanceMethodList], where prefixes can be added to indicate additional operations.
+#' @param rarefy if `TRUE`, will rarefy to even depth ([phyloseq::rarefy_even_depth()])
+#' @param pct if `TRUE`, will substitute relative abundances (`phyloseq::transform_sample_counts(phy, function(x) x / sum(x) )`)
+#' @param taxtree if `TRUE`, will substitute a taxonomy-based tree ([phy.use.tax.tree()])
+#' @param unfold if `TRUE`, will perform unfolding operation on the taxonomy structure ([phy.unfold.taxranks()])
+#' @param mean if `TRUE`, will calculate distance after collapsing at each taxonomic level and obtaining the weighted average ([calc.mean.distance()])
+#' @param verbose Whether to display work messages. Default is `TRUE`
+#' @return a computed distance matrix
 #' @export
 #'
 #' @examples
-calc.distance <- function(phy, method, ...) {
-  if (rlang::is_function(method)) {
-    dist <- method(phy)
-  } else if (is.character(method)) {
-    if (method=="taxhorn") {
-      dist <- calc.taxhorn.distance(phy)
-    } else {
-      dist <- distance(physeq=phy, method=method, ...)
+#' phy <- cid.phy %>% filter(sample %in% sample[1:5])
+#' calc.distance(phy,"bray")
+#' calc.distance(phy,"pct.bray")
+#' calc.distance(phy,"bray",pct=TRUE)
+#' calc.distance(phy,"horn")
+#' calc.distance(phy,"horn",unfold=TRUE)
+#' calc.distance(phy,"unfold.horn")
+#' calc.distance(phy,"horn",mean=TRUE)
+#' calc.distance(phy,"mean.horn")
+#' calc.distance(phy,"unifrac")
+#' calc.distance(phy,"unifrac",rarefy=TRUE)
+#' calc.distance(phy,"unifrac",taxtree=TRUE,rarefy=TRUE)
+#' calc.distance(phy,"rarefy.unifrac")
+#' calc.distance(phy,"taxtree.pct.rarefy.unifrac")
+#' calc.distance(phy,~distance(.x,"bray"))
+#' calc.distance(phy,~distance(.x,"bray"),pct=TRUE)
+#' calc.distance(phy,~calc.unfold.distance(.x,method="horn"))
+calc.distance <- function(phy, method,
+                           rarefy=FALSE,
+                           pct=FALSE,
+                           taxtree=FALSE,
+                           unfold=FALSE,
+                           mean=FALSE,
+                           verbose=TRUE) {
+
+  if (is.character(method)) {
+    # method="taxtree.pct.horn"
+    # method="horn"
+
+    parts <- str_split_1(method,"\\.")
+    prefix <- parts[-length(parts)]
+    method <- parts[length(parts)]
+
+    known.methods <- unlist(phyloseq::distanceMethodList)
+    if (!(method %in% known.methods)) {
+      stop(str_glue("YTError: unrecognized method: {method}"))
+    }
+    known.prefixes <- c("rarefy","pct","taxtree","unfold","mean")
+    unrecognized.prefix <- setdiff(prefix,known.prefixes)
+    if (length(unrecognized.prefix)>0) {
+      stop(str_glue("YTError: recognized prefixes: {paste(unrecognized.prefix,collapse=', ')}"))
+    }
+    if (length(prefix)>0) {
+      if ("rarefy" %in% prefix) {
+        rarefy <- TRUE
+      }
+      if ("pct" %in% prefix) {
+        pct <- TRUE
+      }
+      if ("taxtree" %in% prefix) {
+        taxtree <- TRUE
+      }
+      if ("unfold" %in% prefix) {
+        unfold <- TRUE
+      }
+      if ("mean" %in% prefix) {
+        mean <- TRUE
+      }
+    }
+  }
+  if (unfold & mean) {
+    stop("YTError: args unfold and mean shouldn't both be TRUE")
+  }
+  if (is.character(method) && method=="unifrac" && !rarefy) {
+    warning("YTWarning: for unifrac, consider setting rarefy=TRUE")
+  }
+  if (is.character(method) && method %in% c("bray","euclidean") && !pct) {
+    warning("YTWarning: for {method}, consider using relative abundances (pct=TRUE)")
+  }
+  if (rarefy) {
+    phy <- rarefy_even_depth(phy)
+  }
+  if (pct) {
+    phy <- transform_sample_counts(phy, function(x) x / sum(x) )
+  }
+  if (unfold) {
+    phy <- phy.unfold.taxranks(phy,verbose=FALSE)
+  }
+  if (taxtree) {
+    phy <- phy.use.tax.tree(phy)
+  }
+  if (verbose) {
+    message(str_glue("calculating {as_label(method)} with settings:\nrarefy={rarefy}, pct={pct}, taxtree={taxtree}, unfold={unfold}, mean={mean}"))
+  }
+
+  if (mean) {
+    # recursively calls calc.distance
+    dist <- calc.mean.distance(phy, method=~calc.distance(phy, method=method, rarefy=FALSE, pct=FALSE, taxtree=FALSE, unfold=FALSE, mean=FALSE, verbose=FALSE))
+  } else {
+    # calc distance
+    if (is.character(method)) {
+      dist <- distance(physeq=phy, method=method)
+    } else if (is_function(method) | is_formula(method)) {
+      fun <- as_mapper(method)
+      dist <- fun(phy)
     }
   }
   return(dist)
@@ -1092,36 +1282,68 @@ calc.distance <- function(phy, method, ...) {
 
 
 
-#' Calculate distances for specified samples from phyloseq
+
+
+#' Calculate pairwise distances
 #'
-#' Calculate distances from a phyloseq object. This is the similar to [calc.distance()],
-#' except that this does not return a distance matrix. Instead, it returns a vector of distances,
-#' only calculating the comparisons you specified.
-#' @param sample1 a character vector specifying the first sample(s) for comparison. Should be a sample in `phy`.
-#' @param sample2 a character vector specifying the second sample(s) for comparison. Should be a sample in `phy`.
-#' @param phy a phyloseq object containing the samples to be compared.
-#' @param method the distance metric method to be used. Can be a method from
-#' [`phyloseq`][`phyloseq::distanceMethodList`], or `"taxhorn'`.
+#' For a given list of pairwise sample comparisons, calculate distance using [calc.distance()].
 #'
-#' @return a vector of distances, corresponding to `sample1` and `sample2`.
+#' This is similar to running [calc.distance()], converting to pairwise form using [get.pairwise()].
+#' However, this is useful if only a handful of pairwise comparisons are needed, and calculation of the entire distance matrix
+#' would take too long. If that is the case, it will call [calc.distance()] for each individual comparison.
+#' My testing suggests that individual pairwise calculation is about 130x slower. So if is the number of pairwise comparisons
+#' is less than 1/130th of the size of the distance matrix, it will do individual calculation, otherwise it will calculate the whole matrix together.
+#' @param sample1 1st vector of sample names to be compared
+#' @param sample2 2nd vector of sample names to be compared
+#' @param method distance metric method. Passed to [calc.distance()]
+#' @param phy phyloseq object containing data for samples listed in `sample1` and `sample2`.
+#' @param rarefy if `TRUE`, will rarefy to even depth ([phyloseq::rarefy_even_depth()])
+#' @param pct if `TRUE`, will substitute relative abundances (`phyloseq::transform_sample_counts(phy, function(x) x / sum(x) )`)
+#' @param taxtree if `TRUE`, will substitute a taxonomy-based tree ([phy.use.tax.tree()])
+#' @param unfold if `TRUE`, will perform unfolding operation on the taxonomy structure ([phy.unfold.taxranks()])
+#' @param mean if `TRUE`, will calculate distance after collapsing at each taxonomic level and obtaining the weighted average ([calc.mean.distance()])
+#' @return a vector of calculated distances
 #' @export
 #'
 #' @examples
-#' library(tidyverse)
-#' tbl <- tibble(sample1=c("191A", "228A", "132A", "1045", "179B"),
-#'               sample2=c("198A", "205B", "202C", "175B", "192D"))
-#' tbl.dists <- tbl %>%
-#'   mutate(taxhorn.dist=calc.pairwise(sample1,sample2,cid.phy,method="taxhorn"))
-calc.pairwise <- function(sample1,sample2,phy,method="bray") {
-  stopifnot(length(sample1)==length(sample2))
-  stopifnot(all(c(sample1,sample2) %in% sample_names(phy)))
-  dist <- map2_dbl(as.character(sample1),as.character(sample2),~{
-    if (.x==.y) return(0)
-    physub <- prune_samples(c(.x,.y),phy)
-    calc.distance(physub,method=method)
-  })
-  return(dist)
+calc.pairwise <- function(sample1, sample2, method, phy,
+                          rarefy=FALSE,
+                          pct=FALSE,
+                          taxtree=FALSE,
+                          unfold=FALSE,
+                          mean=FALSE) {
+
+  samps <- c(sample1,sample2) %>% as.character() %>% unique()
+  nsamps <- length(samps)
+  npairs <- length(sample1)
+  pct.all.combos <- choose(nsamps,2) / npairs
+  # assuming distance calc is ~130x faster than pairwise, determine fastest method.
+  if (pct.all.combos>=130) {
+    dist <- map2_dbl(sample1,sample2,~calc.pairwise(.x,.y,
+                                                    method=method,phy=phy,
+                                                    rarefy=rarefy,pct=pct,
+                                                    taxtree=taxtree,unfold=unfold,
+                                                    mean=mean),.progress=TRUE)
+    return(dist)
+  } else {
+    # message("calculating via entire distance matrix")
+    # do distance calcs
+    physub <- prune_samples(samps,phy) %>% prune_unused_taxa(verbose = FALSE)
+    dist1 <- calc.distance(physub,method=method,
+                           rarefy=rarefy,pct=pct,
+                           taxtree=taxtree,unfold=unfold,mean=mean)
+    pw1 <- dist1 %>% get.pairwise()
+    pw2 <- pw1 %>% select(sample1=sample2,sample2=sample1,dist) %>%
+      filter(sample1!=sample2)
+    pw <- bind_rows(pw1,pw2)
+    t <- tibble(sample1=sample1,sample2=sample2) %>%
+      left_join(pw,by=c("sample1","sample2"))
+    return(t$dist)
+  }
+
 }
+
+
 
 
 

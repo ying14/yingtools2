@@ -2,21 +2,62 @@
 % Please edit documentation in R/microbiota2.R
 \name{calc.distance}
 \alias{calc.distance}
-\title{Calculate distance matrix from phyloseq data}
+\title{Calculate Distance}
 \usage{
-calc.distance(phy, method, ...)
+calc.distance(
+  phy,
+  method,
+  rarefy = FALSE,
+  pct = FALSE,
+  taxtree = FALSE,
+  unfold = FALSE,
+  mean = FALSE,
+  verbose = TRUE
+)
 }
 \arguments{
-\item{phy}{phyloseq object}
+\item{phy}{Phyloseq object from which to calculate the distance matrix}
 
-\item{method}{character string indicating distance metric to be calculated. Can be a method from
-\code{\link[phyloseq:distanceMethodList]{phyloseq}}, or \verb{"taxhorn'}, or a function.}
+\item{method}{Character string or \code{purrr}-style function corresponding to the type of distance to be calculated.
+If character string, can be any of those listed in \link[phyloseq:distanceMethodList]{phyloseq::distanceMethodList}, where prefixes can be added to indicate additional operations.}
 
-\item{...}{passed to \code{\link[phyloseq:distance]{phyloseq::distance()}}}
+\item{rarefy}{if \code{TRUE}, will rarefy to even depth (\code{\link[phyloseq:rarefy_even_depth]{phyloseq::rarefy_even_depth()}})}
+
+\item{pct}{if \code{TRUE}, will substitute relative abundances (\code{phyloseq::transform_sample_counts(phy, function(x) x / sum(x) )})}
+
+\item{taxtree}{if \code{TRUE}, will substitute a taxonomy-based tree (\code{\link[=phy.use.tax.tree]{phy.use.tax.tree()}})}
+
+\item{unfold}{if \code{TRUE}, will perform unfolding operation on the taxonomy structure (\code{\link[=phy.unfold.taxranks]{phy.unfold.taxranks()}})}
+
+\item{mean}{if \code{TRUE}, will calculate distance after collapsing at each taxonomic level and obtaining the weighted average (\code{\link[=calc.mean.distance]{calc.mean.distance()}})}
+
+\item{verbose}{Whether to display work messages. Default is \code{TRUE}}
 }
 \value{
-a distance metric
+a computed distance matrix
 }
 \description{
-Basically same as \code{\link[phyloseq:distance]{phyloseq::distance()}}, but adds \code{taxhorn} metric
+Calculates distance matrix from phyloseq object.
+}
+\details{
+This is a modification of \code{\link[phyloseq:distance]{phyloseq::distance()}}, where modifications to the data can be done, using arguments or prefixes in the method.
+}
+\examples{
+phy <- cid.phy \%>\% filter(sample \%in\% sample[1:5])
+calc.distance(phy,"bray")
+calc.distance(phy,"pct.bray")
+calc.distance(phy,"bray",pct=TRUE)
+calc.distance(phy,"horn")
+calc.distance(phy,"horn",unfold=TRUE)
+calc.distance(phy,"unfold.horn")
+calc.distance(phy,"horn",mean=TRUE)
+calc.distance(phy,"mean.horn")
+calc.distance(phy,"unifrac")
+calc.distance(phy,"unifrac",rarefy=TRUE)
+calc.distance(phy,"unifrac",taxtree=TRUE,rarefy=TRUE)
+calc.distance(phy,"rarefy.unifrac")
+calc.distance(phy,"taxtree.pct.rarefy.unifrac")
+calc.distance(phy,~distance(.x,"bray"))
+calc.distance(phy,~distance(.x,"bray"),pct=TRUE)
+calc.distance(phy,~calc.unfold.distance(.x,method="horn"))
 }

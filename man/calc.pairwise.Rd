@@ -2,32 +2,42 @@
 % Please edit documentation in R/microbiota2.R
 \name{calc.pairwise}
 \alias{calc.pairwise}
-\title{Calculate distances for specified samples from phyloseq}
+\title{Calculate pairwise distances}
 \usage{
-calc.pairwise(sample1, sample2, phy, method = "bray")
+calc.pairwise(
+  sample1,
+  sample2,
+  method,
+  phy,
+  rarefy = FALSE,
+  pct = FALSE,
+  taxtree = FALSE,
+  unfold = FALSE,
+  mean = FALSE
+)
 }
 \arguments{
-\item{sample1}{a character vector specifying the first sample(s) for comparison. Should be a sample in \code{phy}.}
+\item{sample1}{1st vector of sample names to be compared}
 
-\item{sample2}{a character vector specifying the second sample(s) for comparison. Should be a sample in \code{phy}.}
+\item{sample2}{2nd vector of sample names to be compared}
 
-\item{phy}{a phyloseq object containing the samples to be compared.}
+\item{method}{distance metric method. Passed to \code{\link[=calc.distance]{calc.distance()}}}
 
-\item{method}{the distance metric method to be used. Can be a method from
-\code{\link[phyloseq:distanceMethodList]{phyloseq}}, or \verb{"taxhorn'}.}
+\item{phy}{phyloseq object containing data for samples listed in \code{sample1} and \code{sample2}.}
+
+\item{rarefy}{if \code{TRUE}, will rarefy to even depth (\code{\link[phyloseq:rarefy_even_depth]{phyloseq::rarefy_even_depth()}})}
+
+\item{pct}{if \code{TRUE}, will substitute relative abundances (\code{phyloseq::transform_sample_counts(phy, function(x) x / sum(x) )})}
+
+\item{taxtree}{if \code{TRUE}, will substitute a taxonomy-based tree (\code{\link[=phy.use.tax.tree]{phy.use.tax.tree()}})}
+
+\item{unfold}{if \code{TRUE}, will perform unfolding operation on the taxonomy structure (\code{\link[=phy.unfold.taxranks]{phy.unfold.taxranks()}})}
+
+\item{mean}{if \code{TRUE}, will calculate distance after collapsing at each taxonomic level and obtaining the weighted average (\code{\link[=calc.mean.distance]{calc.mean.distance()}})}
 }
 \value{
-a vector of distances, corresponding to \code{sample1} and \code{sample2}.
+a vector of calculated distances
 }
 \description{
-Calculate distances from a phyloseq object. This is the similar to \code{\link[=calc.distance]{calc.distance()}},
-except that this does not return a distance matrix. Instead, it returns a vector of distances,
-only calculating the comparisons you specified.
-}
-\examples{
-library(tidyverse)
-tbl <- tibble(sample1=c("191A", "228A", "132A", "1045", "179B"),
-              sample2=c("198A", "205B", "202C", "175B", "192D"))
-tbl.dists <- tbl \%>\%
-  mutate(taxhorn.dist=calc.pairwise(sample1,sample2,cid.phy,method="taxhorn"))
+For a given list of pairwise sample comparisons, calculate distance using \code{\link[=calc.distance]{calc.distance()}}
 }

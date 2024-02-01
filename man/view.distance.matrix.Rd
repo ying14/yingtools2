@@ -11,9 +11,12 @@ view.distance.matrix(dist, show.numbers = FALSE)
 
 \item{show.numbers}{whether or not to show values.}
 }
+\value{
+a ggplot of the distance matrix
+}
 \description{
 Usethis to quicklyview a distance metric.
 }
 \examples{
-view.dist(dist(mtcars))
+view.distance.matrix(dist(mtcars))
 }
