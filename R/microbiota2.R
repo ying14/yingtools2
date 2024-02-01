@@ -1161,6 +1161,11 @@ calc.mean.distance <- function(phy,method,weights=NULL,verbose=TRUE) {
 
 
 
+
+
+
+
+
 #' Calculate Distance
 #'
 #' Calculates distance matrix from phyloseq object.
@@ -1195,7 +1200,7 @@ calc.mean.distance <- function(phy,method,weights=NULL,verbose=TRUE) {
 #' calc.distance(phy,"taxtree.pct.rarefy.unifrac")
 #' calc.distance(phy,~distance(.x,"bray"))
 #' calc.distance(phy,~distance(.x,"bray"),pct=TRUE)
-#' calc.distance(phy,~calc.unfold.distance(.x,method="horn"))
+#' calc.distance(phy,~phyloseq::UniFrac(.x))
 calc.distance <- function(phy, method,
                            rarefy=FALSE,
                            pct=FALSE,
