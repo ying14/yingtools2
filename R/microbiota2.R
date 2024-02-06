@@ -26,7 +26,7 @@
 #' @export
 get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
   requireNamespace("phyloseq",quietly=TRUE)
-  if (is.null(sample_data(phy,FALSE))) {
+  if (is.null(sample_data(phy,FALSE)) | is(phy,"otu_table")) {
     #if no sample_data, return single data frame with sample column
     sdata <- tibble(sample=phyloseq::sample_names(phy))
   } else {
@@ -74,7 +74,13 @@ set.samp <- function(sdata) {
 #' @export
 get.tax <- function(phy) {
   requireNamespace(c("phyloseq"),quietly=TRUE)
-  phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
+  if (is.null(tax_table(phy,errorIfNULL = FALSE)) | is(phy,"otu_table")) {
+    #if no tax_table, return single data frame with otu column
+    tdata <- tibble(otu=phyloseq::taxa_names(phy))
+  } else {
+    tdata <- phyloseq::tax_table(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("otu") %>% as_tibble()
+  }
+  return(tdata)
 }
 
 
@@ -90,7 +96,6 @@ set.tax <- function(tdata) {
     as.matrix() %>% phyloseq::tax_table()
   return(tt)
 }
-
 
 
 
@@ -1158,8 +1163,6 @@ calc.mean.distance <- function(phy,method,weights=NULL,verbose=TRUE) {
   taxdist <- get.dist(pairwise.calcdist)
   taxdist
 }
-
-
 
 
 
