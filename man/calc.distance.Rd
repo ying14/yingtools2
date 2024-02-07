@@ -59,5 +59,5 @@ calc.distance(phy,"rarefy.unifrac")
 calc.distance(phy,"taxtree.pct.rarefy.unifrac")
 calc.distance(phy,~distance(.x,"bray"))
 calc.distance(phy,~distance(.x,"bray"),pct=TRUE)
-calc.distance(phy,~calc.unfold.distance(.x,method="horn"))
+calc.distance(phy,~phyloseq::UniFrac(.x))
 }

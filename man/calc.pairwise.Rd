@@ -39,5 +39,12 @@ calc.pairwise(
 a vector of calculated distances
 }
 \description{
-For a given list of pairwise sample comparisons, calculate distance using \code{\link[=calc.distance]{calc.distance()}}
+For a given list of pairwise sample comparisons, calculate distance using \code{\link[=calc.distance]{calc.distance()}}.
+}
+\details{
+This is similar to running \code{\link[=calc.distance]{calc.distance()}}, converting to pairwise form using \code{\link[=get.pairwise]{get.pairwise()}}.
+However, this is useful if only a handful of pairwise comparisons are needed, and calculation of the entire distance matrix
+would take too long. If that is the case, it will call \code{\link[=calc.distance]{calc.distance()}} for each individual comparison.
+My testing suggests that individual pairwise calculation is about 130x slower. So if is the number of pairwise comparisons
+is less than 1/130th of the size of the distance matrix, it will do individual calculation, otherwise it will calculate the whole matrix together.
 }

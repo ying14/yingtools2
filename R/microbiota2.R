@@ -230,8 +230,12 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
 #' @param sample_id sample ID variable. Default `"sample"`.
 #' @param taxa_id taxa/OTU ID variable. Default `"otu"`.
 #' @param abundance_var abundance variable, used to fill [phyloseq::otu_table()]. Default `"numseqs"`.
-#' @param taxranks vector of taxonomic ranks to be included in [tax_table][phyloseq::taxonomyTable-class].
-#' @param sample_vars whether to include sample variables in the data. Can be `TRUE` (include sample vars, and try to determine which ones), `FALSE` no sample vars, or a character vector specifying col names to be included.
+#' @param tax_ranks vector of taxonomic ranks to be included in [tax_table][phyloseq::taxonomyTable-class].
+#' Default `TRUE` (include tax vars, and try to determine which ones)
+#' `FALSE` no tax vars, or a character vector specifying col names to be included.
+#' @param sample_vars whether to include sample variables in the data.
+#' Can be `TRUE` (include sample vars, and try to determine which ones),
+#' `FALSE` no sample vars, or a character vector specifying col names to be included.
 #' @return phyloseq object, generated from the `otu.melt` data.
 #' @export
 #' @examples
@@ -243,10 +247,10 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
 #' phy
 #' phy2
 get.phyloseq.from.melt <- function(otu.melt,
-                                   taxranks=c("Superkingdom","Phylum","Class","Order","Family","Genus","Species"),
+                                   tax_ranks=TRUE,
                                    sample_vars=TRUE,
                                    sample_id="sample",abundance_var="numseqs",taxa_id="otu") {
-  # declare.args(otu.melt=get.otu.melt(cid.phy), taxranks=rank_names(cid.phy), get.phyloseq.from.melt)
+  # declare.args(otu.melt=get.otu.melt(cid.phy), tax_ranks=rank_names(cid.phy), get.phyloseq.from.melt)
   requireNamespace("phyloseq",quietly=TRUE)
   rows.are.distinct <- is.distinct(otu.melt, !!sym(taxa_id), !!sym(sample_id))
   if (!rows.are.distinct) {
@@ -257,37 +261,66 @@ get.phyloseq.from.melt <- function(otu.melt,
               sample=as.character(!!sym(sample_id)),
               numseqs=!!sym(abundance_var)) %>%
     pivot_wider(id_cols=otu,names_from=sample,values_from=numseqs,values_fill=0)
-  tax <- otu.melt %>% select(otu=!!sym(taxa_id),!!!syms(taxranks)) %>% distinct()
+  phy <- set.otu(otu)
+
+  # browser()
+  if (isTRUE(tax_ranks)) { #logical and true
+    # determine tax vars
+    message("Attempting to determine tax vars...\n")
+    if (is.character(sample_vars)) {
+      svars <- sample_vars
+    } else {
+      svars <- NULL
+    }
+    vars.to.check <- names(otu.melt)[map_lgl(otu.melt,~is.character(.x) | is.factor(.x))] %>%
+      setdiff(c(taxa_id,abundance_var,svars))
+
+    distinct_tax_vars <- otu.melt %>%
+      test_if_nonvarying_by_group(id_vars=all_of(taxa_id),test_vars=all_of(vars.to.check)) %>%
+      {names(.)[.]} %>% setdiff(taxa_id)
+    tax_ranks <- distinct_tax_vars
+  } else if (isFALSE(tax_ranks) | is.null(tax_ranks))  {
+    #no sample variables
+    tax_ranks <- NULL
+  } else if (is.character(tax_ranks)) {
+    # sample_vars are specified do nothing
+    tax_ranks <- setdiff(tax_ranks,taxa_id)
+  } else {
+    stop("YTError: sample_vars should be a character or logical!")
+  }
 
   if (isTRUE(sample_vars)) { #logical and true
     # determine sample  vars
     message("Attempting to determine sample vars...\n")
-    vars.to.check <-setdiff(names(otu.melt),c(taxa_id,taxranks,abundance_var))
+    vars.to.check <-setdiff(names(otu.melt),c(taxa_id,sample_id,tax_ranks,abundance_var))
     distinct_sample_vars <- otu.melt %>%
       test_if_nonvarying_by_group(id_vars=all_of(sample_id),test_vars=all_of(vars.to.check)) %>%
       {names(.)[.]} %>% setdiff(sample_id)
     sample_vars <- distinct_sample_vars
-  } else if (isFALSE(sample_vars))  {
+  } else if (isFALSE(sample_vars) | is.null(sample_vars))  {
     #no sample variables
-    sample_vars <- c()
+    sample_vars <- NULL
   } else if (is.character(sample_vars)) {
     # sample_vars are specified do nothing
     sample_vars <- setdiff(sample_vars,sample_id)
   } else {
     stop("YTError: sample_vars should be a character or logical!")
   }
+  if (length(tax_ranks)>0) {
+    tax <- otu.melt %>% select(otu=!!sym(taxa_id),!!!syms(tax_ranks)) %>% distinct()
+    if (anyDuplicated(tax$otu)!=0) {stop("YTError: tax_ranks are not distinct over taxa_id!")}
+    phy <- merge_phyloseq(phy,set.tax(tax))
+  }
 
-  if (anyDuplicated(tax$otu)!=0) {stop("YTError: taxranks are not distinct over taxa_id!")}
-  phy <- phyloseq::phyloseq(set.otu(otu),set.tax(tax))
   if (length(sample_vars)>0) {
     samp <- otu.melt %>% select(sample=!!sym(sample_id),!!!syms(sample_vars)) %>% distinct()
     if (anyDuplicated(samp$sample)!=0) {stop("YTError: sample vars are not distinct over sample!")}
-    phyloseq::sample_data(phy) <- samp %>% set.samp()
+    phy <- merge_phyloseq(phy,set.samp(samp))
   }
 
-  leftover.vars <- setdiff(names(otu.melt),c(abundance_var,sample_id,taxa_id,taxranks,sample_vars))
+  leftover.vars <- setdiff(names(otu.melt),c(abundance_var,sample_id,taxa_id,tax_ranks,sample_vars))
   message(str_glue("sample vars: [{sample_id}]; {paste(sample_vars,collapse=\", \")}"))
-  message(str_glue("tax vars: [{taxa_id}]; {paste(taxranks,collapse=\", \")}"))
+  message(str_glue("tax vars: [{taxa_id}]; {paste(tax_ranks,collapse=\", \")}"))
   message(str_glue("abundance var: [{abundance_var}]"))
   if (length(leftover.vars)>0) {
     message(str_glue("(vars not used: {paste(leftover.vars,collapse=\", \")})"))
