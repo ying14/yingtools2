@@ -3402,8 +3402,8 @@ gg.stack2 <- function(..., heights = NULL, gap=unit(0,"pt"),
   if (return.gg.list){
     return(grobs1)
   }
-
-  Reduce(`+`, grobs1) + plot_layout(ncol=1,heights=heights)
+  rlang::inject(patchwork::wrap_plots(!!!grobs1, ncol=1, heights = heights))
+  # Reduce(`+`, grobs1) + plot_layout(ncol=1,heights=heights)
 }
 
 
