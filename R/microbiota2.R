@@ -412,7 +412,7 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 }
 
 
-# TRUE if sample_data, FALSE if tax_table
+# internal, used for dplyr phyloseq commands
 eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
   # eval.phyloseq.expr <- function(expr) {
   expr_label <- as_label(expr)
@@ -447,19 +447,63 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 
 
 
-#' Filter phyloseq object
+#' Mutate/Filter/Select for phyloseq object
 #'
-#' Subset a phyloseq using `dplyr`-style manipulation. Can be operations to be done on `sample_data` or `tax_table`.
+#' Manipulate `phyloseq` object using `dplyr`-style commands.
+#' Operations can be performed on either `sample_data` or `tax_table`,
+#' and will automatically determine which one to modify (and will warn/error if it can't tell)
 #'
-#' @param phy phylseq object
-#' @param ... filter criteria
-#' @param prune_unused_taxa whether or not to remove unused taxa. Default is `TRUE`
-#' @param prune_unused_samples whether or not to remove unused samples. Default is `FALSE`
+#' In these functions, each expression's variables are evaluated, to see if they should be done in `sample_data` or `tax_table`.
+#' If an expression contains variables belonging to both, it will complain and raise an error.
+#' If an expression does not contain variables that can be ascribed, it will raise a warning, and run the expression on `sample_data`.
+#' Note that `mutate` and `filter` evaluates each expression in `...` separately, and `select` will evaluate `...` as a whole.
 #'
+#' @param phy phylseq object to be modified
+#' @param ... expressions to be performed in `mutate`/`filter`/`select`.
+#'
+#' @rdname mutate.phyloseq
 #' @export
 #' @examples
-#' cid.phy %>% filter(Sample_ID!="1037",
-#'                    Genus!="Blautia")
+#' cid.phy %>%
+#'   mutate(sample_id=paste("Sample",Patient_ID),
+#'          genus=paste(Genus,"(Genus)")) %>%
+#'   filter(nseqs<1500,
+#'          Consistency=="liquid") %>%
+#'   select(-taxon,-Genus)
+mutate.phyloseq <- function(phy, ...) {
+  commands <- enexprs(...)
+  is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
+  for (i in seq_along(commands)) {
+    expr <- commands[[i]]
+    use.samp <- is.sample.command[i]
+    var <- names(commands)[i]
+    if (use.samp) {
+      samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
+      if (!identical(sample_names(phy),samp$sample)) {
+        message("Note, sample_names() were altered")
+        sample_names(phy) <- samp$sample
+      }
+      sample_data(phy) <- samp %>% set.samp()
+      message(str_glue("sample_data: {var} = {as_label(expr)}"))
+    } else {
+      tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
+      if (!identical(taxa_names(phy),tax$otu)) {
+        message("Note, taxa_names() were altered")
+        taxa_names(phy) <- tax$otu
+      }
+      tax_table(phy) <- tax %>% set.tax()
+      message(str_glue("tax_table: {var} = {as_label(expr)}"))
+    }
+  }
+  return(phy)
+}
+
+
+
+#' @rdname mutate.phyloseq
+#' @param prune_unused_taxa whether or not to remove unused taxa. Default is `TRUE`
+#' @param prune_unused_samples whether or not to remove unused samples. Default is `FALSE`
+#' @export
 filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
   criteria <- enexprs(...)
   is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
@@ -492,58 +536,10 @@ filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_sample
 }
 
 
-#' Mutate phyloseq object
-#'
-#' Mutate operations on phyloseq object. Can be operations to be done on `sample_data` or `tax_table`.
-#' @param phy phyloseq object
-#' @param ... mutate commands
-#'
-#' @return
+
+
+#' @rdname mutate.phyloseq
 #' @export
-#'
-#' @examples
-mutate.phyloseq <- function(phy, ...) {
-  commands <- enexprs(...)
-
-  is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
-  for (i in seq_along(commands)) {
-    expr <- commands[[i]]
-    use.samp <- is.sample.command[i]
-    var <- names(commands)[i]
-    if (use.samp) {
-      samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
-      if (!identical(sample_names(phy),samp$sample)) {
-        message("Note, sample_names() were altered")
-        sample_names(phy) <- samp$sample
-      }
-      sample_data(phy) <- samp %>% set.samp()
-      message(str_glue("sample_data: {var} = {as_label(expr)}"))
-    } else {
-      tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
-      if (!identical(taxa_names(phy),tax$otu)) {
-        message("Note, taxa_names() were altered")
-        taxa_names(phy) <- tax$otu
-      }
-      tax_table(phy) <- tax %>% set.tax()
-      message(str_glue("tax_table: {var} = {as_label(expr)}"))
-    }
-  }
-  return(phy)
-}
-
-
-
-
-#' Select vars in phyloseq object
-#'
-#' Perform `select` operation on phyloseq object. Can be operations to be done on `sample_data` or `tax_table`.
-#' @param phy phyloseq object
-#' @param ... select expressions
-#'
-#' @return phylseq object, modified
-#' @export
-#'
-#' @examples
 select.phyloseq <- function(phy, ...) {
   commands <- enexprs(...)
   samp.vars <- c(sample_variables(phy),"sample")
@@ -557,20 +553,20 @@ select.phyloseq <- function(phy, ...) {
   }
   if (!has.samp.vars && has.taxa.vars) {
     # do taxa
-    tax <- get.tax(phy) %>% select(otu,!!!commands)
+    tax <- get.tax(phy) %>% select(...)
     message("select on tax_table")
     tax_table(phy) <- tax %>% set.tax()
     return(phy)
   } else if (has.samp.vars && !has.taxa.vars) {
     # do samps
-    samp <- get.samp(phy) %>% select(sample,!!!commands)
+    samp <- get.samp(phy) %>% select(...)
     message("select on sample_data")
     sample_data(phy) <- samp %>% set.samp()
     return(phy)
   } else {
     #neither, unclear
     warning("YTWarning: confusing expression with vars in both tax_table and sample_data; performing on sample_data")
-    samp <- get.samp(phy) %>% select(sample,!!!commands)
+    samp <- get.samp(phy) %>% select(sample,...)
     message("select on sample_data")
     sample_data(phy) <- samp %>% set.samp()
     return(phy)
@@ -1127,7 +1123,6 @@ get.pairwise <- function(dist) {
     filter(as.numeric(sample1)<=as.numeric(sample2))
   xy
 }
-
 
 
 

@@ -2,15 +2,41 @@
 % Please edit documentation in R/microbiota2.R
 \name{mutate.phyloseq}
 \alias{mutate.phyloseq}
-\title{Mutate phyloseq object}
+\alias{filter.phyloseq}
+\alias{select.phyloseq}
+\title{Mutate/Filter/Select for phyloseq object}
 \usage{
 \method{mutate}{phyloseq}(phy, ...)
+
+\method{filter}{phyloseq}(phy, ..., prune_unused_taxa = TRUE, prune_unused_samples = FALSE)
+
+\method{select}{phyloseq}(phy, ...)
 }
 \arguments{
-\item{phy}{phyloseq object}
+\item{phy}{phylseq object to be modified}
 
-\item{...}{mutate commands}
+\item{...}{expressions to be performed in \code{mutate}/\code{filter}/\code{select}.}
+
+\item{prune_unused_taxa}{whether or not to remove unused taxa. Default is \code{TRUE}}
+
+\item{prune_unused_samples}{whether or not to remove unused samples. Default is \code{FALSE}}
 }
 \description{
-Mutate operations on phyloseq object. Can be operations to be done on \code{sample_data} or \code{tax_table}.
+Manipulate \code{phyloseq} object using \code{dplyr}-style commands.
+Operations can be performed on either \code{sample_data} or \code{tax_table},
+and will automatically determine which one to modify (and will warn/error if it can't tell)
+}
+\details{
+In these functions, each expression's variables are evaluated, to see if they should be done in \code{sample_data} or \code{tax_table}.
+If an expression contains variables belonging to both, it will complain and raise an error.
+If an expression does not contain variables that can be ascribed, it will raise a warning, and run the expression on \code{sample_data}.
+Note that \code{mutate} and \code{filter} evaluates each expression in \code{...} separately, and \code{select} will evaluate \code{...} as a whole.
+}
+\examples{
+cid.phy \%>\%
+  mutate(sample_id=paste("Sample",Patient_ID),
+         genus=paste(Genus,"(Genus)")) \%>\%
+  filter(nseqs<1500,
+         Consistency=="liquid") \%>\%
+  select(-taxon,-Genus)
 }
