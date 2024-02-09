@@ -4,7 +4,7 @@
 \alias{filter.phyloseq}
 \title{Filter phyloseq object}
 \usage{
-\method{filter}{phyloseq}(phy, ..., prune_unused_taxa = TRUE)
+\method{filter}{phyloseq}(phy, ..., prune_unused_taxa = TRUE, prune_unused_samples = FALSE)
 }
 \arguments{
 \item{phy}{phylseq object}
@@ -12,7 +12,13 @@
 \item{...}{filter criteria}
 
 \item{prune_unused_taxa}{whether or not to remove unused taxa. Default is \code{TRUE}}
+
+\item{prune_unused_samples}{whether or not to remove unused samples. Default is \code{FALSE}}
 }
 \description{
-Subset a phyloseq using \code{dplyr}-style.
+Subset a phyloseq using \code{dplyr}-style manipulation. Can be operations to be done on \code{sample_data} or \code{tax_table}.
+}
+\examples{
+cid.phy \%>\% filter(Sample_ID!="1037",
+                   Genus!="Blautia")
 }

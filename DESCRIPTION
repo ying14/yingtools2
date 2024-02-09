@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.163
+Version: 0.0.1.164
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -30,6 +30,8 @@ Imports:
     readxl,
     xlsx,
     scales,
+    data.table,
+    phyloseq,
     patchwork,
     gtable,
     grid,
@@ -43,8 +45,6 @@ Imports:
     styler,
     digest
 Suggests:
-    data.table,
-    phyloseq,
     phytools,
     ggtree,
     twilio,

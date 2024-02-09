@@ -12,5 +12,5 @@
 \item{...}{mutate commands}
 }
 \description{
-Mutate operations on phyloseq object
+Mutate operations on phyloseq object. Can be operations to be done on \code{sample_data} or \code{tax_table}.
 }

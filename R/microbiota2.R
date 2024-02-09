@@ -412,26 +412,89 @@ add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
 }
 
 
+# TRUE if sample_data, FALSE if tax_table
+eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
+  # eval.phyloseq.expr <- function(expr) {
+  expr_label <- as_label(expr)
+  vars.used <- all.vars(expr)
+  samp.vars <- c(sample_variables(phy),"sample")
+  taxa.vars <- c(rank_names(phy),"otu")
+  has.samp.vars <- any(vars.used %in% samp.vars)
+  has.taxa.vars <- any(vars.used %in% taxa.vars)
+  if (has.samp.vars && has.taxa.vars) {
+    if (error) {
+      stop(str_glue("YTError: confusing expression with vars in both tax_table and sample_data: {expr_label}"))
+    } else {
+      return(NA)
+    }
+  }
+  if (!has.samp.vars && !has.taxa.vars) {
+    if (error) {
+      warning(str_glue("YTWarning: confusing expression with no vars in tax_table or sample_data: {expr_label} (will perform on sample_data)"))
+      return(TRUE) # do taxa
+    } else {
+      return(NA)
+    }
+  }
+  if (has.samp.vars && !has.taxa.vars) {
+    return(TRUE) # do samp
+  }
+  if (!has.samp.vars && has.taxa.vars) {
+    return(FALSE) # do taxa
+  }
+}
+
+
+
+
 #' Filter phyloseq object
 #'
-#' Subset a phyloseq using `dplyr`-style.
+#' Subset a phyloseq using `dplyr`-style manipulation. Can be operations to be done on `sample_data` or `tax_table`.
+#'
 #' @param phy phylseq object
 #' @param ... filter criteria
 #' @param prune_unused_taxa whether or not to remove unused taxa. Default is `TRUE`
+#' @param prune_unused_samples whether or not to remove unused samples. Default is `FALSE`
+#'
 #' @export
-filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE) {
-  ssub <- phy %>% get.samp() %>% filter(...)
-  physub <- prune_samples(ssub$sample,phy)
-  if (prune_unused_taxa) {
-    physub <- prune_unused_taxa(physub)
+#' @examples
+#' cid.phy %>% filter(Sample_ID!="1037",
+#'                    Genus!="Blautia")
+filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
+  criteria <- enexprs(...)
+  is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
+  for (i in seq_along(criteria)) {
+    expr <- criteria[[i]]
+    use.samp <- is.sample.criteria[i]
+    if (use.samp) {
+      ssub <- phy %>% get.samp() %>% filter(!!expr)
+      n.samps.old <- nsamples(phy)
+      n.samps.new <- nrow(ssub)
+      message(str_glue("samples ({n.samps.old} to {n.samps.new}): {as_label(expr)}"))
+      phy <- prune_samples(ssub$sample,phy)
+    } else {
+      tsub <- phy %>% get.tax() %>% filter(!!expr)
+      n.taxa.old <- ntaxa(phy)
+      n.taxa.new <- nrow(tsub)
+      message(str_glue("taxa ({n.taxa.old} to {n.taxa.new}): {as_label(expr)}"))
+      phy <- prune_taxa(tsub$otu,phy)
+    }
   }
-  return(physub)
+  if (prune_unused_taxa && any(is.sample.criteria)) {
+    message("Removing unused taxa...")
+    phy <- phy %>% prune_unused_taxa()
+  }
+  if (prune_unused_samples && any(!is.sample.criteria)) {
+    message("Removing unused samples...")
+    phy <- phy %>% prune_samples(sample_sums(.)>0,.)
+  }
+  return(phy)
 }
 
 
 #' Mutate phyloseq object
 #'
-#' Mutate operations on phyloseq object
+#' Mutate operations on phyloseq object. Can be operations to be done on `sample_data` or `tax_table`.
 #' @param phy phyloseq object
 #' @param ... mutate commands
 #'
@@ -440,11 +503,80 @@ filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE) {
 #'
 #' @examples
 mutate.phyloseq <- function(phy, ...) {
-  s <- phy %>% get.samp() %>%
-    mutate(...)
-  sample_data(phy) <- s %>% set.samp()
+  commands <- enexprs(...)
+
+  is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
+  for (i in seq_along(commands)) {
+    expr <- commands[[i]]
+    use.samp <- is.sample.command[i]
+    var <- names(commands)[i]
+    if (use.samp) {
+      samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
+      if (!identical(sample_names(phy),samp$sample)) {
+        message("Note, sample_names() were altered")
+        sample_names(phy) <- samp$sample
+      }
+      sample_data(phy) <- samp %>% set.samp()
+      message(str_glue("sample_data: {var} = {as_label(expr)}"))
+    } else {
+      tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
+      if (!identical(taxa_names(phy),tax$otu)) {
+        message("Note, taxa_names() were altered")
+        taxa_names(phy) <- tax$otu
+      }
+      tax_table(phy) <- tax %>% set.tax()
+      message(str_glue("tax_table: {var} = {as_label(expr)}"))
+    }
+  }
   return(phy)
 }
+
+
+
+
+#' Select vars in phyloseq object
+#'
+#' Perform `select` operation on phyloseq object. Can be operations to be done on `sample_data` or `tax_table`.
+#' @param phy phyloseq object
+#' @param ... select expressions
+#'
+#' @return phylseq object, modified
+#' @export
+#'
+#' @examples
+select.phyloseq <- function(phy, ...) {
+  commands <- enexprs(...)
+  samp.vars <- c(sample_variables(phy),"sample")
+  taxa.vars <- c(rank_names(phy),"otu")
+
+  vars <- commands %>% map(all.vars) %>% compact() %>% list_simplify()
+  has.samp.vars <- any(vars %in% samp.vars)
+  has.taxa.vars <- any(vars %in% taxa.vars)
+  if (has.samp.vars && has.taxa.vars) {
+    stop("YTError: confusing expression with vars in both tax_table and sample_data")
+  }
+  if (!has.samp.vars && has.taxa.vars) {
+    # do taxa
+    tax <- get.tax(phy) %>% select(otu,!!!commands)
+    message("select on tax_table")
+    tax_table(phy) <- tax %>% set.tax()
+    return(phy)
+  } else if (has.samp.vars && !has.taxa.vars) {
+    # do samps
+    samp <- get.samp(phy) %>% select(sample,!!!commands)
+    message("select on sample_data")
+    sample_data(phy) <- samp %>% set.samp()
+    return(phy)
+  } else {
+    #neither, unclear
+    warning("YTWarning: confusing expression with vars in both tax_table and sample_data; performing on sample_data")
+    samp <- get.samp(phy) %>% select(sample,!!!commands)
+    message("select on sample_data")
+    sample_data(phy) <- samp %>% set.samp()
+    return(phy)
+  }
+}
+
 
 
 
@@ -961,7 +1093,6 @@ prune_unused_taxa <- function(phy,verbose=TRUE) {
   }
   prune_taxa(keep,phy)
 }
-
 
 
 

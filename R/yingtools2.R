@@ -2183,6 +2183,26 @@ as.Date2 <- function(vec) {
 }
 
 
+
+
+#' All Grepl
+#'
+#' Equivalent to \code{all(grepl(...))}. Performs an initial screen of first 10000 values, to save time.
+#'
+#' This is used in \code{as.Date2} function to save time on pattern matching.
+#' @export
+all.grepl <- function(pattern, x, n.screen=10000, ... ) {
+  if (length(x) > n.screen) {
+    x.screen <- x[1:n.screen]
+    if (!all(grepl(pattern, x.screen, ... ))) {
+      return(FALSE)
+    }
+  }
+  all(grepl(pattern, x, ... ),na.rm=TRUE)
+}
+
+
+
 #' Create Date-Time (POSIXct object)
 #'
 #' Note: The particular use is in [ytdata::visits()] function.

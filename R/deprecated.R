@@ -2,6 +2,14 @@
 # from microbiota.R -------------------------------------------------------
 
 
+filter.phyloseq.old <- function(phy, ..., prune_unused_taxa=TRUE) {
+  ssub <- phy %>% get.samp() %>% filter(...)
+  physub <- prune_samples(ssub$sample,phy)
+  if (prune_unused_taxa) {
+    physub <- prune_unused_taxa(physub)
+  }
+  return(physub)
+}
 
 
 #' Calculate the `taxhorn` distance
@@ -2668,21 +2676,5 @@ occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
 
 
 
-
-#' All Grepl
-#'
-#' Equivalent to \code{all(grepl(...))}. Performs an initial screen of first 10000 values, to save time.
-#'
-#' This is used in \code{as.Date2} function to save time on pattern matching.
-#' @export
-all.grepl <- function(pattern, x, n.screen=10000, ... ) {
-  if (length(x) > n.screen) {
-    x.screen <- x[1:n.screen]
-    if (!all(grepl(pattern, x.screen, ... ))) {
-      return(FALSE)
-    }
-  }
-  all(grepl(pattern, x, ... ))
-}
 
 
