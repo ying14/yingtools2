@@ -47,7 +47,7 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
   if (length(names.exist.and.different)>0) {
     warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
   }
-  sdata <- sdata %>% select(-all_of(names.exist)) %>% cbind(sdata.newcols)
+  sdata <- sdata %>% select(-all_of(names.exist)) %>% cbind(sdata.newcols) %>% as_tibble()
   return(sdata)
 }
 
@@ -501,8 +501,8 @@ mutate.phyloseq <- function(phy, ...) {
 
 
 #' @rdname mutate.phyloseq
-#' @param prune_unused_taxa whether or not to remove unused taxa. Default is `TRUE`
-#' @param prune_unused_samples whether or not to remove unused samples. Default is `FALSE`
+#' @param prune_unused_taxa whether or not to remove unused taxa after sample filtering. Default is `TRUE`
+#' @param prune_unused_samples whether or not to remove unused samples after taxa filtering. Default is `FALSE`
 #' @export
 filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
   criteria <- enexprs(...)
@@ -537,42 +537,50 @@ filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_sample
 
 
 
-
 #' @rdname mutate.phyloseq
 #' @export
 select.phyloseq <- function(phy, ...) {
+  # commands <- exprs(Sample_ID,day,taxon,starts_with("C"))
   commands <- enexprs(...)
   samp.vars <- c(sample_variables(phy),"sample")
   taxa.vars <- c(rank_names(phy),"otu")
-
-  vars <- commands %>% map(all.vars) %>% compact() %>% list_simplify()
-  has.samp.vars <- any(vars %in% samp.vars)
-  has.taxa.vars <- any(vars %in% taxa.vars)
-  if (has.samp.vars && has.taxa.vars) {
-    stop("YTError: confusing expression with vars in both tax_table and sample_data")
+  uses.sample.vars <- map_lgl(commands,~eval_phyloseq_expr(.x,phy,error=FALSE))
+  if (length(uses.sample.vars)==0) {
+    #zero selects
+    stop("YTError: no select variables specified")
   }
-  if (!has.samp.vars && has.taxa.vars) {
-    # do taxa
-    tax <- get.tax(phy) %>% select(...)
+  has.tax <- any(!uses.sample.vars,na.rm=TRUE)
+  has.samp <- any(uses.sample.vars,na.rm=TRUE)
+  if (has.tax && !has.samp) {
+    # tax
     message("select on tax_table")
-    tax_table(phy) <- tax %>% set.tax()
+    tax <- get.tax(phy)
+    pos <- eval_select(expr(c(...)),tax)
+
+    if (!("otu" %in% names(pos))) {
+      otu.pos <- eval_select(expr(otu),tax)
+      pos <- c(pos,otu.pos)
+    }
+    newtax <- set_names(tax[pos], names(pos))
+    tax_table(phy) <- newtax %>% set.tax()
     return(phy)
-  } else if (has.samp.vars && !has.taxa.vars) {
-    # do samps
-    samp <- get.samp(phy) %>% select(...)
+  } else if (has.samp && !has.tax) {
+    # samp
     message("select on sample_data")
-    sample_data(phy) <- samp %>% set.samp()
+    samp <- get.samp(phy)
+    pos <- eval_select(expr(c(...)),samp)
+    if (!("sample" %in% names(pos))) {
+      sample.pos <- eval_select(expr(sample),samp)
+      pos <- c(pos,sample.pos)
+    }
+    newsamp <- set_names(samp[pos], names(pos))
+    sample_data(phy) <- newsamp %>% set.samp()
     return(phy)
   } else {
-    #neither, unclear
-    warning("YTWarning: confusing expression with vars in both tax_table and sample_data; performing on sample_data")
-    samp <- get.samp(phy) %>% select(sample,...)
-    message("select on sample_data")
-    sample_data(phy) <- samp %>% set.samp()
-    return(phy)
+    # can't tell
+    stop("YTError: confusing selection expression, I can't tell whether it refers to `tax_table` or `sample_data`")
   }
 }
-
 
 
 
