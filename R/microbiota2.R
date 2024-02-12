@@ -446,7 +446,6 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 
 
 
-
 #' Mutate/Filter/Select for phyloseq object
 #'
 #' Manipulate `phyloseq` object using `dplyr`-style commands.
@@ -473,30 +472,33 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 mutate.phyloseq <- function(phy, ...) {
   commands <- enexprs(...)
   is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
+  cli_text(col_blue("mutate:"))
   for (i in seq_along(commands)) {
     expr <- commands[[i]]
     use.samp <- is.sample.command[i]
     var <- names(commands)[i]
     if (use.samp) {
       samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
+      cli_text(col_blue("sample_data"),": {var} = {as_label(expr)}")
       if (!identical(sample_names(phy),samp$sample)) {
         message("Note, sample_names() were altered")
         sample_names(phy) <- samp$sample
       }
       sample_data(phy) <- samp %>% set.samp()
-      message(str_glue("sample_data: {var} = {as_label(expr)}"))
     } else {
       tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
+      cli_text(col_blue("tax_table"),": {var} = {as_label(expr)}")
       if (!identical(taxa_names(phy),tax$otu)) {
         message("Note, taxa_names() were altered")
         taxa_names(phy) <- tax$otu
       }
       tax_table(phy) <- tax %>% set.tax()
-      message(str_glue("tax_table: {var} = {as_label(expr)}"))
     }
   }
   return(phy)
 }
+
+
 
 
 
@@ -507,6 +509,7 @@ mutate.phyloseq <- function(phy, ...) {
 filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
   criteria <- enexprs(...)
   is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
+  cli_text(col_blue("filter:"))
   for (i in seq_along(criteria)) {
     expr <- criteria[[i]]
     use.samp <- is.sample.criteria[i]
@@ -514,22 +517,23 @@ filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_sample
       ssub <- phy %>% get.samp() %>% filter(!!expr)
       n.samps.old <- nsamples(phy)
       n.samps.new <- nrow(ssub)
-      message(str_glue("samples ({n.samps.old} to {n.samps.new}): {as_label(expr)}"))
+      cli::cli_text(col_blue("sample_data")," ({n.samps.old} to {n.samps.new} sample{?s}): {as_label(expr)}")
       phy <- prune_samples(ssub$sample,phy)
     } else {
       tsub <- phy %>% get.tax() %>% filter(!!expr)
       n.taxa.old <- ntaxa(phy)
       n.taxa.new <- nrow(tsub)
-      message(str_glue("taxa ({n.taxa.old} to {n.taxa.new}): {as_label(expr)}"))
+      cli::cli_text(col_blue("tax_table")," ({n.taxa.old} to {n.taxa.new}): {as_label(expr)}")
       phy <- prune_taxa(tsub$otu,phy)
     }
   }
   if (prune_unused_taxa && any(is.sample.criteria)) {
-    message("Removing unused taxa...")
+    cli_text("Removing unused taxa...")
+
     phy <- phy %>% prune_unused_taxa()
   }
   if (prune_unused_samples && any(!is.sample.criteria)) {
-    message("Removing unused samples...")
+    cli_text("Removing unused samples...")
     phy <- phy %>% prune_samples(sample_sums(.)>0,.)
   }
   return(phy)
@@ -551,29 +555,30 @@ select.phyloseq <- function(phy, ...) {
   }
   has.tax <- any(!uses.sample.vars,na.rm=TRUE)
   has.samp <- any(uses.sample.vars,na.rm=TRUE)
+  cli_text(col_blue("select:"))
   if (has.tax && !has.samp) {
     # tax
-    message("select on tax_table")
     tax <- get.tax(phy)
-    pos <- eval_select(expr(c(...)),tax)
-
+    pos <- tidyselect::eval_select(expr(c(...)),tax)
     if (!("otu" %in% names(pos))) {
-      otu.pos <- eval_select(expr(otu),tax)
+      otu.pos <- tidyselect::eval_select(expr(otu),tax)
       pos <- c(pos,otu.pos)
     }
     newtax <- set_names(tax[pos], names(pos))
+    cli_text(col_blue("tax_table"),": {ncol(tax)-1} to {ncol(newtax)-1} rank column{?s}")
     tax_table(phy) <- newtax %>% set.tax()
     return(phy)
   } else if (has.samp && !has.tax) {
     # samp
-    message("select on sample_data")
+    cli_text(col_blue("sample_data"),": {as_label(commands)}")
     samp <- get.samp(phy)
-    pos <- eval_select(expr(c(...)),samp)
+    pos <- tidyselect::eval_select(expr(c(...)),samp)
     if (!("sample" %in% names(pos))) {
-      sample.pos <- eval_select(expr(sample),samp)
+      sample.pos <- tidyselect::eval_select(expr(sample),samp)
       pos <- c(pos,sample.pos)
     }
     newsamp <- set_names(samp[pos], names(pos))
+    cli_text(col_blue("sample_data"),": {ncol(samp)-1} to {ncol(newsamp)-1} column{?s}")
     sample_data(phy) <- newsamp %>% set.samp()
     return(phy)
   } else {
@@ -581,7 +586,6 @@ select.phyloseq <- function(phy, ...) {
     stop("YTError: confusing selection expression, I can't tell whether it refers to `tax_table` or `sample_data`")
   }
 }
-
 
 
 #' Check if taxonomy levels are distinct.
@@ -1071,6 +1075,27 @@ phy.collapse.bins.data.frame <- function(data,
   return(new.data)
 }
 
+
+
+#' Transform phyloseq data to relative abundances
+#'
+#' Convenience function that simply runs `phyloseq::transform_sample_counts(phy, function(x) x / sum(x) )`
+#' @param phy phyloseq object to be transformed
+#'
+#' @return phyloseq with relative abundances
+#' @export
+#'
+#' @examples
+#' otu <- cid.phy %>%
+#'   phy.calc.relative.abundance() %>%
+#'   filter(Phylum=="Proteobacteria",
+#'          Patient_ID=="318",prune_unused_taxa = F) %>%
+#'   get.otu.melt()
+#' ggplot(otu,aes(x=sample,y=numseqs,fill=otu,label=Genus)) +
+#'   geom_taxonomy(width = 0.7, show.ribbon = TRUE)
+phy.calc.relative.abundance <- function(phy) {
+  phyloseq::transform_sample_counts(phy, function(x) x / sum(x) )
+}
 
 
 

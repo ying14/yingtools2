@@ -58,7 +58,6 @@
 }
 
 
-
 #' @export
 `%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
   requireNamespace(c("cli","pillar"),quietly = TRUE)
@@ -70,8 +69,9 @@
   which.hits <- str_which(x,pattern=pattern)
   n.hits <- length(which.hits)
   hits <- x[which.hits]
+  cli::cli_text("{name}: {n.hits} hit{?s}")
+  # cli::cli_text("{name}: {n.hits} {ifelse(n.hits==1,'hit','hits')}")
   if (n.hits>0) {
-    cli::cli_text("{name}: {n.hits} {ifelse(n.hits==1,'hit','hits')}")
     sub.hits <- hits %>% head(n=maxhits)
     sub.which.hits <- which.hits %>% head(n=maxhits)
     bullet <- str_glue("[{sub.which.hits}]") %>% pillar::align()

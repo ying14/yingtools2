@@ -17,9 +17,9 @@
 
 \item{...}{expressions to be performed in \code{mutate}/\code{filter}/\code{select}.}
 
-\item{prune_unused_taxa}{whether or not to remove unused taxa. Default is \code{TRUE}}
+\item{prune_unused_taxa}{whether or not to remove unused taxa after sample filtering. Default is \code{TRUE}}
 
-\item{prune_unused_samples}{whether or not to remove unused samples. Default is \code{FALSE}}
+\item{prune_unused_samples}{whether or not to remove unused samples after taxa filtering. Default is \code{FALSE}}
 }
 \description{
 Manipulate \code{phyloseq} object using \code{dplyr}-style commands.
