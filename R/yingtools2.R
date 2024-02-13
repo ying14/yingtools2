@@ -405,6 +405,10 @@ str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
   # declare.args(char="Staphylococcus aureus",str_split_equal_parts)
   # declare.args(char="S taphylococcus aureus",str_split_equal_parts)
 
+  if (is.factor(char)) {
+    levels(char) <- str_split_equal_parts(char=levels(char),nparts=nparts,sep=sep,collapse=collapse)
+    return(char)
+  }
   npartitions <- nparts -1
   locs <- str_locate_all(char,sep)
   lens <- nchar(char)
