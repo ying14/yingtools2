@@ -470,7 +470,7 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 #'          Consistency=="liquid") %>%
 #'   select(-taxon,-Genus)
 mutate.phyloseq <- function(phy, ...) {
-  commands <- enexprs(...)
+  commands <- quos(...)
   is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
   cli_text(col_blue("mutate:"))
   for (i in seq_along(commands)) {
@@ -500,14 +500,12 @@ mutate.phyloseq <- function(phy, ...) {
 
 
 
-
-
 #' @rdname mutate.phyloseq
 #' @param prune_unused_taxa whether or not to remove unused taxa after sample filtering. Default is `TRUE`
 #' @param prune_unused_samples whether or not to remove unused samples after taxa filtering. Default is `FALSE`
 #' @export
 filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
-  criteria <- enexprs(...)
+  criteria <- quos(...)
   is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
   cli_text(col_blue("filter:"))
   for (i in seq_along(criteria)) {
@@ -545,7 +543,7 @@ filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_sample
 #' @export
 select.phyloseq <- function(phy, ...) {
   # commands <- exprs(Sample_ID,day,taxon,starts_with("C"))
-  commands <- enexprs(...)
+  commands <- quos(...)
   samp.vars <- c(sample_variables(phy),"sample")
   taxa.vars <- c(rank_names(phy),"otu")
   uses.sample.vars <- map_lgl(commands,~eval_phyloseq_expr(.x,phy,error=FALSE))
@@ -2060,7 +2058,6 @@ scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                  drop = FALSE,
                                  na.value = "grey50") {
   fill <- ensym(fill)
-
   taxonomy_scale(aesthetic=aesthetics,
                    data=data, tax.palette=tax.palette, unitvar=!!fill,
                    ..., guide = guide, drop = drop, na.value = na.value)
