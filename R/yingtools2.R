@@ -58,6 +58,9 @@
 }
 
 
+
+
+
 #' @export
 `%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
   requireNamespace(c("cli","pillar"),quietly = TRUE)
@@ -5080,6 +5083,59 @@ make.surv.endpt <- function(data, newvar, primary, ... , censor=NULL,competing=F
 
 
 
+
+
+
+#' @export
+yt.tidy <- function(x,...) UseMethod("yt.tidy")
+#' @export
+yt.tidy.coxph <- function(obj) {
+  requireNamespace("broom",quietly=TRUE)
+  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
+}
+#' @export
+yt.tidy.coxphf <- function(obj) {
+  tibble(term=names(obj$coefficients),
+         estimate=exp(obj$coefficients),
+         statistic=NA,
+         std.error=NA,
+         p.value=obj$prob,
+         conf.low=obj$ci.lower,
+         conf.high=obj$ci.upper)
+}
+#' @export
+yt.tidy.crr <- function(obj) {
+  requireNamespace("broom",quietly=TRUE)
+  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
+}
+#' @export
+yt.tidy.glm <- function(obj) {
+  requireNamespace("broom",quietly=TRUE)
+  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95) %>%
+    filter(term!="(Intercept)")
+}
+#' @export
+yt.tidy.logistf <- function(obj) {
+  tibble(term=obj$terms,
+         estimate=exp(obj$coefficients),
+         statistic=NA,
+         std.error=NA,
+         p.value=obj$prob,
+         conf.low=exp(obj$ci.lower),
+         conf.high=exp(obj$ci.upper)) %>%
+    filter(term!="(Intercept)")
+}
+
+
+
+
+paste.ci <- function(est,low,high) {
+  if_else(!is.na(estimate) | !is.na(conf.low) | !is.na(conf.high),
+          paste0(estimate," (",conf.low," - ",conf.high,")"),
+          NA_character_)
+}
+
+
 #' Cox Proportional Hazard model
 #'
 #' Run a Cox (or Fine-Gray) regression.
@@ -5270,51 +5326,15 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
       mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
              p.value=scales::pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-      transmute(yvar,xvar,term,n,haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+      transmute(yvar,xvar,term,n,
+                # haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
+                haz.ratio=paste.ci(estimate,conf.low,conf.high),
+                p.value)
   }
   return(tbl)
 }
 
 
-#' @export
-yt.tidy <- function(x,...) UseMethod("yt.tidy")
-#' @export
-yt.tidy.coxph <- function(obj) {
-  requireNamespace("broom",quietly=TRUE)
-  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
-}
-#' @export
-yt.tidy.coxphf <- function(obj) {
-  tibble(term=names(obj$coefficients),
-         estimate=exp(obj$coefficients),
-         statistic=NA,
-         std.error=NA,
-         p.value=obj$prob,
-         conf.low=obj$ci.lower,
-         conf.high=obj$ci.upper)
-}
-#' @export
-yt.tidy.crr <- function(obj) {
-  requireNamespace("broom",quietly=TRUE)
-  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95)
-}
-#' @export
-yt.tidy.glm <- function(obj) {
-  requireNamespace("broom",quietly=TRUE)
-  obj %>% broom::tidy(exponentiate=TRUE,conf.int=TRUE,conf.level=0.95) %>%
-    filter(term!="(Intercept)")
-}
-#' @export
-yt.tidy.logistf <- function(obj) {
-  tibble(term=obj$terms,
-         estimate=exp(obj$coefficients),
-         statistic=NA,
-         std.error=NA,
-         p.value=obj$prob,
-         conf.low=exp(obj$ci.lower),
-         conf.high=exp(obj$ci.upper)) %>%
-    filter(term!="(Intercept)")
-}
 
 
 #' Univariate and Multivariate Cox Regression
@@ -5355,8 +5375,12 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
                multi.p.value=pvalue(multi.p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high,multi.estimate,multi.conf.low,multi.conf.high),~formatC(.,format="f",digits=2)) %>%
         transmute(yvar,xvar,term,n,
-                  haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
-                  multi.haz.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),multi.p.value)
+                  # haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
+                  haz.ratio=paste.ci(estimate,conf.low,conf.high),
+                  p.value,
+                  # multi.haz.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),
+                  multi.haz.ratio=paste.ci(multi.estimate,multi.conf.low,multi.conf.high),
+                  multi.p.value)
     }
   } else {
     tbl <- univariate.tbl
@@ -5366,7 +5390,9 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
                p.value=pvalue(p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
                     transmute(yvar,xvar,term,n,
-                              haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+                              # haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
+                              haz.ratio=paste.ci(estimate,conf.low,conf.high),
+                              p.value)
     }
   }
   tbl
@@ -5443,13 +5469,13 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
     tbl <- tbl %>%
       mutate(p.value=scales::pvalue(p.value)) %>%
       mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-      transmute(yvar,xvar,term,n,odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+      transmute(yvar,xvar,term,n,
+                # odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
+                odds.ratio=paste.ci(estimate,conf.low,conf.high),
+                p.value)
   }
   tbl
 }
-
-
-
 
 #' Univariate and Multivariate Cox Regression
 #'
@@ -5488,8 +5514,12 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,firth
                multi.p.value=pvalue(multi.p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high,multi.estimate,multi.conf.low,multi.conf.high),~formatC(.,format="f",digits=2)) %>%
         transmute(yvar,xvar,term,n,
-                  odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value,
-                  multi.odds.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),multi.p.value)
+                  # odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
+                  odds.ratio=paste.ci(estimate,conf.low,conf.high),
+                  p.value,
+                  # multi.odds.ratio=paste0(multi.estimate," (",multi.conf.low," - ",multi.conf.high,")"),
+                  multi.odds.ratio=paste.ci(multi.estimate,multi.conf.low,multi.conf.high),
+                  multi.p.value)
     }
   } else {
     tbl <- univariate.tbl
@@ -5498,7 +5528,9 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,firth
         mutate(p.value=pvalue(p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
         transmute(yvar,xvar,term,n,
-                  odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),p.value)
+                  # odds.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
+                  odds.ratio=paste.ci(estimate,conf.low,conf.high),
+                  p.value)
     }
   }
   tbl
