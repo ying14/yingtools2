@@ -329,10 +329,10 @@ get.phyloseq.from.melt <- function(otu.melt,
 }
 
 
-
 #' Calculate Abundance from Phyloseq
 #'
 #' Given a [`phyloseq`][`phyloseq::phyloseq-class`], calculate relative abundance for each sample.
+#' `get.abundance` returns data frame with values, `add.abundance` returns phyloseq with values stored in `sample_data`
 #' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be analyzed
 #' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
 #' @param counts if `TRUE`, will return count rather than relative abundance
@@ -340,20 +340,17 @@ get.phyloseq.from.melt <- function(otu.melt,
 #'
 #' @examples
 #' library(phyloseq)
-#' get.abundance(cid.phy,pct.entero=Genus %in% "Enterococcus",pct.proteo=Phylum %in% "Proteobacteria")
+#' get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
 #' @export
 get.abundance <- function(phy,..., counts=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
-
   vars <- quos(...)
-  varnames <- names(vars)
-  novarname <- varnames==""
-  if (any(novarname)) {
-    default.name <- make.names(rep("pctseqs",sum(novarname)),unique=TRUE)
-    varnames[novarname] <- default.name
-  }
+  altnames <- vars %>% map_chr(~paste0(ifelse(counts,"count_","pct_"),as_label(.x))) %>% make.names(unique=TRUE)
+  varnames <- names(vars) %>% na_if("") %>% coalesce(altnames)
+
   t <- get.tax(phy)
-  otu <- otu_table(phy,taxa_are_rows=FALSE)
+  # otu <- otu_table(phy,taxa_are_rows=FALSE)
+  otu <- get.otu(phy)
   seq.total <- sample_sums(phy)
   n.zero.samps <- sum(seq.total==0)
   if (n.zero.samps>0) {
@@ -363,53 +360,32 @@ get.abundance <- function(phy,..., counts=FALSE) {
   for (i in 1:length(vars)) {
     var <- vars[[i]]
     varname <- varnames[i]
-    select.otus <- t %>% mutate(.criteria=!!var) %>% pull(.criteria)
-    if (all(!select.otus)) {
-      warning("YTWarning: no taxa meeting this criteria: ",as_label(var))
-      tax.pctseqs <- 0
+    message(varname)
+    select.otus <- t %>% mutate(.criteria=!!var,
+                                .criteria=!is.na(.criteria) & .criteria) %>% pull(.criteria)
+    tax.sums <- otu[select.otus,,drop=FALSE] %>% apply(2,sum)
+    if (counts) {
+      tax.pctseqs <- tax.sums
     } else {
-      tax.sums <- otu[select.otus,,drop=FALSE] %>% apply(2,sum)
-      if (counts) {
-        tax.pctseqs <- tax.sums
-      } else {
-        tax.pctseqs <- tax.sums/seq.total
-      }
+      tax.pctseqs <- tax.sums/seq.total
     }
     s <- s %>% mutate(!!varname:=unname(tax.pctseqs))
   }
-  message("Created column(s): ",paste(varnames,collapse=", "))
+  # message("Created column(s): ",paste(varnames,collapse=", "))
   return(s)
 }
 
 
-#' Add abundance to sample data
-#'
-#'
-#' @param sdata sample data to be modified
-#' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
-#' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be used for caluclation
-#' @param counts if `TRUE`, will return count rather than relative abundance
-#'
-#' @return returns `sdata`, with additional columns for abundance.
-#'
-#' @examples
-#' library(phyloseq)
-#' get.samp(cid.phy) %>%
-#'   add.abundance(pct.entero=Genus=="Enterococcus",
-#'                 pct.proteo=Phylum=="Proteobacteria",
-#'                 phy=cid.phy)
+#' @rdname get.abundance
 #' @export
-add.abundance <- function(sdata, ... ,phy,counts=FALSE) {
-  requireNamespace("phyloseq",quietly=TRUE)
-  s <- sdata %>% pull(sample) %>% prune_samples(phy) %>%
-    prune_taxa(taxa_sums(.)>0,.) %>%
-    get.abundance(...,counts=counts)
-  missing.samps <- setdiff(sdata$sample,s$sample)
-  if (length(missing.samps)>0) {
-    stop("YTError: ",length(missing.samps)," samples are missing from phyloseq object")
-  }
-  sdata %>% left_join(s,by="sample")
+add.abundance <- function(phy, ... , counts=FALSE) {
+  quolist <- quos(...)
+  s <- get.abundance(phy, !!!quolist,counts=counts)
+  sample_data(phy) <- get.samp(phy) %>% inner_join(s,by="sample") %>% set.samp()
+  return(phy)
 }
+
+
 
 
 # internal, used for dplyr phyloseq commands

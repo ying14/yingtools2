@@ -2,9 +2,12 @@
 % Please edit documentation in R/microbiota2.R
 \name{get.abundance}
 \alias{get.abundance}
+\alias{add.abundance}
 \title{Calculate Abundance from Phyloseq}
 \usage{
 get.abundance(phy, ..., counts = FALSE)
+
+add.abundance(phy, ..., counts = FALSE)
 }
 \arguments{
 \item{phy}{\code{\link[phyloseq:phyloseq-class]{phyloseq}} object to be analyzed}
@@ -18,8 +21,9 @@ a data frame containing sample identifier and abundance columns
 }
 \description{
 Given a \code{\link[phyloseq:phyloseq-class]{phyloseq}}, calculate relative abundance for each sample.
+\code{get.abundance} returns data frame with values, \code{add.abundance} returns phyloseq with values stored in \code{sample_data}
 }
 \examples{
 library(phyloseq)
-get.abundance(cid.phy,pct.entero=Genus \%in\% "Enterococcus",pct.proteo=Phylum \%in\% "Proteobacteria")
+get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
 }
