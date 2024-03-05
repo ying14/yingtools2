@@ -2159,7 +2159,10 @@ taxonomy_scale <- function(aesthetic,
 
 
 
-
+#' GuideTaxonomy
+#'
+#' ggproto method for tax legend.
+#' @export
 GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                          params = list(
                            title = waiver(),
@@ -2177,8 +2180,8 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                            override.tax.palette = NULL
                          ),
                          train = function(self, params = self$params, scale, aesthetic = NULL, ...) {
-                           # run Guide$train
                            newparams <- ggproto_parent(Guide, self)$train(params, scale, aesthetic, ...)
+                           # train() prepares data for legend.
                            if (!is.null(newparams$override.tax.palette)) {
                              pal <- newparams$override.tax.palette
                            } else if (!scale$drop) {
@@ -2241,12 +2244,18 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                            grlist <- unlist(lapply(seq_len(params$n_breaks), draw), FALSE)
                            grlist
                          },
+                         setup_elements = function(params, elements, theme) {
+                           elems <- GuideLegend$setup_elements(params,elements,theme)
+                           elems$key_width <- elems$key_width * 3
+                           elems
+                         },
                          assemble_drawing = function(self, grobs, layout, sizes, params, elements) {
-                           sizes$widths[1] <- sizes$widths[1]*3
                            gb <- ggproto_parent(GuideLegend, self)$assemble_drawing(grobs, layout, sizes, params, elements)
                            gb
                          }
 )
+
+
 
 
 
