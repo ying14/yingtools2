@@ -50,19 +50,22 @@ Discrete scales for taxonomy.
 }
 \details{
 This is modified from \code{\link[ggplot:scale_fill_manual]{ggplot::scale_fill_manual()}}. It runs \code{\link[=get.taxonomy.colordata]{get.taxonomy.colordata()}} to obtain colors.
+If you want zero gap between shades in the legend, \verb{use key_glyph=}\code{\link[=draw_key_polygon_close]{draw_key_polygon_close()}} in the \code{geom} statement,
+which is what \code{\link[=geom_taxonomy]{geom_taxonomy()}} does.
 }
 \examples{
 library(tidyverse)
 library(phyloseq)
 
+# abundance plot for a single sample
 otu <- prune_samples("179A",cid.phy) \%>\%
   phy.collapse.bins(level=2) \%>\%
   get.otu.melt() \%>\%
   arrange(Kingdom,Phylum,Class,Order,Family,Genus,taxon) \%>\%
   mutate(otu=fct_inorder(otu))
-
 g <- ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
-  geom_col(color="black") +
+  geom_col(key_glyph=draw_key_polygon_close,
+           color="black") +
   scale_y_continuous(trans=log_epsilon_trans(0.01))
 
 g + scale_fill_taxonomy(data=otu,fill=otu)
@@ -80,7 +83,7 @@ g + scale_fill_taxonomy(data=otu,fill=otu,
                         guide=guide_taxonomy(override.tax.palette = yt.palette3a))
 
 # customizations
-g + scale_fill_taxonomy(data=otu,fill=otu,
-                        guide=guide_taxonomy(keywidth=1.5,
-                                             keyheight=0.85,ncol=2))
+g + scale_fill_taxonomy(data=otu,fill=otu,guide=guide_taxonomy(ncol=3)) +
+  theme(legend.position="top",
+        legend.key.size = unit(0.75,"lines"))
 }

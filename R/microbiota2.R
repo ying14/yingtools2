@@ -1549,6 +1549,33 @@ calc.pairwise <- function(sample1, sample2, method, phy,
 
 # stacked taxplot functions -----------------------------------------------
 
+
+#' draw_key_polygon_close
+#'
+#' Same as [ggplot2::draw_key_polygon()], but with zero gap width.
+#' Used in [guide_gengrob.taxonomy()].
+#' @export
+draw_key_polygon_close <- function(data, params, size) {
+  if (is.null(data$linewidth)) {
+    data$linewidth <- 0.5
+  }
+  lwd <- min(data$linewidth, min(size) / 4)
+  grid::rectGrob(
+    # width = unit(1, "npc") - unit(lwd, "mm"),
+    width = unit(1, "npc"),
+    height = unit(1,"npc") - unit(lwd, "mm"),
+    gp = gpar(col = data$colour %||% NA,
+              fill = alpha(data$fill %||% "grey20", data$alpha),
+              lty = data$linetype %||% 1,
+              lwd = lwd * .pt,
+              linejoin = params$linejoin %||% "mitre",
+              lineend = params$lineend %||% "butt"))
+}
+
+
+
+
+
 #' Stacked Taxonomy Bar
 #'
 #' Creates stacked taxonomy barplots.
@@ -1698,22 +1725,7 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                           fontface = 1,
                                           lineheight = 0.75),
                         extra_params = c("tax.palette","drop","na.rm"),
-                        # draw_key = draw_key_polygon_close,
-                        draw_key = function (data, params, size) {
-                          if (is.null(data$linewidth)) {
-                            data$linewidth <- 0.5
-                          }
-                          lwd <- min(data$linewidth, min(size)/4)
-                          rectGrob(width = unit(1, "npc"),
-                                   # width = unit(1, "npc") - unit(lwd, "mm"),
-                                   height = unit(1, "npc") - unit(lwd, "mm"),
-                                   gp = gpar(col = data$colour %||% NA,
-                                             fill = fill_alpha(data$fill %||% "grey20", data$alpha),
-                                             lty = data$linetype %||% 1,
-                                             lwd = lwd * .pt,
-                                             linejoin = params$linejoin %||% "mitre",
-                                             lineend = params$lineend %||% "butt"))
-                        },
+                        draw_key = draw_key_polygon_close,
                         draw_panel = function(data, panel_params, coord,
                                               lineend = "butt",
                                               linejoin = "mitre",
@@ -2009,13 +2021,13 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
                          })
 
 
-
-
 #' Taxonomy color scales
 #'
 #' Discrete scales for taxonomy.
 #'
 #' This is modified from [ggplot::scale_fill_manual()]. It runs [get.taxonomy.colordata()] to obtain colors.
+#' If you want zero gap between shades in the legend, `use key_glyph=`[draw_key_polygon_close()] in the `geom` statement,
+#' which is what [geom_taxonomy()] does.
 #' @inheritParams get.taxonomy.colordata
 #' @param ...
 #' @param aesthetics The names of the aesthetics that this scale works with. Default is `"fill"`
@@ -2033,14 +2045,15 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #' library(tidyverse)
 #' library(phyloseq)
 #'
+#' # abundance plot for a single sample
 #' otu <- prune_samples("179A",cid.phy) %>%
 #'   phy.collapse.bins(level=2) %>%
 #'   get.otu.melt() %>%
 #'   arrange(Kingdom,Phylum,Class,Order,Family,Genus,taxon) %>%
 #'   mutate(otu=fct_inorder(otu))
-#'
 #' g <- ggplot(otu,aes(x=otu,y=pctseqs,fill=otu)) +
-#'   geom_col(color="black") +
+#'   geom_col(key_glyph=draw_key_polygon_close,
+#'            color="black") +
 #'   scale_y_continuous(trans=log_epsilon_trans(0.01))
 #'
 #' g + scale_fill_taxonomy(data=otu,fill=otu)
@@ -2058,9 +2071,9 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #'                         guide=guide_taxonomy(override.tax.palette = yt.palette3a))
 #'
 #' # customizations
-#' g + scale_fill_taxonomy(data=otu,fill=otu,
-#'                         guide=guide_taxonomy(keywidth=1.5,
-#'                                              keyheight=0.85,ncol=2))
+#' g + scale_fill_taxonomy(data=otu,fill=otu,guide=guide_taxonomy(ncol=3)) +
+#'   theme(legend.position="top",
+#'         legend.key.size = unit(0.75,"lines"))
 scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
                                 fill = Species,
                                 aesthetics = "fill",
@@ -2073,6 +2086,8 @@ scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
                  data=data, tax.palette=tax.palette, unitvar=!!fill,
                  ..., guide = guide, drop = drop, na.value = na.value)
 }
+
+
 
 
 #' @rdname scale_fill_taxonomy
@@ -2156,6 +2171,8 @@ taxonomy_scale <- function(aesthetic,
           tax.palette=tax.palette,
           position = position)
 }
+
+
 
 
 
@@ -2581,28 +2598,6 @@ guide_gengrob.taxonomy <- function(guide, theme) {
   gt
 }
 
-
-
-
-#' draw_key_polygon_close
-#'
-#' Same as [ggplot2::draw_key_polygon()], but with zero gap width.
-#' Used in [guide_gengrob.taxonomy()].
-#' @export
-draw_key_polygon_close <- function(data, params, size) {
-  if (is.null(data$linewidth)) {
-    data$linewidth <- 0.5
-  }
-  lwd <- min(data$linewidth, min(size) / 4)
-  grid::rectGrob(
-    # width = unit(1, "npc") - unit(lwd, "mm"),
-    width = unit(1, "npc"),
-    height = unit(1,"npc") - unit(lwd, "mm"),
-    gp = gpar(col = data$colour %||% NA,
-              fill = alpha(data$fill %||% "grey20", data$alpha),
-              lty = data$linetype %||% 1, lwd = lwd * .pt,
-              linejoin = params$linejoin %||% "mitre", lineend = params$lineend %||% "butt"))
-}
 
 
 
