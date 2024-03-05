@@ -6177,3 +6177,18 @@ runGadget_bg <- function(app,args=list(),port=4567) {
   return(ps)
 }
 
+
+
+
+#' Get possible R environment path locations
+#' @export
+get.environment.locations <- function() {
+  env.files <- c("<R_ENVIRON>" = Sys.getenv("R_ENVIRON"),
+                 "<R_HOME>/etc/Renviron.site" = file.path(Sys.getenv("R_HOME"),"etc","Renviron.site"),
+                 "<R_ENVIRON_USER>" = Sys.getenv("R_ENVIRON_USER"),
+                 "<working_dir>/.Renviron" = file.path(getwd(),".Renviron"),
+                 "<user_homedir>.Renviron" = path.expand("~/.Renviron")) %>% normalizePath("/")
+  env.files
+
+}
+
