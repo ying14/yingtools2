@@ -1549,11 +1549,6 @@ calc.pairwise <- function(sample1, sample2, method, phy,
 
 # stacked taxplot functions -----------------------------------------------
 
-
-
-
-
-
 #' Stacked Taxonomy Bar
 #'
 #' Creates stacked taxonomy barplots.
@@ -1703,6 +1698,22 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                           fontface = 1,
                                           lineheight = 0.75),
                         extra_params = c("tax.palette","drop","na.rm"),
+                        # draw_key = draw_key_polygon_close,
+                        draw_key = function (data, params, size) {
+                          if (is.null(data$linewidth)) {
+                            data$linewidth <- 0.5
+                          }
+                          lwd <- min(data$linewidth, min(size)/4)
+                          rectGrob(width = unit(1, "npc"),
+                                   # width = unit(1, "npc") - unit(lwd, "mm"),
+                                   height = unit(1, "npc") - unit(lwd, "mm"),
+                                   gp = gpar(col = data$colour %||% NA,
+                                             fill = fill_alpha(data$fill %||% "grey20", data$alpha),
+                                             lty = data$linetype %||% 1,
+                                             lwd = lwd * .pt,
+                                             linejoin = params$linejoin %||% "mitre",
+                                             lineend = params$lineend %||% "butt"))
+                        },
                         draw_panel = function(data, panel_params, coord,
                                               lineend = "butt",
                                               linejoin = "mitre",
@@ -1744,7 +1755,7 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                             grob_sample <- GeomRect$draw_panel(data=data_sample,panel_params,coord,
                                                                lineend = "butt", linejoin = "mitre")
                           } else {
-                            grob_sample <- nullGrob()
+                            grob_sample <- grid::nullGrob()
                           }
                           # ribbon
                           if (show.ribbon) {
@@ -1761,7 +1772,7 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                             })
                             grob_ribbon <- gTree(children = inject(gList(!!!grobs)))
                           } else {
-                            grob_ribbon <- nullGrob()
+                            grob_ribbon <- grid::nullGrob()
                           }
                           # draw col
                           data_col <- data %>%
@@ -1779,7 +1790,7 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                             data <- data %>% mutate(label=str_split_equal_parts(label))
                           }
                           if (all(is.na(data$label))) {
-                            grob_text <- nullGrob()
+                            grob_text <- grid::nullGrob()
                           } else if (fit.text) {
                             fontsize_factor <- 11/3.88 # to convert fontsizes of geom_fit_text
                             data_fittext <- data %>%
@@ -1840,19 +1851,18 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
 
 
 
-
 #' taxfittextGrob
 #'
 #' called by: `GeomTaxonomy::draw_panel()` for fitted tax labels
 #' modified version of `ggfittext:::GeomFitText$draw_panel()`
 #' @export
 taxfittextGrob <- function(data, panel_scales, coord,
-                            padding.x = grid::unit(1, "mm"),
-                            padding.y = grid::unit(1, "mm"),
-                            min.size = 4, grow = FALSE, reflow = FALSE,
-                            hjust = NULL, vjust = NULL,
-                            fullheight = NULL, width = NULL, height = NULL, formatter = NULL,
-                            contrast = FALSE, place = "centre", outside = FALSE) {
+                           padding.x = grid::unit(1, "mm"),
+                           padding.y = grid::unit(1, "mm"),
+                           min.size = 4, grow = FALSE, reflow = FALSE,
+                           hjust = NULL, vjust = NULL,
+                           fullheight = NULL, width = NULL, height = NULL, formatter = NULL,
+                           contrast = FALSE, place = "centre", outside = FALSE) {
   is_polar <- "CoordPolar" %in% class(coord)
   if (!is_polar) {
     data <- coord$transform(data, panel_scales)
@@ -2052,50 +2062,49 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #'                         guide=guide_taxonomy(keywidth=1.5,
 #'                                              keyheight=0.85,ncol=2))
 scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
-                                 fill = Species,
-                                 aesthetics = "fill",
-                                 guide = guide_taxonomy(keywidth = 3),
-                                 drop = FALSE,
-                                 na.value = "grey50") {
+                                fill = Species,
+                                aesthetics = "fill",
+                                guide = guide_taxonomy(),
+                                # guide = guide_taxonomy(keywidth = 3),
+                                drop = FALSE,
+                                na.value = "grey50") {
   fill <- ensym(fill)
   taxonomy_scale(aesthetic=aesthetics,
-                   data=data, tax.palette=tax.palette, unitvar=!!fill,
-                   ..., guide = guide, drop = drop, na.value = na.value)
+                 data=data, tax.palette=tax.palette, unitvar=!!fill,
+                 ..., guide = guide, drop = drop, na.value = na.value)
 }
-
 
 
 #' @rdname scale_fill_taxonomy
 #' @export
 scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
-                                  color = Species,
-                                  aesthetics = "colour",
-                                  guide = guide_taxonomy(keywidth = 3),
-                                  drop = FALSE,
-                                  na.value = "grey50") {
+                                 color = Species,
+                                 aesthetics = "colour",
+                                 guide = guide_taxonomy(),
+                                 #  guide = guide_taxonomy(keywidth = 3),
+                                 drop = FALSE,
+                                 na.value = "grey50") {
   color <- ensym(color)
   taxonomy_scale(aesthetic=aesthetics,
-                   data=data, tax.palette=tax.palette, unitvar=!!color,
-                   ..., guide = guide, drop = drop, na.value = na.value)
+                 data=data, tax.palette=tax.palette, unitvar=!!color,
+                 ..., guide = guide, drop = drop, na.value = na.value)
 }
-
-
-
 
 #' Taxonomy scale constructor
 #'
 #' Similar to  [ggplot2:::manual_scale()]
 #' @export
 taxonomy_scale <- function(aesthetic,
-                             data, tax.palette, unitvar,
-                             guide=guide_taxonomy(keywidth = 3),
-                             drop = FALSE,
-                             na.value="grey50",
-                             na.translate=TRUE,
-                             expand=waiver(),
-                             name=waiver(),
-                             position="left",
-                             limits = NULL) {
+                           data, tax.palette, unitvar,
+                           guide=guide_taxonomy(),
+                           # guide=guide_taxonomy(keywidth = 3),
+                           drop = FALSE,
+                           na.value="grey50",
+                           na.translate=TRUE,
+                           expand=waiver(),
+                           name=waiver(),
+                           position="left",
+                           limits = NULL) {
   unitvar <- ensym(unitvar)
   if (is(data,"phyloseq") | is(data,"taxonomyTable")) {
     data <- get.tax(data)
@@ -2104,14 +2113,6 @@ taxonomy_scale <- function(aesthetic,
   values <- tax.colors$color
   breaks <- tax.colors$unit
   labels <- tax.colors$name
-
-  # ggplot2:::manual_scale(aesthetic=aesthetic, values = values, breaks =breaks, labels=labels,
-  #                        guide=guide, drop=drop, na.value=na.value, limits = limits)
-
-  # if (is.null(limits) && !is.null(names(values))) {
-  #   limits <- function(x) intersect(x, names(values)) %||%
-  #     character()
-  # }
   if (is.vector(values) && is.null(names(values)) && !ggplot2:::is.waive(breaks) &&
       !is.null(breaks) && !is.function(breaks)) {
     if (length(breaks) <= length(values)) {
@@ -2127,10 +2128,6 @@ taxonomy_scale <- function(aesthetic,
     }
     values
   }
-  # discrete_scale(aesthetics=aesthetic, scale_name="manual", palette=pal,
-  #                breaks = breaks, limits = limits, labels=labels,
-  #                guide=guide, drop=drop, na.value=na.value)
-
   aesthetics <- standardise_aes_names(aesthetic)
   ggplot2:::check_breaks_labels(breaks, labels)
   if (!is.function(limits) && (length(limits) > 0) && !is.discrete(limits)) {
@@ -2162,20 +2159,142 @@ taxonomy_scale <- function(aesthetic,
 
 
 
+
+GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
+                         params = list(
+                           title = waiver(),
+                           theme = NULL,
+                           # General
+                           override.aes = list(),
+                           nrow = NULL,
+                           ncol = NULL,
+                           reverse = FALSE,
+                           order = 0,
+                           name  = "taxlegend",
+                           hash  = character(),
+                           position = NULL,
+                           direction = NULL,
+                           override.tax.palette = NULL
+                         ),
+                         train = function(self, params = self$params, scale, aesthetic = NULL, ...) {
+                           # run Guide$train
+                           newparams <- ggproto_parent(Guide, self)$train(params, scale, aesthetic, ...)
+                           if (!is.null(newparams$override.tax.palette)) {
+                             pal <- newparams$override.tax.palette
+                           } else if (!scale$drop) {
+                             pal <- scale$tax.palette
+                           } else {
+                             pal <- NULL
+                           }
+                           if (!is.null(pal)) {
+                             full.key <- pal %>% imap_dfr(~{
+                               tibble(!!sym(aesthetic):=!!f_rhs(.x),.label=.y)
+                             }) %>%
+                               mutate(.label=fct_inorder(.label),
+                                      .value=NA_character_)
+                             old.key <- newparams$key
+                             extra.colors <- old.key %>% anti_join(full.key,by=aesthetic)
+                             if (nrow(extra.colors)>0) {
+                               warning("YTWarning: some colors are not represented in the legend being used!")
+                             }
+                             newparams$key <- full.key
+                           }
+                           ###### group values by label, and make lists of colors ######
+                           if (!is.null(newparams$key)) {
+                             newkey <- newparams$key %>% distinct() %>%
+                               group_by(.label) %>%
+                               summarize(!!newparams$aesthetic := list(unique(!!sym(newparams$aesthetic))),
+                                         .value=list(.value),
+                                         .groups = "drop") %>%
+                               as.data.frame(stringsAsFactors=FALSE)
+                             newparams$key <- newkey
+                           }
+                           #############################################################
+                           newparams
+                         },
+                         build_decor = function(decor, grobs, elements, params) {
+                           key_size <- c(elements$width_cm, elements$height_cm) * 10
+                           draw <- function(i) {
+                             bg <- elements$key
+                             keys <- lapply(decor, function(g) {
+                               data <- vctrs::vec_slice(g$data, i)
+                               if (data$.draw %||% TRUE) {
+                                 ########################
+                                 dlist <- data %>%
+                                   unnest(any_of(c("fill","colour"))) %>%
+                                   rowwise() %>%
+                                   group_split()
+                                 grlist <- dlist %>% map(~{
+                                   key <- g$draw_key(.x, g$params, key_size)
+                                   ggplot2:::set_key_size(key, data$linewidth, data$size, key_size/10)
+                                 })
+                                 gr <- gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
+                                 gr
+                                 ########################
+                               }
+                               else {
+                                 ggplot2::zeroGrob()
+                               }
+                             })
+                             c(list(bg), keys)
+                           }
+                           grlist <- unlist(lapply(seq_len(params$n_breaks), draw), FALSE)
+                           grlist
+                         },
+                         assemble_drawing = function(self, grobs, layout, sizes, params, elements) {
+                           sizes$widths[1] <- sizes$widths[1]*3
+                           gb <- ggproto_parent(GuideLegend, self)$assemble_drawing(grobs, layout, sizes, params, elements)
+                           gb
+                         }
+)
+
+
+
+
 #' Taxonomy Guide
 #'
 #' Used by [scale_fill_taxonomy()] to create a custom taxonomy legend.
 #' Adapted from [ggplot2::guide_legend()].
+#'
+#' @param override.tax.palette Use tax palette, overriding data
 #' @export
 guide_taxonomy <- function(title = waiver(),
                            override.tax.palette = NULL,
-                            title.position = NULL, title.theme = NULL,
-                            title.hjust = NULL, title.vjust = NULL, label = TRUE, label.position = NULL,
-                            label.theme = NULL, label.hjust = NULL, label.vjust = NULL,
-                            keywidth = 3,
-                            keyheight = NULL, direction = NULL, default.unit = "line",
-                            override.aes = list(), nrow = NULL, ncol = NULL, byrow = FALSE,
-                            reverse = FALSE, order = 0, ...) {
+                           theme = NULL, position = NULL, direction = NULL,
+                           override.aes = list(), nrow = NULL, ncol = NULL, reverse = FALSE,
+                           order = 0, ...) {
+  # modified from guide_legend
+
+  if (packageVersion("ggplot2")<"3.5.0") {
+    return(guide_taxonomyOLD(override.tax.palette=override.tax.palette,...))
+  }
+
+  theme <- ggplot2:::deprecated_guide_args(theme, ...)
+  if (!is.null(position)) {
+    position <- arg_match0(position, c(.trbl, "inside"))
+  }
+  new_guide(title = title,
+            theme = theme, direction = direction,
+            override.aes = ggplot2:::rename_aes(override.aes),
+            override.tax.palette = override.tax.palette,
+            nrow = nrow,
+            ncol = ncol, reverse = reverse, order = order, position = position,
+            available_aes = "any", name = "taxonomy", super = GuideTaxonomy)
+}
+
+
+
+#' Taxonomy Guide (OLD)
+#' @export
+guide_taxonomyOLD <- function(title = waiver(),
+                              override.tax.palette = NULL,
+                              title.position = NULL, title.theme = NULL,
+                              title.hjust = NULL, title.vjust = NULL, label = TRUE, label.position = NULL,
+                              label.theme = NULL, label.hjust = NULL, label.vjust = NULL,
+                              keywidth = 3,
+                              keyheight = NULL, direction = NULL, default.unit = "line",
+                              override.aes = list(), nrow = NULL, ncol = NULL, byrow = FALSE,
+                              reverse = FALSE, order = 0, ...) {
   # modified from guide_legend
   if (!is.null(keywidth) && !is.unit(keywidth)) {
     keywidth <- unit(keywidth, default.unit)
@@ -2201,7 +2320,9 @@ guide_taxonomy <- function(title = waiver(),
 }
 
 
-#' guide_train.taxonomy
+
+
+#' guide_train.taxonomy (OLD)
 #'
 #' Adopted from `ggplot2:::guide_train.legend`, but converts items to list-col colors.
 #' Called by name, by [guide_taxonomy()].
@@ -2242,15 +2363,20 @@ guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
   return(guide)
 }
 
-#' guide_geom.taxonomy
+#' guide_geom.taxonomy (OLD)
 #'
 #' Called by name, by [guide_taxonomy()].
 #' @export
-guide_geom.taxonomy <- ggplot2:::guide_geom.legend
+guide_geom.taxonomy <- function(...) {
+  if (packageVersion("ggplot2")<"3.5.0") {
+    ggplot2:::guide_geom.legend(...)
+  }
+}
 
 
 
-#' guide_gengrob.taxonomy
+
+#' guide_gengrob.taxonomy (OLD)
 #'
 #' Called by name, by [guide_taxonomy()].
 #' @export
@@ -2459,7 +2585,7 @@ draw_key_polygon_close <- function(data, params, size) {
     data$linewidth <- 0.5
   }
   lwd <- min(data$linewidth, min(size) / 4)
-  rectGrob(
+  grid::rectGrob(
     # width = unit(1, "npc") - unit(lwd, "mm"),
     width = unit(1, "npc"),
     height = unit(1,"npc") - unit(lwd, "mm"),
@@ -2571,6 +2697,8 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
     rename(unit = !!unitvar)
   return(tax.table)
 }
+
+
 
 
 

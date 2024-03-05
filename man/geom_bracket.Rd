@@ -101,23 +101,23 @@ This draws brackets by using grid-drawking methods from \code{\link[=geom_text]{
 
 \code{geom_bracket()} understands the following aesthetics (required aesthetics are in bold):
 \itemize{
-\item \strong{\code{x}}
-\item \strong{\code{y}}
-\item \strong{\code{xend}}
-\item \strong{\code{yend}}
-\item \code{alpha}
+\item \strong{\code{\link[=aes_position]{x}}}
+\item \strong{\code{\link[=aes_position]{y}}}
+\item \strong{\code{\link[=aes_position]{xend}}}
+\item \strong{\code{\link[=aes_position]{yend}}}
+\item \code{\link[=aes_colour_fill_alpha]{alpha}}
 \item \code{angle}
-\item \code{colour}
+\item \code{\link[=aes_colour_fill_alpha]{colour}}
 \item \code{family}
 \item \code{flip}
 \item \code{fontface}
 \item \code{fontsize}
-\item \code{group}
+\item \code{\link[=aes_group_order]{group}}
 \item \code{hjust}
 \item \code{label}
 \item \code{lineheight}
-\item \code{linetype}
-\item \code{linewidth}
+\item \code{\link[=aes_linetype_size_shape]{linetype}}
+\item \code{\link[=aes_linetype_size_shape]{linewidth}}
 \item \code{vjust}
 }
 Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.

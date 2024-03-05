@@ -2,7 +2,7 @@
 % Please edit documentation in R/microbiota2.R
 \name{guide_gengrob.taxonomy}
 \alias{guide_gengrob.taxonomy}
-\title{guide_gengrob.taxonomy}
+\title{guide_gengrob.taxonomy (OLD)}
 \usage{
 \method{guide_gengrob}{taxonomy}(guide, theme)
 }

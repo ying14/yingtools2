@@ -5,7 +5,7 @@
 \alias{GeomTaxonomy}
 \title{GeomTaxonomy}
 \format{
-An object of class \code{GeomTaxonomy} (inherits from \code{GeomCol}, \code{GeomBar}, \code{GeomRect}, \code{Geom}, \code{ggproto}, \code{gg}) of length 5.
+An object of class \code{GeomTaxonomy} (inherits from \code{GeomCol}, \code{GeomBar}, \code{GeomRect}, \code{Geom}, \code{ggproto}, \code{gg}) of length 6.
 }
 \usage{
 GeomTaxonomy

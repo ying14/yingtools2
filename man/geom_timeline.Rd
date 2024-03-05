@@ -120,24 +120,24 @@ seamless compared with the hassle of doing manually.
 
 \code{geom_timeline()} understands the following aesthetics (required aesthetics are in bold):
 \itemize{
-\item \strong{\code{xmin}}
-\item \strong{\code{xmax}}
-\item \code{alpha}
+\item \strong{\code{\link[=aes_position]{xmin}}}
+\item \strong{\code{\link[=aes_position]{xmax}}}
+\item \code{\link[=aes_colour_fill_alpha]{alpha}}
 \item \code{angle}
 \item \code{by}
-\item \code{colour}
+\item \code{\link[=aes_colour_fill_alpha]{colour}}
 \item \code{family}
-\item \code{fill}
+\item \code{\link[=aes_colour_fill_alpha]{fill}}
 \item \code{fontalpha}
 \item \code{fontcolour}
 \item \code{fontface}
-\item \code{group}
+\item \code{\link[=aes_group_order]{group}}
 \item \code{hjust}
 \item \code{label}
 \item \code{lineheight}
-\item \code{linetype}
-\item \code{linewidth}
-\item \code{size}
+\item \code{\link[=aes_linetype_size_shape]{linetype}}
+\item \code{\link[=aes_linetype_size_shape]{linewidth}}
+\item \code{\link[=aes_linetype_size_shape]{size}}
 \item \code{vjust}
 }
 Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.

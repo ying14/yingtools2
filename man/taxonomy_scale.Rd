@@ -9,7 +9,7 @@ taxonomy_scale(
   data,
   tax.palette,
   unitvar,
-  guide = guide_taxonomy(keywidth = 3),
+  guide = guide_taxonomy(),
   drop = FALSE,
   na.value = "grey50",
   na.translate = TRUE,

@@ -11,7 +11,7 @@ scale_fill_taxonomy(
   tax.palette = yt.palette3,
   fill = Species,
   aesthetics = "fill",
-  guide = guide_taxonomy(keywidth = 3),
+  guide = guide_taxonomy(),
   drop = FALSE,
   na.value = "grey50"
 )
@@ -22,7 +22,7 @@ scale_color_taxonomy(
   tax.palette = yt.palette3,
   color = Species,
   aesthetics = "colour",
-  guide = guide_taxonomy(keywidth = 3),
+  guide = guide_taxonomy(),
   drop = FALSE,
   na.value = "grey50"
 )

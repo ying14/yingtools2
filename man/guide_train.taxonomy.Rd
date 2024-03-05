@@ -2,7 +2,7 @@
 % Please edit documentation in R/microbiota2.R
 \name{guide_train.taxonomy}
 \alias{guide_train.taxonomy}
-\title{guide_train.taxonomy}
+\title{guide_train.taxonomy (OLD)}
 \usage{
 \method{guide_train}{taxonomy}(guide, scale, aesthetic = NULL)
 }

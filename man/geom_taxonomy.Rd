@@ -119,23 +119,23 @@ Fill colors occupy the barspace proportionally.
 
 \code{geom_taxonomy()} understands the following aesthetics (required aesthetics are in bold):
 \itemize{
-\item \strong{\code{x}}
-\item \strong{\code{y}}
-\item \code{alpha}
+\item \strong{\code{\link[=aes_position]{x}}}
+\item \strong{\code{\link[=aes_position]{y}}}
+\item \code{\link[=aes_colour_fill_alpha]{alpha}}
 \item \code{angle}
-\item \code{colour}
+\item \code{\link[=aes_colour_fill_alpha]{colour}}
 \item \code{family}
-\item \code{fill}
+\item \code{\link[=aes_colour_fill_alpha]{fill}}
 \item \code{fontalpha}
 \item \code{fontcolour}
 \item \code{fontface}
 \item \code{fontsize}
-\item \code{group}
+\item \code{\link[=aes_group_order]{group}}
 \item \code{hjust}
 \item \code{label}
 \item \code{lineheight}
-\item \code{linetype}
-\item \code{linewidth}
+\item \code{\link[=aes_linetype_size_shape]{linetype}}
+\item \code{\link[=aes_linetype_size_shape]{linewidth}}
 \item \code{sample.colour}
 \item \code{sample.linetype}
 \item \code{sample.linewidth}

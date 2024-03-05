@@ -41,11 +41,41 @@
 #'
 #' Shorthand operator for regular expression.
 #' @export
+#' @rdname like
 #' @examples
-#' sentences %like% "fish"
+#' fruit <- c("Apple", "Banana", "Pear", "Pineapple")
+#' fruit %like% "A"
+#' fruit %notlike% "A"
+#' fruit %ilike% "A"
+#' fruit %notilike% "A"
 `%like%` = function(x,y) {
+  message("Note that %like% is now case-sensitive. For case-insensitive, use %ilike%")
+  grepl(y,x,ignore.case=FALSE)
+}
+
+
+#' @export
+#' @rdname like
+`%notlike%` = function(x,y) {
+  !grepl(y,x,ignore.case=FALSE)
+}
+
+#' @export
+#' @rdname like
+`%ilike%` = function(x,y) {
   grepl(y,x,ignore.case=TRUE)
 }
+
+#' @export
+#' @rdname like
+`%notilike%` = function(x,y) {
+  grepl(y,x,ignore.case=TRUE)
+}
+
+
+
+
+
 
 #' Find Regular Expression Operator
 #'

@@ -2,9 +2,9 @@
 % Please edit documentation in R/microbiota2.R
 \name{guide_geom.taxonomy}
 \alias{guide_geom.taxonomy}
-\title{guide_geom.taxonomy}
+\title{guide_geom.taxonomy (OLD)}
 \usage{
-\method{guide_geom}{taxonomy}(guide, layers, default_mapping)
+\method{guide_geom}{taxonomy}(...)
 }
 \description{
 Called by name, by \code{\link[=guide_taxonomy]{guide_taxonomy()}}.

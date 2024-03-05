@@ -7,27 +7,19 @@
 guide_taxonomy(
   title = waiver(),
   override.tax.palette = NULL,
-  title.position = NULL,
-  title.theme = NULL,
-  title.hjust = NULL,
-  title.vjust = NULL,
-  label = TRUE,
-  label.position = NULL,
-  label.theme = NULL,
-  label.hjust = NULL,
-  label.vjust = NULL,
-  keywidth = 3,
-  keyheight = NULL,
+  theme = NULL,
+  position = NULL,
   direction = NULL,
-  default.unit = "line",
   override.aes = list(),
   nrow = NULL,
   ncol = NULL,
-  byrow = FALSE,
   reverse = FALSE,
   order = 0,
   ...
 )
+}
+\arguments{
+\item{override.tax.palette}{Use tax palette, overriding data}
 }
 \description{
 Used by \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} to create a custom taxonomy legend.
