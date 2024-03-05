@@ -44,7 +44,7 @@ full_join_replace(
 
 \item{conflict}{what to do if columns conflict.
 \enumerate{
-\item \code{y} always keep the y-value.
+\item \code{y} always keep the y-value (default).
 \item \code{x} always keep the x-value.
 \item \code{y.coalesce} keep the y-value unless it is \code{NA}.
 \item \code{x.coalesce} keep the x-value unless it is \code{NA}.
@@ -58,4 +58,10 @@ Instead, the variables will be turned into one column if the variables are equal
 }
 \details{
 This is a convenience function that just avoids the renaming of columns.
+}
+\examples{
+tbl1 <- tibble(id=1:10) \%>\% mutate(source="table1")
+tbl2 <- tibble(id=5:15) \%>\% mutate(source="table2")
+full_join(tbl1,tbl2,by="id")
+full_join_replace(tbl1,tbl2,by="id") \%>\% arrange(id)
 }

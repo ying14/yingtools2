@@ -381,9 +381,11 @@ get.abundance <- function(phy,..., counts=FALSE) {
 add.abundance <- function(phy, ... , counts=FALSE) {
   quolist <- quos(...)
   s <- get.abundance(phy, !!!quolist,counts=counts)
-  sample_data(phy) <- get.samp(phy) %>% inner_join(s,by="sample") %>% set.samp()
+  sample_data(phy) <- get.samp(phy) %>% inner_join_replace(s,by="sample") %>% set.samp()
   return(phy)
 }
+
+
 
 
 

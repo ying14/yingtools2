@@ -2892,13 +2892,18 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #' @param y second data frame to be joined
 #' @param by a character vector of variables to be joined by.
 #' @param conflict what to do if columns conflict.
-#' 1. `y` always keep the y-value.
+#' 1. `y` always keep the y-value (default).
 #' 2. `x` always keep the x-value.
 #' 3. `y.coalesce` keep the y-value unless it is `NA`.
 #' 4. `x.coalesce` keep the x-value unless it is `NA`.
 #' 5. `error` throw error if there is a conflict.
 #'
 #' @export
+#' @examples
+#' tbl1 <- tibble(id=1:10) %>% mutate(source="table1")
+#' tbl2 <- tibble(id=5:15) %>% mutate(source="table2")
+#' full_join(tbl1,tbl2,by="id")
+#' full_join_replace(tbl1,tbl2,by="id") %>% arrange(id)
 inner_join_replace <- function(x,y,by=NULL, conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
 
   mutual.vars <- intersect(names(x),names(y))
@@ -2979,6 +2984,15 @@ right_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce
 #' @rdname inner_join_replace
 #' @export
 full_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+  flip <- function(by) {
+    by.names <- names(by)
+    if (is.null(by.names)) {
+      return(by)
+    }
+    by.vals <- unname(by)
+    by.names <- coalesce(na_if(by.names,""),by.vals)
+    setNames(by.names,by.vals)
+  }
   data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
   data2 <- anti_join(x,y,by=by)
   data3 <- anti_join(y,x,by=flip(by))
