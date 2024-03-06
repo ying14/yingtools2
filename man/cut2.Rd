@@ -26,7 +26,7 @@ cut2(
 
 \item{percentiles}{a vector of percentile breakpoints}
 
-\item{n.splits}{split range of x into equal sized parts.}
+\item{n.splits}{split range of x into equally spaced bins.}
 
 \item{lvls}{optional vector for renaming the levels}
 }

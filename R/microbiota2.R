@@ -329,58 +329,76 @@ get.phyloseq.from.melt <- function(otu.melt,
 }
 
 
+
+
 #' Calculate Abundance from Phyloseq
 #'
 #' Given a [`phyloseq`][`phyloseq::phyloseq-class`], calculate relative abundance for each sample.
 #' `get.abundance` returns data frame with values, `add.abundance` returns phyloseq with values stored in `sample_data`
 #' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object to be analyzed
-#' @param ... one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.
-#' @param counts if `TRUE`, will return count rather than relative abundance
+#' @param ... one or more named taxonomic expressions defining the abundances to be calculated.
+#' The expression should use variables from  `tax_table()` and evaluate to logical, to indicate which taxa are to be counted.
+#' @param denom an expression specifying the denominator.
+#' If there is no denominator, use `denom=NULL` (the default)
+#' To calculate relative abundance, use `denom=TRUE`.
 #' @return a data frame containing sample identifier and abundance columns
 #'
 #' @examples
 #' library(phyloseq)
-#' get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
+#' get.abundance(cid.phy,
+#'               entero.nseqs=Genus=="Enterococcus",
+#'               proteo.nseqs=Phylum=="Proteobacteria",
+#'               denom=TRUE)
+#' get.abundance(cid.phy,
+#'               entero.pct=Genus=="Enterococcus",
+#'               proteo.pct=Phylum=="Proteobacteria",
+#'               denom=TRUE)
+#' get.abundance(cid.phy,
+#'               bact.firm.ratio=Phylum=="Bacteroidetes",
+#'               denom=Phylum=="Firmicutes")
 #' @export
-get.abundance <- function(phy,..., counts=FALSE) {
+get.abundance <- function(phy, ..., denom=NULL) {
   requireNamespace("phyloseq",quietly=TRUE)
   vars <- quos(...)
-  altnames <- vars %>% map_chr(~paste0(ifelse(counts,"count_","pct_"),as_label(.x))) %>% make.names(unique=TRUE)
+  altnames <- vars %>% map_chr(~paste0("abundance_",as_label(.x))) %>% make.names(unique=TRUE)
   varnames <- names(vars) %>% na_if("") %>% coalesce(altnames)
+  denom <- enquo(denom)
 
   t <- get.tax(phy)
   # otu <- otu_table(phy,taxa_are_rows=FALSE)
   otu <- get.otu(phy)
-  seq.total <- sample_sums(phy)
-  n.zero.samps <- sum(seq.total==0)
-  if (n.zero.samps>0) {
-    warning("YTWarning: ",n.zero.samps," samples have zero sequences")
+  if (quo_is_null(denom)) {
+    denominator <- 1
+  } else {
+    select.otus.denom <- t %>% mutate(.dcriteria=!!denom,
+                                      .dcriteria=!is.na(.dcriteria) & .dcriteria) %>% pull(.dcriteria)
+    denominator <- otu[select.otus.denom,,drop=FALSE] %>% apply(2,sum)
+    n.zero.denoms <- sum(denominator==0)
+    if (n.zero.denoms>0) {
+      warning("YTWarning: ",n.zero.denoms," samples have denominator of zero (may get NaN or Inf values).")
+    }
   }
   s <- tibble(sample=sample_names(phy))
   for (i in 1:length(vars)) {
     var <- vars[[i]]
     varname <- varnames[i]
-    message(varname)
     select.otus <- t %>% mutate(.criteria=!!var,
                                 .criteria=!is.na(.criteria) & .criteria) %>% pull(.criteria)
     tax.sums <- otu[select.otus,,drop=FALSE] %>% apply(2,sum)
-    if (counts) {
-      tax.pctseqs <- tax.sums
-    } else {
-      tax.pctseqs <- tax.sums/seq.total
-    }
-    s <- s %>% mutate(!!varname:=unname(tax.pctseqs))
+    abundance <- tax.sums / denominator
+    s <- s %>% mutate(!!varname:=unname(abundance))
   }
-  # message("Created column(s): ",paste(varnames,collapse=", "))
   return(s)
 }
 
 
+
 #' @rdname get.abundance
 #' @export
-add.abundance <- function(phy, ... , counts=FALSE) {
+add.abundance <- function(phy, ... , denom=NULL) {
   quolist <- quos(...)
-  s <- get.abundance(phy, !!!quolist,counts=counts)
+  denom <- enquo(denom)
+  s <- get.abundance(phy, !!!quolist,denom=!!denom)
   sample_data(phy) <- get.samp(phy) %>% inner_join_replace(s,by="sample") %>% set.samp()
   return(phy)
 }

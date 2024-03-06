@@ -327,6 +327,7 @@ min2 <- function(...,na.rm=FALSE) {
 }
 
 
+
 #' Ying's Cut 2
 #'
 #' Similar to cut, but with several options for grouping.
@@ -335,7 +336,7 @@ min2 <- function(...,na.rm=FALSE) {
 #' @param upper a vector of upper bounds
 #' @param percentiles a vector of percentile breakpoints
 #' @param n.quantiles an integer specifying number of quantiles.
-#' @param n.splits split range of x into equal sized parts.
+#' @param n.splits split range of x into equally spaced bins.
 #' @param lvls optional vector for renaming the levels
 #' @return a factor derived from grouping of x
 #' @export
@@ -418,8 +419,6 @@ cut2 <- function(x,lower,upper,n.quantiles,percentiles,n.splits,lvls,rename.lvls
 }
 
 
-
-
 #' Split String Into Approximately Equal Sized Parts
 #'
 #' Split a string vector into separate lines of approximately equal size.
@@ -480,11 +479,6 @@ str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
 }
 
 
-
-
-
-
-
 #' Determines if a numeric is all whole numbers
 #'
 #' Uses machine precision to determine if a numeric vector is all whole numbers.
@@ -502,8 +496,9 @@ str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
 #' @author Ying Taur
 #' @export
 is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
-  all(abs(x-round(x))<tol | is.na(x))
+  is.integer(x) || (is.numeric(x) && all(abs(x-round(x))<tol,na.rm=TRUE))
 }
+
 
 
 #' Cumulative Max
@@ -688,8 +683,6 @@ compare.character <- function(x,y) {
 
   invisible(tbl)
 }
-
-
 
 
 

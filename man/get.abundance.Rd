@@ -5,16 +5,19 @@
 \alias{add.abundance}
 \title{Calculate Abundance from Phyloseq}
 \usage{
-get.abundance(phy, ..., counts = FALSE)
+get.abundance(phy, ..., denom = NULL)
 
-add.abundance(phy, ..., counts = FALSE)
+add.abundance(phy, ..., denom = NULL)
 }
 \arguments{
 \item{phy}{\code{\link[phyloseq:phyloseq-class]{phyloseq}} object to be analyzed}
 
-\item{...}{one or more taxonomic expressions defining the abundance to be calculated. Can be named, in order to specify the column name.}
+\item{...}{one or more named taxonomic expressions defining the abundances to be calculated.
+The expression should use variables from  \code{tax_table()} and evaluate to logical, to indicate which taxa are to be counted.}
 
-\item{counts}{if \code{TRUE}, will return count rather than relative abundance}
+\item{denom}{an expression specifying the denominator.
+If there is no denominator, use \code{denom=NULL} (the default)
+To calculate relative abundance, use \code{denom=TRUE}.}
 }
 \value{
 a data frame containing sample identifier and abundance columns
@@ -25,5 +28,15 @@ Given a \code{\link[phyloseq:phyloseq-class]{phyloseq}}, calculate relative abun
 }
 \examples{
 library(phyloseq)
-get.abundance(cid.phy,pct.entero=Genus=="Enterococcus",pct.proteo=Phylum=="Proteobacteria")
+get.abundance(cid.phy,
+              entero.nseqs=Genus=="Enterococcus",
+              proteo.nseqs=Phylum=="Proteobacteria",
+              denom=TRUE)
+get.abundance(cid.phy,
+              entero.pct=Genus=="Enterococcus",
+              proteo.pct=Phylum=="Proteobacteria",
+              denom=TRUE)
+get.abundance(cid.phy,
+              bact.firm.ratio=Phylum=="Bacteroidetes",
+              denom=Phylum=="Firmicutes")
 }
