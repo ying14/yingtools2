@@ -2571,6 +2571,11 @@ group_by_time <- function(data,start,stop, ... ,gap=1,add=FALSE) {
   group_vars <- enquos(...)
   start <- enquo(start)
   stop <- enquo(stop)
+  if (is(data,"tbl_lazy")) {
+    # to be compatible with tbl_lazy in dbplyr,
+    # use window_order instead, and make sure gaps/default are integers.
+    arrange <- dbplyr::window_order
+  }
   data %>% group_by(!!!group_vars,.add=add) %>%
     arrange(!!start,!!stop) %>%
     mutate(index_=lag(cumsum(lead(!!start)-cummax(!!stop)>gap),default=0)) %>%
