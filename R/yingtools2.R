@@ -3747,6 +3747,9 @@ GeomTimeline <- ggproto("GeomTimeline", GeomRect,
 
 
 
+
+
+
 # Use this to create rows using get.row. This can't be done in GeomTimeline because
 # the scale transformations are easily available.
 StatTimeline <- ggproto("StatTimeline",Stat,
@@ -3774,8 +3777,8 @@ StatTimeline <- ggproto("StatTimeline",Stat,
                           #transform back to pre-transformation values,
                           # perform merging and row creation,
                           # then re-transform.
-                          inv <- scales$x$trans$inverse
-                          trans <- scales$x$trans$transform
+                          inv <- scales$x$trans$inverse %||% identity
+                          trans <- scales$x$trans$transform %||% identity
                           grouping_vars <- setdiff(names(data),c("xmin", "xmax"))
                           data2 <- data %>%
                             mutate(xmin0=inv(xmin),
@@ -3797,11 +3800,17 @@ StatTimeline <- ggproto("StatTimeline",Stat,
                           } else {
                             qlabel <- expr(label)
                           }
-                          #slightly off because of expansion.
-                          xlim1 <- scales$x$dimension()
-                          # xlim2 <- scales$x$range$range
-                          xwidth <- xlim1[2] - xlim1[1]
-                          min.gap.true  <-  min.gap * xwidth
+
+                          if (is.null(scales$x)) {
+                            # if no transform, then don't change
+                            min.gap.true <- min.gap
+                          } else {
+                            #slightly off because of expansion.
+                            xlim1 <- scales$x$dimension()
+                            # xlim2 <- scales$x$range$range
+                            xwidth <- xlim1[2] - xlim1[1]
+                            min.gap.true  <-  min.gap * xwidth
+                          }
 
                           newdata <- data2 %>%
                             mutate(xmin0=xmin0-0.45,
