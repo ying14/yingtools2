@@ -69,7 +69,7 @@
 #' @export
 #' @rdname like
 `%notilike%` = function(x,y) {
-  grepl(y,x,ignore.case=TRUE)
+  !grepl(y,x,ignore.case=TRUE)
 }
 
 

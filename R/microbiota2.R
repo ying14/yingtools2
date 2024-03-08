@@ -474,7 +474,12 @@ mutate.phyloseq <- function(phy, ...) {
     use.samp <- is.sample.command[i]
     var <- names(commands)[i]
     if (use.samp) {
-      samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
+      if (var!="") {
+        samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
+      } else {
+        samp <- get.samp(phy) %>% mutate(!!expr)
+      }
+      get.samp(phy) %>% mutate(!!expr)
       cli_text(col_blue("sample_data"),": {var} = {as_label(expr)}")
       if (!identical(sample_names(phy),samp$sample)) {
         message("Note, sample_names() were altered")
@@ -482,7 +487,11 @@ mutate.phyloseq <- function(phy, ...) {
       }
       sample_data(phy) <- samp %>% set.samp()
     } else {
-      tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
+      if (var!="") {
+        tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
+      } else {
+        tax <- get.tax(phy) %>% mutate(!!expr)
+      }
       cli_text(col_blue("tax_table"),": {var} = {as_label(expr)}")
       if (!identical(taxa_names(phy),tax$otu)) {
         message("Note, taxa_names() were altered")
