@@ -4849,6 +4849,9 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 #' @export
 log_epsilon_trans <- function(epsilon=0.001) {
   requireNamespace("scales",quietly=TRUE)
+  if (is.null(epsilon) || epsilon==0) {
+    return(scales::identity_trans)
+  }
   trans <- function(x) {
     # if (is.null(epsilon)) {return(x)}
     sign(x)*(log(abs(x)+epsilon/8)-log(epsilon/8))
@@ -4865,6 +4868,7 @@ log_epsilon_trans <- function(epsilon=0.001) {
                     domain=c(-Inf,Inf))
 }
 
+
 #' Breaks for Log Epsilon Tranformation
 #'
 #' This is used by scant_trans as default method for breaks. Will fill in logs of 10.
@@ -4879,6 +4883,29 @@ log_epsilon_trans_breaks <- function(epsilon) {
     x <- c(0,10^(firsttick:lasttick))
     by <- ceiling(length(x) / 5)
     x[seq(1,length(x),by=by)]
+  }
+}
+
+
+#' Get a reasonable epsilon value for log_epsilon_trans()
+#'
+#' @param x vector of values
+#' @param prob proportion of values in `x` that will fall below epilon
+#'
+#' @return epsilon value
+#' @export
+#'
+#' @examples
+get_epsilon <- function(x, prob=0.1) {
+  q <- quantile(x,probs=prob) %>% unname()
+  above <- 10^(ceiling(log10(q)))
+  below <- 10^(floor(log10(q)))
+  dist.above <- abs(above-q)
+  dist.below <- abs(below-q)
+  if (dist.above<dist.below) {
+    return(above)
+  } else {
+    return(below)
   }
 }
 

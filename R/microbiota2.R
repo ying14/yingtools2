@@ -5,7 +5,6 @@
 
 # phyloseq manipulation ---------------------------------------------------
 
-
 #' Extract Phyloseq sample_data
 #'
 #' Returns [sample_data][phyloseq::sample_data-class] component from phyloseq object, as a data frame.
