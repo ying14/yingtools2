@@ -4850,7 +4850,7 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 log_epsilon_trans <- function(epsilon=0.001) {
   requireNamespace("scales",quietly=TRUE)
   if (is.null(epsilon) || epsilon==0) {
-    return(scales::identity_trans)
+    return(scales::identity_trans())
   }
   trans <- function(x) {
     # if (is.null(epsilon)) {return(x)}
@@ -4896,19 +4896,24 @@ log_epsilon_trans_breaks <- function(epsilon) {
 #' @export
 #'
 #' @examples
-get_epsilon <- function(x, prob=0.1) {
+get_epsilon <- function(x, prob=0.2) {
+
   q <- quantile(x,probs=prob) %>% unname()
-  above <- 10^(ceiling(log10(q)))
-  below <- 10^(floor(log10(q)))
-  dist.above <- abs(above-q)
-  dist.below <- abs(below-q)
+  lowest.nonzero <- min(abs(x)[abs(x)>0])
+  epsilon.start <- pmax(q,lowest.nonzero)
+
+  below <- 10^(floor(log10(epsilon.start)))
+  above <- 10^(floor(log10(epsilon.start))+1)
+  tr <- log_epsilon_trans(q)
+
+  dist.above <- abs(tr$transform(above)-tr$transform(q))
+  dist.below <- abs(tr$transform(below)-tr$transform(q))
   if (dist.above<dist.below) {
     return(above)
   } else {
     return(below)
   }
 }
-
 
 
 #' Logistic Transformation
