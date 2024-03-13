@@ -4887,6 +4887,7 @@ log_epsilon_trans_breaks <- function(epsilon) {
 }
 
 
+
 #' Get a reasonable epsilon value for log_epsilon_trans()
 #'
 #' @param x vector of values
