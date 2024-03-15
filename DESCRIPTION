@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.167
+Version: 0.0.1.168
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -33,6 +33,7 @@ Imports:
     data.table,
     phyloseq,
     patchwork,
+    ggiraph,
     gtable,
     grid,
     gridExtra,

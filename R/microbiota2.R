@@ -1866,6 +1866,48 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
 
 
 
+#' Interactive timelines
+#'
+#' @param ... arguments passed to base function, plus any of the interactive parameters
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' pt.meds <- cid.meds %>% filter(Patient_ID=="157") %>%
+#'   mutate(tooltip=coalesce_values(med.clean,med.class,startday,endday,route,collapse="\n"))
+#' g <- ggplot(pt.meds) +
+#'   geom_timeline_interactive(aes(xmin=startday,xmax=endday,label=med.clean,by=med.class,fill=med.class,
+#'                                 tooltip=tooltip),check_overlap = TRUE)
+#' g %>% girafe(ggobj=.,height_svg = 3.5)
+geom_taxonomy_interactive <- function(...) {
+  ggiraph:::layer_interactive(geom_taxonomy, ...)
+}
+
+#' @export
+GeomInteractiveTaxonomy <- ggproto("GeomInteractiveTaxonomy",yingtools2:::GeomTaxonomy,
+                                   default_aes = ggiraph:::add_default_interactive_aes(yingtools2:::GeomTaxonomy),
+                                   parameters = ggiraph:::interactive_geom_parameters,
+                                   draw_key = ggiraph:::interactive_geom_draw_key,
+                                   draw_panel = function(self, data, panel_params,
+                                                         coord, lineend = "butt", linejoin = "mitre",
+                                                         parse = FALSE, check_overlap = FALSE,
+                                                         ..., .ipar = ggiraph:::IPAR_NAMES) {
+                                     grob1 <- yingtools2:::GeomTaxonomy$draw_panel(data=data, panel_params=panel_params, coord=coord,
+                                                                                   lineend = lineend, linejoin = linejoin,
+                                                                                   parse = parse, check_overlap = check_overlap,
+                                                                                   ...)
+                                     idata <- data %>% mutate(fill=NA)
+                                     grob2 <- ggiraph:::GeomInteractiveRect$draw_panel(data=idata,
+                                                                                       panel_params=panel_params, coord=coord,
+                                                                                       lineend = lineend, linejoin = linejoin,
+                                                                                       .ipar=.ipar)
+
+                                     # grob2
+                                     grid::gTree("interactive_timeline_grob", children = grid::gList(grob1,grob2))
+                                   }
+)
+
 
 #' taxfittextGrob
 #'
