@@ -24,7 +24,6 @@
 #' Subtract Dates
 #'
 #' Returns number of days.
-#'
 #' @param x vector to subtract from
 #' @param y vector to subtract
 #' @return vector representing `x - y`
@@ -33,9 +32,21 @@
 #' @export
 #' @examples
 #' Sys.Date() %-% as.Date("1975-02-21")
-`%-%` = function(x,y) {
-  as.numeric(difftime(x,y,units="days"))
+`%-%` <- function(x,y) {
+  if (is.numeric(x)) {
+    # regular substraction
+    x - y
+  } else {
+    if (is.numeric(y)) {
+      # date - numeric
+      x - as.difftime(y,units="days")
+    } else {
+      # date - date
+      as.numeric(difftime(x,y,units="days"))
+    }
+  }
 }
+
 
 #' Regular Expression Operator
 #'
@@ -3860,27 +3871,20 @@ GeomInteractiveTimeline <- ggproto("GeomInteractiveTimeline",GeomTimeline,
                                    default_aes = ggiraph:::add_default_interactive_aes(GeomTimeline),
                                    parameters = ggiraph:::interactive_geom_parameters,
                                    draw_key = ggiraph:::interactive_geom_draw_key,
-                                   draw_panel = function(self, data, panel_params,
-                                                         coord, lineend = "butt", linejoin = "mitre",
-                                                         # parse = FALSE,
-                                                         # check_overlap = FALSE,
-                                                         # inherit.aes = TRUE,
-                                                         ...,
+                                   draw_panel = function(self, data,
+                                                         panel_params,
+                                                         coord,
+                                                         ..., # lineend = "butt", linejoin = "mitre", parse = FALSE, check_overlap = FALSE, inherit.aes = TRUE,
                                                          .ipar = ggiraph:::IPAR_NAMES) {
                                      grob1 <- GeomTimeline$draw_panel(data=data,
                                                                       panel_params=panel_params,
                                                                       coord=coord,
-                                                                      lineend = lineend,
-                                                                      linejoin = linejoin,
-                                                                      # parse = parse, check_overlap = check_overlap,
-                                                                      # inherit.aes = inherit.aes
+                                                                      # lineend = lineend, linejoin = linejoin, parse = parse, check_overlap = check_overlap, inherit.aes = inherit.aes
                                                                       ...)
-                                     idata <- data %>% mutate(fill=NA)
+                                     idata <- data %>% mutate(alpha=0.01)
                                      grob2 <- ggiraph:::GeomInteractiveRect$draw_panel(data=idata,
                                                                                        panel_params=panel_params,
                                                                                        coord=coord,
-                                                                                       lineend = lineend,
-                                                                                       linejoin = linejoin,
                                                                                        .ipar=.ipar)
 
                                      # grob2

@@ -440,6 +440,16 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 }
 
 
+# internal, Convert list of quosures to a label
+get_quolist_label <- function(quolist) {
+  qnames <- names(quolist)
+  qvalues <- quolist %>% map_chr(as_label)
+  lbl <- ifelse(qnames=="",qvalues,paste(qnames,"=",qvalues)) %>%
+    paste(collapse=", ")
+  return(lbl)
+}
+
+
 
 #' Mutate/Filter/Select for phyloseq object
 #'
@@ -454,6 +464,7 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 #'
 #' @param phy phylseq object to be modified
 #' @param ... expressions to be performed in `mutate`/`filter`/`select`.
+#' @param verbose whether or not to display info (default `FALSE`)
 #'
 #' @rdname mutate.phyloseq
 #' @export
@@ -464,41 +475,48 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
 #'   filter(nseqs<1500,
 #'          Consistency=="liquid") %>%
 #'   select(-taxon,-Genus)
-mutate.phyloseq <- function(phy, ...) {
+mutate.phyloseq <- function(phy, ..., verbose=FALSE) {
   commands <- quos(...)
   is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
-  cli_text(col_blue("mutate:"))
   for (i in seq_along(commands)) {
-    expr <- commands[[i]]
+    expr <- commands[i]
     use.samp <- is.sample.command[i]
-    var <- names(commands)[i]
     if (use.samp) {
-      if (var!="") {
-        samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
-      } else {
-        samp <- get.samp(phy) %>% mutate(!!expr)
-      }
-      get.samp(phy) %>% mutate(!!expr)
-      cli_text(col_blue("sample_data"),": {var} = {as_label(expr)}")
-      if (!identical(sample_names(phy),samp$sample)) {
-        message("Note, sample_names() were altered")
-        sample_names(phy) <- samp$sample
-      }
-      sample_data(phy) <- samp %>% set.samp()
+      phy <- phy %>% mutate_sample_data(!!!expr,verbose=verbose)
     } else {
-      if (var!="") {
-        tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
-      } else {
-        tax <- get.tax(phy) %>% mutate(!!expr)
-      }
-      cli_text(col_blue("tax_table"),": {var} = {as_label(expr)}")
-      if (!identical(taxa_names(phy),tax$otu)) {
-        message("Note, taxa_names() were altered")
-        taxa_names(phy) <- tax$otu
-      }
-      tax_table(phy) <- tax %>% set.tax()
+      phy <- phy %>% mutate_tax_table(!!!expr,verbose=verbose)
     }
   }
+  return(phy)
+}
+#' @rdname mutate.phyloseq
+#' @export
+mutate_sample_data <- function(phy, ..., verbose = FALSE) {
+  samp <- get.samp(phy) %>% mutate(...)
+  if (verbose) {
+    lbl <- get_quolist_label(quos(...))
+    cli_text(col_blue("mutate (sample_data)"),": {lbl}")
+  }
+  if (!identical(sample_names(phy),samp$sample)) {
+    cli_text("Note, sample_names() were altered")
+    sample_names(phy) <- samp$sample
+  }
+  sample_data(phy) <- samp %>% set.samp()
+  return(phy)
+}
+#' @rdname mutate.phyloseq
+#' @export
+mutate_tax_table <- function(phy, ..., verbose = FALSE) {
+  if (verbose) {
+    lbl <- get_quolist_label(quos(...))
+    cli_text(col_blue("mutate (tax_table)"),": {lbl}")
+  }
+  tax <- get.tax(phy) %>% mutate(...)
+  if (!identical(taxa_names(phy),tax$otu)) {
+    cli_text("Note, taxa_names() were altered")
+    taxa_names(phy) <- tax$otu
+  }
+  tax_table(phy) <- tax %>% set.tax()
   return(phy)
 }
 
@@ -508,44 +526,58 @@ mutate.phyloseq <- function(phy, ...) {
 #' @param prune_unused_taxa whether or not to remove unused taxa after sample filtering. Default is `TRUE`
 #' @param prune_unused_samples whether or not to remove unused samples after taxa filtering. Default is `FALSE`
 #' @export
-filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
+filter.phyloseq <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE,verbose=FALSE) {
   criteria <- quos(...)
   is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
-  cli_text(col_blue("filter:"))
   for (i in seq_along(criteria)) {
-    expr <- criteria[[i]]
+    expr <- criteria[i]
     use.samp <- is.sample.criteria[i]
     if (use.samp) {
-      ssub <- phy %>% get.samp() %>% filter(!!expr)
-      n.samps.old <- nsamples(phy)
-      n.samps.new <- nrow(ssub)
-      cli::cli_text(col_blue("sample_data")," ({n.samps.old} to {n.samps.new} sample{?s}): {as_label(expr)}")
-      phy <- prune_samples(ssub$sample,phy)
+      phy <- phy %>% filter_sample_data(!!!expr,verbose=verbose,prune_unused_taxa=prune_unused_taxa)
     } else {
-      tsub <- phy %>% get.tax() %>% filter(!!expr)
-      n.taxa.old <- ntaxa(phy)
-      n.taxa.new <- nrow(tsub)
-      cli::cli_text(col_blue("tax_table")," ({n.taxa.old} to {n.taxa.new}): {as_label(expr)}")
-      phy <- prune_taxa(tsub$otu,phy)
+      phy <- phy %>% filter_tax_table(!!!expr,verbose=verbose,prune_unused_samples=prune_unused_samples)
     }
   }
-  if (prune_unused_taxa && any(is.sample.criteria)) {
-    cli_text("Removing unused taxa...")
-
-    phy <- phy %>% prune_unused_taxa()
+  return(phy)
+}
+#' @rdname mutate.phyloseq
+#' @export
+filter_sample_data <- function(phy, ..., prune_unused_taxa=TRUE, verbose=FALSE) {
+  ssub <- phy %>% get.samp() %>% filter(...)
+  n.samps.old <- nsamples(phy)
+  n.samps.new <- nrow(ssub)
+  if (verbose) {
+    lbl <- get_quolist_label(quos(...))
+    cli::cli_text(col_blue("filter (sample_data)")," ({n.samps.old} to {n.samps.new} sample{?s}): {lbl}")
   }
-  if (prune_unused_samples && any(!is.sample.criteria)) {
+  phy <- prune_samples(ssub$sample,phy)
+  if (prune_unused_taxa) {
+    phy <- phy %>% prune_unused_taxa(verbose=verbose)
+  }
+  return(phy)
+}
+
+#' @rdname mutate.phyloseq
+#' @export
+filter_tax_table <- function(phy, ..., prune_unused_samples=FALSE, verbose=FALSE) {
+  tsub <- phy %>% get.tax() %>% filter(...)
+  n.taxa.old <- ntaxa(phy)
+  n.taxa.new <- nrow(tsub)
+  if (verbose) {
+    lbl <- get_quolist_label(quos(...))
+    cli::cli_text(col_blue("filter (tax_table)")," ({n.taxa.old} to {n.taxa.new}) taxa: {lbl}")
+  }
+  phy <- prune_taxa(tsub$otu,phy)
+  if (prune_unused_samples) {
     cli_text("Removing unused samples...")
     phy <- phy %>% prune_samples(sample_sums(.)>0,.)
   }
   return(phy)
 }
 
-
-
 #' @rdname mutate.phyloseq
 #' @export
-select.phyloseq <- function(phy, ...) {
+select.phyloseq <- function(phy, ..., verbose=FALSE) {
   # commands <- exprs(Sample_ID,day,taxon,starts_with("C"))
   commands <- quos(...)
   samp.vars <- c(sample_variables(phy),"sample")
@@ -557,37 +589,54 @@ select.phyloseq <- function(phy, ...) {
   }
   has.tax <- any(!uses.sample.vars,na.rm=TRUE)
   has.samp <- any(uses.sample.vars,na.rm=TRUE)
-  cli_text(col_blue("select:"))
   if (has.tax && !has.samp) {
     # tax
-    tax <- get.tax(phy)
-    pos <- tidyselect::eval_select(expr(c(...)),tax)
-    if (!("otu" %in% names(pos))) {
-      otu.pos <- tidyselect::eval_select(expr(otu),tax)
-      pos <- c(pos,otu.pos)
-    }
-    newtax <- set_names(tax[pos], names(pos))
-    cli_text(col_blue("tax_table"),": {ncol(tax)-1} to {ncol(newtax)-1} rank column{?s}")
-    tax_table(phy) <- newtax %>% set.tax()
+    phy <- phy %>% select_tax_table(..., verbose=verbose)
     return(phy)
   } else if (has.samp && !has.tax) {
     # samp
-    cli_text(col_blue("sample_data"),": {as_label(commands)}")
-    samp <- get.samp(phy)
-    pos <- tidyselect::eval_select(expr(c(...)),samp)
-    if (!("sample" %in% names(pos))) {
-      sample.pos <- tidyselect::eval_select(expr(sample),samp)
-      pos <- c(pos,sample.pos)
-    }
-    newsamp <- set_names(samp[pos], names(pos))
-    cli_text(col_blue("sample_data"),": {ncol(samp)-1} to {ncol(newsamp)-1} column{?s}")
-    sample_data(phy) <- newsamp %>% set.samp()
+    phy <- phy %>% select_sample_data(..., verbose=verbose)
     return(phy)
   } else {
     # can't tell
     stop("YTError: confusing selection expression, I can't tell whether it refers to `tax_table` or `sample_data`")
   }
 }
+#' @rdname mutate.phyloseq
+#' @export
+select_tax_table <- function(phy, ..., verbose=FALSE) {
+  tax <- get.tax(phy)
+  pos <- tidyselect::eval_select(expr(c(...)),tax)
+  if (!("otu" %in% names(pos))) {
+    otu.pos <- tidyselect::eval_select(expr(otu),tax)
+    pos <- c(pos,otu.pos)
+  }
+  newtax <- set_names(tax[pos], names(pos))
+  if (verbose) {
+    lbl <- get_quolist_label(quos(...))
+    cli_text(col_blue("select (tax_table)"),": {lbl}",col_grey(" ({ncol(tax)-1} to {ncol(newtax)-1} tax column{?s})"))
+  }
+  tax_table(phy) <- newtax %>% set.tax()
+  return(phy)
+}
+#' @rdname mutate.phyloseq
+#' @export
+select_sample_data <- function(phy, ..., verbose=FALSE) {
+  samp <- get.samp(phy)
+  pos <- tidyselect::eval_select(expr(c(...)),samp)
+  if (!("sample" %in% names(pos))) {
+    sample.pos <- tidyselect::eval_select(expr(sample),samp)
+    pos <- c(pos,sample.pos)
+  }
+  newsamp <- set_names(samp[pos], names(pos))
+  if (verbose) {
+    lbl <- get_quolist_label(quos(...))
+    cli_text(col_blue("select (sample_data)"),": {lbl}",col_grey(" ({ncol(samp)-1} to {ncol(newsamp)-1} sample column{?s})"))
+  }
+  sample_data(phy) <- newsamp %>% set.samp()
+  return(phy)
+}
+
 
 
 #' Check if taxonomy levels are distinct.
@@ -1116,11 +1165,11 @@ phy.calc.relative.abundance <- function(phy) {
 #' physub.clean <- prune_unused_taxa(physub)
 #' physub
 #' physub.clean
-prune_unused_taxa <- function(phy,verbose=TRUE) {
+prune_unused_taxa <- function(phy,verbose=FALSE) {
   requireNamespace("phyloseq",quietly=TRUE)
   keep <- taxa_sums(phy)>0
   if (verbose) {
-    message(str_glue("Prune unused taxa: {length(keep)} to {sum(keep)} taxa"))
+    cli_text("Prune unused taxa: {length(keep)} to {sum(keep)} taxa")
   }
   prune_taxa(keep,phy)
 }
@@ -1890,17 +1939,20 @@ GeomInteractiveTaxonomy <- ggproto("GeomInteractiveTaxonomy",yingtools2:::GeomTa
                                    parameters = ggiraph:::interactive_geom_parameters,
                                    draw_key = ggiraph:::interactive_geom_draw_key,
                                    draw_panel = function(self, data, panel_params,
-                                                         coord, lineend = "butt", linejoin = "mitre",
-                                                         parse = FALSE, check_overlap = FALSE,
+                                                         coord,
+                                                         # lineend = "butt", linejoin = "mitre",
+                                                         # parse = FALSE, check_overlap = FALSE,
                                                          ..., .ipar = ggiraph:::IPAR_NAMES) {
-                                     grob1 <- yingtools2:::GeomTaxonomy$draw_panel(data=data, panel_params=panel_params, coord=coord,
-                                                                                   lineend = lineend, linejoin = linejoin,
-                                                                                   parse = parse, check_overlap = check_overlap,
+                                     grob1 <- yingtools2:::GeomTaxonomy$draw_panel(data=data,
+                                                                                   panel_params=panel_params,
+                                                                                   coord=coord,
+                                                                                   # lineend = lineend, linejoin = linejoin, parse = parse, check_overlap = check_overlap,
                                                                                    ...)
-                                     idata <- data %>% mutate(fill=NA)
+                                     idata <- data %>% mutate(alpha=0.01)
                                      grob2 <- ggiraph:::GeomInteractiveRect$draw_panel(data=idata,
-                                                                                       panel_params=panel_params, coord=coord,
-                                                                                       lineend = lineend, linejoin = linejoin,
+                                                                                       panel_params=panel_params,
+                                                                                       coord=coord,
+                                                                                       # lineend = lineend, linejoin = linejoin,
                                                                                        .ipar=.ipar)
 
                                      # grob2

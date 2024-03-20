@@ -1,6 +1,77 @@
 
 # from microbiota.R -------------------------------------------------------
 
+filter.phyloseq.REPLACED <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
+  criteria <- quos(...)
+  is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
+  cli_text(col_blue("filter:"))
+  for (i in seq_along(criteria)) {
+    expr <- criteria[[i]]
+    use.samp <- is.sample.criteria[i]
+    if (use.samp) {
+      ssub <- phy %>% get.samp() %>% filter(!!expr)
+      n.samps.old <- nsamples(phy)
+      n.samps.new <- nrow(ssub)
+      cli::cli_text(col_blue("sample_data")," ({n.samps.old} to {n.samps.new} sample{?s}): {as_label(expr)}")
+      phy <- prune_samples(ssub$sample,phy)
+    } else {
+      tsub <- phy %>% get.tax() %>% filter(!!expr)
+      n.taxa.old <- ntaxa(phy)
+      n.taxa.new <- nrow(tsub)
+      cli::cli_text(col_blue("tax_table")," ({n.taxa.old} to {n.taxa.new}): {as_label(expr)}")
+      phy <- prune_taxa(tsub$otu,phy)
+    }
+  }
+  if (prune_unused_taxa && any(is.sample.criteria)) {
+    cli_text("Removing unused taxa...")
+
+    phy <- phy %>% prune_unused_taxa()
+  }
+  if (prune_unused_samples && any(!is.sample.criteria)) {
+    cli_text("Removing unused samples...")
+    phy <- phy %>% prune_samples(sample_sums(.)>0,.)
+  }
+  return(phy)
+}
+
+mutate.phyloseq.OLD <- function(phy, ...) {
+  commands <- quos(...)
+  is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
+  cli_text(col_blue("mutate:"))
+  for (i in seq_along(commands)) {
+    expr <- commands[[i]]
+    use.samp <- is.sample.command[i]
+    var <- names(commands)[i]
+    if (use.samp) {
+      if (var!="") {
+        samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
+      } else {
+        samp <- get.samp(phy) %>% mutate(!!expr)
+      }
+      # get.samp(phy) %>% mutate(!!expr)
+      cli_text(col_blue("sample_data"),": {var} = {as_label(expr)}")
+      if (!identical(sample_names(phy),samp$sample)) {
+        message("Note, sample_names() were altered")
+        sample_names(phy) <- samp$sample
+      }
+      sample_data(phy) <- samp %>% set.samp()
+    } else {
+      if (var!="") {
+        tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
+      } else {
+        tax <- get.tax(phy) %>% mutate(!!expr)
+      }
+      cli_text(col_blue("tax_table"),": {var} = {as_label(expr)}")
+      if (!identical(taxa_names(phy),tax$otu)) {
+        message("Note, taxa_names() were altered")
+        taxa_names(phy) <- tax$otu
+      }
+      tax_table(phy) <- tax %>% set.tax()
+    }
+  }
+  return(phy)
+}
+
 
 filter.phyloseq.old <- function(phy, ..., prune_unused_taxa=TRUE) {
   ssub <- phy %>% get.samp() %>% filter(...)

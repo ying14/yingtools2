@@ -2,20 +2,46 @@
 % Please edit documentation in R/microbiota2.R
 \name{mutate.phyloseq}
 \alias{mutate.phyloseq}
+\alias{mutate_sample_data}
+\alias{mutate_tax_table}
 \alias{filter.phyloseq}
+\alias{filter_sample_data}
+\alias{filter_tax_table}
 \alias{select.phyloseq}
+\alias{select_tax_table}
+\alias{select_sample_data}
 \title{Mutate/Filter/Select for phyloseq object}
 \usage{
-\method{mutate}{phyloseq}(phy, ...)
+\method{mutate}{phyloseq}(phy, ..., verbose = FALSE)
 
-\method{filter}{phyloseq}(phy, ..., prune_unused_taxa = TRUE, prune_unused_samples = FALSE)
+mutate_sample_data(phy, ..., verbose = FALSE)
 
-\method{select}{phyloseq}(phy, ...)
+mutate_tax_table(phy, ..., verbose = FALSE)
+
+\method{filter}{phyloseq}(
+  phy,
+  ...,
+  prune_unused_taxa = TRUE,
+  prune_unused_samples = FALSE,
+  verbose = FALSE
+)
+
+filter_sample_data(phy, ..., prune_unused_taxa = TRUE, verbose = FALSE)
+
+filter_tax_table(phy, ..., prune_unused_samples = FALSE, verbose = FALSE)
+
+\method{select}{phyloseq}(phy, ..., verbose = FALSE)
+
+select_tax_table(phy, ..., verbose = FALSE)
+
+select_sample_data(phy, ..., verbose = FALSE)
 }
 \arguments{
 \item{phy}{phylseq object to be modified}
 
 \item{...}{expressions to be performed in \code{mutate}/\code{filter}/\code{select}.}
+
+\item{verbose}{whether or not to display info (default \code{FALSE})}
 
 \item{prune_unused_taxa}{whether or not to remove unused taxa after sample filtering. Default is \code{TRUE}}
 

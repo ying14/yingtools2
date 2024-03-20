@@ -4,7 +4,7 @@
 \alias{prune_unused_taxa}
 \title{Prune Unused Taxa from a phyloseq object}
 \usage{
-prune_unused_taxa(phy, verbose = TRUE)
+prune_unused_taxa(phy, verbose = FALSE)
 }
 \arguments{
 \item{phy}{\code{\link[phyloseq:phyloseq-class]{phyloseq}} object}
