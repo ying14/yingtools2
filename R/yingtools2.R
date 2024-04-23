@@ -353,6 +353,7 @@ min2 <- function(...,na.rm=FALSE) {
 #' @export
 cut2 <- function(x,lower,upper,n.quantiles,percentiles,n.splits,lvls,rename.lvls=TRUE) {
   requireNamespace("cli",quietly = TRUE)
+  is_wholenumber <- is.wholenumber(x)
   if (!missing(lower)) {
     breaks <- unique(c(-Inf,lower,Inf))
     right=FALSE
@@ -369,7 +370,11 @@ cut2 <- function(x,lower,upper,n.quantiles,percentiles,n.splits,lvls,rename.lvls
     }
     probs <- seq(0,1,length.out=n.quantiles+1)
     probs <- probs[c(-1,-length(probs))]
-    quantiles <- quantile(x,probs=probs,na.rm=TRUE)
+    if (is_wholenumber) {
+      quantiles <- quantile(x,probs=probs,na.rm=TRUE,type=1)
+    } else {
+      quantiles <- quantile(x,probs=probs,na.rm=TRUE)
+    }
     breaks <- unname(quantiles) %>% c(-Inf,.,Inf) %>% unique()
     right=TRUE
   } else if (!missing(n.splits)) {
@@ -389,14 +394,18 @@ cut2 <- function(x,lower,upper,n.quantiles,percentiles,n.splits,lvls,rename.lvls
   }
   if (class(x)=="Date") {
     #don't change anything
-  } else if (is.wholenumber(x)) {
+  } else if (is_wholenumber) {
     levels(new.x) <- sapply(levels(new.x),function(y) {
       num <- as.numeric(unlist(str_extract_all(y,"-?[0-9.Inf]+")))
       num[1] <- ifelse(grepl("\\[",y),num[1],num[1]+1)
       num[2] <- ifelse(grepl("\\]",y),num[2],num[2]-1)
-      newlvl <- paste0(num[1],"-",num[2])
-      newlvl <- gsub("^-Inf-","<=",newlvl)
-      newlvl <- gsub("^-?[0-9.]+-Inf$",paste0(">=",num[1]),newlvl)
+      if (num[1]==num[2]) {
+        newlvl <- num[1]
+      } else {
+        newlvl <- paste0(num[1]," to ",num[2])
+        newlvl <- gsub("^-Inf-","<=",newlvl)
+        newlvl <- gsub("^-?[0-9.]+-Inf$",paste0(">=",num[1]),newlvl)
+      }
       newlvl
     })
   } else { #e.g. 20<=X<30
@@ -2890,6 +2899,140 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 
 
 
+#' Custom Join
+#'
+#' Provides great customization over how to join 2 data frames.
+#' @param x first data frame
+#' @param y second data frame
+#' @param by join specification similar to [dplyr::inner_join()].
+#' @param x.only.expr expression dealing with rows in `x` only. `.data` is the tibble of x-only rows.
+#' @param y.only.expr expression dealing with rows in `y` only. `.data` is the tibble of y-only rows.
+#' @param xy.expr expression dealing with rows in both `x` and `y`. `.data` is the tibble of x and y rows.
+#' @param xy.conflict.expr expression dealing with columns with potential conflicts between `x`and `y`. `.x` and `.y` are vectors from `x` and `y`, and `.col` is the name of the column.
+#'
+#' @return
+#' @rdname custom_full_join
+#' @export
+#'
+#' @examples
+#' library(dplyr)
+#' mt1 <- mtcars %>% rownames_to_column("car") %>% mutate(car2=paste(car,"2"),car3x=paste(car,"3")) %>%
+#'   slice(1:20) %>% select(starts_with("car"),mpg:vs)
+#' mt2 <- mtcars %>% rownames_to_column("car") %>% mutate(car2=paste(car,"2"),car3y=paste(car,"3")) %>%
+#'   slice(10:32) %>% select(starts_with("car"),hp:carb) %>%
+#'   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
+#' mt12 <- custom_full_join(mt1,mt2,by="car")
+custom_full_join <- function(x,y,by=NULL,
+                             x.only.expr=.data,
+                             y.only.expr=.data,
+                             xy.expr=.data,
+                             xy.conflict.expr=.x) {
+  x.only.expr <- enexpr(x.only.expr)
+  y.only.expr <- enexpr(y.only.expr)
+  xy.expr <- enexpr(xy.expr)
+  xy.conflict.expr <- enexpr(xy.conflict.expr)
+
+  if (is.null(by)) {
+    by <- intersect(names(x),names(y))
+  }
+  by.x <- (names(by) %||% by) %>% if_else(.=="",by,.) %>% unname()  # similar to coalesce; if names(by) is NULL, then =by.
+  by.y <- unname(by)
+  by.xy <- setNames(by.y,by.x) #formal x/y by value
+  by.yx <- setNames(by.x,by.y) #formal x/y by value
+  x.is.distinct <- anyDuplicated(x[,by.x,drop=FALSE])==0
+  y.is.distinct <- anyDuplicated(y[,by.y,drop=FALSE])==0
+  if (!x.is.distinct | !y.is.distinct) {
+    stop("YTError: X/Y are not distinct across by-vars")
+  }
+  x.cols.compare <- names(x) %>% setdiff(by.x) # x cols (minus the by vars)
+  y.cols.compare <- names(y) %>% setdiff(by.y) # y cols (minus the by vars)
+  xy.cols <- intersect(x.cols.compare,y.cols.compare)
+  x.cols.only <- setdiff(x.cols.compare,y.cols.compare)
+  y.cols.only <- setdiff(y.cols.compare,x.cols.compare)
+  # xonly data
+  x.only.f=function(.data) {
+    eval(x.only.expr)
+  }
+  data_xonly_rows <- anti_join(x,y,by=by.xy) %>% x.only.f()
+  # yonly data
+  y.only.f <- function(.data) {
+    eval(y.only.expr)
+  }
+  data_yonly_rows <- anti_join(y,x,by=by.yx) %>% y.only.f()
+  # xy data
+  xy.f <- function(.data) {
+    eval(xy.expr)
+  }
+  suffix <- c("__x","__y")
+  data_xy_rows <- inner_join(x,y,by=by.xy,suffix=suffix) %>% xy.f()
+
+  for (var in xy.cols) {
+    # var <- xy.cols[1]
+    xvar <- paste0(var,suffix[1])
+    yvar <- paste0(var,suffix[2])
+    # run on each conflicting set of columns
+    xy.conflict.f = function(.x,.y,.col) {
+      eval(xy.conflict.expr)
+    }
+    data_xy_rows[[var]] <- xy.conflict.f(.x=data_xy_rows[[xvar]],.y=data_xy_rows[[yvar]],.col=var)
+    data_xy_rows[[xvar]] <- NULL
+    data_xy_rows[[yvar]] <- NULL
+  }
+  data <- list(data_xonly_rows,data_xy_rows,data_yonly_rows) %>% list_rbind()
+  by.vars <- unique(c(rbind(by.x,by.y))) # nice order to by vars
+  data <- data %>% select(all_of(by.vars),
+                          all_of(x.cols.only),
+                          all_of(xy.cols),
+                          all_of(y.cols.only),
+                          everything())
+  # return(data)
+  invisible(data)
+}
+
+#' @rdname custom_full_join
+#' @export
+custom_inner_join <- function(x,y,by=NULL,
+                              xy.expr=.data,
+                              xy.conflict.expr=.x) {
+  xy.expr <- enexpr(xy.expr)
+  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  custom_full_join(x,y,by=by,
+                   x.only.expr=NULL,
+                   y.only.expr=NULL)
+}
+#' @rdname custom_full_join
+#' @export
+custom_left_join <- function(x,y,by=NULL,
+                             x.only.expr=.data,
+                             xy.expr=.data,
+                             xy.conflict.expr=.x) {
+  x.only.expr <- enexpr(x.only.expr)
+  xy.expr <- enexpr(xy.expr)
+  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  custom_full_join(x,y,by=by,
+                   xy.expr=!!xy.expr,
+                   xy.conflict.expr=!!xy.conflict.expr,
+                   x.only.expr=!!x.only.expr,
+                   y.only.expr=NULL)
+}
+#' @rdname custom_full_join
+#' @export
+custom_right_join <- function(x,y,by=NULL,
+                              y.only.expr=.data,
+                              xy.expr=.data,
+                              xy.conflict.expr=.x) {
+  y.only.expr <- enexpr(y.only.expr)
+  xy.expr <- enexpr(xy.expr)
+  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  custom_full_join(x,y,by=by,
+                   xy.expr=!!xy.expr,
+                   xy.conflict.expr=!!xy.conflict.expr,
+                   y.only.expr=!!y.only.expr)
+}
+
+
+
+
 #' Inner/Left/Right/Full Join with Replace
 #'
 #' Same as `inner_join`, `left_join`, `right_join`, and `full_join` in the `dplyr` package, except that variables with the
@@ -5272,9 +5415,9 @@ yt.tidy.logistf <- function(obj) {
 
 
 
-paste.ci <- function(est,low,high) {
-  if_else(!is.na(estimate) | !is.na(conf.low) | !is.na(conf.high),
-          paste0(estimate," (",conf.low," - ",conf.high,")"),
+paste.ci <- function(estimate,low,high) {
+  if_else(!is.na(estimate) | !is.na(low) | !is.na(high),
+          paste0(estimate," (",low," - ",high,")"),
           NA_character_)
 }
 
@@ -5468,7 +5611,8 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     tbl <- tbl %>%
       mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
              p.value=scales::pvalue(p.value)) %>%
-      mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
+      mutate(across(.cols=c(estimate,conf.low,conf.high),.fns=~formatC(.,format="f",digits=2))) %>%
+      # mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
       transmute(yvar,xvar,term,n,
                 # haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
                 haz.ratio=paste.ci(estimate,conf.low,conf.high),
