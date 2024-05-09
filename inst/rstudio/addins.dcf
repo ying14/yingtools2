@@ -9,6 +9,10 @@ Description: Keeps code under 4096 chars per line.
 Binding: style_selection_4096
 Interactive: false
 
+Name: Format selection to one line
+Description: Format selection to one line
+Binding: style_selection_oneline
+Interactive: false
 
 Name: Run selection in try/catch statement
 Description: Run selection in try/catch statement

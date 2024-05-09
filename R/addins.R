@@ -91,7 +91,6 @@ set_line_break_after_comma_if_4096_chars_style <- function() {
   )
 }
 
-
 #' Formats the highlighted selection such that no line exceeds 4096 characters.
 #'
 #' @return
@@ -112,6 +111,80 @@ style_selection_4096 <- function() {
     id = context$id
   )
 }
+
+
+
+
+
+
+
+remove_comments <- function(pd) {
+  is_comment <- pd$token == "COMMENT"
+  pd[!is_comment, ]
+}
+add_semi_colon <- function(pd) {
+  is_curly_expr <- oneliner:::is_curly_brace_expr(pd)
+  if (is_curly_expr || all(pd$token %in% c("expr", "expr_or_assign_or_help"))) {
+    conditions <- list(
+      if (is_curly_expr) {which(pd$token != "'}'")},
+      if (is_curly_expr) {which(styler:::lag(pd$token != "'{'", n = 1))},
+      which(pd$lag_newlines > 0L)) %>% compact()
+    needs_semicolon <- reduce(conditions, intersect, .init = which(styler:::lag(pd$token == "expr")))
+    if (length(needs_semicolon) < 1L) {
+      return(pd)
+    }
+    # browser()
+    semicolumn_pds <- styler:::create_tokens(rep("';'", length(needs_semicolon)),  rep(";", length(needs_semicolon)),
+                                             pos_ids = map_dbl(needs_semicolon, styler:::create_pos_ids, pd = pd),
+                                             indents=pd$indent, stylerignore = pd$stylerignore[1])
+    pd <- styler:::bind_rows(pd, semicolumn_pds) %>% styler:::arrange(pos_id)
+  }
+  pd
+}
+remove_all_line_breaks <- function(pd) {
+  pd$lag_newlines <- rep(0L, nrow(pd))
+  pd
+}
+oneline_style <- function() {
+  styler::create_style_guide(
+    initialize = styler::default_style_guide_attributes,
+    line_break = lst(identity),
+    space = lst(oneliner:::remove_all_spaces, add_semi_colon),
+    token = lst(remove_comments,add_semi_colon,remove_all_line_breaks),
+    indention = lst(identity),
+    use_raw_indention = TRUE,
+    reindention = tidyverse_reindention(),
+    style_guide_name = "oneliner::one_line_style@https://github.com/lorenzwalthert",
+    style_guide_version = version
+  )
+}
+
+
+#' Formats the highlighted selection into one line
+#'
+#' @return
+#' @export
+style_selection_oneline <- function() {
+  context <- rstudioapi::getActiveDocumentContext()
+  text <- context$selection[[1]]$text
+  if (all(nchar(text) == 0)) {
+    abort("No code selected")
+  }
+  out <- styler::style_text(text, style = oneline_style)
+  rstudioapi::modifyRange(context$selection[[1]]$range,
+                          paste0(c(
+                            out,
+                            if (context$selection[[1]]$range$end[2] == 1) ""
+                          ), collapse = "\n"),
+                          id = context$id
+  )
+}
+
+
+
+
+
+
 
 
 

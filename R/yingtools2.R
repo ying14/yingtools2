@@ -1043,28 +1043,27 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,accuracy=0.1,fi
       mutate(sum=sum(n),
              pct=n/sum,
              percent=scales::label_percent(accuracy=accuracy)(pct),
-             var=as_name(var),
+             var=rlang::as_name(var),
              text=if (denom) str_glue("{n}/{sum} ({percent})") else str_glue("{n} ({percent})")) %>%
       select(var,value,all=text)
   }) %>% bind_rows()
 
-  if (!quo_is_null(by)) {
+  if (!rlang::quo_is_null(by)) {
     by.table <- lapply(allvars,function(var) {
-
-      d %>% count(value=!!var,col=paste0(as_name(by),"=",!!by)) %>%
+      d %>% count(value=!!var,col=paste0(rlang::as_name(by),"=",!!by)) %>%
         complete(value,col,fill=list(n=0)) %>%
         group_by(col) %>%
         mutate(sum=sum(n),
                pct=n/sum,
                percent=scales::label_percent(accuracy=accuracy)(pct),
-               var=as_name(var),
+               var=rlang::as_name(var),
                text=if (denom) str_glue("{n}/{sum} ({percent})") else str_glue("{n} ({percent})")) %>%
         ungroup() %>%
         pivot_wider(id_cols=c(var,value),names_from=col,values_from=text)
     }) %>% bind_rows()
     tbl <- full_join(by.table,tbl,by=c("var","value"))
   }
-  if (fisher & !quo_is_null(by)) {
+  if (fisher & !rlang::quo_is_null(by)) {
     f.tbl <- lapply(vars,function(var) {
       x <- pull(d,!!var)
       y <- pull(d,!!by)
@@ -1072,10 +1071,15 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,accuracy=0.1,fi
         f <- fisher.test(x,y)
         scales::pvalue(f$p.value)
       },error=function(e) {
-        warning(e)
-        return("error")
+        warning("YTwarning: fisher test had weird hash key error, setting simulate.p.value=TRUE")
+        pval.alt <- tryCatch({
+          f <- fisher.test(x,y,simulate.p.value = TRUE)
+          scales::pvalue(f$p.value)
+        },error=function(e) {
+          return("error")
+        })
       })
-      tibble(var=as_name(var),fisher.pvalue=pval)
+      tibble(var=rlang::as_name(var),fisher.pvalue=pval)
     }) %>% bind_rows()
     tbl <- tbl %>% left_join(f.tbl,by="var") %>%
       mutate(fisher.pvalue=if_else(duplicated(var),NA_character_,fisher.pvalue))
