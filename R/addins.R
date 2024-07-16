@@ -56,7 +56,7 @@ selection_benchmark <- function()  {
 }
 
 
-
+# removes line breaks
 set_line_break_after_comma_if_4096_chars <- function(pd_flat) {
   pd2 <- pd_flat %>%
     mutate(
@@ -83,14 +83,15 @@ set_line_break_after_comma_if_4096_chars <- function(pd_flat) {
   return(pd_flat)
 }
 
+# styler function to be used
 set_line_break_after_comma_if_4096_chars_style <- function() {
   styler::create_style_guide(
     line_break = tibble::lst(set_line_break_after_comma_if_4096_chars),
+    token = lst(remove_comments,add_semi_colon),
     style_guide_name = "yingtools2::set_line_break_after_comma_if_4096_chars_style@https://github.com/ying14/yingtools2",
     style_guide_version = read.dcf(here::here("DESCRIPTION"))[, "Version"]
   )
 }
-
 #' Formats the highlighted selection such that no line exceeds 4096 characters.
 #'
 #' @return
@@ -102,7 +103,6 @@ style_selection_4096 <- function() {
     abort("No code selected")
   }
   out <- styler::style_text(text, style = set_line_break_after_comma_if_4096_chars_style)
-
   rstudioapi::modifyRange(context$selection[[1]]$range,
     paste0(c(
       out,
@@ -111,9 +111,6 @@ style_selection_4096 <- function() {
     id = context$id
   )
 }
-
-
-
 
 
 
@@ -153,7 +150,7 @@ oneline_style <- function() {
     token = lst(remove_comments,add_semi_colon,remove_all_line_breaks),
     indention = lst(identity),
     use_raw_indention = TRUE,
-    reindention = tidyverse_reindention(),
+    reindention = styler::tidyverse_reindention(),
     style_guide_name = "oneliner::one_line_style@https://github.com/lorenzwalthert",
     style_guide_version = version
   )
@@ -172,19 +169,9 @@ style_selection_oneline <- function() {
   }
   out <- styler::style_text(text, style = oneline_style)
   rstudioapi::modifyRange(context$selection[[1]]$range,
-                          paste0(c(
-                            out,
-                            if (context$selection[[1]]$range$end[2] == 1) ""
-                          ), collapse = "\n"),
-                          id = context$id
-  )
+                          paste0(c(out,if (context$selection[[1]]$range$end[2] == 1) ""), collapse = "\n"),
+                          id = context$id)
 }
-
-
-
-
-
-
 
 
 

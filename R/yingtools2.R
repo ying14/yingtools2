@@ -1087,7 +1087,6 @@ make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,accuracy=0.1,fi
   return(tbl)
 }
 
-
 #' Find All Distinct Variables
 #'
 #' Find Distinct
@@ -1112,6 +1111,8 @@ find.all.distinct.vars <- function(data, ...) {
   message("distinct: ",distinct.vars.text,"\n\nnot distinct: ",non.distinct.vars.text,"\n")
 
 }
+
+
 
 
 #' Is Distinct
@@ -1339,22 +1340,22 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
     do.simplify.list <- purrr::simplify_all
   } else {
     do.simplify.list <- function(x) {
-      map(x, purrr::list_simplify, strict=FALSE)
+      purrr::map(x, purrr::list_simplify, strict=FALSE)
     }
   }
 
+
   # values <- vars %>% map(eval_tidy)
-  text <- vars %>% imap(function(quo,lbl) {
+  text <- vars %>% purrr::imap(function(quo,lbl) {
     value <- eval_tidy(quo) %>% as.character()
     if (omit.na) {
       ifelse(!is.na(value),paste0(lbl,sep,value),NA_character_)
     } else {
       paste0(lbl,sep,value)
     }
-  }) %>% transpose() %>%
+  }) %>% purrr::transpose() %>%
     do.simplify.list() %>%
-    # map(list_simplify, strict = FALSE) %>%
-    map_chr(~paste2(.x,collapse=collapse))
+    purrr::map_chr(~paste2(.x,collapse=collapse))
   return(text)
 }
 
@@ -3154,6 +3155,53 @@ full_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce"
   data3 <- anti_join(y,x,by=flip(by))
   bind_rows(data1,data2,data3)
 }
+
+
+
+
+
+
+#' Fuzzy Inner Join
+#'
+#' Inner join two data frames using fuzzy matching via [adist()].
+#' @param x first data frame to be joined
+#' @param y second data frame to be joined
+#' @param by the columns to be joined by.
+#' @param suffix suffixes to be used if there are duplicate names between `x` and `y`.
+#' @param ignore.case whether to ignore case (default is `TRUE`)
+#' @param max.distance max Levenshtein distance allowed (default is `1`)
+#'
+#' @return A joined data frame from `x` and `y`. `dist_` will be stored, representing the Levenshtein distance.
+#' @export
+#'
+#' @examples
+#' x <- tibble(name=c("Luke Skywalker", "Darth Vader", "Greedo"),
+#'             species=c("Human", "Human", "Rodian"))
+#' y <- tibble(name=c("Luke Skywalker", "Darth Vaderx", "Chewbacca"),
+#'             homeworld=c("Tatooine", "Tatooine", "Kashyyyk"))
+#' inner_join_fuzzy(x,y,by="name")
+#' inner_join_fuzzy(x,y,by="name",max.distance = 10)
+inner_join_fuzzy <- function(x,y,by=NULL,suffix = c(".x", ".y"),
+                             ignore.case=TRUE,max.distance=1) {
+  if (is.null(by)) {
+    by <- intersect(names(x),names(y))
+  }
+  by.x <- (names(by) %||% by) %>% if_else(.=="",by,.) %>% unname()  # similar to coalesce; if names(by) is NULL, then =by.
+  by.y <- unname(by)
+  x_id <- do.call(paste,c(map(by.x,~x[[.x]]),list(sep="||")))
+  y_id <- do.call(paste,c(map(by.y,~y[[.x]]),list(sep="||")))
+  dist <- adist(x_id,y_id,ignore.case = ignore.case) %>%
+    reshape2::melt(value.name="dist_",varnames=c("x_rowid_","y_rowid_")) %>%
+    mutate(matchid_=row_number()) %>%
+    filter(dist_<=max.distance)
+  xx <- x[dist$x_rowid_,,drop=FALSE] %>% cbind(dist) %>% select(-x_rowid_,-y_rowid_)
+  yy <- y[dist$y_rowid_,,drop=FALSE] %>% cbind(dist) %>% select(-x_rowid_,-y_rowid_)
+  xyjoin <- inner_join(xx,yy,by=c("matchid_","dist_"),suffix=suffix) %>% select(-matchid_)
+  return(xyjoin)
+}
+
+
+
 
 
 

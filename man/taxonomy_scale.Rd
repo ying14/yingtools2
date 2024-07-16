@@ -20,5 +20,5 @@ taxonomy_scale(
 )
 }
 \description{
-Similar to  \code{\link[ggplot2:::manual_scale]{ggplot2::::manual_scale()}}
+Similar to \code{ggplot2:::manual_scale()}
 }

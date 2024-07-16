@@ -17,10 +17,11 @@ The customary palette for Bacteria.
 Slightly different than \link{yt.palette2}; now everything cycles through shades.
 Also accomodates the name changes of Bacteroidetes to Bacteroidota,  Clostridiales to Eubacteriales, Ruminococcaceae to Oscillospiraceae
 
-\if{html}{\out{<div class="sourceCode {r}">}}\preformatted{#| echo: false
-taxlegend3 <- get.tax.legend(tax.palette = yt.palette3, fontsize = 5)
-grid::grid.newpage()
-grid::grid.draw(taxlegend3)
+\if{html}{\out{<div class="sourceCode">}}\preformatted{#> Warning in get.tax.legend(tax.palette = yt.palette3, fontsize = 5): YTWarning:
+#> Please note that this function is deprecated, consider using geom_taxonomy /
+#> scale_fill_taxonomy
 }\if{html}{\out{</div>}}
+
+\figure{unnamed-chunk-1-1.png}
 }
 \keyword{datasets}

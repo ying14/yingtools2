@@ -2205,7 +2205,7 @@ scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
 
 #' Taxonomy scale constructor
 #'
-#' Similar to  [ggplot2:::manual_scale()]
+#' Similar to `ggplot2:::manual_scale()`
 #' @export
 taxonomy_scale <- function(aesthetic,
                            data, tax.palette, unitvar,
