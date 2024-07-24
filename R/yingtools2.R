@@ -6489,7 +6489,7 @@ runGadget_bg <- function(app,args=list(),port=4567) {
 
 
 
-#' Get possible R environment path locations
+#' Get possible R environment path locations.
 #' @export
 get.environment.locations <- function() {
   env.files <- c("<R_ENVIRON>" = Sys.getenv("R_ENVIRON"),
