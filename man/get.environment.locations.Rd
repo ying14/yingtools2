@@ -2,10 +2,10 @@
 % Please edit documentation in R/yingtools2.R
 \name{get.environment.locations}
 \alias{get.environment.locations}
-\title{Get possible R environment path locations}
+\title{Get possible R environment path locations.}
 \usage{
 get.environment.locations()
 }
 \description{
-Get possible R environment path locations
+Get possible R environment path locations.
 }

@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.173
+Version: 0.0.1.174
 Date: 2016-03-19
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
@@ -44,7 +44,8 @@ Imports:
     pingr,
     rstudioapi,
     styler,
-    digest
+    digest,
+    piggyback
 Suggests:
     phytools,
     ggtree,
