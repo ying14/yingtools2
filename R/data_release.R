@@ -1,4 +1,4 @@
-# These are modified versions of piggyback, where github enterprise is allowed.
+#  These are modified versions of piggyback, where github enterprise is allowed.
 
 
 parse_repo2 <- function(repo) {
