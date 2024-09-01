@@ -7,7 +7,7 @@
 \usage{
 upload_git_release(
   files,
-  tag = "v1.0",
+  tag = "v0.0.0.1",
   generate_load_script = "R/run_this_to_download_data.R",
   path = ".",
   repo = get_gitrepo(path = path),

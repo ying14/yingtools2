@@ -416,6 +416,9 @@ upload_git_release <- function(files,
                                repo = get_gitrepo(path=path),
                                api = get_gitapi(path=path),
                                token = get_gittoken(path=path)) {
+  # note to self: should probably check if in repo, and token works.
+  # linux doesn't seem to work if it is MSK git.. need token or something
+
   assertthat::assert_that(all(file.exists(files)),msg="YTError: file does not exist")
   pb_upload2(files,
              tag=tag,
