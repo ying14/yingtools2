@@ -406,10 +406,9 @@ get_gittoken <- function(path=".") {
 
 
 
-
 #' @export
 #' @rdname git_release
-upload_git_release <- function(files,
+upload_git_release <- function(files=NULL,
                                tag = "v0.0.0.1",
                                generate_load_script = "R/run_this_to_download_data.R",
                                path = ".",
@@ -418,8 +417,18 @@ upload_git_release <- function(files,
                                token = get_gittoken(path=path)) {
   # note to self: should probably check if in repo, and token works.
   # linux doesn't seem to work if it is MSK git.. need token or something
-
-  assertthat::assert_that(all(file.exists(files)),msg="YTError: file does not exist")
+  if (is.null(files)) {
+    dir <- file.path(path,"data")
+    files <- list.files(path=dir,full.names = TRUE)
+  }
+  if (length(files)==0) {
+    cli::cli_abort("No files found in {dir}")
+  }
+  if (!all(file.exists(files))) {
+    notfound <- files[!file.exists(files)]
+    cli::cli_abort("Files not found: {notfound}")
+  }
+  cli::cli_alert_info("Uploading files as Git release: {files}")
   pb_upload2(files,
              tag=tag,
              repo=repo,
@@ -433,9 +442,14 @@ upload_git_release <- function(files,
 
       base_files <- paste(basename(files),collapse=", ")
       code <- str_glue('
-# Run this to download data from {repo}
+# Github release data is stored.
+# To download the data from Github and store in data folder, run code below:
+
 # Git API: {api}
+# Repo: {repo}
 # Data files: {base_files}
+
+# Note that that yingtools2 0.0.1.174 or higher is needed.
 if (!require("yingtools2") || packageVersion("yingtools2")<"0.0.1.174") {{
  remotes::install_github("ying14/yingtools2")
 }}
@@ -445,7 +459,6 @@ yingtools2::download_git_release()
       cli::cli_alert_info("Data loading script generated: {.path {generate_load_script}}")
       cli::cli_alert_info("Consider adding these to {.path .gitignore}")
     }
-
   }
 }
 
@@ -464,7 +477,7 @@ yingtools2::download_git_release()
 #' The [`piggyback`](https://github.com/ropensci/piggyback) package has great functions to take advantage of the *release asset* feature.
 #' However, it currently only works with Github, and does not play well with Github Enterprise.
 #' These functions represent modifications to make it work, and to streamline the upload/download process.
-#' @param files Files to be uploaded.
+#' @param files Files to be uploaded. Default is all files in `<path>/data`.
 #' @param tag The tag version to download. Default is to use `"v1.0"` when uploading, or `"latest"` (i.e. latest version) when downloading.
 #' @param dest The folder where release data will be saved. Default is `data`.
 #' @param path Path of the git repo. Default is current directory, `"."`
