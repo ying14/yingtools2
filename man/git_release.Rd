@@ -6,7 +6,7 @@
 \title{Download/Upload Git Release Ddata}
 \usage{
 upload_git_release(
-  files,
+  files = NULL,
   tag = "v0.0.0.1",
   generate_load_script = "R/run_this_to_download_data.R",
   path = ".",
@@ -25,7 +25,7 @@ download_git_release(
 )
 }
 \arguments{
-\item{files}{Files to be uploaded.}
+\item{files}{Files to be uploaded. Default is all files in \verb{<path>/data}.}
 
 \item{tag}{The tag version to download. Default is to use \code{"v1.0"} when uploading, or \code{"latest"} (i.e. latest version) when downloading.}
 
