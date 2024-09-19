@@ -41,7 +41,7 @@ library(phyloseq)
 phy <- cid.phy
 ranks <- rank_names(phy)
 otu <- get.otu.melt(cid.phy)
-phy2 <- get.phyloseq.from.melt(otu,taxranks=ranks)
+phy2 <- get.phyloseq.from.melt(otu,tax_ranks=ranks)
 phy
 phy2
 }

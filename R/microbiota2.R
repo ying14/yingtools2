@@ -44,7 +44,8 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
   })
   names.exist.and.different <- names.exist[!values.all.equal]
   if (length(names.exist.and.different)>0) {
-    warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
+    # warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
+    cli_warn("YTWarning: sample data contains columns which will be overwritten with values that look different: {.var {col_blue(names.exist.and.different)}}")
   }
   sdata <- sdata %>% select(-all_of(names.exist)) %>% cbind(sdata.newcols) %>% as_tibble()
   return(sdata)
@@ -136,7 +137,7 @@ set.otu <- function(odata,taxa_are_rows=TRUE) {
   requireNamespace("phyloseq",quietly=TRUE)
   if (is.data.frame(odata)) {
     if (!("otu" %in% colnames(odata))) {
-      stop("YTError: got a data frame without 'otu' as a column!")
+      cli_abort("YTError: got a data frame without {.var otu} as a column!")
     }
     odata <- odata %>% column_to_rownames("otu") %>% as.matrix()
   }
@@ -242,7 +243,7 @@ get.otu.melt <- function(phy,filter.zero=TRUE,sample_data=TRUE,tax_data=TRUE) {
 #' phy <- cid.phy
 #' ranks <- rank_names(phy)
 #' otu <- get.otu.melt(cid.phy)
-#' phy2 <- get.phyloseq.from.melt(otu,taxranks=ranks)
+#' phy2 <- get.phyloseq.from.melt(otu,tax_ranks=ranks)
 #' phy
 #' phy2
 get.phyloseq.from.melt <- function(otu.melt,
@@ -253,7 +254,8 @@ get.phyloseq.from.melt <- function(otu.melt,
   requireNamespace("phyloseq",quietly=TRUE)
   rows.are.distinct <- is.distinct(otu.melt, !!sym(taxa_id), !!sym(sample_id))
   if (!rows.are.distinct) {
-    stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
+    # stop(str_glue("YTError: rows are not distinct across (sample_id x taxa_id)!"))
+    cli_abort("YTError: rows are not distinct across (sample_id x taxa_id)!")
   }
   otu <- otu.melt %>%
     transmute(otu=as.character(!!sym(taxa_id)),
@@ -265,7 +267,8 @@ get.phyloseq.from.melt <- function(otu.melt,
   # browser()
   if (isTRUE(tax_ranks)) { #logical and true
     # determine tax vars
-    message("Attempting to determine tax vars...\n")
+    # message("Attempting to determine tax vars...\n")
+    cli_inform("Attempting to determine tax vars...")
     if (is.character(sample_vars)) {
       svars <- sample_vars
     } else {
@@ -285,12 +288,12 @@ get.phyloseq.from.melt <- function(otu.melt,
     # sample_vars are specified do nothing
     tax_ranks <- setdiff(tax_ranks,taxa_id)
   } else {
-    stop("YTError: sample_vars should be a character or logical!")
+    cli_abort("YTError: sample_vars should be a character or logical!")
   }
 
   if (isTRUE(sample_vars)) { #logical and true
     # determine sample  vars
-    message("Attempting to determine sample vars...\n")
+    cli_inform("Attempting to determine sample vars...")
     vars.to.check <-setdiff(names(otu.melt),c(taxa_id,sample_id,tax_ranks,abundance_var))
     distinct_sample_vars <- otu.melt %>%
       test_if_nonvarying_by_group(id_vars=all_of(sample_id),test_vars=all_of(vars.to.check)) %>%
@@ -303,26 +306,36 @@ get.phyloseq.from.melt <- function(otu.melt,
     # sample_vars are specified do nothing
     sample_vars <- setdiff(sample_vars,sample_id)
   } else {
-    stop("YTError: sample_vars should be a character or logical!")
+    cli_abort("YTError: sample_vars should be a character or logical!")
   }
   if (length(tax_ranks)>0) {
     tax <- otu.melt %>% select(otu=!!sym(taxa_id),!!!syms(tax_ranks)) %>% distinct()
-    if (anyDuplicated(tax$otu)!=0) {stop("YTError: tax_ranks are not distinct over taxa_id!")}
+    if (anyDuplicated(tax$otu)!=0) {cli_abort("YTError: tax_ranks are not distinct over taxa_id!")}
     phy <- merge_phyloseq(phy,set.tax(tax))
   }
 
   if (length(sample_vars)>0) {
     samp <- otu.melt %>% select(sample=!!sym(sample_id),!!!syms(sample_vars)) %>% distinct()
-    if (anyDuplicated(samp$sample)!=0) {stop("YTError: sample vars are not distinct over sample!")}
+    if (anyDuplicated(samp$sample)!=0) {cli_abort("YTError: sample vars are not distinct over sample!")}
     phy <- merge_phyloseq(phy,set.samp(samp))
   }
 
   leftover.vars <- setdiff(names(otu.melt),c(abundance_var,sample_id,taxa_id,tax_ranks,sample_vars))
-  message(str_glue("sample vars: [{sample_id}]; {paste(sample_vars,collapse=\", \")}"))
-  message(str_glue("tax vars: [{taxa_id}]; {paste(tax_ranks,collapse=\", \")}"))
-  message(str_glue("abundance var: [{abundance_var}]"))
+  # message(str_glue("sample vars: [{sample_id}]; {paste(sample_vars,collapse=\", \")}"))
+  # message(str_glue("tax vars: [{taxa_id}]; {paste(tax_ranks,collapse=\", \")}"))
+  # message(str_glue("abundance var: [{abundance_var}]"))
+  # if (length(leftover.vars)>0) {
+  #   message(str_glue("(vars not used: {paste(leftover.vars,collapse=\", \")})"))
+  # }
+  samp_var_text <- c(col_green(sample_id),col_blue(sample_vars))
+  tax_var_text <- c(col_green(taxa_id),col_blue(tax_ranks))
+  abundance_var_text <- col_green(abundance_var)
+  leftover_vars_text <- col_grey(leftover.vars)
+  cli_alert_info("sample vars: {samp_var_text}")
+  cli_alert_info("tax vars: {tax_var_text}")
+  cli_alert_info("abundance var: {abundance_var_text}")
   if (length(leftover.vars)>0) {
-    message(str_glue("(vars not used: {paste(leftover.vars,collapse=\", \")})"))
+    cli_alert_info("(vars not used: {leftover_vars_text})")
   }
   return(phy)
 }
@@ -418,14 +431,16 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
   has.taxa.vars <- any(vars.used %in% taxa.vars)
   if (has.samp.vars && has.taxa.vars) {
     if (error) {
-      stop(str_glue("YTError: confusing expression with vars in both tax_table and sample_data: {expr_label}"))
+      # stop(str_glue("YTError: confusing expression with vars in both tax_table and sample_data: {expr_label}"))
+      cli_abort("YTError: confusing expression with vars in both tax_table and sample_data: {.code {expr_label}}")
     } else {
       return(NA)
     }
   }
   if (!has.samp.vars && !has.taxa.vars) {
     if (error) {
-      warning(str_glue("YTWarning: confusing expression with no vars in tax_table or sample_data: {expr_label} (will perform on sample_data)"))
+      # warning(str_glue("YTWarning: confusing expression with no vars in tax_table or sample_data: {expr_label} (will perform on sample_data)"))
+      cli_warn("YTWarning: confusing expression with no vars in tax_table or sample_data: {.code {expr_label}} (will perform on sample_data)")
       return(TRUE) # do taxa
     } else {
       return(NA)
@@ -585,7 +600,7 @@ select.phyloseq <- function(phy, ..., verbose=FALSE) {
   uses.sample.vars <- map_lgl(commands,~eval_phyloseq_expr(.x,phy,error=FALSE))
   if (length(uses.sample.vars)==0) {
     #zero selects
-    stop("YTError: no select variables specified")
+    cli_abort("YTError: no select variables specified")
   }
   has.tax <- any(!uses.sample.vars,na.rm=TRUE)
   has.samp <- any(uses.sample.vars,na.rm=TRUE)
@@ -599,7 +614,7 @@ select.phyloseq <- function(phy, ..., verbose=FALSE) {
     return(phy)
   } else {
     # can't tell
-    stop("YTError: confusing selection expression, I can't tell whether it refers to `tax_table` or `sample_data`")
+    cli_abort("YTError: confusing selection expression, I can't tell whether it refers to `tax_table` or `sample_data`")
   }
 }
 #' @rdname mutate.phyloseq
@@ -928,8 +943,10 @@ phy.collapse.base <- function(otudt, taxdt, taxranks, level,
   new.tax <- new.tax.otu[, c("otu", taxranks), with = FALSE] %>% unique()
   new.otu <- new.tax.otu[, c("otu", "sample", "numseqs", "pctseqs"), with = FALSE]
   trace <- c(trace, nrow(new.tax)) %>% setNames(rev(allranks)[1:(level + 1)])
-  message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
-  message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
+  # message(str_glue("Evaluated across levels: {paste(names(trace),collapse=', ')} ({length(trace)-1} rounds)"))
+  # message(str_glue("Number of taxa: {paste(trace,collapse=' -> ')} (final number of taxa)"))
+  cli_alert_info("Evaluated across levels: {col_blue(names(trace))} ({length(trace)-1} rounds)")
+  cli_alert_info("Number of taxa: {paste(col_blue(trace),collapse=' -> ')} (final number of taxa)")
   list(tax = new.tax, otu = new.otu)
 }
 
@@ -1068,7 +1085,9 @@ phy.collapse.bins.data.frame <- function(data,
 
   needvars <- c(taxa_id, sample_id, abundance_var, taxranks)
   if (!all(needvars %in% names(data))) {
-    stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
+
+    # stop(str_glue("YTError: vars not found in data: {paste(setdiff(needvars,names(data)),collapse=',')}"))
+    cli_abort("YTError: vars not found in data: {col_blue(setdiff(needvars,names(data)))}")
   }
   data <- data %>% rename(sample=!!sample_id,otu=!!taxa_id,numseqs=!!abundance_var)
   rows.are.distinct <- is.distinct(data,otu,sample)
@@ -1078,7 +1097,7 @@ phy.collapse.bins.data.frame <- function(data,
   taxdt <- data %>% select(otu,!!!syms(taxranks)) %>% data.table::as.data.table() %>% unique()
 
   if (isTRUE(sample_vars)) { #logical and true
-    message("Attempting to determine sample vars...\n")
+    cli_inform("Attempting to determine sample vars...")
     vars.to.check <- setdiff(names(data),c("otu","numseqs",taxranks))
     distinct_sample_vars <- data %>%
       test_if_nonvarying_by_group(id_vars=sample, test_vars=all_of(vars.to.check)) %>%
@@ -1091,7 +1110,7 @@ phy.collapse.bins.data.frame <- function(data,
     # sample_vars are specified do nothing
     sample_vars <- setdiff(sample_vars,"sample")
   } else {
-    stop("YTError: sample_vars should be a character or logical!")
+    cli_abort("YTError: sample_vars should be a character or logical!")
   }
   # otudt <- data %>% select(otu,sample,numseqs,pctseqs) %>% data.table::as.data.table()
   otudt <- data %>% select(otu, sample, numseqs) %>%
@@ -1241,7 +1260,7 @@ get.dist <- function(pw,sample1=sample1,sample2=sample2,dist=dist) {
     anyDuplicated(select(pw,sample1,sample2))==0 &&
     nrow(pw)==choose(n.samps,2)+n.samps
   if (!has.all.pairwise.combos) {
-    stop("YTError: the sample1 and sample2 columns don't look like pairwise combinations")
+    cli_abort("YTError: the sample1 and sample2 columns don't look like pairwise combinations")
   }
 
   mat <- pw %>% pivot_wider(id_cols=!!sample2,names_from=!!sample1,values_from=!!dist) %>%
@@ -1314,9 +1333,10 @@ phy.unfold.taxranks <- function(phy,verbose=TRUE) {
   }
   phy.unfold <- phyloseq(set.otu(all.otu),set.tax(all.tax),sample_data(phy))
   n.taxa <- phy.levels %>% map_int(ntaxa) %>% rev()
-  n.taxa.text <- n.taxa %>% paste(collapse=" + ") %>% paste0(" = ",nrow(all.tax)," taxa")
+  n.taxa.text <- n.taxa %>% col_blue() %>% paste(collapse=" + ") %>% paste0(" = ",col_blue(nrow(all.tax))," taxa")
   if (verbose) {
-    message(str_glue("Created new unfolded phyloseq:\n{n.taxa.text}"))
+    # message(str_glue("Created new unfolded phyloseq:\n{n.taxa.text}"))
+    cli_alert_info("Created new unfolded phyloseq:\n{n.taxa.text}")
   }
   return(phy.unfold)
 }

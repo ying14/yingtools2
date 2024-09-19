@@ -1,6 +1,7 @@
 #  These are modified versions of piggyback, where github enterprise is allowed.
 
 
+
 parse_repo2 <- function(repo) {
   r <- strsplit(repo, "/")[[1]]
   if (length(r) != 2) {
@@ -442,7 +443,6 @@ yingtools2::download_git_release()
       cli::cli_alert_info("Data loading script generated: {.path {generate_load_script}}")
       cli::cli_alert_info("Consider adding these to {.path .gitignore}")
     }
-
   }
 }
 
@@ -490,7 +490,7 @@ download_git_release <- function(tag = "latest",
                                  api = get_gitapi(path=path),
                                  token = get_gittoken(path=path)) {
   if (!dir.exists(dest)) {
-    cli::cli_text("Creating folder {.file {dest}}.")
+    cli::cli_alert_info("Creating folder {.path {dest}}.")
     dir.create(dest, showWarnings = FALSE)
   }
   pb_download2(tag=tag,

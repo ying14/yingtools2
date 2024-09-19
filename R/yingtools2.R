@@ -100,8 +100,6 @@
 
 
 
-
-
 #' @export
 `%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
   requireNamespace(c("cli","pillar"),quietly = TRUE)
@@ -113,7 +111,7 @@
   which.hits <- str_which(x,pattern=pattern)
   n.hits <- length(which.hits)
   hits <- x[which.hits]
-  cli::cli_text("{name}: {n.hits} hit{?s}")
+  cli::cli_text("{.var name}: {n.hits} hit{?s}")
   # cli::cli_text("{name}: {n.hits} {ifelse(n.hits==1,'hit','hits')}")
   if (n.hits>0) {
     sub.hits <- hits %>% head(n=maxhits)
@@ -1106,12 +1104,13 @@ find.all.distinct.vars <- function(data, ...) {
 
   distinct.vars <- names(data3)[t(data3)]
   non.distinct.vars <- names(data3)[!t(data3)]
-  distinct.vars.text <- paste0("[",paste(id.varnames,collapse=","),"],",paste(distinct.vars,collapse=","))
+  distinct.vars.text <- paste0("[",paste(id.varnames,collapse=","),"],",
+                               paste(distinct.vars,collapse=","))
   non.distinct.vars.text <- paste0(non.distinct.vars,collapse=",")
-  message("distinct: ",distinct.vars.text,"\n\nnot distinct: ",non.distinct.vars.text,"\n")
 
+  message("distinct: ",distinct.vars.text,
+          "\n\nnot distinct: ",non.distinct.vars.text,"\n")
 }
-
 
 
 
@@ -1514,7 +1513,9 @@ recode.grep <- function(...) {
 #' @export
 replace.grep <- function(var,recodes,result.as.list=FALSE,replace.text="",collapse.hits="|",recode.hits=FALSE,ignore.case=TRUE,perl=TRUE,useBytes=TRUE) {
   # declare.args(var=sentences, recodes=c("the"="[THE]","[.]$"="!!"), replace.grep)
-  message("YTNote: replace.grep() and replace.grep.data() are deprecated. Try using replace_grep_data.")
+  # message("YTNote: replace.grep() and replace.grep.data() are deprecated. Try using replace_grep_data.")
+  cli_warn(c("YT: {.fn replace.grep} and {.fn replace.grep.data} have been deprecated in {.pkg yingtools2}.",
+             "i"="Please use {.fn replace_grep_data} instead."))
   if (is.null(collapse.hits) & !result.as.list) {
     stop("YTWarning: hits.collapse=NULL (hits displayed as list), but report.as.list=FALSE.")
   }
@@ -2434,9 +2435,8 @@ test_if_nonvarying_by_group <- function(data,
   id_var_names <- names(id_vars_ts)
   test_var_names <- names(test_vars_ts)
   if (length(id_vars)==0) {
-    warning("YTWarning: no groups detected")
+    cli_warn("YTWarning: no groups detected")
   }
-
   dt.test <- data %>% data.table::as.data.table(key=id_var_names) %>%
     .[ , .group:=.GRP,by=id_var_names]
   total.groups <- dt.test$.group[nrow(dt.test)]
@@ -2486,15 +2486,20 @@ test_if_nonvarying_by_group <- function(data,
   if (verbose) {
     test_var_names_cangroup <- names(data.testing)[data.testing]
     test_var_names_cannotgroup <- names(data.testing)[!data.testing]
-    message(str_glue("* ID grouping var(s): {paste(id_var_names,collapse=',')}"))
-    message(str_glue("* Additional nonvarying grouping vars: {paste(test_var_names_cangroup,collapse=',')}"))
-    message(str_glue("* Varying non-grouping vars: {paste(test_var_names_cannotgroup,collapse=',')}"))
+    # message(str_glue("* ID grouping var(s): {paste(id_var_names,collapse=',')}"))
+    # message(str_glue("* Additional nonvarying grouping vars: {paste(test_var_names_cangroup,collapse=',')}"))
+    # message(str_glue("* Varying non-grouping vars: {paste(test_var_names_cannotgroup,collapse=',')}"))
+    # cli_ul(c("ID grouping vars: {.var {col_blue(id_var_names)}}",
+    #          "Additional nonvarying grouping vars: {.var {col_blue(test_var_names_cangroup)}}",
+    #          "Varying non-grouping vars: {.var {col_grey(test_var_names_cannotgroup)}}"))
+    groupable.vars <- c(col_green(id_var_names),col_blue(test_var_names_cangroup))
+    cli_ul(c("ID grouping vars plus additional: {.var {groupable.vars}}",
+             "Varying, non-grouping vars: {.var {col_grey(test_var_names_cannotgroup)}}"))
+
   }
   test <- c(data.rootgroup,data.testing)
   test
 }
-
-
 
 #' @rdname test_if_nonvarying_by_group
 #' @export
@@ -2505,13 +2510,23 @@ group_suggest_additional_vars <- function(data,
   test_vars <- enquo(test_vars)
   test <- test_if_nonvarying_by_group(data, id_vars=!!id_vars, test_vars=!!test_vars, verbose=TRUE)
   cangroup.vars <- names(test)[test]
-  if (length(cangroup.vars)>1) {
-    id.text <- paste(cangroup.vars, collapse=",")
-    message("\nCopying vars to clipboard (ID vars plus additional nonvarying vars)...")
-    copy.to.clipboard(id.text)
+  group.vars <- tidyselect::eval_select(id_vars, data=data) %>% names()
+  if (setequal(group.vars,cangroup.vars)) {
+    cli_alert_info("No additional ID vars found.")
+    # message("No additional ID vars found.")
   } else {
-    message("No additional ID vars found.")
+    # message("\nCopying vars to clipboard (ID vars plus additional nonvarying vars)...")
+    cli_alert_info("Copying grouping vars to clipboard...")
+    id.text <- paste(cangroup.vars, collapse=",")
+    copy.to.clipboard(id.text)
   }
+  # if (length(cangroup.vars)>1) {
+  #   id.text <- paste(cangroup.vars, collapse=",")
+  #   cli_alert_info("Copying vars to clipboard (ID vars plus additional nonvarying vars)...")
+  #   copy.to.clipboard(id.text)
+  # } else {
+  #
+  # }
 }
 
 #' @rdname test_if_nonvarying_by_group
@@ -2746,7 +2761,8 @@ copy.to.clipboard <- function(x) {
   } else {
     requireNamespace("clipr",quietly=TRUE)
     clipr::write_clip(x)
-    message("Copied to clipboard")
+    cli_alert_success("Copied {.cls {class(x)}} to clipboard")
+    # message("Copied to clipboard")
   }
 }
 
@@ -2796,11 +2812,12 @@ read.clipboard <- function(...) {
   if (is.null(obj)) {
     message("Nothing found in clipboard")
   } else {
-    message("Read ",class(obj)[1]," from clipboard")
+    # message("Read ",class(obj)[1]," from clipboard")
+    # cli_alert_success("Read {.type {obj}} from clipboard.")
+    cli_alert_success("Read {.cls {class(obj)}} from clipboard.")
   }
   return(obj)
 }
-
 
 # formatting functions --------------------------------------------------------------
 
@@ -3727,7 +3744,7 @@ gg.align.xlim <- function(glist) {
 scale_x_timebars <- function( days=NULL, xlim=NULL, div=30, breaks = NULL, ... ) {
   days <- unique(days) %>% sort()
   if (length(days)==0) {
-    message("YTNote: No days specified. X-axis will not be transformed.")
+    cli_inform("YTNote: No days specified. X-axis will not be transformed.")
     return(scale_x_continuous(...))
   }
   if (is.null(xlim)) {
@@ -4782,8 +4799,9 @@ trim.data.frame <- function(data,verbose=TRUE) {
   strvars <- sapply(data,is.character)
   data[,strvars] <- sapply(data[,strvars],str_trim)
   if (verbose) {
-    msg <- paste0("trim: looked through ",sum(strvars)," character variables to trim.")
-    message(msg)
+    # msg <- paste0("trim: looked through ",sum(strvars)," character variables to trim.")
+    # message(msg)
+    cli_alert_info("trim: looked through {sum(strvars)} character variables to trim.")
   }
   return(data)
 }
@@ -4808,6 +4826,7 @@ convert.dates <- function(data,verbose=FALSE) {
   newclass <- sapply(newdata,function(x) class(x)[1])
   changes <- data_frame(var=names(data),oldclass,newclass) %>% dplyr::filter(oldclass!=newclass)
   # cat("Looking for date variables to convert...  ")
+
   if (nrow(changes)==0) {
     msg <- "convert.dates: no date vars"
   } else {
@@ -5520,13 +5539,15 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     time0 <- 0
   } else {
     time0 <- min.time-1
-    message(str_glue("Negative times detected. Setting time zero as: {time0}"))
+    # message(str_glue("Negative times detected. Setting time zero as: {time0}"))
+    cli_alert_info("Negative times detected. Setting time zero as: {.val {time0}}")
   }
 
   if (quo_is_null(starttime)) {
     data <- data %>% mutate(.y=!!yvar,.tstart=time0,.tstop=!!yvarday)
   } else {
-    message(str_glue("starttime specified as {as_label(starttime)}."))
+    # message(str_glue("starttime specified as {as_label(starttime)}."))
+    cli_alert_info("Start-time specified as {.var {as_label(starttime)}}.")
     data <- data %>% mutate(.y=!!yvar,.tstart=!!starttime,.tstop=!!yvarday)
   }
   #if time0 is not zero, this will shift everything.
@@ -5534,7 +5555,8 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
 
   n.left.censored <- sum(data$.tstart!=min(data$.tstart,na.rm=TRUE),na.rm=TRUE)
   if (n.left.censored>0) {
-    message(str_glue("{n.left.censored} observations are left censored."))
+    # message(str_glue("{n.left.censored} observations are left censored."))
+    cli_alert_info("{.val {n.left.censored}} observation{?s} {?is/are} left censored.")
   }
 
   splitline <- function(data,xvar) {
@@ -5559,12 +5581,16 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
   }
   has.timevarying <- length(xvars.td)>0 & nrow(data2)>nrow(data)
   if (has.timevarying) {
-    message(str_glue("Time-varying X's detected: {paste(xvarnames,collapse=\",\")}. Transforming data from {nrow(data)} to {nrow(data2)} rows."))
+    # message(str_glue("Time-varying X's detected: {paste(xvarnames,collapse=\",\")}. Transforming data from {nrow(data)} to {nrow(data2)} rows."))
+    cli_alert_info(c("Time-varying X's detected: {.var {xvarnames}}. ",
+                     "Transforming data from {nrow(data)} to {nrow(data2)} rows."))
   }
   if (return.split.data) {
     fn <- ifelse(firth,"coxphf","coxph")
     form <- deparse(formula)
-    message(str_glue("Returning split data. Can run as follows:\n{fn}({deparse(form)},data={{data}})"))
+
+    # message(str_glue("Returning split data. Can run as follows:\n{fn}({deparse(form)},data={{data}})"))
+    cli_alert_info("Returning split data. Can run as follows:\n{fn}({deparse(form)},data={{data}})")
     return(data2)
   }
   is.competing <- !all(pull(data,!!yvar) %in% c(0,1,NA))
@@ -5582,24 +5608,25 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     formula <- as.formula(model)
     if (!firth) {
       # message(str_glue("Running coxph: {model}"))
-      message(str_glue("Running coxph: {as_label(yvar)} ~ {rightside}"))
+      cli_alert_info("Running {.fn coxph}: {.code {as_label(yvar)} ~ {rightside}}")
       result <- survival::coxph(formula,data=data2)
     } else {
       # message(str_glue("Running coxphf: {model}"))
-      message(str_glue("Running coxphf: {as_label(yvar)} ~ {rightside}"))
+      cli_alert_info("Running {.fn coxphf}: {.code {as_label(yvar)} ~ {rightside}}")
       result <- do.call(coxphf::coxphf,c(list(formula,data=data2),firth.opts))
     }
   } else {
     ###### do fine gray
     if (!all(data2$.tstart==0)) {
       #this may never happen because of the time0 shifting code above.
-      stop("YTError: .tstart needs to be zero for competing risk regression!")
+      # stop("YTError: .tstart needs to be zero for competing risk regression!")
+      cli_abort("YTError: {.var .tstart} needs to be zero for competing risk regression!")
     }
     if (firth) {
-      stop("YTError: can't perform Firth correction for competing risk regression!")
+      cli_abort("YTError: can't perform Firth correction for competing risk regression!")
     }
     if (has.timevarying) {
-      stop("YTError: I don't think we can do time-varying predictors for competing risk regression!")
+      cli_abort("YTError: I don't think we can do time-varying predictors for competing risk regression!")
     }
     rightside <- xvarnames %>% paste(collapse=" + ")
     mm <- model.matrix(as.formula(paste0("~",rightside)),data=data2)
@@ -5607,7 +5634,8 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     cov1 <- mm[,cols,drop=FALSE]
     ftime <- data2$.tstop
     fstatus <- data2$.y
-    message(str_glue("Running crr: {as_label(yvar)} ~ {rightside}"))
+    # message(str_glue("Running crr: {as_label(yvar)} ~ {rightside}"))
+    cli_alert_info("Running crr: {as_label(yvar)} ~ {rightside}")
     result <- cmprsk::crr(ftime=ftime,fstatus=fstatus,cov1=cov1)
   }
 
@@ -5622,10 +5650,10 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
       rep(var,length(term)) %>% setNames(term)
     }) %>% do.call(c,.)
     if (anyDuplicated(names(dict))) {
-      stop("YTError: duplicate terms found during terms.to.varnames function!")
+      cli_abort("YTError: duplicate terms found during terms.to.varnames function!")
     }
     if (!all(terms %in% names(dict))) {
-      stop("YTError: varnames and terms don't match in the terms.to.varnames function!")
+      cli_abort("YTError: varnames and terms don't match in the terms.to.varnames function!")
     }
     dict[match(terms,names(dict))]
   }
@@ -5675,7 +5703,6 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
 
 
 
-
 #' Univariate and Multivariate Cox Regression
 #'
 #' Uses the [cox()] function to perform a univariate and multivariate model analysis.
@@ -5701,7 +5728,7 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
   if (multi) {
     multi.xvars <- univariate.tbl %>% filter(p.value<=multi.cutoff) %>% pull(xvar) %>% unique()
     if (length(multi.xvars)==0) {
-      message("No predictors entered multivariate model")
+      cli_alert_info("No predictors entered multivariate model")
       multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term,-time.dependent),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
     } else {
       multivariate.tbl <- cox(!!yvar,!!!syms(multi.xvars),data=data,firth=firth,formatted=FALSE) %>% rename_at(vars(-yvar,-xvar,-term,-time.dependent),~paste0("multi.",.))
@@ -5773,10 +5800,10 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
       rep(var,length(term)) %>% setNames(term)
     }) %>% do.call(c,.)
     if (anyDuplicated(names(dict))) {
-      stop("YTError: duplicate terms found during terms.to.varnames function!")
+      cli_abort("YTError: duplicate terms found during terms.to.varnames function!")
     }
     if (!all(terms %in% names(dict))) {
-      stop("YTError: not all terms found in varnames!")
+      cli_abort("YTError: not all terms found in varnames!")
     }
     dict[match(terms,names(dict))]
   }
@@ -5840,7 +5867,7 @@ univariate.logit <- function(data, yvar, ..., multi=TRUE,multi.cutoff=0.25,firth
   if (multi) {
     multi.xvars <- univariate.tbl %>% filter(p.value<=multi.cutoff) %>% pull(xvar) %>% unique()
     if (length(multi.xvars)==0) {
-      message("No predictors entered multivariate model")
+      cli_alert_info("No predictors entered multivariate model")
       multivariate.tbl <- univariate.tbl %>% mutate_at(vars(-yvar,-xvar,-term),~na_if(.,.)) %>% rename_at(vars(-yvar,-xvar,-term),~paste0("multi.",.))
     } else {
       multivariate.tbl <- logit(!!yvar,!!!syms(multi.xvars),data=data,firth=firth,formatted=FALSE) %>%
@@ -5901,7 +5928,7 @@ read_all_excel <- function( ... ,col_names=TRUE,keep.nested=FALSE,bare.filename=
     } else if (all(file.exists(path))) {
       path
     } else {
-      stop("YTError: Input should be path or folder")
+      cli_abort("YTError: Input should be path or folder")
     }
   })
   read_excel_file <- function(file,col_names=TRUE) {
@@ -5942,7 +5969,8 @@ write_all_excel <- function(..., file) {
     data <- objlist[[i]] %>% as.data.frame() # doesn't handle tibble well, so convert to plain data.frame
     sheetname <- names(objlist)[i]
     if (!is.data.frame(data)) {
-      stop(st_glue("YTError: '{sheetname}' is not a dataframe."))
+      # stop(st_glue("YTError: '{sheetname}' is not a dataframe."))
+      cli_abort("YTError: {.var {sheetname}} is not a dataframe.")
     }
     sheet  <- xlsx::createSheet(wb,sheetName=sheetname)
     xlsx::addDataFrame(data,sheet,row.names=FALSE)
@@ -5970,7 +5998,8 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
     data <- readxl::read_excel(path=path,sheet=sheet,col_names=col_names,na=na,skip=skip)
     dtypes <- structure(recode2(sapply(data,function(x) first(class(x))),c("character"="text","POSIXct"="date")),names=names(data))
     if (any(names(col_types) %!in% names(dtypes))) {
-      stop("YTError, variable names in col_types not all found in excel sheet names!")
+      # stop("YTError, variable names in col_types not all found in excel sheet names!")
+      cli_abort("YTError, variable names in col_types not all found in excel sheet names!")
     }
     dtypes[match(names(col_types),names(dtypes))] <- col_types
     col_types <- dtypes
@@ -6036,7 +6065,8 @@ shell.exec <- function(file) {
   } else if (Sys.info()['sysname']=="Darwin") {
     system(paste("open",file),wait=FALSE)
   } else {
-    stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
+    # stop("YTError: Not sure how to handle this operating system: ",Sys.info()["sysname"],"\nGo tell Ying about this.")
+    cli_abort("YTError: Not sure how to handle this operating system: {.val {Sys.info()['sysname']}}. Go tell Ying about this.")
   }
 }
 
@@ -6348,7 +6378,7 @@ kill_port_process <- function(port) {
       kill <- paste0('for /f "tokens=5" %a in (\'netstat -aon ^| find ":',port,'" ^| find "LISTENING"\') do taskkill /f /pid %a')
       shell(kill)
     } else {
-      stop("YTError: this function doesn't yet work for this OS.")
+      cli_abort("YTError: this function doesn't yet work for this OS.")
     }
   }
 }
