@@ -99,7 +99,6 @@
 }
 
 
-
 #' @export
 `%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
   requireNamespace(c("cli","pillar"),quietly = TRUE)
@@ -146,10 +145,10 @@
     if (n.hits>maxhits) {
       cli::cli_text("... [truncated]")
     }
-
   }
   invisible(hits)
 }
+
 
 #' @export
 `%find%.data.frame` <- function(x,pattern,name=NULL,maxhits=5) {
@@ -157,6 +156,71 @@
   invisible(hitlist)
 }
 
+
+
+
+#' CLI table
+#'
+#' Display table with CLI text
+#' @param data data frame of CLI text
+#' @param flexcols vector of column indices that can be truncated to fit the screen width.
+#' Default is `NULL`, which selects the widest columns.
+#' @param sep separator between columns. Default is `" "`
+#' @export
+#'
+#' @examples
+#' library(cli)
+#' letter <- style_italic(LETTERS[1:4])
+#' letter2 <- col_blue(paste0(LETTERS[11:14],LETTERS[11:14],LETTERS[11:14]))
+#' number <- 1:4
+#' number2 <- col_red(10001:10004)
+#' color <- c(col_blue("blue"),col_green("green"),col_red("red"),col_yellow("yellow"))
+#' text <- c("The birch canoe slid on the smooth planks. Rice is often served in round bowls.",
+#'           "Glue the sheet to the dark blue background. The juice of lemons makes fine punch.",
+#'           "It's easy to tell the depth of a well. The box was thrown beside the parked truck.",
+#'           "These days a chicken leg is a rare dish. The hogs were fed chopped corn and garbage.")
+#' data <- data.frame(letter,letter2,number,number2,color,text)
+#' cli_table(data)
+cli_table <- function(data,flexcols=NULL,sep=" ") {
+  distribute <- function(x,n) {
+    div <- x %/% n
+    mod <- x %% n
+    rep(div,length=n) + ifelse((1:n)<=mod,1,0)
+  }
+  width <- cli::console_width()
+  mat <- data %>%
+    mutate(across(.cols=everything(),.fns=~{
+      .x %>% as.character() %>% pillar::align()
+    })) %>% as.matrix()
+  allcols <- 1:ncol(mat)
+  # nchar of all cols
+  lengthcols <- apply(mat,2,function(x) max(ansi_nchar(x)))
+  if (is.null(flexcols)) {
+    ord <- order(lengthcols)
+    excesswidths <- cumsum(lengthcols[ord])>=width
+    flexcols <- seq_along(lengthcols)[ord][excesswidths]
+  }
+  # cols with fixed width
+  fixedcols <- setdiff(allcols,flexcols)
+  # total gap length: (ncols - 1) * gaplength
+  gaplength <- (length(allcols)-1) * ansi_nchar(sep)
+  #total chars from fixed cols and gap:
+  fixedlength <- sum(lengthcols[fixedcols])+gaplength
+  # remaining space for flex cols
+  remainderlength <- width - fixedlength
+  # individual lengths to be used for each flexible col.
+  flexlengths <- distribute(remainderlength,length(flexcols))
+  # apply the lengths
+  for (i in seq_along(flexcols)) {
+    flexcol <- flexcols[i]
+    flexlength <- flexlengths[i]
+    mat[,flexcol] <- ansi_strtrim(mat[,flexcol], width = flexlength, ellipsis = symbol$ellipsis)
+  }
+  text <- mat %>% apply(1,function(x) {
+    paste(x,collapse=sep)
+  })
+  cli::cat_line(text)
+}
 
 
 # simple vector operations ------------------------------------------------
