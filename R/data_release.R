@@ -368,6 +368,8 @@ gh_download_asset2 <- function(owner, repo, id, destfile,
   invisible(resp)
 }
 
+
+
 get_gitrepo <- function(path=".") {
   tryCatch({
     paste(gh::gh_tree_remote(path), collapse = "/")
@@ -408,11 +410,13 @@ get_gittoken <- function(path=".") {
 
 
 #' @export
+#' @param files Files to be uploaded. Default (`NULL`) is to upload all files found in `/data`.
+#'
 #' @rdname git_release
 upload_git_release <- function(files=NULL,
                                tag = "v0.0.0.1",
                                generate_load_script = "R/run_this_to_download_data.R",
-                               path = ".",
+                               path = here::here(),
                                repo = get_gitrepo(path=path),
                                api = get_gitapi(path=path),
                                token = get_gittoken(path=path)) {
@@ -451,10 +455,12 @@ upload_git_release <- function(files=NULL,
 # Data files: {base_files}
 
 # Note that that yingtools2 0.0.1.174 or higher is needed.
-if (!require("yingtools2") || packageVersion("yingtools2")<"0.0.1.174") {{
- remotes::install_github("ying14/yingtools2")
-}}
-yingtools2::download_git_release()
+if (FALSE) {
+  if (!require("yingtools2") || packageVersion("yingtools2")<"0.0.1.174") {{
+   remotes::install_github("ying14/yingtools2")
+  }}
+  yingtools2::download_git_release()
+}
 ')
       writeLines(code, generate_load_script)
       cli::cli_alert_info("Data loading script generated: {.path {generate_load_script}}")
@@ -462,7 +468,6 @@ yingtools2::download_git_release()
     }
   }
 }
-
 
 
 
@@ -479,9 +484,9 @@ yingtools2::download_git_release()
 #' However, it currently only works with Github, and does not play well with Github Enterprise.
 #' These functions represent modifications to make it work, and to streamline the upload/download process.
 #' @param files Files to be uploaded. Default is all files in `<path>/data`.
-#' @param tag The tag version to download. Default is to use `"v1.0"` when uploading, or `"latest"` (i.e. latest version) when downloading.
+#' @param tag The tag version to upload/download. Default is to use `"v0.0.0.1"` when uploading, or `"latest"` (i.e. latest version) when downloading.
 #' @param dest The folder where release data will be saved. Default is `data`.
-#' @param path Path of the git repo. Default is current directory, `"."`
+#' @param path Path of the git repo. Default is current project's directory, `here::here()`.
 #' @param repo string: GH repository name in format `"owner/repo"`. Default is to guess based on `path`.
 #' @param api GitHub API URL. For standard Github this would be `"https://api.github.com"`,
 #' but in Github Enterprise this would be something like `"https://github.XXXXX.org/api/v3"`.
@@ -494,15 +499,19 @@ yingtools2::download_git_release()
 #' \dontrun{
 #' mt1 <- mtcars %>% mutate(version=1)
 #' iris1 <- iris %>% mutate(version=1)
-#' write_csv(mt1,file="mt1.csv")
-#' write_csv(iris1,file="iris1.csv")
-#' upload_git_release(c("mt1.csv","iris1.csv"))
+#' # save files to the /data folder
+#' write_csv(mt1,file="data/mt1.csv")
+#' write_csv(iris1,file="data/iris1.csv")
+#' # upload files in /data to Github as a release
+#' upload_git_release()
+#'
+#' # In a system that doesn't have the data, download files from Github
 #' download_git_release()
 #' }
 #' @rdname git_release
 download_git_release <- function(tag = "latest",
                                  dest = "data",
-                                 path = ".",
+                                 path = here::here(),
                                  repo = get_gitrepo(path=path),
                                  api = get_gitapi(path=path),
                                  token = get_gittoken(path=path)) {

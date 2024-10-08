@@ -9,7 +9,7 @@ upload_git_release(
   files = NULL,
   tag = "v0.0.0.1",
   generate_load_script = "R/run_this_to_download_data.R",
-  path = ".",
+  path = here::here(),
   repo = get_gitrepo(path = path),
   api = get_gitapi(path = path),
   token = get_gittoken(path = path)
@@ -18,7 +18,7 @@ upload_git_release(
 download_git_release(
   tag = "latest",
   dest = "data",
-  path = ".",
+  path = here::here(),
   repo = get_gitrepo(path = path),
   api = get_gitapi(path = path),
   token = get_gittoken(path = path)
@@ -27,9 +27,9 @@ download_git_release(
 \arguments{
 \item{files}{Files to be uploaded. Default is all files in \verb{<path>/data}.}
 
-\item{tag}{The tag version to download. Default is to use \code{"v1.0"} when uploading, or \code{"latest"} (i.e. latest version) when downloading.}
+\item{tag}{The tag version to upload/download. Default is to use \code{"v0.0.0.1"} when uploading, or \code{"latest"} (i.e. latest version) when downloading.}
 
-\item{path}{Path of the git repo. Default is current directory, \code{"."}}
+\item{path}{Path of the git repo. Default is current project's directory, \code{here::here()}.}
 
 \item{repo}{string: GH repository name in format \code{"owner/repo"}. Default is to guess based on \code{path}.}
 
@@ -59,9 +59,13 @@ These functions represent modifications to make it work, and to streamline the u
 \dontrun{
 mt1 <- mtcars \%>\% mutate(version=1)
 iris1 <- iris \%>\% mutate(version=1)
-write_csv(mt1,file="mt1.csv")
-write_csv(iris1,file="iris1.csv")
-upload_git_release(c("mt1.csv","iris1.csv"))
+# save files to the /data folder
+write_csv(mt1,file="data/mt1.csv")
+write_csv(iris1,file="data/iris1.csv")
+# upload files in /data to Github as a release
+upload_git_release()
+
+# In a system that doesn't have the data, download files from Github
 download_git_release()
 }
 }
