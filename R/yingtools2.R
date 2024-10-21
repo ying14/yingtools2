@@ -13,6 +13,8 @@
   !(x %in% y)
 }
 
+
+
 #' All In
 #'
 #' Convenience function. `a %allin% b` is equivalent to `all(a %in% b, na.rm=FALSE)`
@@ -46,6 +48,17 @@
     }
   }
 }
+
+
+#' @rdname compare
+#' @export
+`%c%` <- function(x,y) {
+  compare(x,y)
+}
+
+
+
+
 
 
 #' Regular Expression Operator
@@ -82,11 +95,6 @@
 `%notilike%` = function(x,y) {
   !grepl(y,x,ignore.case=TRUE)
 }
-
-
-
-
-
 
 #' Find Regular Expression Operator
 #'
@@ -155,7 +163,6 @@
   hitlist <- x %>% imap(~`%find%.default`(.x,pattern=pattern,maxhits=5,name=paste0("$ ",.y)))
   invisible(hitlist)
 }
-
 
 
 
