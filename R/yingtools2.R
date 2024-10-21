@@ -111,15 +111,17 @@
 `%find%.default` <- function(x,pattern,name=NULL,maxhits=10) {
   requireNamespace(c("cli","pillar"),quietly = TRUE)
   pattern <- regex(pattern,ignore_case = TRUE)
+
   if (is.null(name)) {
     name <- deparse1(substitute(x))
   }
+  message(name)
+
   width <- cli::console_width()
   which.hits <- str_which(x,pattern=pattern)
   n.hits <- length(which.hits)
   hits <- x[which.hits]
-  cli::cli_text("{.var name}: {n.hits} hit{?s}")
-  # cli::cli_text("{name}: {n.hits} {ifelse(n.hits==1,'hit','hits')}")
+  cli::cli_text("{name}: {n.hits} hit{?s}")
   if (n.hits>0) {
     sub.hits <- hits %>% head(n=maxhits)
     sub.which.hits <- which.hits %>% head(n=maxhits)
