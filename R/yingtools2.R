@@ -1855,6 +1855,10 @@ copy.as.Rcode <- function(x,width=getOption("width")-15,copy.clipboard=TRUE) {
 
 
 
+
+
+
+
 #' Copy to clipboard as tribble
 #'
 #' @param tbl a data frame to be copied
@@ -2817,6 +2821,9 @@ group_split_named <- function(.tbl, ..., .keep = TRUE, sep = " / ") {
 
 # clipboard operations ----------------------------------------------------
 
+rstudio_server_running <- function() {
+  rstudioapi::isAvailable() && rstudioapi::versionInfo()[["mode"]]=="server"
+}
 
 
 #' Copy to Clipboard
@@ -2829,6 +2836,9 @@ group_split_named <- function(.tbl, ..., .keep = TRUE, sep = " / ") {
 #' @author Ying Taur
 #' @export
 copy.to.clipboard <- function(x) {
+  if (rstudio_server_running()) {
+    cli_warn("YTWarning: you are running Rstudio Server")
+  }
   if (is(x,"gg")) {
     copy.to.clipboard.gg(x)
   } else {
