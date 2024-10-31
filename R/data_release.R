@@ -450,7 +450,7 @@ upload_git_release <- function(files="release_data",
     cli::cli_abort("No files found in {dir}")
   }
   base_files <- basename(filelist)
-  if (anyDuplicated(base)) {
+  if (anyDuplicated(base_files)) {
     filelist <- filelist[order(base_files)]
     dups <- filelist[duplicated(base_files) | duplicated(base_files,fromLast = TRUE)]
     cli::cli_abort("YTError: these files have duplicated basenames: {.file {dups}}")
