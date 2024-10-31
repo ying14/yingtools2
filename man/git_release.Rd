@@ -6,18 +6,18 @@
 \title{Download/Upload Git Release Ddata}
 \usage{
 upload_git_release(
-  files = NULL,
+  files = "release_data",
+  path = here::here(),
   tag = "v0.0.0.1",
   generate_load_script = "R/run_this_to_download_data.R",
-  path = here::here(),
   repo = get_gitrepo(path = path),
   api = get_gitapi(path = path),
   token = get_gittoken(path = path)
 )
 
 download_git_release(
-  tag = "latest",
-  dest = "data",
+  tag = "v0.0.0.1",
+  dest = "release_data",
   path = here::here(),
   repo = get_gitrepo(path = path),
   api = get_gitapi(path = path),
@@ -25,11 +25,13 @@ download_git_release(
 )
 }
 \arguments{
-\item{files}{Files to be uploaded. Default is all files in \verb{<path>/data}.}
-
-\item{tag}{The tag version to upload/download. Default is to use \code{"v0.0.0.1"} when uploading, or \code{"latest"} (i.e. latest version) when downloading.}
+\item{files}{File(s) or folder(s) to be uploaded (absolute path or relative to \code{path}).
+Default is to upload all files found in \verb{<path>/release_data}.}
 
 \item{path}{Path of the git repo. Default is current project's directory, \code{here::here()}.}
+
+\item{tag}{The tag version to upload/download. Default is to use \code{"v0.0.0.1"}.
+When downloading, can specify \code{"latest"} (i.e. latest version).}
 
 \item{repo}{string: GH repository name in format \code{"owner/repo"}. Default is to guess based on \code{path}.}
 
@@ -40,7 +42,7 @@ Default is to guess based on info in the Git repo \code{path}.}
 \item{token}{Personal access token (PAT). These credentials may be needed, depending on the operation and repo.
 Default is to use \code{\link[gh:gh_token]{gh::gh_token()}}, if it exists, or \code{NULL} otherwise.}
 
-\item{dest}{The folder where release data will be saved. Default is \code{data}.}
+\item{dest}{The folder where release data will be saved. Default is \code{release_data}.}
 }
 \description{
 Use these functions to store/access data on Git repositories, through release asset.
@@ -54,6 +56,16 @@ have size limits, and which can be overwritten each time, so as to avoid duplica
 The \href{https://github.com/ropensci/piggyback}{\code{piggyback}} package has great functions to take advantage of the \emph{release asset} feature.
 However, it currently only works with Github, and does not play well with Github Enterprise.
 These functions represent modifications to make it work, and to streamline the upload/download process.
+
+Some of the default settings are useful for avoiding potential issues.
+The default \code{tag} of \code{"v0.0.0.1"} is good in case the Git repo/project is an
+R package with formal releases, where automated systems are looking for latest version
+and you would not want it to pick up the release data by accident.
+Data is stored in the default \code{dest} location \code{release_data}.
+
+You probably want to avoid storing in \code{data}, because if the repo/project is an
+R package, it will try to include the release data in the package during
+build (changing .Rbuildignore doesn't seem to work).
 }
 \examples{
 \dontrun{

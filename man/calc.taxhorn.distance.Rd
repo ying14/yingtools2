@@ -13,6 +13,7 @@ calc.taxhorn.distance(phy)
 distance metric of \code{taxhorn} distances
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Ephraim Slamka helped to develop this metric, in which the Horn distance is calculated over after
 collapsing at each taxonomic level and then taking the weighted average of distance values.
 }

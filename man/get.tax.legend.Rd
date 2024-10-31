@@ -15,5 +15,5 @@ get.tax.legend(tax.palette = yt.palette3, fontsize = 5)
 a ggplot object showing the legend.
 }
 \description{
-Generate tax legend
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 }

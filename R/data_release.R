@@ -408,33 +408,56 @@ get_gittoken <- function(path=".") {
 }
 
 
-
 #' @export
-#' @param files Files to be uploaded. Default (`NULL`) is to upload all files found in `/data`.
-#'
+#' @param files File(s) or folder(s) to be uploaded (absolute path or relative to `path`).
+#' Default is to upload all files found in `<path>/release_data`.
 #' @rdname git_release
-upload_git_release <- function(files=NULL,
+upload_git_release <- function(files="release_data",
+                               path = here::here(),
                                tag = "v0.0.0.1",
                                generate_load_script = "R/run_this_to_download_data.R",
-                               path = here::here(),
                                repo = get_gitrepo(path=path),
                                api = get_gitapi(path=path),
                                token = get_gittoken(path=path)) {
   # note to self: should probably check if in repo, and token works.
   # linux doesn't seem to work if it is MSK git.. need token or something
-  if (is.null(files)) {
-    dir <- file.path(path,"data")
-    files <- list.files(path=dir,full.names = TRUE)
-  }
-  if (length(files)==0) {
+  # path="C:/Users/Ying/R/autofmt"
+  # files=c("data/fmt.study.compact.RData","data/fmt.tax.blast.full.rds")
+  # files="data/fmt.study.compact.RData"
+  # files=c("data","R")
+  # files="data"
+  # files="autofmt.Rproj"
+  # files="/"
+  # convert folders to files, make absolute paths
+  filelist <- map(files,~{
+    if (R.utils::isAbsolutePath(.x)) {
+      path <- .x
+    } else {
+      path <- file.path(path,.x)
+    }
+    if (dir.exists(path)) {
+      # remove subfolders
+      dirfiles <- setdiff(list.files(files,full.names=TRUE),list.dirs(files,full.names = TRUE))
+      return(dirfiles)
+    } else if (file.exists(path)) {
+      return(path)
+    } else {
+      cli::cli_abort("YTError: path does not exist: {.file {path}}")
+    }
+  }) %>% list_c()
+
+  if (length(filelist)==0) {
     cli::cli_abort("No files found in {dir}")
   }
-  if (!all(file.exists(files))) {
-    notfound <- files[!file.exists(files)]
-    cli::cli_abort("Files not found: {notfound}")
+  base_files <- basename(filelist)
+  if (anyDuplicated(base)) {
+    filelist <- filelist[order(base_files)]
+    dups <- filelist[duplicated(base_files) | duplicated(base_files,fromLast = TRUE)]
+    cli::cli_abort("YTError: these files have duplicated basenames: {.file {dups}}")
   }
-  cli::cli_alert_info("Uploading files as Git release: {files}")
-  pb_upload2(files,
+  cli::cli_alert_info("Uploading files as Git release: {.file {base_files}}")
+
+  pb_upload2(filelist,
              tag=tag,
              repo=repo,
              .api_url = api,
@@ -444,17 +467,16 @@ upload_git_release <- function(files=NULL,
     if (!file.exists(generate_load_script)) {
       script_dir <- dirname(generate_load_script)
       dir.create(script_dir, showWarnings = FALSE)
-
-      base_files <- paste(basename(files),collapse=", ")
       code <- str_glue('
 # Github release data is stored.
 # To download the data from Github and store in data folder, run code below:
 
 # Git API: {api}
 # Repo: {repo}
-# Data files: {base_files}
+# Data files: {paste(base_files,collapse=', ')}
 
 # Note that that yingtools2 0.0.1.174 or higher is needed.
+# This will place files in folder release_data.
 if (FALSE) {
   if (!require("yingtools2") || packageVersion("yingtools2")<"0.0.1.174") {{
    remotes::install_github("ying14/yingtools2")
@@ -464,7 +486,7 @@ if (FALSE) {
 ')
       writeLines(code, generate_load_script)
       cli::cli_alert_info("Data loading script generated: {.path {generate_load_script}}")
-      cli::cli_alert_info("Consider adding these to {.path .gitignore}")
+      cli::cli_alert_info("Consider adding these to {.path .gitignore}:\n{.path {files}}")
     }
   }
 }
@@ -473,9 +495,11 @@ if (FALSE) {
 
 #' Download/Upload Git Release Ddata
 #'
+#' @description
 #' Use these functions to store/access data on Git repositories, through release asset.
 #' This essentially what [`piggyback`](https://github.com/ropensci/piggyback) does, but with modifications to work with Github Enterprise servers.
 #'
+#' @details
 #' Storing data on Github repostories is quite limited, to 50 Mb per file. Also, each time you push a new version of the data,
 #' there are multiple copies which can accumulate over time. However, you can upload the data as a *release asset*, which does not
 #' have size limits, and which can be overwritten each time, so as to avoid duplicate copies.
@@ -483,9 +507,20 @@ if (FALSE) {
 #' The [`piggyback`](https://github.com/ropensci/piggyback) package has great functions to take advantage of the *release asset* feature.
 #' However, it currently only works with Github, and does not play well with Github Enterprise.
 #' These functions represent modifications to make it work, and to streamline the upload/download process.
-#' @param files Files to be uploaded. Default is all files in `<path>/data`.
-#' @param tag The tag version to upload/download. Default is to use `"v0.0.0.1"` when uploading, or `"latest"` (i.e. latest version) when downloading.
-#' @param dest The folder where release data will be saved. Default is `data`.
+#'
+#' Some of the default settings are useful for avoiding potential issues.
+#' The default `tag` of `"v0.0.0.1"` is good in case the Git repo/project is an
+#' R package with formal releases, where automated systems are looking for latest version
+#' and you would not want it to pick up the release data by accident.
+#' Data is stored in the default `dest` location `release_data`.
+#'
+#' You probably want to avoid storing in `data`, because if the repo/project is an
+#' R package, it will try to include the release data in the package during
+#' build (changing .Rbuildignore doesn't seem to work).
+#'
+#' @param tag The tag version to upload/download. Default is to use `"v0.0.0.1"`.
+#' When downloading, can specify `"latest"` (i.e. latest version).
+#' @param dest The folder where release data will be saved. Default is `release_data`.
 #' @param path Path of the git repo. Default is current project's directory, `here::here()`.
 #' @param repo string: GH repository name in format `"owner/repo"`. Default is to guess based on `path`.
 #' @param api GitHub API URL. For standard Github this would be `"https://api.github.com"`,
@@ -509,8 +544,8 @@ if (FALSE) {
 #' download_git_release()
 #' }
 #' @rdname git_release
-download_git_release <- function(tag = "latest",
-                                 dest = "data",
+download_git_release <- function(tag = "v0.0.0.1",
+                                 dest = "release_data",
                                  path = here::here(),
                                  repo = get_gitrepo(path=path),
                                  api = get_gitapi(path=path),
@@ -525,7 +560,6 @@ download_git_release <- function(tag = "latest",
                .api_url = api,
                .token=token)
 }
-
 
 
 # if (FALSE) {

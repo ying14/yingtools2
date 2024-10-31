@@ -13,5 +13,6 @@ gg.axis.limits(gg)
 a list containing inforation about limits for X and Y.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Determines the actual limits of X and Y, for a given ggplot object. This is used by \code{\link[=gg.align.xlim]{gg.align.xlim()}}.
 }

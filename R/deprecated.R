@@ -1,91 +1,11 @@
 
 # from microbiota.R -------------------------------------------------------
 
-filter.phyloseq.REPLACED <- function(phy, ..., prune_unused_taxa=TRUE,prune_unused_samples=FALSE) {
-  criteria <- quos(...)
-  is.sample.criteria <- map_lgl(criteria,~eval_phyloseq_expr(.x,phy))
-  cli_text(col_blue("filter:"))
-  for (i in seq_along(criteria)) {
-    expr <- criteria[[i]]
-    use.samp <- is.sample.criteria[i]
-    if (use.samp) {
-      ssub <- phy %>% get.samp() %>% filter(!!expr)
-      n.samps.old <- nsamples(phy)
-      n.samps.new <- nrow(ssub)
-      cli::cli_text(col_blue("sample_data")," ({n.samps.old} to {n.samps.new} sample{?s}): {as_label(expr)}")
-      phy <- prune_samples(ssub$sample,phy)
-    } else {
-      tsub <- phy %>% get.tax() %>% filter(!!expr)
-      n.taxa.old <- ntaxa(phy)
-      n.taxa.new <- nrow(tsub)
-      cli::cli_text(col_blue("tax_table")," ({n.taxa.old} to {n.taxa.new}): {as_label(expr)}")
-      phy <- prune_taxa(tsub$otu,phy)
-    }
-  }
-  if (prune_unused_taxa && any(is.sample.criteria)) {
-    cli_text("Removing unused taxa...")
-
-    phy <- phy %>% prune_unused_taxa()
-  }
-  if (prune_unused_samples && any(!is.sample.criteria)) {
-    cli_text("Removing unused samples...")
-    phy <- phy %>% prune_samples(sample_sums(.)>0,.)
-  }
-  return(phy)
-}
-
-mutate.phyloseq.OLD <- function(phy, ...) {
-  commands <- quos(...)
-  is.sample.command <- map_lgl(commands,~eval_phyloseq_expr(.x,phy))
-  cli_text(col_blue("mutate:"))
-  for (i in seq_along(commands)) {
-    expr <- commands[[i]]
-    use.samp <- is.sample.command[i]
-    var <- names(commands)[i]
-    if (use.samp) {
-      if (var!="") {
-        samp <- get.samp(phy) %>% mutate(!!var:=!!expr)
-      } else {
-        samp <- get.samp(phy) %>% mutate(!!expr)
-      }
-      # get.samp(phy) %>% mutate(!!expr)
-      cli_text(col_blue("sample_data"),": {var} = {as_label(expr)}")
-      if (!identical(sample_names(phy),samp$sample)) {
-        message("Note, sample_names() were altered")
-        sample_names(phy) <- samp$sample
-      }
-      sample_data(phy) <- samp %>% set.samp()
-    } else {
-      if (var!="") {
-        tax <- get.tax(phy) %>% mutate(!!var:=!!expr)
-      } else {
-        tax <- get.tax(phy) %>% mutate(!!expr)
-      }
-      cli_text(col_blue("tax_table"),": {var} = {as_label(expr)}")
-      if (!identical(taxa_names(phy),tax$otu)) {
-        message("Note, taxa_names() were altered")
-        taxa_names(phy) <- tax$otu
-      }
-      tax_table(phy) <- tax %>% set.tax()
-    }
-  }
-  return(phy)
-}
-
-
-filter.phyloseq.old <- function(phy, ..., prune_unused_taxa=TRUE) {
-  ssub <- phy %>% get.samp() %>% filter(...)
-  physub <- prune_samples(ssub$sample,phy)
-  if (prune_unused_taxa) {
-    physub <- prune_unused_taxa(physub)
-  }
-  return(physub)
-}
 
 
 #' Calculate the `taxhorn` distance
 #'
-#'
+#' `r lifecycle::badge("deprecated")`
 #' Ephraim Slamka helped to develop this metric, in which the Horn distance is calculated over after
 #' collapsing at each taxonomic level and then taking the weighted average of distance values.
 #' @param phy phyloseq object
@@ -204,6 +124,7 @@ calc.taxhorn.distance <- function(phy) {
 
 #' Calculate axis limits
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Determines the actual limits of X and Y, for a given ggplot object. This is used by [gg.align.xlim()].
 #' @param gg the ggplot object
 #' @return a list containing inforation about limits for X and Y.
@@ -285,6 +206,7 @@ gg.axis.limits <- function(gg) {
 
 #' Create a color palette for taxonomy
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Given microbiota data, generate a color palette that can be used in ggplot2 plots.
 #'
 #' Note that the `tax.palette` formula list is evaluated in order, and should probably end in TRUE  (similar to [dplyr::case_when()]).
@@ -370,6 +292,8 @@ get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
 
 #' Generate tax legend
 #'
+#' `r lifecycle::badge("deprecated")`
+#'
 #' @param tax.palette a list of formulas specifying the palette. Default is [`yt.palette3`].
 #' @param fontsize Font size. Default is 5.
 #' @return a ggplot object showing the legend.
@@ -393,7 +317,9 @@ get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
   rlang::inject(gridExtra::arrangeGrob(!!!glist,ncol=1))
 }
 
-
+#' Generate tax legend 2
+#'
+#' `r lifecycle::badge("deprecated")`
 get.tax.legend2 <- function(tax.palette=yt.palette3,fontsize=5,ncol=NULL,nrow=NULL) {
   warning("YTWarning: Please note that this function is deprecated, consider using geom_taxonomy / scale_fill_taxonomy")
   if (is.null(ncol) && is.null(nrow))  {
@@ -418,6 +344,7 @@ get.tax.legend2 <- function(tax.palette=yt.palette3,fontsize=5,ncol=NULL,nrow=NU
 
 #' Plot tax
 #'
+#' `r lifecycle::badge("deprecated")`
 #' @param t data frame containing melted tax data. Needs to have vars sample, pctseqs, Kingdom, ... , Species
 #' @param xvar xvar by which to plot data. This should be a distinct identifier for samples.
 #' @param data whether to return data frame only (`TRUE`), or  proceed with plotting (`FALSE`).

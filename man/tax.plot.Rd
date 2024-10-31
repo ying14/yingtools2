@@ -37,7 +37,7 @@ tax.plot(
 either ggplot2 object, or data frame.
 }
 \description{
-Plot tax
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 }
 \author{
 Ying Taur

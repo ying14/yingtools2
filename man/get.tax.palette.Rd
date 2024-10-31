@@ -18,6 +18,7 @@ Sometimes you might want to switch to another granular identifer, such as \code{
 named vector of colors, which can be used in: \verb{ggplot( ... ) + scale_fill_manual(values = <pal> )}
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Given microbiota data, generate a color palette that can be used in ggplot2 plots.
 }
 \details{
