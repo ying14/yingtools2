@@ -14,10 +14,10 @@ custom_full_join(
   x.only.expr = .data,
   y.only.expr = .data,
   xy.expr = .data,
-  xy.conflict.expr = .x
+  xy.compare.expr = .x
 )
 
-custom_inner_join(x, y, by = NULL, xy.expr = .data, xy.conflict.expr = .x)
+custom_inner_join(x, y, by = NULL, xy.expr = .data, xy.compare.expr = .x)
 
 custom_left_join(
   x,
@@ -25,7 +25,7 @@ custom_left_join(
   by = NULL,
   x.only.expr = .data,
   xy.expr = .data,
-  xy.conflict.expr = .x
+  xy.compare.expr = .x
 )
 
 custom_right_join(
@@ -34,7 +34,7 @@ custom_right_join(
   by = NULL,
   y.only.expr = .data,
   xy.expr = .data,
-  xy.conflict.expr = .x
+  xy.compare.expr = .x
 )
 }
 \arguments{
@@ -50,7 +50,13 @@ custom_right_join(
 
 \item{xy.expr}{expression dealing with rows in both \code{x} and \code{y}. \code{.data} is the tibble of x and y rows.}
 
-\item{xy.conflict.expr}{expression dealing with columns with potential conflicts between \code{x}and \code{y}. \code{.x} and \code{.y} are vectors from \code{x} and \code{y}, and \code{.col} is the name of the column.}
+\item{xy.compare.expr}{expression dealing with columns with the same name in \code{x}and \code{y}.
+\code{.x} and \code{.y} are vectors from \code{x} and \code{y}, and \code{.col} is the name of the column.
+Similar to \code{xy.expr}, this only runs on rows in both \code{x} and \code{y}. Make sure a vector
+of same size is returned.}
+}
+\value{
+A data frame which is the result of the join operation.
 }
 \description{
 Provides great customization over how to join 2 data frames.
@@ -58,9 +64,32 @@ Provides great customization over how to join 2 data frames.
 \examples{
 library(dplyr)
 mt1 <- mtcars \%>\% rownames_to_column("car") \%>\% mutate(car2=paste(car,"2"),car3x=paste(car,"3")) \%>\%
-  slice(1:20) \%>\% select(starts_with("car"),mpg:vs)
+  dplyr::slice(1:20) \%>\% select(starts_with("car"),mpg:vs)
 mt2 <- mtcars \%>\% rownames_to_column("car") \%>\% mutate(car2=paste(car,"2"),car3y=paste(car,"3")) \%>\%
-  slice(10:32) \%>\% select(starts_with("car"),hp:carb) \%>\%
+  dplyr::slice(10:32) \%>\% select(starts_with("car"),hp:carb) \%>\%
   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
-mt12 <- custom_full_join(mt1,mt2,by="car")
+
+mt12 <- custom_full_join(mt1,mt2,by="car",
+                         x.only.expr={
+                           cli::cli_alert_info("x only rows: {nrow(.data)}")
+                           return(.data)
+                         },
+                         y.only.expr={
+                           cli::cli_alert_info("y only rows: {nrow(.data)}")
+                           return(.data)
+                         },
+                         xy.expr={
+                           cli::cli_alert_info("x and y only rows: {nrow(.data)}")
+                           return(.data)
+                         },
+                         xy.compare.expr={
+                           all.match <- all(is.equal(.x,.y))
+                           if (all.match) {
+                             cli::cli_alert_info("{cli::col_blue(.col)}: all match")
+                           } else {
+                             ex <- which(!is.equal(.x,.y))[1]
+                             cli::cli_alert_info("{cli::col_blue(.col)}: no match (e.g. row {cli::col_blue(ex)}, {cli::col_blue(.x[ex])} vs. {cli::col_blue(.y[ex])})")
+                           }
+                           return(.x)
+                         })
 }

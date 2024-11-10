@@ -57,10 +57,6 @@
 }
 
 
-
-
-
-
 #' Regular Expression Operator
 #'
 #' Shorthand operator for regular expression.
@@ -165,6 +161,41 @@
   hitlist <- x %>% imap(~`%find%.default`(.x,pattern=pattern,maxhits=5,name=paste0("$ ",.y)))
   invisible(hitlist)
 }
+
+
+
+#' Test if 2 vectors are equal, element-wise
+#'
+#' Similar to `x == y`, but handles `NA` equality
+#' @param x first vector
+#' @param y second vector
+#'
+#' @return logical vector
+#' @export
+#'
+#' @examples
+#' x <- c("A","B","C",NA,NA)
+#' y <- c("A","X",NA,"D",NA)
+#' # this is c(TRUE, FALSE, NA, NA, NA)
+#' x == y
+#' # but we want c(TRUE, FALSE, FALSE, FALSE, TRUE)
+#' is.equal(x,y)
+#' x %equals% y
+is.equal <- function(x,y) {
+  (!is.na(x) & !is.na(y) & x==y) | (is.na(x) & is.na(y))
+}
+
+#' @rdname is.equal
+#' @export
+`%==%` <- function(x,y) {
+  is.equal(x,y)
+}
+#' @rdname is.equal
+#' @export
+`%!=%` <- function(x,y) {
+  !is.equal(x,y)
+}
+
 
 
 
@@ -673,6 +704,9 @@ compare.default <- function(x,y) {
   }
 }
 
+
+
+
 #' @rdname compare
 #' @export
 compare.character <- function(x,y) {
@@ -682,11 +716,11 @@ compare.character <- function(x,y) {
   x.type <- format(pillar::new_pillar_type(x))
   y.type <- format(pillar::new_pillar_type(y))
 
-  are.equal <- function(v1,v2) {
-    same <- (v1 == v2) | (is.na(v1) & is.na(v2))
-    same[is.na(same)] <- FALSE
-    return(same)
-  }
+  # are.equal <- function(v1,v2) {
+  #   same <- (v1 == v2) | (is.na(v1) & is.na(v2))
+  #   same[is.na(same)] <- FALSE
+  #   return(same)
+  # }
   x.length <- length(x)
   y.length <- length(y)
   x.ndistinct <- n_distinct(x)
@@ -694,8 +728,8 @@ compare.character <- function(x,y) {
   x.is.distinct <- x.length==x.ndistinct
   y.is.distinct <- y.length==y.ndistinct
   xy.samelength <- x.length==y.length
-  xy.identical <- xy.samelength && all(are.equal(x,y))
-  xy.identical.difforder <- xy.samelength && all(are.equal(sort(x),sort(y)))
+  xy.identical <- xy.samelength && all(is.equal(x,y))
+  xy.identical.difforder <- xy.samelength && all(is.equal(sort(x),sort(y)))
   x.not.y <- setdiff(x,y)
   y.not.x <- setdiff(y,x)
   x.and.y <- intersect(x,y)
@@ -899,9 +933,7 @@ compare.data.frame <- function(x,y,by=NULL) {
   diff <- map2(compare.x,compare.y,~{
     xx <- all[[.x]]
     yy <- all[[.y]]
-    xy.diff <- xx != yy
-    xy.both.na <- is.na(xx) & is.na(yy)
-    xy.diff | !xy.both.na
+    !is.equal(xx,yy)
   }) %>% setNames(compare.vars) %>% as_tibble()
   alldiff <- all %>% select(.status) %>% cbind(diff)
   alldiff.summary <- alldiff %>%
@@ -3013,29 +3045,55 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #' @param x.only.expr expression dealing with rows in `x` only. `.data` is the tibble of x-only rows.
 #' @param y.only.expr expression dealing with rows in `y` only. `.data` is the tibble of y-only rows.
 #' @param xy.expr expression dealing with rows in both `x` and `y`. `.data` is the tibble of x and y rows.
-#' @param xy.conflict.expr expression dealing with columns with potential conflicts between `x`and `y`. `.x` and `.y` are vectors from `x` and `y`, and `.col` is the name of the column.
+#' @param xy.compare.expr expression dealing with columns with the same name in `x`and `y`.
+#' `.x` and `.y` are vectors from `x` and `y`, and `.col` is the name of the column.
+#' Similar to `xy.expr`, this only runs on rows in both `x` and `y`. Make sure a vector
+#' of same size is returned.
 #'
-#' @return
+#' @return A data frame which is the result of the join operation.
 #' @rdname custom_full_join
 #' @export
 #'
 #' @examples
 #' library(dplyr)
 #' mt1 <- mtcars %>% rownames_to_column("car") %>% mutate(car2=paste(car,"2"),car3x=paste(car,"3")) %>%
-#'   slice(1:20) %>% select(starts_with("car"),mpg:vs)
+#'   dplyr::slice(1:20) %>% select(starts_with("car"),mpg:vs)
 #' mt2 <- mtcars %>% rownames_to_column("car") %>% mutate(car2=paste(car,"2"),car3y=paste(car,"3")) %>%
-#'   slice(10:32) %>% select(starts_with("car"),hp:carb) %>%
+#'   dplyr::slice(10:32) %>% select(starts_with("car"),hp:carb) %>%
 #'   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
-#' mt12 <- custom_full_join(mt1,mt2,by="car")
+#'
+#' mt12 <- custom_full_join(mt1,mt2,by="car",
+#'                          x.only.expr={
+#'                            cli::cli_alert_info("x only rows: {nrow(.data)}")
+#'                            return(.data)
+#'                          },
+#'                          y.only.expr={
+#'                            cli::cli_alert_info("y only rows: {nrow(.data)}")
+#'                            return(.data)
+#'                          },
+#'                          xy.expr={
+#'                            cli::cli_alert_info("x and y only rows: {nrow(.data)}")
+#'                            return(.data)
+#'                          },
+#'                          xy.compare.expr={
+#'                            all.match <- all(is.equal(.x,.y))
+#'                            if (all.match) {
+#'                              cli::cli_alert_info("{cli::col_blue(.col)}: all match")
+#'                            } else {
+#'                              ex <- which(!is.equal(.x,.y))[1]
+#'                              cli::cli_alert_info("{cli::col_blue(.col)}: no match (e.g. row {cli::col_blue(ex)}, {cli::col_blue(.x[ex])} vs. {cli::col_blue(.y[ex])})")
+#'                            }
+#'                            return(.x)
+#'                          })
 custom_full_join <- function(x,y,by=NULL,
                              x.only.expr=.data,
                              y.only.expr=.data,
                              xy.expr=.data,
-                             xy.conflict.expr=.x) {
+                             xy.compare.expr=.x) {
   x.only.expr <- enexpr(x.only.expr)
   y.only.expr <- enexpr(y.only.expr)
   xy.expr <- enexpr(xy.expr)
-  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  xy.compare.expr <- enexpr(xy.compare.expr)
 
   if (is.null(by)) {
     by <- intersect(names(x),names(y))
@@ -3077,9 +3135,11 @@ custom_full_join <- function(x,y,by=NULL,
     yvar <- paste0(var,suffix[2])
     # run on each conflicting set of columns
     xy.conflict.f = function(.x,.y,.col) {
-      eval(xy.conflict.expr)
+      eval(xy.compare.expr)
     }
-    data_xy_rows[[var]] <- xy.conflict.f(.x=data_xy_rows[[xvar]],.y=data_xy_rows[[yvar]],.col=var)
+    data_xy_rows[[var]] <- xy.conflict.f(.x=data_xy_rows[[xvar]],
+                                         .y=data_xy_rows[[yvar]],
+                                         .col=var)
     data_xy_rows[[xvar]] <- NULL
     data_xy_rows[[yvar]] <- NULL
   }
@@ -3098,9 +3158,9 @@ custom_full_join <- function(x,y,by=NULL,
 #' @export
 custom_inner_join <- function(x,y,by=NULL,
                               xy.expr=.data,
-                              xy.conflict.expr=.x) {
+                              xy.compare.expr=.x) {
   xy.expr <- enexpr(xy.expr)
-  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
                    x.only.expr=NULL,
                    y.only.expr=NULL)
@@ -3110,13 +3170,13 @@ custom_inner_join <- function(x,y,by=NULL,
 custom_left_join <- function(x,y,by=NULL,
                              x.only.expr=.data,
                              xy.expr=.data,
-                             xy.conflict.expr=.x) {
+                             xy.compare.expr=.x) {
   x.only.expr <- enexpr(x.only.expr)
   xy.expr <- enexpr(xy.expr)
-  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
                    xy.expr=!!xy.expr,
-                   xy.conflict.expr=!!xy.conflict.expr,
+                   xy.compare.expr=!!xy.compare.expr,
                    x.only.expr=!!x.only.expr,
                    y.only.expr=NULL)
 }
@@ -3125,13 +3185,13 @@ custom_left_join <- function(x,y,by=NULL,
 custom_right_join <- function(x,y,by=NULL,
                               y.only.expr=.data,
                               xy.expr=.data,
-                              xy.conflict.expr=.x) {
+                              xy.compare.expr=.x) {
   y.only.expr <- enexpr(y.only.expr)
   xy.expr <- enexpr(xy.expr)
-  xy.conflict.expr <- enexpr(xy.conflict.expr)
+  xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
                    xy.expr=!!xy.expr,
-                   xy.conflict.expr=!!xy.conflict.expr,
+                   xy.compare.expr=!!xy.compare.expr,
                    y.only.expr=!!y.only.expr)
 }
 
