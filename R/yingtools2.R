@@ -181,8 +181,29 @@
 #' # but we want c(TRUE, FALSE, FALSE, FALSE, TRUE)
 #' is.equal(x,y)
 #' x %equals% y
-is.equal <- function(x,y) {
+is.equal <- function(x,...) {
+  UseMethod("is.equal",x)
+}
+
+
+is.equal.default <- function(x,y) {
   (!is.na(x) & !is.na(y) & x==y) | (is.na(x) & is.na(y))
+}
+
+is.equal.data.frame <- function(x,y) {
+  same.cols <- setequal(names(x),names(y))
+  same.rows <- nrow(x)==nrow(y)
+  same.size <- same.cols && same.rows
+  if (!same.size) {
+    return(FALSE)
+  }
+  cols <- names(x)
+  x <- x %>% select(!!!syms(cols)) %>%
+    arrange(!!!syms(cols))
+  y <- y %>% select(!!!syms(cols)) %>%
+    arrange(!!!syms(cols))
+  same.values <- all(map2_lgl(x,y,~all(is.equal(.x,.y))))
+  return(same.values)
 }
 
 #' @rdname is.equal

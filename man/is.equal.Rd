@@ -6,7 +6,7 @@
 \alias{\%!=\%}
 \title{Test if 2 vectors are equal, element-wise}
 \usage{
-is.equal(x, y)
+is.equal(x, ...)
 
 x \%==\% y
 
