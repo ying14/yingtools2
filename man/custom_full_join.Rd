@@ -17,7 +17,7 @@ custom_full_join(
   xy.compare.expr = .x
 )
 
-custom_inner_join(x, y, by = NULL, xy.expr = .data, xy.compare.expr = .x)
+custom_inner_join(x, y, by = NULL, xy.expr = .data, xy.compare.expr = .y)
 
 custom_left_join(
   x,
@@ -25,7 +25,7 @@ custom_left_join(
   by = NULL,
   x.only.expr = .data,
   xy.expr = .data,
-  xy.compare.expr = .x
+  xy.compare.expr = .y
 )
 
 custom_right_join(
@@ -83,11 +83,11 @@ mt12 <- custom_full_join(mt1,mt2,by="car",
                            return(.data)
                          },
                          xy.compare.expr={
-                           all.match <- all(is.equal(.x,.y))
+                           all.match <- all(is.same(.x,.y))
                            if (all.match) {
                              cli::cli_alert_info("{cli::col_blue(.col)}: all match")
                            } else {
-                             ex <- which(!is.equal(.x,.y))[1]
+                             ex <- which(!is.same(.x,.y))[1]
                              cli::cli_alert_info("{cli::col_blue(.col)}: no match (e.g. row {cli::col_blue(ex)}, {cli::col_blue(.x[ex])} vs. {cli::col_blue(.y[ex])})")
                            }
                            return(.x)

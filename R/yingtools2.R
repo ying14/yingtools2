@@ -173,48 +173,68 @@
 #' @return logical vector
 #' @export
 #'
+#' @rdname is.same
 #' @examples
 #' x <- c("A","B","C",NA,NA)
 #' y <- c("A","X",NA,"D",NA)
 #' # this is c(TRUE, FALSE, NA, NA, NA)
 #' x == y
 #' # but we want c(TRUE, FALSE, FALSE, FALSE, TRUE)
-#' is.equal(x,y)
-#' x %equals% y
-is.equal <- function(x,...) {
-  UseMethod("is.equal",x)
+#' is.same(x,y)
+#' x %==% y
+#' all.same(x,y)
+is.same <- function(x,...) {
+  UseMethod("is.same",x)
+}
+#' @export
+is.same.default <- function(x,y) {
+  map2_lgl(x,y,all.same)
+}
+#' @export
+is.same.data.frame <- function(x,y) {
+  cols.x <- names(x)
+  cols.y <- names(y)
+  if (!all.same(sort(cols.x),sort(cols.y))) {
+    cli::cli_abort("YTError: size/names do not match")
+  }
+  x <- x %>% select(!!!syms(cols.x)) %>% arrange(!!!syms(cols.x))
+  y <- y %>% select(!!!syms(cols.x)) %>% arrange(!!!syms(cols.x))
+  is.same.default(x,y)
 }
 
-
-is.equal.default <- function(x,y) {
-  (!is.na(x) & !is.na(y) & x==y) | (is.na(x) & is.na(y))
+#' @rdname is.same
+#' @export
+all.same <- function(x,...) {
+  UseMethod("all.same",x)
 }
-
-is.equal.data.frame <- function(x,y) {
-  same.cols <- setequal(names(x),names(y))
-  same.rows <- nrow(x)==nrow(y)
-  same.size <- same.cols && same.rows
-  if (!same.size) {
+#' @export
+all.same.default <- function(x,y) {
+  isTRUE(all.equal(x,y))
+}
+#' @export
+all.same.data.frame <- function(x,y) {
+  cols.x <- names(x)
+  cols.y <- names(y)
+  if (!all.same(sort(cols.x),sort(cols.y))) {
     return(FALSE)
   }
-  cols <- names(x)
-  x <- x %>% select(!!!syms(cols)) %>%
-    arrange(!!!syms(cols))
-  y <- y %>% select(!!!syms(cols)) %>%
-    arrange(!!!syms(cols))
-  same.values <- all(map2_lgl(x,y,~all(is.equal(.x,.y))))
-  return(same.values)
+  x <- x %>% select(!!!syms(cols.x)) %>% arrange(!!!syms(cols.x))
+  y <- y %>% select(!!!syms(cols.x)) %>% arrange(!!!syms(cols.x))
+  return(all.same.default(x,y))
 }
 
-#' @rdname is.equal
+
+
+
+#' @rdname is.same
 #' @export
 `%==%` <- function(x,y) {
-  is.equal(x,y)
+  is.same(x,y)
 }
-#' @rdname is.equal
+#' @rdname is.same
 #' @export
 `%!=%` <- function(x,y) {
-  !is.equal(x,y)
+  !is.same(x,y)
 }
 
 
@@ -749,8 +769,8 @@ compare.character <- function(x,y) {
   x.is.distinct <- x.length==x.ndistinct
   y.is.distinct <- y.length==y.ndistinct
   xy.samelength <- x.length==y.length
-  xy.identical <- xy.samelength && all(is.equal(x,y))
-  xy.identical.difforder <- xy.samelength && all(is.equal(sort(x),sort(y)))
+  xy.identical <- xy.samelength && all.same(x,y)
+  xy.identical.difforder <- xy.samelength && all.same(sort(x),sort(y))
   x.not.y <- setdiff(x,y)
   y.not.x <- setdiff(y,x)
   x.and.y <- intersect(x,y)
@@ -954,7 +974,7 @@ compare.data.frame <- function(x,y,by=NULL) {
   diff <- map2(compare.x,compare.y,~{
     xx <- all[[.x]]
     yy <- all[[.y]]
-    !is.equal(xx,yy)
+    !is.same(xx,yy)
   }) %>% setNames(compare.vars) %>% as_tibble()
   alldiff <- all %>% select(.status) %>% cbind(diff)
   alldiff.summary <- alldiff %>%
@@ -3097,11 +3117,11 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #'                            return(.data)
 #'                          },
 #'                          xy.compare.expr={
-#'                            all.match <- all(is.equal(.x,.y))
+#'                            all.match <- all(is.same(.x,.y))
 #'                            if (all.match) {
 #'                              cli::cli_alert_info("{cli::col_blue(.col)}: all match")
 #'                            } else {
-#'                              ex <- which(!is.equal(.x,.y))[1]
+#'                              ex <- which(!is.same(.x,.y))[1]
 #'                              cli::cli_alert_info("{cli::col_blue(.col)}: no match (e.g. row {cli::col_blue(ex)}, {cli::col_blue(.x[ex])} vs. {cli::col_blue(.y[ex])})")
 #'                            }
 #'                            return(.x)
@@ -3179,7 +3199,7 @@ custom_full_join <- function(x,y,by=NULL,
 #' @export
 custom_inner_join <- function(x,y,by=NULL,
                               xy.expr=.data,
-                              xy.compare.expr=.x) {
+                              xy.compare.expr=.y) {
   xy.expr <- enexpr(xy.expr)
   xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
@@ -3191,7 +3211,7 @@ custom_inner_join <- function(x,y,by=NULL,
 custom_left_join <- function(x,y,by=NULL,
                              x.only.expr=.data,
                              xy.expr=.data,
-                             xy.compare.expr=.x) {
+                             xy.compare.expr=.y) {
   x.only.expr <- enexpr(x.only.expr)
   xy.expr <- enexpr(xy.expr)
   xy.compare.expr <- enexpr(xy.compare.expr)
