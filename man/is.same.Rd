@@ -2,14 +2,26 @@
 % Please edit documentation in R/yingtools2.R
 \name{is.same}
 \alias{is.same}
+\alias{is.same.default}
+\alias{is.same.data.frame}
 \alias{all.same}
+\alias{all.same.default}
+\alias{all.same.data.frame}
 \alias{\%==\%}
 \alias{\%!=\%}
 \title{Test if 2 vectors are equal, element-wise}
 \usage{
 is.same(x, ...)
 
+\method{is.same}{default}(x, y)
+
+\method{is.same}{data.frame}(x, y)
+
 all.same(x, ...)
+
+\method{all}{same.default}(x, y)
+
+\method{all}{same.data.frame}(x, y)
 
 x \%==\% y
 

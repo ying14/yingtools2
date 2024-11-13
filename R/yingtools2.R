@@ -163,7 +163,6 @@
 }
 
 
-
 #' Test if 2 vectors are equal, element-wise
 #'
 #' Similar to `x == y`, but handles `NA` equality
@@ -172,8 +171,8 @@
 #'
 #' @return logical vector
 #' @export
-#'
 #' @rdname is.same
+#'
 #' @examples
 #' x <- c("A","B","C",NA,NA)
 #' y <- c("A","X",NA,"D",NA)
@@ -186,11 +185,14 @@
 is.same <- function(x,...) {
   UseMethod("is.same",x)
 }
-#' @export
+
+#' @rdname is.same
+#' @exportS3Method is.same default
 is.same.default <- function(x,y) {
   map2_lgl(x,y,all.same)
 }
-#' @export
+#' @rdname is.same
+#' @exportS3Method is.same data.frame
 is.same.data.frame <- function(x,y) {
   cols.x <- names(x)
   cols.y <- names(y)
@@ -207,11 +209,13 @@ is.same.data.frame <- function(x,y) {
 all.same <- function(x,...) {
   UseMethod("all.same",x)
 }
-#' @export
+#' @rdname is.same
+#' @exportS3Method all.same default
 all.same.default <- function(x,y) {
   isTRUE(all.equal(x,y))
 }
-#' @export
+#' @rdname is.same
+#' @exportS3Method all.same data.frame
 all.same.data.frame <- function(x,y) {
   cols.x <- names(x)
   cols.y <- names(y)
