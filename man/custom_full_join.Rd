@@ -11,18 +11,33 @@ custom_full_join(
   x,
   y,
   by = NULL,
+  keep = FALSE,
+  pre.x.expr = .data,
+  pre.y.expr = .data,
   x.only.expr = .data,
   y.only.expr = .data,
   xy.expr = .data,
   xy.compare.expr = .x
 )
 
-custom_inner_join(x, y, by = NULL, xy.expr = .data, xy.compare.expr = .y)
+custom_inner_join(
+  x,
+  y,
+  by = NULL,
+  keep = FALSE,
+  pre.x.expr = .data,
+  pre.y.expr = .data,
+  xy.expr = .data,
+  xy.compare.expr = .y
+)
 
 custom_left_join(
   x,
   y,
   by = NULL,
+  keep = FALSE,
+  pre.x.expr = .data,
+  pre.y.expr = .data,
   x.only.expr = .data,
   xy.expr = .data,
   xy.compare.expr = .y
@@ -32,6 +47,9 @@ custom_right_join(
   x,
   y,
   by = NULL,
+  keep = FALSE,
+  pre.x.expr = .data,
+  pre.y.expr = .data,
   y.only.expr = .data,
   xy.expr = .data,
   xy.compare.expr = .x
@@ -54,12 +72,21 @@ custom_right_join(
 \code{.x} and \code{.y} are vectors from \code{x} and \code{y}, and \code{.col} is the name of the column.
 Similar to \code{xy.expr}, this only runs on rows in both \code{x} and \code{y}. Make sure a vector
 of same size is returned.}
+
+\item{x.pre.expr}{expression dealing with \code{x} prior to join. \code{.data} is the data, \code{.by} is the join-by vars.}
+
+\item{y.pre.expr}{expression dealing with \code{y} prior to join. \code{.data} is the data, \code{.by} is the join-by vars.}
 }
 \value{
 A data frame which is the result of the join operation.
 }
 \description{
 Provides great customization over how to join 2 data frames.
+}
+\details{
+If all defaults are used, this is similar to dplyr-joins, except that
+column conflicts are never handled by renaming with suffixes.  This
+forces you to decide how to handle the conflicts.
 }
 \examples{
 library(dplyr)
@@ -70,6 +97,14 @@ mt2 <- mtcars \%>\% rownames_to_column("car") \%>\% mutate(car2=paste(car,"2"),c
   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
 
 mt12 <- custom_full_join(mt1,mt2,by="car",
+                         y.pre.expr={
+                           cli::cli_alert_info("x: {nrow(.data)}, by: {cli::col_blue(.by)}")
+                           return(.data)
+                         },
+                         y.pre.expr={
+                           cli::cli_alert_info("y: {nrow(.data)}, by: {cli::col_blue(.by)}")
+                           return(.data)
+                         },
                          x.only.expr={
                            cli::cli_alert_info("x only rows: {nrow(.data)}")
                            return(.data)

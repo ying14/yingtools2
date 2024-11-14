@@ -4,12 +4,9 @@
 \alias{is.same}
 \alias{is.same.default}
 \alias{is.same.data.frame}
-\alias{all.same}
-\alias{all.same.default}
-\alias{all.same.data.frame}
 \alias{\%==\%}
 \alias{\%!=\%}
-\title{Test if 2 vectors are equal, element-wise}
+\title{Test if 2 objects are equal, element-wise}
 \usage{
 is.same(x, ...)
 
@@ -17,26 +14,24 @@ is.same(x, ...)
 
 \method{is.same}{data.frame}(x, y)
 
-all.same(x, ...)
-
-\method{all}{same.default}(x, y)
-
-\method{all}{same.data.frame}(x, y)
-
 x \%==\% y
 
 x \%!=\% y
 }
 \arguments{
-\item{x}{first vector}
+\item{x}{first object}
 
-\item{y}{second vector}
+\item{y}{second object}
 }
 \value{
 logical vector
 }
 \description{
-Similar to \code{x == y}, but handles \code{NA} equality
+Sort of like \code{x == y}, but handles \code{NA} equality,
+and compares by name, if they exist and match.
+}
+\details{
+Length of objects should be the same.
 }
 \examples{
 x <- c("A","B","C",NA,NA)
@@ -46,5 +41,4 @@ x == y
 # but we want c(TRUE, FALSE, FALSE, FALSE, TRUE)
 is.same(x,y)
 x \%==\% y
-all.same(x,y)
 }

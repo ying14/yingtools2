@@ -1591,6 +1591,130 @@ Use this with Docker or Conda image, or consider using lda.effect.")
 # from yingtools.R --------------------------------------------------------
 
 
+
+#' Inner/Left/Right/Full Join with Replace
+#'
+#' Same as `inner_join`, `left_join`, `right_join`, and `full_join` in the `dplyr` package, except that variables with the
+#' same column name will not be renamed with the ".x" and ".y" suffix.
+#' Instead, the variables will be turned into one column if the variables are equal. If they are not equal, an error (or warning) is thrown.
+#'
+#' This is a convenience function that just avoids the renaming of columns.
+#' @param x first data frame to be joined
+#' @param y second data frame to be joined
+#' @param by a character vector of variables to be joined by.
+#' @param conflict what to do if columns conflict.
+#' 1. `y` always keep the y-value (default).
+#' 2. `x` always keep the x-value.
+#' 3. `y.coalesce` keep the y-value unless it is `NA`.
+#' 4. `x.coalesce` keep the x-value unless it is `NA`.
+#' 5. `error` throw error if there is a conflict.
+#'
+#' @export
+#' @examples
+#' tbl1 <- tibble(id=1:10) %>% mutate(source="table1")
+#' tbl2 <- tibble(id=5:15) %>% mutate(source="table2")
+#' full_join(tbl1,tbl2,by="id")
+#' full_join_replace(tbl1,tbl2,by="id") %>% arrange(id)
+inner_join_replace_old <- function(x,y,by=NULL, conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+
+  mutual.vars <- intersect(names(x),names(y))
+  by.vars <- by %||% mutual.vars
+  overlap.vars <- setdiff(mutual.vars,by.vars)
+  suffix <- paste0("__",c(rlang::hash(x),rlang::hash(y)))
+  data <- inner_join(x,y,by=by.vars,suffix=suffix)
+  if (length(overlap.vars)==0) {
+    return(data)
+  }
+  non.ident.vars <- c()
+  ident.vars <- c()
+  conflict <- arg_match(conflict)
+
+  for (var in overlap.vars) {
+    xvar <- paste0(var,suffix[1])
+    yvar <- paste0(var,suffix[2])
+    is.identical <- identical(data[[xvar]],data[[yvar]])
+    if (!is.identical) {
+      non.ident.vars <- c(non.ident.vars, var)
+    } else {
+      ident.vars <- c(ident.vars, var)
+    }
+    data[[var]] <- switch(conflict,
+                          yonly=data[[yvar]],
+                          xonly=data[[xvar]],
+                          ycoalesce=coalesce(data[[yvar]],data[[xvar]]),
+                          xcoalesce=coalesce(data[[xvar]],data[[yvar]]),
+                          error={
+                            if (is.identical) {
+                              data[[yvar]]
+                            } else {
+                              stop(str_glue("YTError: conflicting column: {var}"))
+                            }
+                          })
+    data[[xvar]] <- NULL
+    data[[yvar]] <- NULL
+  }
+  msg <- switch(conflict,
+                yonly=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Using Y col values: {paste(non.ident.vars,collapse=', ')}"),
+                xonly=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Using X col values: {paste(non.ident.vars,collapse=', ')}"),
+                ycoalesce=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Choosing values with coalesce(y,x): {paste(non.ident.vars,collapse=', ')}"),
+                xcoalesce=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Choosing values with coalesce(x,y): {paste(non.ident.vars,collapse=', ')}"),
+                error=str_glue("Encountered {length(non.ident.vars)} conflicting columns."))
+  warning(str_glue("YTWarning: {msg}"))
+  return(data)
+}
+
+
+#' @rdname inner_join_replace_old
+#' @export
+left_join_replace_old <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
+  data2 <- anti_join(x,y,by=by)
+  bind_rows(data1,data2)
+}
+
+#' @rdname inner_join_replace_old
+#' @export
+right_join_replace_old <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+
+  flip <- function(by) {
+    by.names <- names(by)
+    if (is.null(by.names)) {
+      return(by)
+    }
+    by.vals <- unname(by)
+    by.names <- coalesce(na_if(by.names,""),by.vals)
+    setNames(by.names,by.vals)
+  }
+
+  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
+  data2 <- anti_join(y,x,by=flip(by))
+  bind_rows(data1,data2)
+}
+
+
+#' @rdname inner_join_replace_old
+#' @export
+full_join_replace_old <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
+  flip <- function(by) {
+    by.names <- names(by)
+    if (is.null(by.names)) {
+      return(by)
+    }
+    by.vals <- unname(by)
+    by.names <- coalesce(na_if(by.names,""),by.vals)
+    setNames(by.names,by.vals)
+  }
+  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
+  data2 <- anti_join(x,y,by=by)
+  data3 <- anti_join(y,x,by=flip(by))
+  bind_rows(data1,data2,data3)
+}
+
+
+
+
+
+
 copy.as.sql.old <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
   #converts x to R-code.
   if (is.vector(x)) {

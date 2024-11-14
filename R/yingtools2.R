@@ -163,16 +163,18 @@
 }
 
 
-#' Test if 2 vectors are equal, element-wise
+#' Test if 2 objects are equal, element-wise
 #'
-#' Similar to `x == y`, but handles `NA` equality
-#' @param x first vector
-#' @param y second vector
+#' Sort of like `x == y`, but handles `NA` equality,
+#' and compares by name, if they exist and match.
+#'
+#' Length of objects should be the same.
+#' @param x first object
+#' @param y second object
 #'
 #' @return logical vector
 #' @export
 #' @rdname is.same
-#'
 #' @examples
 #' x <- c("A","B","C",NA,NA)
 #' y <- c("A","X",NA,"D",NA)
@@ -181,7 +183,6 @@
 #' # but we want c(TRUE, FALSE, FALSE, FALSE, TRUE)
 #' is.same(x,y)
 #' x %==% y
-#' all.same(x,y)
 is.same <- function(x,...) {
   UseMethod("is.same",x)
 }
@@ -189,6 +190,24 @@ is.same <- function(x,...) {
 #' @rdname is.same
 #' @exportS3Method is.same default
 is.same.default <- function(x,y) {
+  if (length(x)!=length(y)) {
+    cli::cli_abort("YTError: x and y are not the same size")
+  }
+  # check if names are distinct and comparable
+  x.has.names <- !is.null(names(x))
+  y.has.names <- !is.null(names(y))
+  if (x.has.names || y.has.names) {
+    x.distinct.names <- x.has.names && (anyDuplicated(names(x))==0)
+    y.distinct.names <- y.has.names && (anyDuplicated(names(y))==0)
+    if (x.distinct.names && y.distinct.names && setequal(names(x),names(y))) {
+      cli::cli_alert_info("Comparing by name")
+      y <- y[names(x)]
+    } else {
+      cli::cli_warn("YTWarning: names detected, but ignoring.")
+      x <- unname(x)
+      y <- unname(y)
+    }
+  }
   map2_lgl(x,y,all.same)
 }
 #' @rdname is.same
@@ -204,17 +223,30 @@ is.same.data.frame <- function(x,y) {
   is.same.default(x,y)
 }
 
-#' @rdname is.same
+
+#' Test if 2 objects are equal
+#'
+#' Similar to `all.equal(x,y)`, but without comments,
+#' and ignores row order in data frames
+#' @param x first object
+#' @param y second object
+#'
+#' @return logical vector
 #' @export
+#' @rdname all.same
+#' @examples
+#' x <- c("A","B","C",NA,NA)
+#' y <- c("A","X",NA,"D",NA)
+#' all.same(x,y)
 all.same <- function(x,...) {
   UseMethod("all.same",x)
 }
-#' @rdname is.same
+#' @rdname all.same
 #' @exportS3Method all.same default
 all.same.default <- function(x,y) {
   isTRUE(all.equal(x,y))
 }
-#' @rdname is.same
+#' @rdname all.same
 #' @exportS3Method all.same data.frame
 all.same.data.frame <- function(x,y) {
   cols.x <- names(x)
@@ -226,8 +258,6 @@ all.same.data.frame <- function(x,y) {
   y <- y %>% select(!!!syms(cols.x)) %>% arrange(!!!syms(cols.x))
   return(all.same.default(x,y))
 }
-
-
 
 
 #' @rdname is.same
@@ -3084,9 +3114,15 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #' Custom Join
 #'
 #' Provides great customization over how to join 2 data frames.
+#'
+#' If all defaults are used, this is similar to dplyr-joins, except that
+#' column conflicts are never handled by renaming with suffixes.  This
+#' forces you to decide how to handle the conflicts.
 #' @param x first data frame
 #' @param y second data frame
 #' @param by join specification similar to [dplyr::inner_join()].
+#' @param x.pre.expr expression dealing with `x` prior to join. `.data` is the data, `.by` is the join-by vars.
+#' @param y.pre.expr expression dealing with `y` prior to join. `.data` is the data, `.by` is the join-by vars.
 #' @param x.only.expr expression dealing with rows in `x` only. `.data` is the tibble of x-only rows.
 #' @param y.only.expr expression dealing with rows in `y` only. `.data` is the tibble of y-only rows.
 #' @param xy.expr expression dealing with rows in both `x` and `y`. `.data` is the tibble of x and y rows.
@@ -3108,6 +3144,14 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #'   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
 #'
 #' mt12 <- custom_full_join(mt1,mt2,by="car",
+#'                          y.pre.expr={
+#'                            cli::cli_alert_info("x: {nrow(.data)}, by: {cli::col_blue(.by)}")
+#'                            return(.data)
+#'                          },
+#'                          y.pre.expr={
+#'                            cli::cli_alert_info("y: {nrow(.data)}, by: {cli::col_blue(.by)}")
+#'                            return(.data)
+#'                          },
 #'                          x.only.expr={
 #'                            cli::cli_alert_info("x only rows: {nrow(.data)}")
 #'                            return(.data)
@@ -3131,10 +3175,15 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #'                            return(.x)
 #'                          })
 custom_full_join <- function(x,y,by=NULL,
+                             keep=FALSE,
+                             pre.x.expr=.data,
+                             pre.y.expr=.data,
                              x.only.expr=.data,
                              y.only.expr=.data,
                              xy.expr=.data,
                              xy.compare.expr=.x) {
+  pre.x.expr <- enexpr(pre.x.expr)
+  pre.y.expr <- enexpr(pre.y.expr)
   x.only.expr <- enexpr(x.only.expr)
   y.only.expr <- enexpr(y.only.expr)
   xy.expr <- enexpr(xy.expr)
@@ -3147,11 +3196,42 @@ custom_full_join <- function(x,y,by=NULL,
   by.y <- unname(by)
   by.xy <- setNames(by.y,by.x) #formal x/y by value
   by.yx <- setNames(by.x,by.y) #formal x/y by value
-  x.is.distinct <- anyDuplicated(x[,by.x,drop=FALSE])==0
-  y.is.distinct <- anyDuplicated(y[,by.y,drop=FALSE])==0
-  if (!x.is.distinct | !y.is.distinct) {
-    stop("YTError: X/Y are not distinct across by-vars")
+  x.pre.f <- function(.data,.by) {
+    eval(pre.x.expr)
   }
+  y.pre.f <- function(.data,.by) {
+    eval(pre.y.expr)
+  }
+  x <- x.pre.f(.data=x,.by=by.x)
+  y <- y.pre.f(.data=y,.by=by.y)
+  if (!keep) {
+    var.renames <- by.xy[by.x!=by.y]
+    y <- y %>% mutate(!!!syms(var.renames)) %>%
+      select(-all_of(var.renames))
+    by.y <- by.x
+    by.xy <- by.x
+    by.yx <- by.y
+  } else {
+    # check for name conflicts between by vars and regular cols
+    # this is only possible if keep=TRUE, and by.x and by.y are different
+    x.rename <- by.x[by.x!=by.y]
+    y.rename <- by.y[by.x!=by.y]
+    y.conflicts <- intersect(x.rename,names(y))
+    x.conflicts <- intersect(y.rename,names(x))
+    if (length(x.conflicts)>0) {
+      cli::cli_warn("YTWarning: columns in x conflict with {.code by} vars in y: removing {cli::col_blue(x.conflicts)} in x")
+      x <- x %>% select(-all_of(x.conflicts))
+    }
+    if (length(y.conflicts)>0) {
+      cli::cli_warn("YTWarning: columns in y conflict with {.code by} vars in x: removing {cli::col_blue(y.conflicts)} in y")
+      y <- y %>% select(-all_of(y.conflicts))
+    }
+  }
+  # x.is.distinct <- anyDuplicated(x[,by.x,drop=FALSE])==0
+  # y.is.distinct <- anyDuplicated(y[,by.y,drop=FALSE])==0
+  # if (!x.is.distinct | !y.is.distinct) {
+  #   stop("YTError: X/Y are not distinct across by-vars")
+  # }
   x.cols.compare <- names(x) %>% setdiff(by.x) # x cols (minus the by vars)
   y.cols.compare <- names(y) %>% setdiff(by.y) # y cols (minus the by vars)
   xy.cols <- intersect(x.cols.compare,y.cols.compare)
@@ -3174,14 +3254,14 @@ custom_full_join <- function(x,y,by=NULL,
   suffix <- c("__x","__y")
   data_xy_rows <- inner_join(x,y,by=by.xy,suffix=suffix) %>% xy.f()
 
+  xy.conflict.f = function(.x,.y,.col) {
+    eval(xy.compare.expr)
+  }
   for (var in xy.cols) {
     # var <- xy.cols[1]
     xvar <- paste0(var,suffix[1])
     yvar <- paste0(var,suffix[2])
     # run on each conflicting set of columns
-    xy.conflict.f = function(.x,.y,.col) {
-      eval(xy.compare.expr)
-    }
     data_xy_rows[[var]] <- xy.conflict.f(.x=data_xy_rows[[xvar]],
                                          .y=data_xy_rows[[yvar]],
                                          .col=var)
@@ -3190,36 +3270,54 @@ custom_full_join <- function(x,y,by=NULL,
   }
   data <- list(data_xonly_rows,data_xy_rows,data_yonly_rows) %>% list_rbind()
   by.vars <- unique(c(rbind(by.x,by.y))) # nice order to by vars
-  data <- data %>% select(all_of(by.vars),
+  data <- data %>% select(any_of(by.vars),
                           all_of(x.cols.only),
                           all_of(xy.cols),
                           all_of(y.cols.only),
                           everything())
   # return(data)
-  invisible(data)
+  data
 }
 
 #' @rdname custom_full_join
 #' @export
 custom_inner_join <- function(x,y,by=NULL,
+                              keep=FALSE,
+                              pre.x.expr=.data,
+                              pre.y.expr=.data,
                               xy.expr=.data,
                               xy.compare.expr=.y) {
+  pre.x.expr <- enexpr(pre.x.expr)
+  pre.y.expr <- enexpr(pre.y.expr)
   xy.expr <- enexpr(xy.expr)
   xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
+                   keep=keep,
+                   pre.x.expr=!!pre.x.expr,
+                   pre.y.expr=!!pre.y.expr,
+                   xy.expr=!!xy.expr,
+                   xy.compare.expr=!!xy.compare.expr,
                    x.only.expr=NULL,
                    y.only.expr=NULL)
 }
 #' @rdname custom_full_join
 #' @export
 custom_left_join <- function(x,y,by=NULL,
+                             keep=FALSE,
+                             pre.x.expr=.data,
+                             pre.y.expr=.data,
                              x.only.expr=.data,
                              xy.expr=.data,
                              xy.compare.expr=.y) {
+  pre.x.expr <- enexpr(pre.x.expr)
+  pre.y.expr <- enexpr(pre.y.expr)
   x.only.expr <- enexpr(x.only.expr)
   xy.expr <- enexpr(xy.expr)
   xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
+                   keep=keep,
+                   pre.x.expr=!!pre.x.expr,
+                   pre.y.expr=!!pre.y.expr,
                    xy.expr=!!xy.expr,
                    xy.compare.expr=!!xy.compare.expr,
                    x.only.expr=!!x.only.expr,
@@ -3228,20 +3326,68 @@ custom_left_join <- function(x,y,by=NULL,
 #' @rdname custom_full_join
 #' @export
 custom_right_join <- function(x,y,by=NULL,
+                              keep=FALSE,
+                              pre.x.expr=.data,
+                              pre.y.expr=.data,
                               y.only.expr=.data,
                               xy.expr=.data,
                               xy.compare.expr=.x) {
+  pre.x.expr <- enexpr(pre.x.expr)
+  pre.y.expr <- enexpr(pre.y.expr)
   y.only.expr <- enexpr(y.only.expr)
   xy.expr <- enexpr(xy.expr)
   xy.compare.expr <- enexpr(xy.compare.expr)
   custom_full_join(x,y,by=by,
+                   keep=keep,
+                   pre.x.expr=!!pre.x.expr,
+                   pre.y.expr=!!pre.y.expr,
                    xy.expr=!!xy.expr,
                    xy.compare.expr=!!xy.compare.expr,
+                   x.only.expr=NULL,
                    y.only.expr=!!y.only.expr)
 }
 
 
-
+# helper function to get expression for inner_join_replace
+get_join_replace_expr <- function(conflict) {
+  xy.expr <- switch(conflict,
+                    yonly=expr({
+                      not.equal <- !is.same(.x,.y)
+                      if (any(not.equal)) {
+                        cli::cli_alert_info("{cli::col_blue(.col)}: mismatch in {sum(not.equal)}/{length(not.equal)} values, using value from y.")
+                      }
+                      .y
+                    }),
+                    xonly=expr({
+                      not.equal <- !is.same(.x,.y)
+                      if (any(not.equal)) {
+                        cli::cli_alert_info("{cli::col_blue(.col)}: mismatch in {sum(not.equal)}/{length(not.equal)} values, using value from x.")
+                      }
+                      .x
+                    }),
+                    ycoalesce=expr({
+                      not.equal <- !is.same(.x,.y)
+                      if (any(not.equal)) {
+                        cli::cli_alert_info("{cli::col_blue(.col)}: mismatch in {sum(not.equal)}/{length(not.equal)} values, using coalesce(y,x).")
+                      }
+                      coalesce(.y,.x)
+                    }),
+                    xcoalesce=expr({
+                      not.equal <- !is.same(.x,.y)
+                      if (any(not.equal)) {
+                        cli::cli_alert_info("{cli::col_blue(.col)}: mismatch in {sum(not.equal)}/{length(not.equal)} values, using coalesce(x,y).")
+                      }
+                      coalesce(.x,.y)
+                    }),
+                    error=expr({
+                      not.equal <- !is.same(.x,.y)
+                      if (any(not.equal)) {
+                        cli::cli_abort("{cli::col_blue(.col)}: mismatch in {sum(not.equal)}/{length(not.equal)} values.")
+                      }
+                      .x
+                    }))
+  return(xy.expr)
+}
 
 #' Inner/Left/Right/Full Join with Replace
 #'
@@ -3266,99 +3412,57 @@ custom_right_join <- function(x,y,by=NULL,
 #' tbl2 <- tibble(id=5:15) %>% mutate(source="table2")
 #' full_join(tbl1,tbl2,by="id")
 #' full_join_replace(tbl1,tbl2,by="id") %>% arrange(id)
-inner_join_replace <- function(x,y,by=NULL, conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
-
-  mutual.vars <- intersect(names(x),names(y))
-  by.vars <- by %||% mutual.vars
-  overlap.vars <- setdiff(mutual.vars,by.vars)
-  suffix <- paste0("__",c(rlang::hash(x),rlang::hash(y)))
-  data <- inner_join(x,y,by=by.vars,suffix=suffix)
-  if (length(overlap.vars)==0) {
-    return(data)
-  }
-  non.ident.vars <- c()
-  ident.vars <- c()
-  conflict <- arg_match(conflict)
-
-  for (var in overlap.vars) {
-    xvar <- paste0(var,suffix[1])
-    yvar <- paste0(var,suffix[2])
-    is.identical <- identical(data[[xvar]],data[[yvar]])
-    if (!is.identical) {
-      non.ident.vars <- c(non.ident.vars, var)
-    } else {
-      ident.vars <- c(ident.vars, var)
-    }
-    data[[var]] <- switch(conflict,
-                          yonly=data[[yvar]],
-                          xonly=data[[xvar]],
-                          ycoalesce=coalesce(data[[yvar]],data[[xvar]]),
-                          xcoalesce=coalesce(data[[xvar]],data[[yvar]]),
-                          error={
-                            if (is.identical) {
-                              data[[yvar]]
-                            } else {
-                              stop(str_glue("YTError: conflicting column: {var}"))
-                            }
-                          })
-    data[[xvar]] <- NULL
-    data[[yvar]] <- NULL
-  }
-  msg <- switch(conflict,
-                yonly=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Using Y col values: {paste(non.ident.vars,collapse=', ')}"),
-                xonly=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Using X col values: {paste(non.ident.vars,collapse=', ')}"),
-                ycoalesce=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Choosing values with coalesce(y,x): {paste(non.ident.vars,collapse=', ')}"),
-                xcoalesce=str_glue("Encountered {length(non.ident.vars)} conflicting columns. Choosing values with coalesce(x,y): {paste(non.ident.vars,collapse=', ')}"),
-                error=str_glue("Encountered {length(non.ident.vars)} conflicting columns."))
-  warning(str_glue("YTWarning: {msg}"))
-  return(data)
+inner_join_replace <- function(x,y,
+                               by=NULL,
+                               conflict=c("yonly","xonly","ycoalesce","xcoalesce","error"),
+                               keep=FALSE) {
+  conflict <- rlang::arg_match(conflict)
+  xy.expr <- get_join_replace_expr(conflict)
+  custom_inner_join(x,y,by=by,
+                    keep=keep,
+                    xy.compare.expr = !!xy.expr)
 }
 
 
 #' @rdname inner_join_replace
 #' @export
-left_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
-  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
-  data2 <- anti_join(x,y,by=by)
-  bind_rows(data1,data2)
+left_join_replace <- function(x,y,
+                              by=NULL,
+                              conflict=c("yonly","xonly","ycoalesce","xcoalesce","error"),
+                              keep=FALSE) {
+  conflict <- rlang::arg_match(conflict)
+  xy.expr <- get_join_replace_expr(conflict)
+  custom_left_join(x,y,by=by,
+                   keep=keep,
+                   xy.compare.expr = !!xy.expr)
 }
 
 #' @rdname inner_join_replace
 #' @export
-right_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
-
-  flip <- function(by) {
-    by.names <- names(by)
-    if (is.null(by.names)) {
-      return(by)
-    }
-    by.vals <- unname(by)
-    by.names <- coalesce(na_if(by.names,""),by.vals)
-    setNames(by.names,by.vals)
-  }
-
-  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
-  data2 <- anti_join(y,x,by=flip(by))
-  bind_rows(data1,data2)
+right_join_replace <- function(x,y,
+                               by=NULL,
+                               conflict=c("xonly","yonly","xcoalesce","ycoalesce","error"),
+                               keep=FALSE) {
+  conflict <- rlang::arg_match(conflict)
+  xy.expr <- get_join_replace_expr(conflict)
+  custom_right_join(x,y,by=by,
+                    keep=keep,
+                    xy.compare.expr = !!xy.expr)
 }
 
 
 #' @rdname inner_join_replace
 #' @export
-full_join_replace <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoalesce","xcoalesce","error")) {
-  flip <- function(by) {
-    by.names <- names(by)
-    if (is.null(by.names)) {
-      return(by)
-    }
-    by.vals <- unname(by)
-    by.names <- coalesce(na_if(by.names,""),by.vals)
-    setNames(by.names,by.vals)
-  }
-  data1 <- inner_join_replace(x,y,by=by,conflict=arg_match(conflict))
-  data2 <- anti_join(x,y,by=by)
-  data3 <- anti_join(y,x,by=flip(by))
-  bind_rows(data1,data2,data3)
+full_join_replace <- function(x,y,
+                              by=NULL,
+                              conflict=c("yonly","xonly","ycoalesce","xcoalesce","error"),
+                              keep=FALSE) {
+  conflict <- rlang::arg_match(conflict)
+  xy.expr <- get_join_replace_expr(conflict)
+
+  custom_full_join(x,y,by=by,
+                   keep=keep,
+                   xy.compare.expr = !!xy.expr)
 }
 
 
