@@ -3125,7 +3125,7 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #' @param y.pre.expr expression dealing with `y` prior to join. `.data` is the data, `.by` is the join-by vars.
 #' @param x.only.expr expression dealing with rows in `x` only. `.data` is the tibble of x-only rows.
 #' @param y.only.expr expression dealing with rows in `y` only. `.data` is the tibble of y-only rows.
-#' @param xy.expr expression dealing with rows in both `x` and `y`. `.data` is the tibble of x and y rows.
+#' @param xy.expr expression dealing with rows in both `x` and `y`. `.data` is the tibble of x and y rows; `.xy.cols` is the vector of conflicting variables
 #' @param xy.compare.expr expression dealing with columns with the same name in `x`and `y`.
 #' `.x` and `.y` are vectors from `x` and `y`, and `.col` is the name of the column.
 #' Similar to `xy.expr`, this only runs on rows in both `x` and `y`. Make sure a vector
@@ -3144,11 +3144,11 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #'   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
 #'
 #' mt12 <- custom_full_join(mt1,mt2,by="car",
-#'                          y.pre.expr={
+#'                          pre.x.expr={
 #'                            cli::cli_alert_info("x: {nrow(.data)}, by: {cli::col_blue(.by)}")
 #'                            return(.data)
 #'                          },
-#'                          y.pre.expr={
+#'                          pre.y.expr={
 #'                            cli::cli_alert_info("y: {nrow(.data)}, by: {cli::col_blue(.by)}")
 #'                            return(.data)
 #'                          },
@@ -3161,7 +3161,7 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
 #'                            return(.data)
 #'                          },
 #'                          xy.expr={
-#'                            cli::cli_alert_info("x and y only rows: {nrow(.data)}")
+#'                            cli::cli_alert_info("x and y only rows: {cli::col_blue(nrow(.data))}, vars: {cli::col_blue(.xy.cols)}")
 #'                            return(.data)
 #'                          },
 #'                          xy.compare.expr={
@@ -3248,11 +3248,11 @@ custom_full_join <- function(x,y,by=NULL,
   }
   data_yonly_rows <- anti_join(y,x,by=by.yx) %>% y.only.f()
   # xy data
-  xy.f <- function(.data) {
+  xy.f <- function(.data,.xy.cols) {
     eval(xy.expr)
   }
   suffix <- c("__x","__y")
-  data_xy_rows <- inner_join(x,y,by=by.xy,suffix=suffix) %>% xy.f()
+  data_xy_rows <- inner_join(x,y,by=by.xy,suffix=suffix) %>% xy.f(.xy.cols=xy.cols)
 
   xy.conflict.f = function(.x,.y,.col) {
     eval(xy.compare.expr)
@@ -3278,6 +3278,8 @@ custom_full_join <- function(x,y,by=NULL,
   # return(data)
   data
 }
+
+
 
 #' @rdname custom_full_join
 #' @export
@@ -3389,6 +3391,19 @@ get_join_replace_expr <- function(conflict) {
   return(xy.expr)
 }
 
+get_check_distinct_expr <- function() {
+  expr({
+    any.dup <- .data %>% select(all_of(.by)) %>% anyDuplicated()
+    is.distinct <- any.dup==0
+    if (!is.distinct) {
+      cli::cli_abort("YTError: Need to join by distinct values")
+    }
+    .data
+  })
+}
+
+
+
 #' Inner/Left/Right/Full Join with Replace
 #'
 #' Same as `inner_join`, `left_join`, `right_join`, and `full_join` in the `dplyr` package, except that variables with the
@@ -3418,8 +3433,10 @@ inner_join_replace <- function(x,y,
                                keep=FALSE) {
   conflict <- rlang::arg_match(conflict)
   xy.expr <- get_join_replace_expr(conflict)
+  check.distinct.expr <- get_check_distinct_expr()
   custom_inner_join(x,y,by=by,
                     keep=keep,
+                    pre.y.expr = !!check.distinct.expr,
                     xy.compare.expr = !!xy.expr)
 }
 
@@ -3432,8 +3449,10 @@ left_join_replace <- function(x,y,
                               keep=FALSE) {
   conflict <- rlang::arg_match(conflict)
   xy.expr <- get_join_replace_expr(conflict)
+  check.distinct.expr <- get_check_distinct_expr()
   custom_left_join(x,y,by=by,
                    keep=keep,
+                   pre.y.expr = !!check.distinct.expr,
                    xy.compare.expr = !!xy.expr)
 }
 
@@ -3445,8 +3464,10 @@ right_join_replace <- function(x,y,
                                keep=FALSE) {
   conflict <- rlang::arg_match(conflict)
   xy.expr <- get_join_replace_expr(conflict)
+  check.distinct.expr <- get_check_distinct_expr()
   custom_right_join(x,y,by=by,
                     keep=keep,
+                    pre.x.expr = !!check.distinct.expr,
                     xy.compare.expr = !!xy.expr)
 }
 
@@ -3459,14 +3480,12 @@ full_join_replace <- function(x,y,
                               keep=FALSE) {
   conflict <- rlang::arg_match(conflict)
   xy.expr <- get_join_replace_expr(conflict)
-
+  check.distinct.expr <- get_check_distinct_expr()
   custom_full_join(x,y,by=by,
                    keep=keep,
+                   pre.y.expr = !!check.distinct.expr,
                    xy.compare.expr = !!xy.expr)
 }
-
-
-
 
 
 

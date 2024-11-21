@@ -66,7 +66,7 @@ custom_right_join(
 
 \item{y.only.expr}{expression dealing with rows in \code{y} only. \code{.data} is the tibble of y-only rows.}
 
-\item{xy.expr}{expression dealing with rows in both \code{x} and \code{y}. \code{.data} is the tibble of x and y rows.}
+\item{xy.expr}{expression dealing with rows in both \code{x} and \code{y}. \code{.data} is the tibble of x and y rows; \code{.xy.cols} is the vector of conflicting variables}
 
 \item{xy.compare.expr}{expression dealing with columns with the same name in \code{x}and \code{y}.
 \code{.x} and \code{.y} are vectors from \code{x} and \code{y}, and \code{.col} is the name of the column.
@@ -97,11 +97,11 @@ mt2 <- mtcars \%>\% rownames_to_column("car") \%>\% mutate(car2=paste(car,"2"),c
   mutate(across(.cols=where(is.numeric),.fns=~.x + 0.00001))
 
 mt12 <- custom_full_join(mt1,mt2,by="car",
-                         y.pre.expr={
+                         pre.x.expr={
                            cli::cli_alert_info("x: {nrow(.data)}, by: {cli::col_blue(.by)}")
                            return(.data)
                          },
-                         y.pre.expr={
+                         pre.y.expr={
                            cli::cli_alert_info("y: {nrow(.data)}, by: {cli::col_blue(.by)}")
                            return(.data)
                          },
@@ -114,7 +114,7 @@ mt12 <- custom_full_join(mt1,mt2,by="car",
                            return(.data)
                          },
                          xy.expr={
-                           cli::cli_alert_info("x and y only rows: {nrow(.data)}")
+                           cli::cli_alert_info("x and y only rows: {cli::col_blue(nrow(.data))}, vars: {cli::col_blue(.xy.cols)}")
                            return(.data)
                          },
                          xy.compare.expr={
