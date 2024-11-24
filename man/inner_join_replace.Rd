@@ -12,7 +12,8 @@ inner_join_replace(
   y,
   by = NULL,
   conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error"),
-  keep = FALSE
+  keep = FALSE,
+  status = FALSE
 )
 
 left_join_replace(
@@ -20,7 +21,8 @@ left_join_replace(
   y,
   by = NULL,
   conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error"),
-  keep = FALSE
+  keep = FALSE,
+  status = FALSE
 )
 
 right_join_replace(
@@ -28,7 +30,8 @@ right_join_replace(
   y,
   by = NULL,
   conflict = c("xonly", "yonly", "xcoalesce", "ycoalesce", "error"),
-  keep = FALSE
+  keep = FALSE,
+  status = FALSE
 )
 
 full_join_replace(
@@ -36,7 +39,8 @@ full_join_replace(
   y,
   by = NULL,
   conflict = c("yonly", "xonly", "ycoalesce", "xcoalesce", "error"),
-  keep = FALSE
+  keep = FALSE,
+  status = FALSE
 )
 }
 \arguments{
@@ -50,10 +54,14 @@ full_join_replace(
 \enumerate{
 \item \code{y} always keep the y-value (default).
 \item \code{x} always keep the x-value.
-\item \code{y.coalesce} keep the y-value unless it is \code{NA}.
-\item \code{x.coalesce} keep the x-value unless it is \code{NA}.
+\item \code{ycoalesce} keep the y-value unless it is \code{NA}.
+\item \code{xcoalesce} keep the x-value unless it is \code{NA}.
 \item \code{error} throw error if there is a conflict.
 }}
+
+\item{keep}{Should the join keys from both \code{x} and \code{y} be preserved in the output?}
+
+\item{status}{Whether to include a column \code{.status} which shows join status. Default is \code{FALSE}.}
 }
 \description{
 Same as \code{inner_join}, \code{left_join}, \code{right_join}, and \code{full_join} in the \code{dplyr} package, except that variables with the
