@@ -392,6 +392,32 @@ middle.pattern <- function(start="",middle=".+",end="") {
 }
 
 
+#' Positive/Negative Lookahead/Lookbehind
+#'
+#' Convenience function for generating regular expression with lookahead/lookbehind.
+#' @param base regex pattern to modify
+#' @param pattern lookahead pattern to add
+#' @rdname lookahead
+#' @export
+pos_lookahead <- function(base,pattern) {
+  paste0(base,"(?=",pattern,")")
+}
+#' @rdname lookahead
+#' @export
+neg_lookahead <- function(base,pattern) {
+  paste0(base,"(?!",pattern,")")
+}
+#' @rdname lookahead
+#' @export
+pos_lookbehind <- function(base,pattern) {
+  paste0("(?<=",pattern,")",base)
+}
+#' @rdname lookahead
+#' @export
+neg_lookbehind <- function(base,pattern) {
+  paste0("(?<!",pattern,")",base)
+}
+
 
 #' Paste 2
 #'
@@ -2623,7 +2649,12 @@ test_if_nonvarying_by_group <- function(data,
   }
   dt.test <- data %>% data.table::as.data.table(key=id_var_names) %>%
     .[ , .group:=.GRP,by=id_var_names]
-  total.groups <- dt.test$.group[nrow(dt.test)]
+  if (nrow(dt.test)==0) {
+    # this is needed to handle empty dfs.
+    total.groups <- 0
+  } else {
+    total.groups <- dt.test$.group[nrow(dt.test)]
+  }
   total.testcols <- length(test_var_names)
   # whether or not to analyze first 10 groups, which can
   # speed up the calc by removing easy varying columns first.
