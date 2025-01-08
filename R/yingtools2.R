@@ -4265,7 +4265,7 @@ geom_timeline <- function(mapping = NULL, data = NULL,
                           stat = "timeline", position = "identity",
                           ...,
                           merge = FALSE,
-                          min.gap = 1,
+                          min.gap = Inf,
                           row.overlap=  TRUE,
                           check_overlap = FALSE,
                           merge.gap = 1,
@@ -4358,8 +4358,10 @@ StatTimeline <- ggproto("StatTimeline",Stat,
                           lineheight=0.75),
                         required_aes = c("xmin", "xmax"),
                         compute_panel = function(self, data, scales,
-                                                 merge=FALSE, merge.gap=1,
-                                                 min.gap = 1, row.overlap=TRUE) {
+                                                 merge=FALSE,
+                                                 merge.gap=1,
+                                                 min.gap = 1,
+                                                 row.overlap=TRUE) {
                           #transform back to pre-transformation values,
                           # perform merging and row creation,
                           # then re-transform.
@@ -4415,7 +4417,6 @@ StatTimeline <- ggproto("StatTimeline",Stat,
 
                           ggproto_parent(StatIdentity, self)$compute_layer(newdata, params, layout)
                         })
-
 
 
 #' Interactive timelines
@@ -5182,7 +5183,7 @@ convert.dates <- function(data,verbose=FALSE) {
   }
   oldclass <- sapply(data,function(x) class(x)[1])
   newclass <- sapply(newdata,function(x) class(x)[1])
-  changes <- data_frame(var=names(data),oldclass,newclass) %>% dplyr::filter(oldclass!=newclass)
+  changes <- tibble(var=names(data),oldclass,newclass) %>% dplyr::filter(oldclass!=newclass)
   # cat("Looking for date variables to convert...  ")
 
   if (nrow(changes)==0) {

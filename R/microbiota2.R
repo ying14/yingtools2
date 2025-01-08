@@ -2592,7 +2592,7 @@ guide_gengrob.taxonomy <- function(guide, theme) {
   label_widths <- apply(matrix(c(label_widths, rep(0, legend.nrow * legend.ncol - nbreak)), legend.nrow, legend.ncol, byrow = guide$byrow), 2, max)
   label_heights <- apply(matrix(c(label_heights, rep(0, legend.nrow * legend.ncol - nbreak)), legend.nrow, legend.ncol, byrow = guide$byrow), 1, max)
   if (guide$byrow) {
-    vps <- data_frame0(R = ceiling(seq(nbreak) / legend.ncol), C = (seq(nbreak) - 1) %% legend.ncol + 1)
+    vps <- ggplot2:::data_frame0(R = ceiling(seq(nbreak) / legend.ncol), C = (seq(nbreak) - 1) %% legend.ncol + 1)
   } else {
     vps <- ggplot2:::mat_2_df(arrayInd(seq(nbreak), dim(key_sizes)), c("R", "C"))
   }

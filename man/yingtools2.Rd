@@ -2,7 +2,6 @@
 % Please edit documentation in R/__imports.R
 \docType{package}
 \name{yingtools2}
-\alias{yingtools2-package}
 \alias{yingtools2}
 \title{Useful R Functions by Ying}
 \description{

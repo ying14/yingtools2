@@ -11,7 +11,7 @@ geom_timeline(
   position = "identity",
   ...,
   merge = FALSE,
-  min.gap = 1,
+  min.gap = Inf,
   row.overlap = TRUE,
   check_overlap = FALSE,
   merge.gap = 1,
