@@ -21,6 +21,7 @@ make.table(data, vars, by = NULL, showdenom = FALSE, fisher.test = TRUE)
 Returns a data frame formatted to be summary table.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Creates a summary table (data frame) variables from the data.
 }
 \details{

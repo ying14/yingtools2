@@ -7,6 +7,7 @@
 geom_logrank(yvar, xvar, data, starttime = "tstart", pos, logrank.fontsize = 5)
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Adds the p-value for a log-rank test to a ggplot2 graph.
 }
 \author{

@@ -15,7 +15,7 @@ createSurvivalFrame(f.survfit, time0 = 0)
 Returns survival data frame
 }
 \description{
-Create Survival Data Frame
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 }
 \author{
 Ying Taur

@@ -17,6 +17,7 @@ pca.plot(dist, data = FALSE, prefix = NA)
 Returns a \code{ggplot2} graph of PCA1 and PCA2.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Plots PCA from distance matrix data.
 }
 \author{

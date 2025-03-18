@@ -17,6 +17,7 @@ survival.frame.info(t, sf, infotype)
 info needed from survival frame
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Given survival.frame, and time, provide info in the survivalframe.
 }
 \author{

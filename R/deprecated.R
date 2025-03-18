@@ -1444,6 +1444,7 @@ read.uparse.data <- function(dirpath,
 
 #' Plot Principal Components Analysis
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Plots PCA from distance matrix data.
 #'
 #' @param dist distance matrix to be plotted.
@@ -1457,7 +1458,7 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
   pca <- prcomp(dist)
   pca.axes <- data.frame(pca$x,stringsAsFactors=FALSE)
   pca.loadings <- summary(pca)$importance["Proportion of Variance",]
-  pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",percent(pca.loadings)," variation explained)")
+  pca.labels <- paste0(sub("PC","PCA",names(pca.loadings))," (",scales::percent(pca.loadings)," variation explained)")
   for (i in 1:length(pca.labels)) {
     label(pca.axes[,i]) <- pca.labels[i]
   }
@@ -1479,6 +1480,7 @@ pca.plot <- function(dist,data=FALSE,prefix=NA) {
 
 #' LEfSe prep
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Create the initial file needed for LEfSe (LDA Effect Size) analysis.
 #'
 #' This function performs the analysis using the following steps.
@@ -1594,6 +1596,7 @@ Use this with Docker or Conda image, or consider using lda.effect.")
 
 #' Inner/Left/Right/Full Join with Replace
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Same as `inner_join`, `left_join`, `right_join`, and `full_join` in the `dplyr` package, except that variables with the
 #' same column name will not be renamed with the ".x" and ".y" suffix.
 #' Instead, the variables will be turned into one column if the variables are equal. If they are not equal, an error (or warning) is thrown.
@@ -1713,8 +1716,6 @@ full_join_replace_old <- function(x,y,by=NULL,conflict=c("yonly","xonly","ycoale
 
 
 
-
-
 copy.as.sql.old <- function(x,copy.clipboard=TRUE,fit=TRUE,width=getOption("width")-15) {
   #converts x to R-code.
   if (is.vector(x)) {
@@ -1781,6 +1782,7 @@ sample_n_groups_OLD <- function(grouped_df, size) {
 
 #' Extract any text within quotes.
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Works like \code{str_extract_all}, but is used to extract quoted text within text. This comes for example text a character string contains code itself, like a python list.
 #'
 #' This is more difficult than you might think. \code{str_extract_all(text,middle.pattern("\"",".*","\""))}
@@ -1875,6 +1877,7 @@ fit <- function(x,width=100,copy.clipboard=TRUE) {
 
 #' Make Table
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Creates a summary table (data frame) variables from the data.
 #'
 #' This was written to create a "Table 1" of a manuscript.
@@ -1892,7 +1895,7 @@ fit <- function(x,width=100,copy.clipboard=TRUE) {
 make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   message("Note, make.table is deprecated, consider using make_table")
   all.vars <- unique(c(vars,by))
-  if (any(all.vars %!in% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
+  if (any(all.vars %notin% names(data))) {stop("YTError, variable not found in data frame: ",paste(setdiff(c(vars,by),names(data)),collapse=", "))}
   data <- data[,all.vars,drop=FALSE]
   if (!is.null(by)) {
     if (by %in% vars) {warning("YTWarning, ",paste(intersect(by,vars),collapse=",")," is listed in both 'vars' and 'by'!")}
@@ -1910,14 +1913,16 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   get.column <- function(subdata) {
     #subdata=data
     denom <- nrow(subdata)
-    subtbl <- plyr::adply(vars,1,function(var) {
-      subdata %>% group_by_(value=var) %>% tally() %>% complete(value,fill=list(n=0)) %>%
+    # subtbl <- plyr::adply(vars,1,function(var) {
+    subtbl <- vars %>% map(function(var) {
+      subdata %>% group_by(value=!!sym(var)) %>% tally() %>% complete(value,fill=list(n=0)) %>%
         mutate(var=var,value=ifelse(!is.na(value),as.character(value),"NA"),denom=denom,pct=n/denom)
-    },.id=NULL)
+    }) %>% bind_rows()
+
     if (showdenom) {
-      subtbl <- subtbl %>% mutate(lbl=paste0(n,"/",denom," (",percent(pct),")"))
+      subtbl <- subtbl %>% mutate(lbl=paste0(n,"/",denom," (",scales::percent(pct),")"))
     } else {
-      subtbl <- subtbl %>% mutate(lbl=paste0(n," (",percent(pct),")"))
+      subtbl <- subtbl %>% mutate(lbl=paste0(n," (",scales::percent(pct),")"))
     }
     #combine var and value pairs. the combined variable is saved as factor to preserve the order during spread
     subtbl <- subtbl %>% unite(var_value,var,value,sep="==") %>% mutate(var_value=factor(var_value,levels=var_value))
@@ -1949,6 +1954,8 @@ make.table <- function(data,vars,by=NULL,showdenom=FALSE,fisher.test=TRUE) {
   }
   return(tbl.all)
 }
+
+
 
 
 #' Get Rows (optimized for timeline plots) OLD
@@ -1991,8 +1998,8 @@ get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
     summarize(start=min(start),stop=max(stop)) %>% ungroup() %>%
     mutate(y.row1=row_number(stop),
            y.row2=row_number(start)-n())
-
-  d.row.test <- plyr::adply(0:(nrow(d.collapse)-1),1,function(overlap) {
+  # d.row.test <- plyr::adply(0:(nrow(d.collapse)-1),1,function(overlap) {
+  d.row.test <- map(0:(nrow(d.collapse)-1),function(overlap) {
     d.test <- d.collapse %>%
       mutate(y.row2=y.row2+overlap,
              y.row3=ifelse(y.row2>=1,y.row2,y.row1))
@@ -2004,7 +2011,7 @@ get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
              overlaps=start2-stop1<=min.gap)
     data.frame(overlap,n.rows=n_distinct(d.test$y.row3),
                gap=suppressWarnings(min(overlap.check$gap)))
-  },.id=NULL)
+  }) %>% bind_rows()
   d.use.row <- d.row.test %>% filter(gap>=min.gap) %>% arrange(n.rows,desc(gap)) %>% slice(1)
   d.final <- d.collapse %>%
     mutate(y.row2=y.row2+d.use.row$overlap,
@@ -2021,6 +2028,7 @@ get.row.OLD <- function(start,stop,row,by=NULL,min.gap=Inf) {
 
 #' Select 2
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Basically \code{dplyr::select}, but ignores variables that aren't found in the data frame.
 #'
 #' @param data Data frame
@@ -2221,6 +2229,7 @@ cox.old <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,ar
 
 #' Cox Proportional Hazards Regression
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Analyzes survival data by Cox regression.
 #'
 #' Convenience function for survival analysis. Typically uses the \code{coxphf} function.
@@ -2237,6 +2246,8 @@ cox.old <- function(data, yvar, ... , starttime=NULL, return.split.data=FALSE,ar
 #' @param return.split.data whether to return data after split (do this to split time-dependent variables and run Cox manually). Default is FALSE
 #' @return a regression table with the survival results
 #' @author Ying Taur
+#' @examples
+#' stcox("vre.bsi","enterodom30",starttime="firstsampday",data=cid.patients)
 #' @export
 stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRUE,formatted=TRUE,logrank=FALSE,coxphf.obj=FALSE,return.split.data=FALSE) {
   requireNamespace("coxphf",quietly=TRUE)
@@ -2364,8 +2375,11 @@ stcox <- function( ... ,starttime="tstart",data,addto,as.survfit=FALSE,firth=TRU
 
 
 
+
+
 #' Univariate Cox Proportional Hazards
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Perform univariate survival, then multivariate on significant variables.
 #' @param yvars column name of survival endpoint.
 #' @param xvars column names of predictors.
@@ -2427,6 +2441,7 @@ univariate.stcox <- function(yvar,xvars,starttime="tstart",data,firth=TRUE,multi
 
 #' Create Survival Data Frame
 #'
+#' `r lifecycle::badge("deprecated")`
 #' @param f.survfit the survival data
 #' @param time0 time0 can be specified. It must be <= first event
 #' @return Returns survival data frame
@@ -2486,6 +2501,7 @@ createSurvivalFrame <- function(f.survfit,time0=0) {
 
 #' At-Risk Table from Survival Data Frame
 #'
+#' `r lifecycle::badge("deprecated")`
 #' @param t.breaks vector of times to calculate at-risk
 #' @param sf survival frame
 #' @param minus.epsilon.last.t means we substract a small amt from last timepoint, because otherwise it's all NA.
@@ -2520,6 +2536,7 @@ survival.frame.atrisk.table <- function(t.breaks,sf,minus.epsilon.last.t=TRUE,me
 
 #' Survival Frame Info
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Given survival.frame, and time, provide info in the survivalframe.
 #' @param t time
 #' @param sf survival frame
@@ -2553,6 +2570,7 @@ survival.frame.info <- function(t,sf,infotype) {
 
 #' Generate Kaplan-Meier curve in ggplot2
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
 #'
 #' Use this to make Kaplan-Meier curves in ggplot2. Utilizes the \code{geom_step} function to draw.
@@ -2658,6 +2676,7 @@ geom_kaplanmeier <- function(yvar,xvar=NULL,data,starttime="tstart",flip.y=FALSE
 
 #' Generate label for Log-rank test results in ggplot2
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Adds the p-value for a log-rank test to a ggplot2 graph.
 #' @author Ying Taur
 #' @export
@@ -2674,6 +2693,7 @@ geom_logrank <- function(yvar,xvar,data,starttime="tstart",pos,logrank.fontsize=
 
 #' Logistic Regression
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Performs univariate or multivariate logistic regression
 #'
 #' Logistic regression is for prediction of yes/no outcomes.
@@ -2740,6 +2760,7 @@ logistic.formula <- function(formula, data=sys.parent(), firth=FALSE,formatted=T
 
 #' Univariate Logistic Regression
 #'
+#' `r lifecycle::badge("deprecated")`
 #' Perform logistic regression analysis on a group of predictors, and optionally perform multivariate analysis on significant univariate predictors.
 #'
 #' @param yvar ...param1.description...xxx
@@ -2789,6 +2810,7 @@ univariate.logistic <- function(yvar,xvars,data,firth=FALSE,multi=FALSE,multi.cu
 
 
 #' Determines if tstart-tstop occurs anywhere within interval.
+#' `r lifecycle::badge("deprecated")`
 #' @export
 occurs.within <- function(tstart,tstop,start.interval,stop.interval) {
   message("YTNote: occurs.within() was renamed to overlaps()")

@@ -37,6 +37,7 @@ If there is no left censoring, then this would refer to a vector of 0's. Default
 A ggplot2 geom object with Kaplan-Meier curve.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Creates a Kaplan-Meier curve which can be used like a geom in ggplot2.
 }
 \details{

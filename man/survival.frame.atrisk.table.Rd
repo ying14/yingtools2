@@ -20,7 +20,7 @@ survival.frame.atrisk.table(
 \item{minus.epsilon.last.t}{means we substract a small amt from last timepoint, because otherwise it's all NA.}
 }
 \description{
-At-Risk Table from Survival Data Frame
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 }
 \author{
 Ying Taur

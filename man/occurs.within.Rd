@@ -2,10 +2,12 @@
 % Please edit documentation in R/deprecated.R
 \name{occurs.within}
 \alias{occurs.within}
-\title{Determines if tstart-tstop occurs anywhere within interval.}
+\title{Determines if tstart-tstop occurs anywhere within interval.
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}}
 \usage{
 occurs.within(tstart, tstop, start.interval, stop.interval)
 }
 \description{
 Determines if tstart-tstop occurs anywhere within interval.
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 }

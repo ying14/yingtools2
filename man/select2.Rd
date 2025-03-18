@@ -15,6 +15,7 @@ select2(data, ...)
 Returns \code{data}, but grouped by times and other variables.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Basically \code{dplyr::select}, but ignores variables that aren't found in the data frame.
 }
 \author{

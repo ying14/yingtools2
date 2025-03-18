@@ -9,14 +9,6 @@ Description: Useful R Functions by Ying
 License: GPL-2
 LazyData: TRUE
 Imports:
-    reshape2,
-    ape,
-    coxphf,
-    cmprsk,
-    logistf,
-    clipr,
-    gtable,
-    DT,
     rlang,
     dplyr,
     tibble,
@@ -26,12 +18,15 @@ Imports:
     stringr,
     purrr,
     lubridate,
+    scales,
     cli,
+    data.table,
+    DT,
     readxl,
     xlsx,
-    scales,
-    data.table,
+    ape,
     phyloseq,
+    gtable,
     patchwork,
     ggiraph,
     gtable,
@@ -39,6 +34,7 @@ Imports:
     gridExtra,
     ggfun,
     aplot,
+    clipr,
     shiny,
     here,
     callr,
@@ -47,7 +43,11 @@ Imports:
     styler,
     digest,
     piggyback,
-    lifecycle
+    lifecycle,
+    coxphf,
+    cmprsk,
+    logistf,
+    reshape2
 Suggests:
     phytools,
     ggtree,

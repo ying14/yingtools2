@@ -52,6 +52,7 @@ full_join_replace_old(
 }}
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Same as \code{inner_join}, \code{left_join}, \code{right_join}, and \code{full_join} in the \code{dplyr} package, except that variables with the
 same column name will not be renamed with the ".x" and ".y" suffix.
 Instead, the variables will be turned into one column if the variables are equal. If they are not equal, an error (or warning) is thrown.

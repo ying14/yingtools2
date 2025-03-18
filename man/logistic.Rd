@@ -37,6 +37,7 @@ logistic(x, ...)
 A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Performs univariate or multivariate logistic regression
 }
 \details{

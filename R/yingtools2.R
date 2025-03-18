@@ -1082,7 +1082,7 @@ compare.data.frame <- function(x,y,by=NULL) {
 tab <- function(var,sort=TRUE,pct=TRUE,as.char=FALSE,collapse="\n") {
   tbl <- data.frame(var=var) %>% count(var)
   if (pct) {
-    tbl <- tbl %>% mutate(pct=percent(prop.table(n)))
+    tbl <- tbl %>% mutate(pct=scales::percent(prop.table(n)))
   }
   if (sort) {
     tbl <- tbl %>% arrange(desc(n))
@@ -4076,6 +4076,16 @@ gg.stack2 <- function(..., heights = NULL, gap=unit(0,"pt"),
 #'
 #' @return a modified list of ggplot objects, with modified x-limits
 #' @export
+#' @examples
+#' glist <- mtcars %>%
+#'   group_by(cyl) %>%
+#'   group_split() %>%
+#'   map(~{
+#'     ggplot(.x) + geom_point(aes(x=hp,y=disp))
+#'   })
+#' rlang::inject(patchwork::wrap_plots(!!!glist,ncol=1))
+#' glist2 <- gg.align.xlim(glist)
+#' rlang::inject(patchwork::wrap_plots(!!!glist2,ncol=1))
 gg.align.xlim <- function(glist) {
   requireNamespace(c("ggfun","aplot"),quietly=TRUE)
   new.xlim <- glist %>% map(ggfun::xrange) %>% transpose() %>%
@@ -5293,7 +5303,7 @@ as.mrn.data.frame <- function(data,verbose=FALSE) {
       data[[mv]] <- as.mrn(data[[mv]])
     }
     mrn.vars.summary <- mrn.vars
-    if ("MRN" %!in% names(data)) {
+    if ("MRN" %notin% names(data)) {
       data <- dplyr::rename_(data,MRN=mrn.vars[1])
       mrn.vars.summary[1] <- paste0("MRN=",mrn.vars.summary[1])
     }
@@ -6361,7 +6371,7 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
   if (!is.null(col_types)) {
     data <- readxl::read_excel(path=path,sheet=sheet,col_names=col_names,na=na,skip=skip)
     dtypes <- structure(recode2(sapply(data,function(x) first(class(x))),c("character"="text","POSIXct"="date")),names=names(data))
-    if (any(names(col_types) %!in% names(dtypes))) {
+    if (any(names(col_types) %notin% names(dtypes))) {
       # stop("YTError, variable names in col_types not all found in excel sheet names!")
       cli_abort("YTError, variable names in col_types not all found in excel sheet names!")
     }

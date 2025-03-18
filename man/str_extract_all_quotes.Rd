@@ -12,6 +12,7 @@ str_extract_all_quotes(text, convert.text.quotes = TRUE)
 \item{convert.text.quotes}{logical indicating whether or not to convert \\\" to \" after converting.}
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Works like \code{str_extract_all}, but is used to extract quoted text within text. This comes for example text a character string contains code itself, like a python list.
 }
 \details{

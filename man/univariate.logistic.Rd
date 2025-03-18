@@ -33,6 +33,7 @@ univariate.logistic(
 A logistic regression table containing predictors, odds ratios, confidence limits, and p-values.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Perform logistic regression analysis on a group of predictors, and optionally perform multivariate analysis on significant univariate predictors.
 }
 \examples{

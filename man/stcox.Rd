@@ -42,10 +42,14 @@ stcox(
 a regression table with the survival results
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 Analyzes survival data by Cox regression.
 }
 \details{
 Convenience function for survival analysis. Typically uses the \code{coxphf} function.
+}
+\examples{
+stcox("vre.bsi","enterodom30",starttime="firstsampday",data=cid.patients)
 }
 \author{
 Ying Taur

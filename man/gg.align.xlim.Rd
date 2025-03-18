@@ -18,3 +18,14 @@ For a given list of ggplot objects, make the x-limits the same across all plots.
 \details{
 This is useful when stacking plots like in \code{\link[=gg.stack]{gg.stack()}}.
 }
+\examples{
+glist <- mtcars \%>\%
+  group_by(cyl) \%>\%
+  group_split() \%>\%
+  map(~{
+    ggplot(.x) + geom_point(aes(x=hp,y=disp))
+  })
+rlang::inject(patchwork::wrap_plots(!!!glist,ncol=1))
+glist2 <- gg.align.xlim(glist)
+rlang::inject(patchwork::wrap_plots(!!!glist2,ncol=1))
+}

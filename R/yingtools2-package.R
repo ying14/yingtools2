@@ -15,7 +15,6 @@
 #'
 #' Maintainer: Ying Taur
 #' @name yingtools2
-#' @docType package
 #' @rawNamespace import(dplyr, except=recode)
 #' @import tidyr
 #' @import tibble
