@@ -7,9 +7,9 @@
 
 #' Not In
 #'
-#' Convenience function. `a %!in% b` is equivalent to `!(a %in% b)`
+#' Convenience function. `a %notin% b` is equivalent to `!(a %in% b)`
 #' @export
-`%!in%` = function(x,y) {
+`%notin%` = function(x,y) {
   !(x %in% y)
 }
 
@@ -60,6 +60,7 @@
 #' Regular Expression Operator
 #'
 #' Shorthand operator for regular expression.
+#'
 #' @export
 #' @rdname like
 #' @examples
@@ -70,26 +71,30 @@
 #' fruit %notilike% "A"
 `%like%` = function(x,y) {
   message("Note that %like% is now case-sensitive. For case-insensitive, use %ilike%")
-  grepl(y,x,ignore.case=FALSE)
-}
+  # grepl(y,x,ignore.case=FALSE)
+  y %>% map(~grepl(.x,x,ignore.case=FALSE)) %>% purrr::reduce(`|`)
 
-
-#' @export
-#' @rdname like
-`%notlike%` = function(x,y) {
-  !grepl(y,x,ignore.case=FALSE)
 }
 
 #' @export
 #' @rdname like
 `%ilike%` = function(x,y) {
-  grepl(y,x,ignore.case=TRUE)
+  # grepl(y,x,ignore.case=TRUE)
+  y %>% map(~grepl(.x,x,ignore.case=TRUE)) %>% purrr::reduce(`|`)
+}
+
+#' @export
+#' @rdname like
+`%notlike%` = function(x,y) {
+  # !grepl(y,x,ignore.case=FALSE)
+  !(x %like% y)
 }
 
 #' @export
 #' @rdname like
 `%notilike%` = function(x,y) {
-  !grepl(y,x,ignore.case=TRUE)
+  # !grepl(y,x,ignore.case=TRUE)
+  !(x %ilike% y)
 }
 
 #' Find Regular Expression Operator

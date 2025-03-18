@@ -46,7 +46,8 @@ Imports:
     rstudioapi,
     styler,
     digest,
-    piggyback
+    piggyback,
+    lifecycle
 Suggests:
     phytools,
     ggtree,

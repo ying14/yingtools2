@@ -2,16 +2,16 @@
 % Please edit documentation in R/yingtools2.R
 \name{\%like\%}
 \alias{\%like\%}
-\alias{\%notlike\%}
 \alias{\%ilike\%}
+\alias{\%notlike\%}
 \alias{\%notilike\%}
 \title{Regular Expression Operator}
 \usage{
 x \%like\% y
 
-x \%notlike\% y
-
 x \%ilike\% y
+
+x \%notlike\% y
 
 x \%notilike\% y
 }
