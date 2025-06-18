@@ -5880,7 +5880,24 @@ paste.ci <- function(estimate,low,high) {
 #'
 #' @return by default, returns a formatted regression table
 #' @examples
-#' cid.patients %>% cox(vre.bsi,enterodom30,starttime=firstsampday)
+#' # simple Cox proportional hazard
+#' cid.patients %>% cox(dead,sex)
+#'
+#' # Cox hazard with time-dependent covariates (metronidazole is time-dependent and contains metronidazole_day)
+#' cid.patients %>% cox(enterodom30, metronidazole)
+#'
+#' # make the data left-censored
+#' cid.patients %>% cox(enterodom30, metronidazole, starttime=firstsampday)
+#'
+#' # use firth=TRUE if monotone likelihood is suspected
+#' cid.patients %>% cox(proteodom30,fluoroquinolone)
+#' cid.patients %>% cox(proteodom30,fluoroquinolone,firth=TRUE)
+#'
+#' # use options to extract data for other things like Kaplan-Meier
+#' data4 <- cid.patients %>% cox(vre.bsi,enterodom30,return.split.data = TRUE)
+#' model4 <- cid.patients %>% cox(vre.bsi,enterodom30,return.model.obj = TRUE)
+#' fit4 <- survival::survfit(model4$formula,data=data4)
+#' survminer::ggsurvplot(fit4,censor=FALSE,fun="event")
 #' @export
 cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.model.obj=FALSE,firth=FALSE,
                 do.competing=NULL,
