@@ -14,7 +14,6 @@
 }
 
 
-
 #' All In
 #'
 #' Convenience function. `a %allin% b` is equivalent to `all(a %in% b, na.rm=FALSE)`
@@ -59,7 +58,7 @@
 
 #' Regular Expression Operator
 #'
-#' Shorthand operator for regular expression.
+#' Shorthand operator for regular expression. Can enter a vector of patterns.
 #'
 #' @export
 #' @rdname like
@@ -69,12 +68,14 @@
 #' fruit %notlike% "A"
 #' fruit %ilike% "A"
 #' fruit %notilike% "A"
+#' fruit %like% c("A","B")
 `%like%` = function(x,y) {
-  message("Note that %like% is now case-sensitive. For case-insensitive, use %ilike%")
+  # message("Note that %like% is now case-sensitive. For case-insensitive, use %ilike%")
   # grepl(y,x,ignore.case=FALSE)
   y %>% map(~grepl(.x,x,ignore.case=FALSE)) %>% purrr::reduce(`|`)
 
 }
+
 
 #' @export
 #' @rdname like

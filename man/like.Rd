@@ -16,7 +16,7 @@ x \%notlike\% y
 x \%notilike\% y
 }
 \description{
-Shorthand operator for regular expression.
+Shorthand operator for regular expression. Can enter a vector of patterns.
 }
 \examples{
 fruit <- c("Apple", "Banana", "Pear", "Pineapple")
@@ -24,4 +24,5 @@ fruit \%like\% "A"
 fruit \%notlike\% "A"
 fruit \%ilike\% "A"
 fruit \%notilike\% "A"
+fruit \%like\% c("A","B")
 }

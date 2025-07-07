@@ -2798,7 +2798,8 @@ get.taxonomy.colordata <- function(data, unitvar = Species,
     # x.color <- character()
     x.color <- rep(NA_character_, length.out = nrow(tax))
     # x.color[color.yes.no] <- rep(colors, length.out = sum(color.yes.no))
-    tax_integers <- tax[color.yes.no, , drop = FALSE] %>% pull(!!unitvar) %>% as.character() %>% digest::digest2int()
+    tax_integers <- tax[color.yes.no, , drop = FALSE] %>% pull(!!unitvar) %>%
+      as.character() %>% digest::digest2int()
     tax_index <- (tax_integers %% length(colors)) + 1
     hash_mapped_colors <- colors[tax_index]
     x.color[color.yes.no] <- hash_mapped_colors
