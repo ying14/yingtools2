@@ -1572,6 +1572,53 @@ coalesce_values <- function(...,sep="=",collapse="|",omit.na=FALSE) {
 
 
 
+
+#' Describe order of vectors
+#'
+#' Summarize the order of variables in a character vector.
+#' @param ... variables to inspect and order
+#'
+#' @return A character vector of same length as variables, showing ordering
+#' @export
+#'
+#' @examples
+#' mtcars %>%
+#'   mutate(ord=ordering(mpg,cyl,qsec,20)) %>%
+#'   count(ord)
+ordering <- function(...) {
+  vars <- enquos(..., .named=TRUE)
+  varnames <- names(vars)
+  objs <- vars %>% map(rlang::eval_tidy)
+
+  make.text <- function(x) {
+    x.is.na <- is.na(x)
+    x.vals <- x[!x.is.na]
+    x.vals.ord <- order(x.vals)
+    x.vals.sorted <- x.vals[x.vals.ord]
+    op <- ifelse(x.vals.sorted==lead(x.vals.sorted)," == "," < ")
+    op[length(op)] <- ""
+    varnames.vals <- varnames[!x.is.na]
+    varnames.sorted <- varnames.vals[x.vals.ord]
+    text.values <- paste0(varnames.sorted,op,collapse="")
+    if (any(x.is.na)) {
+      varnames.na <- varnames[x.is.na]
+      text.na <- paste(varnames.na,collapse=", ")
+      text.na <- paste0(" (NA: ",text.na,")")
+    } else {
+      text.na <- ""
+    }
+    text.final <- paste0(text.values,text.na)
+    return(text.final)
+  }
+  mat <- do.call(cbind,objs)
+  drank <- apply(mat,1,dense_rank,simplify=FALSE)
+  drank.core <- drank %>% unique()
+  text.core <- drank.core %>% map_chr(make.text)
+  text <- text.core[match(drank,drank.core)]
+  return(text)
+}
+
+
 # data recoding ----------------------------------------------------------------
 
 
