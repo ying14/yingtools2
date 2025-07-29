@@ -586,5 +586,45 @@ download_git_release <- function(tag = "v0.0.0.1",
 #
 # }
 
-
+#' Get git info on all git folders
+#'
+#' `r lifecycle::badge('experimental')`
+#' @param parent.dir path containing all github folders
+#'
+#' @return Table containing data on all git folders
+#' @export
+#'
+#' @examples
+#' get_getdir_info("C:/Users/Ying/R")
+get_gitdir_info <- function(parent.dir = ".") {
+  # parent.dir <- "C:/Users/Ying/R"
+  dirs <- list.dirs(parent.dir,recursive=FALSE)
+  get.status <- function(path) {
+    # path = tbl$path[1]
+    if (length(path)>1) {
+      return(map_chr(path,get.status))
+    }
+    gitdir <- file.path(path,".git")
+    projfile <- file.path(path,paste0(basename(path),".Rproj"))
+    if (!(dir.exists(path) && dir.exists(gitdir) && file.exists(projfile))) {
+      return(NA_character_)
+    }
+    old.dir <- getwd()
+    setwd(path)
+    status <- gitr::gst() %>% paste(collapse="\n")
+    setwd(old.dir)
+    return(status)
+  }
+  tbl <- tibble(path=dirs) %>%
+    mutate(base=basename(dirs),
+           status.text=get.status(path),
+           branch.uptodate=status.text %like% "branch is up to date",
+           nothing.to.commit=status.text %like% "nothing to commit",
+           git.uptodate=branch.uptodate & nothing.to.commit,
+           NULL) %>%
+    filter(!is.na(status.text)) %>%
+    mutate(url=map_chr(path,yingtools2:::get_giturl)) %>%
+    select(base,path,git.uptodate,status.text,everything())
+  return(tbl)
+}
 
