@@ -2,7 +2,7 @@
 % Please edit documentation in R/yingtools2.R
 \name{make_table}
 \alias{make_table}
-\title{Make Table}
+\title{Creates a summary table (data frame) variables from the data.}
 \usage{
 make_table(
   data,
@@ -17,7 +17,8 @@ make_table(
 \arguments{
 \item{data}{Data frame containing data to be described.}
 
-\item{...}{column names (bare) within \code{data} to be summarized.}
+\item{...}{column names (bare) within \code{data} to be summarized.
+Can supply named arguments or use \code{attr(x,"label")}to display variable labels.}
 
 \item{by}{optional variable name (bare) by which to summarize the data. Each separate value will be a column of data in the table.}
 
@@ -31,13 +32,14 @@ make_table(
 Returns a data frame formatted to be summary table.
 }
 \description{
-Creates a summary table (data frame) variables from the data.
-}
-\details{
 This was written to create a "Table 1" of a manuscript.
 }
 \examples{
 make_table(mtcars,cyl,gear)
+make_table(mtcars,cyl,gear, by=am)
+make_table(mtcars,
+           "Number of Cylinders"=cyl,
+           "Number of gears"=gear, by=am)
 }
 \author{
 Ying Taur

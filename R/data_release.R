@@ -618,13 +618,18 @@ get_gitdir_info <- function(parent.dir = ".") {
   tbl <- tibble(path=dirs) %>%
     mutate(base=basename(dirs),
            status.text=get.status(path),
-           branch.uptodate=status.text %like% "branch is up to date",
-           nothing.to.commit=status.text %like% "nothing to commit",
-           git.uptodate=branch.uptodate & nothing.to.commit,
+           # branch.uptodate=status.text %like% "branch is up to date",
+           # nothing.to.commit=status.text %like% "nothing to commit",
+           # git.uptodate=branch.uptodate & nothing.to.commit,
            NULL) %>%
     filter(!is.na(status.text)) %>%
-    mutate(url=map_chr(path,yingtools2:::get_giturl)) %>%
+    mutate(url=map_chr(path,get_giturl)) %>%
     select(base,path,git.uptodate,status.text,everything())
   return(tbl)
 }
+
+
+
+
+
 

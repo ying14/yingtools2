@@ -1210,15 +1210,13 @@ dt <- function(data,fontsize=14,pageLength=Inf,maxchars=250,maxrows=500,rownames
 }
 
 
-
-#' Make Table
-#'
 #' Creates a summary table (data frame) variables from the data.
 #'
 #' This was written to create a "Table 1" of a manuscript.
 #'
 #' @param data Data frame containing data to be described.
 #' @param ... column names (bare) within `data` to be summarized.
+#' Can supply named arguments or use `attr(x,"label")`to display variable labels.
 #' @param denom whether to show the denominator in the summary
 #' @param maxgroups max number of groups before collapsing into an "Other" category.
 #' @param by optional variable name (bare) by which to summarize the data. Each separate value will be a column of data in the table.
@@ -1227,15 +1225,29 @@ dt <- function(data,fontsize=14,pageLength=Inf,maxchars=250,maxrows=500,rownames
 #' @return Returns a data frame formatted to be summary table.
 #' @examples
 #' make_table(mtcars,cyl,gear)
+#' make_table(mtcars,cyl,gear, by=am)
+#' make_table(mtcars,
+#'            "Number of Cylinders"=cyl,
+#'            "Number of gears"=gear, by=am)
 #' @author Ying Taur
 #' @export
 make_table <- function(data,...,by=NULL,denom=FALSE,maxgroups=10,accuracy=0.1,fisher=TRUE) {
   requireNamespace(c("rlang","purrr"),quietly=TRUE)
-  vars <- enquos(...)
+  vars <- enquos(...,.named=TRUE)
   by <- enquo(by)
   totalvar <- quo(total_)
-  allvars <- append(vars,totalvar)
 
+  # check attr(x,"label") and use if needed
+  varlabels <- vars %>% map_chr(
+    ~rlang::eval_tidy(.x,data=data) %>% attr("label") %||% NA
+  )
+  newnames <- ifelse(names(vars)==map_chr(vars,as_label) & !is.na(varlabels),varlabels,names(vars))
+  names(vars) <- newnames
+  # change data to evaluate expressions and rename columns
+  data <- data %>% mutate(!!!vars)
+  vars <- names(vars) %>% map(sym)
+  # add totalvar
+  allvars <- append(vars,totalvar)
   vars.by <- vars %>% append(by) %>% map(as_label)
   is.td <- vars.by %>% paste0("_day") %>% has_name(data,.)
   if (any(is.td)) {
