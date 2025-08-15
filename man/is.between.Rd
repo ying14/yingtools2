@@ -4,7 +4,7 @@
 \alias{is.between}
 \title{Determines if x is between start and stop/}
 \usage{
-is.between(x, start, stop, check = TRUE)
+is.between(x, start, stop, check = TRUE, start_NA = NA, stop_NA = NA)
 }
 \arguments{
 \item{x}{vector of values to be checked}

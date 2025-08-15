@@ -5,21 +5,70 @@
 \alias{neg_lookahead}
 \alias{pos_lookbehind}
 \alias{neg_lookbehind}
-\title{Positive/Negative Lookahead/Lookbehind}
+\alias{pos_lookaround}
+\alias{neg_lookaround}
+\title{Positive/Negative Lookahead/Lookbehind Assertion}
 \usage{
-pos_lookahead(base, pattern)
+pos_lookahead(
+  base,
+  pattern,
+  nchar = 0,
+  wildcard = ".|[\\r\\n]",
+  assertion = TRUE
+)
 
-neg_lookahead(base, pattern)
+neg_lookahead(
+  base,
+  pattern,
+  nchar = 0,
+  wildcard = ".|[\\r\\n]",
+  assertion = TRUE
+)
 
-pos_lookbehind(base, pattern)
+pos_lookbehind(
+  base,
+  pattern,
+  nchar = 0,
+  wildcard = ".|[\\r\\n]",
+  assertion = TRUE
+)
 
-neg_lookbehind(base, pattern)
+neg_lookbehind(
+  base,
+  pattern,
+  nchar = 0,
+  wildcard = ".|[\\r\\n]",
+  assertion = TRUE
+)
+
+pos_lookaround(
+  base,
+  pattern,
+  nchar = c(0, 0),
+  wildcard = ".|[\\r\\n]",
+  assertion = TRUE
+)
+
+neg_lookaround(base, pattern, nchar = 0, wildcard = ".", assertion = TRUE)
 }
 \arguments{
 \item{base}{regex pattern to modify}
 
 \item{pattern}{lookahead pattern to add}
+
+\item{nchar}{optional, you can allow wildcard characters between \code{base} and \code{pattern}. Default is \code{0}}
+
+\item{wildcard}{denotes the wildcard pattern. Used only if \code{nchar > 0}. Default is \code{".|[\\r\\n]"} (any character, including line terminators).}
 }
 \description{
-Convenience function for generating regular expression with lookahead/lookbehind.
+Convenience function for generating regular expression by adding lookahead/lookbehind assertions.
+}
+\details{
+Positive/negative lookahead/lookbehind assertions typically follow the following pattern:
+\itemize{
+\item Positive lookahead: \verb{base(?=pattern)}
+\item Negative lookahead: \code{base(?!pattern)}
+\item Positive lookbehind: \verb{(?<=pattern)base}
+\item Negative lookbehind: \verb{(?<!pattern)base}
+}
 }

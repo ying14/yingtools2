@@ -2,9 +2,20 @@
 % Please edit documentation in R/yingtools2.R
 \name{overlaps}
 \alias{overlaps}
+\alias{envelops}
 \title{Determines if 2 sets of time intervals overlap.}
 \usage{
 overlaps(
+  start1,
+  stop1,
+  start2,
+  stop2,
+  check = TRUE,
+  start_NA = NA,
+  stop_NA = NA
+)
+
+envelops(
   start1,
   stop1,
   start2,
@@ -30,9 +41,11 @@ overlaps(
 \item{stop_NA}{stop value if NA. Default is to leave as NA.}
 }
 \description{
-Determines if 2 sets of time intervals overlap.
+\code{overlaps()} determines if interval 1 and 2 overlap in any way.
+\code{envelops()} determines if interval 1 contains interval 2 entirely.
 }
 \examples{
+library(dplyr)
 times <- tribble(
   ~subj, ~startA, ~stopA, ~startB, ~stopB,
   1,     1,       2,      3,       4,
@@ -43,10 +56,12 @@ times <- tribble(
   6,     3,       4,      1,       2
 )
 times <- times \%>\%
-  mutate(overlaps=overlaps(startA,stopA,startB,stopB))
-times
+  mutate(overlaps=overlaps(startA,stopA,startB,stopB),
+         envelops=envelops(startA,stopA,startB,stopB))
+
 ggplot() +
   geom_segment(data=times,aes(x=startA,xend=stopA,y=subj,yend=subj,color="A"),size=1) +
   geom_segment(data=times,aes(x=startB,xend=stopB,y=subj+0.1,yend=subj+0.1,color="B"),size=1) +
-  geom_text(data=times,aes(x=0.5,y=subj,label=overlaps))
+  geom_text(data=times,aes(x=0.5,y=subj,label=paste("overlaps=\n",overlaps))) +
+  geom_text(data=times,aes(x=0,y=subj,label=paste("envelops=\n",envelops)))
 }

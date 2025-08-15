@@ -398,31 +398,6 @@ middle.pattern <- function(start="",middle=".+",end="") {
 }
 
 
-#' Positive/Negative Lookahead/Lookbehind
-#'
-#' Convenience function for generating regular expression with lookahead/lookbehind.
-#' @param base regex pattern to modify
-#' @param pattern lookahead pattern to add
-#' @rdname lookahead
-#' @export
-pos_lookahead <- function(base,pattern) {
-  paste0(base,"(?=",pattern,")")
-}
-#' @rdname lookahead
-#' @export
-neg_lookahead <- function(base,pattern) {
-  paste0(base,"(?!",pattern,")")
-}
-#' @rdname lookahead
-#' @export
-pos_lookbehind <- function(base,pattern) {
-  paste0("(?<=",pattern,")",base)
-}
-#' @rdname lookahead
-#' @export
-neg_lookbehind <- function(base,pattern) {
-  paste0("(?<!",pattern,")",base)
-}
 
 
 #' Paste 2
@@ -1499,6 +1474,167 @@ regex.widget <- function(vec,port=4567) {
 
 
 
+#' Positive/Negative Lookahead/Lookbehind Assertion
+#'
+#' Convenience function for generating regular expression by adding lookahead/lookbehind assertions.
+#'
+#' Positive/negative lookahead/lookbehind assertions typically follow the following pattern:
+#'
+#' * Positive lookahead: `base(?=pattern)`
+#'
+#' * Negative lookahead: `base(?!pattern)`
+#'
+#' * Positive lookbehind: `(?<=pattern)base`
+#'
+#' * Negative lookbehind: `(?<!pattern)base`
+#'
+#' @param base regex pattern to modify
+#' @param pattern lookahead pattern to add
+#' @param nchar optional, you can allow wildcard characters between `base` and `pattern`. Default is `0`
+#' @param wildcard denotes the wildcard pattern. Used only if `nchar > 0`. Default is `".|[\r\n]"` (any character, including line terminators).
+#' @rdname lookahead
+#' @export
+pos_lookahead <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+  regex_look_assertion(base=base, pattern=pattern,
+                       pos=TRUE, lookahead=TRUE,
+                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+}
+#' @rdname lookahead
+#' @export
+neg_lookahead <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+  regex_look_assertion(base=base,pattern=pattern,
+                       pos = FALSE, lookahead=TRUE,
+                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+}
+#' @rdname lookahead
+#' @export
+pos_lookbehind <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+  regex_look_assertion(base=base,pattern=pattern,
+                       pos = TRUE, lookahead=FALSE,
+                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+}
+#' @rdname lookahead
+#' @export
+neg_lookbehind <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+  regex_look_assertion(base=base,pattern=pattern,
+                       pos = FALSE, lookahead=FALSE,
+                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+}
+#' @rdname lookahead
+#' @export
+pos_lookaround <- function(base, pattern, nchar=c(0,0), wildcard=".|[\r\n]", assertion=TRUE) {
+  if (length(nchar)==1) {
+    nchar <- rep(nchar,length.out=2)
+  }
+  behind <- pos_lookbehind(base=base,pattern=pattern,nchar=nchar[1],wildcard=wildcard,assertion=assertion)
+  ahead <- pos_lookahead(base=base,pattern=pattern,nchar=nchar[2],wildcard=wildcard,assertion=assertion)
+  paste0("((",behind,") | (",ahead,"))")
+}
+#' @rdname lookahead
+#' @export
+neg_lookaround <- function(base, pattern, nchar=0, wildcard=".", assertion=TRUE) {
+  if (length(nchar)==1) {
+    nchar <- rep(nchar,length.out=2)
+  }
+  base %>%
+    neg_lookbehind(pattern=pattern,nchar=nchar,wildcard=wildcard,assertion=assertion) %>%
+    neg_lookahead(pattern=pattern,nchar=nchar,wildcard=wildcard,assertion=assertion)
+}
+
+
+regex_look_assertion <- function(base,
+                                 pattern,
+                                 pos,
+                                 lookahead,
+                                 nchar=0,
+                                 wildcard=".|[\r\n]",
+                                 assertion=TRUE) {
+  if (nchar>0) {
+    wild_pattern <- paste0("(",wildcard,"){0,",nchar,"}")
+  } else {
+    wild_pattern <- ""
+  }
+
+  if (lookahead) {
+    if (pos) { # pos lookahead
+      if (assertion) {
+        syntax <- "?="
+      } else {
+        syntax <- ""
+      }
+    } else { # neg lookahead
+      if (!assertion) {
+        cli::cli_warn("YTWarning: ignoring assertion=FALSE argument; it is not meaningful in negative look contexts")
+      }
+      syntax <- "?!"
+    }
+    mod_pattern <- paste0(wild_pattern,"(",pattern,")")
+    final_pattern <- paste0("(",base,")(",syntax,mod_pattern,")")
+  } else {
+    if (pos) { # pos lookbehind
+
+      if (assertion) {
+        syntax <- "?<="
+      } else {
+        syntax <- ""
+      }
+    } else { # neg lookbehind
+      if (!assertion) {
+        cli::cli_warn("YTWarning: ignoring assertion=FALSE argument; it is not meaningful in negative look contexts")
+      }
+      syntax <- "?<!"
+    }
+    mod_pattern <- paste0("(",pattern,")",wild_pattern)
+    final_pattern <- paste0("(",syntax,mod_pattern,")(",base,")")
+  }
+  return(final_pattern)
+}
+
+
+
+
+
+#' Find and Highlight Text
+#'
+#' Search text using regular expression pattern and add something around it to emphasize.
+#'
+#' @param text character vector of text to search and modify
+#' @param pattern regular expression pattern to search
+#' @param before emphasizing text to add before search hits.
+#' @param after emphasizing text to add after search hits.
+#' @param ignore_case Should case differences be ignored? Default is `TRUE`.
+#'
+#' @return a modified form of `text` is returned.
+#' @examples
+#' highlight_text(sentences,"the")
+#'
+#' d <- tibble(sentences) %>%
+#'   mutate(sentences=highlight_html(sentences,"the"))
+#' dt(d)
+#'
+#' \dontrun{
+#' d <- tibble(sentences) %>%
+#'   mutate(sentences=highlight_html(sentences,"the"))
+#' dt(d)
+#' }
+#' @rdname highlight_text
+#' @export
+highlight_text <- function(text,pattern,before="###",after="###",ignore_case=TRUE) {
+  pattern <- paste0("(",pattern,")")
+  replace <- paste0(before,"\\1",after)
+  str_replace_all(text,regex(pattern,ignore_case=ignore_case),replace)
+}
+
+#' @export
+#' @rdname highlight_text
+highlight_html <- function(text,pattern,color="red",ignore_case=TRUE) {
+  before <- paste0("<b><font color=\"",color,"\">")
+  after <- "</font></b>"
+  highlight_text(text=text,pattern=regex(pattern,ignore_case=ignore_case),before=before,after=after)
+}
+
+
+
 #' Coalesce indicator variables into one summary variable.
 #'
 #' After providing multiple indicator variables, summarize them by creating a character vector.
@@ -1632,6 +1768,7 @@ ordering <- function(...) {
 
 
 # data recoding ----------------------------------------------------------------
+
 
 
 #' Ying's Recode
@@ -1968,6 +2105,7 @@ replace_grep_data <- function(data,var,recodes,newvar=NULL,hits=NULL,ignore.case
 
 
 
+
 # coding shortcut functions -----------------------------------------------------
 
 #' Convert object to R-code.
@@ -2231,8 +2369,10 @@ declare.args <- function(..., envir_=parent.frame()) {
 
 # date/time/timeline-related functions ------------------------------------------------------
 
-
 #' Determines if 2 sets of time intervals overlap.
+#'
+#' `overlaps()` determines if interval 1 and 2 overlap in any way.
+#' `envelops()` determines if interval 1 contains interval 2 entirely.
 #'
 #' @param start1 start times for interval 1
 #' @param stop1 stop times for interval 1
@@ -2243,7 +2383,9 @@ declare.args <- function(..., envir_=parent.frame()) {
 #' @param stop_NA stop value if NA. Default is to leave as NA.
 #'
 #' @export
+#' @rdname overlaps
 #' @examples
+#' library(dplyr)
 #' times <- tribble(
 #'   ~subj, ~startA, ~stopA, ~startB, ~stopB,
 #'   1,     1,       2,      3,       4,
@@ -2254,12 +2396,14 @@ declare.args <- function(..., envir_=parent.frame()) {
 #'   6,     3,       4,      1,       2
 #' )
 #' times <- times %>%
-#'   mutate(overlaps=overlaps(startA,stopA,startB,stopB))
-#' times
+#'   mutate(overlaps=overlaps(startA,stopA,startB,stopB),
+#'          envelops=envelops(startA,stopA,startB,stopB))
+#'
 #' ggplot() +
 #'   geom_segment(data=times,aes(x=startA,xend=stopA,y=subj,yend=subj,color="A"),size=1) +
 #'   geom_segment(data=times,aes(x=startB,xend=stopB,y=subj+0.1,yend=subj+0.1,color="B"),size=1) +
-#'   geom_text(data=times,aes(x=0.5,y=subj,label=overlaps))
+#'   geom_text(data=times,aes(x=0.5,y=subj,label=paste("overlaps=\n",overlaps))) +
+#'   geom_text(data=times,aes(x=0,y=subj,label=paste("envelops=\n",envelops)))
 overlaps <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA) {
   if (!is.na(start_NA)) {
     start1 <- coalesce(start1,start_NA)
@@ -2279,6 +2423,25 @@ overlaps <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA
 }
 
 
+#' @rdname overlaps
+#' @export
+envelops <- function(start1,stop1,start2,stop2,check=TRUE,start_NA=NA,stop_NA=NA) {
+  if (!is.na(start_NA)) {
+    start1 <- coalesce(start1,start_NA)
+    start2 <- coalesce(start2,start_NA)
+  }
+  if (!is.na(stop_NA)) {
+    stop1 <- coalesce(stop1,stop_NA)
+    stop2 <- coalesce(stop2,stop_NA)
+  }
+  if (check) {
+    error1 <- any(start1>stop1,na.rm=TRUE)
+    error2 <- any(start2>stop2,na.rm=TRUE)
+    if (error1) {stop("YTError: start1 is greater than stop1")}
+    if (error2) {stop("YTError: start2 is greater than stop2")}
+  }
+  start1<=start2 & stop2<=stop1
+}
 
 #' Any overlap
 #'
@@ -2328,12 +2491,14 @@ any_overlap <- function(start,stop,check=TRUE,na.rm=TRUE) {
 #' @param check whether to check if start comes before stop.
 #'
 #' @export
-is.between <- function(x,start,stop,check=TRUE) {
+is.between <- function(x,start,stop,check=TRUE,start_NA=NA,stop_NA=NA) {
   if (check) {
     if (any(start>stop,na.rm=TRUE)) {stop("YTError: start is greater than stop")}
   }
-  overlaps(x,x,start,stop,check=check)
+  overlaps(x,x,start,stop,check=check,start_NA=start_NA,stop_NA=stop_NA)
 }
+
+
 
 
 
@@ -6094,8 +6259,9 @@ cox <- function(data, yvar, ... , starttime=NULL,return.split.data=FALSE,return.
     return(result)
   }
 
-  terms.to.varnames <- function(terms,vars,data) {
-    dict <- lapply(xvarnames,function(var) {
+  # given output from regression, create a named vector translating model term to variable name.
+  terms.to.varnames <- function(terms,xvars,data) {
+    dict <- lapply(xvars,function(var) {
       mm <- model.matrix(as.formula(paste0("~",var)),data=data)
       term <- colnames(mm) %>% setdiff("(Intercept)")
       rep(var,length(term)) %>% setNames(term)
