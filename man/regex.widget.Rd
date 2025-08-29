@@ -4,11 +4,36 @@
 \alias{regex.widget}
 \title{Regular Expression Widget}
 \usage{
-regex.widget(vec, port = 4567)
+regex.widget(
+  vec,
+  ...,
+  n_fields = 3,
+  ignore_case = TRUE,
+  condense_linebreaks = TRUE,
+  fontsize = 14,
+  table_height = 3
+)
 }
 \arguments{
-\item{vec}{a character vector where regex searches will be applied.}
+\item{vec}{Character vector to be searched.}
+
+\item{...}{Optional arguments consisting of regex patterns to start with.}
+
+\item{n_fields}{Number of regex fields to use. Default is 3.}
+
+\item{ignore_case}{Whether or not to ignore case when searching. Default is \code{TRUE}.}
+
+\item{condense_linebreaks}{Whether or not to convert line breaks into \verb{\\U00B6} character. Default is \code{TRUE}}
+
+\item{fontsize}{Font size in px. Default is 14.}
+
+\item{table_height}{Height of each table, in inches. Default is \code{3}. Can specify other units as character (e.g. \code{"250px"})}
 }
 \description{
-A widget for exploring regular expressions on a vector
+A shiny widget designed to explore and design regular expressions.
+}
+\examples{
+\dontrun{
+regex.widget(sentences[1:10],"the","background|planks","depth|back|sheet")
+}
 }

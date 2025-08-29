@@ -3,6 +3,97 @@
 
 
 
+
+#' Regular Expression Widget (old)
+#'
+#' `r lifecycle::badge("deprecated")`
+#' A widget for exploring regular expressions on a vector
+#' @param vec a character vector where regex searches will be applied.
+#' @return
+#' @export
+#' @examples
+regex.widget0 <- function(vec,port=4567) {
+  library(shiny);library(stringi)
+  if (!is.atomic(vec)) {
+    stop("YTError: vec is not an atomic vector!")
+  }
+  app <- shinyApp(ui=fluidPage(
+    tagList(
+      div(textInput("textinput","Reg Ex #1",value="",width="100%"),
+          textInput("textinput2","Reg Ex #2",value="",width="100%"),style="height: 17 px;"),
+      fluidRow(column(3,actionButton("go","Run")),
+               column(3,checkboxInput("grouphits","Group by Hit",TRUE))),
+      div(DT::dataTableOutput("datatable",width="100%",height="400px"),style="font-size:80%"),
+      div(DT::dataTableOutput("datatable2",width="100%",height="400px"),style="font-size:80%")
+    )
+  ),server=function(input, output) {
+    tbl.all <- reactive({
+      input$go
+      tbl <- isolate({
+        re1 <- regex(input$textinput,ignore_case=TRUE)
+        re2 <- regex(input$textinput2,ignore_case=TRUE)
+        tibble(vec=tolower(vec)) %>%
+          mutate(match.re1=str_detect(vec,re1),
+                 match.re2=!match.re1 & str_detect(vec,re2),
+                 match.re1=coalesce(match.re1,FALSE),
+                 match.re2=coalesce(match.re2,FALSE)) %>%
+          filter(match.re1|match.re2) %>%
+          mutate(loc1=str_locate_all(vec,re1),
+                 loc2=str_locate_all(vec,re2))
+      })
+      tbl
+    })
+    output$datatable <- DT::renderDataTable({
+      tbl1 <- tbl.all() %>% filter(match.re1) %>%
+        unnest(loc1) %>%
+        mutate(hits1=stringi::stri_sub(vec,loc1),
+               hilight1=paste0("<b><font color=\"red\">",hits1,"</font></b>"),
+               repl1=stringi::stri_sub_replace(vec,loc1,replacement=hilight1)) %>%
+        select(hits1,repl1)
+
+      if (input$grouphits) {
+        tbl1 <- tbl1 %>%
+          group_by(hits1) %>%
+          summarize(n=n(),repl1=repl1[1]) %>%
+          ungroup() %>% arrange(desc(n))
+      } else {
+        tbl1 <- tbl1 %>%
+          group_by(repl1,hits1) %>%
+          summarize(n=n()) %>%
+          ungroup() %>% arrange(desc(n))
+      }
+      tbl1 <- tbl1 %>% filter(row_number()<=500)
+      tbl1 %>% dt()
+    })
+    output$datatable2 <- DT::renderDataTable({
+      tbl2 <- tbl.all() %>% filter(match.re2) %>%
+        unnest(loc2) %>%
+        mutate(hits2=stringi::stri_sub(vec,loc2),
+               hilight2=paste0("<b><font color=\"red\">",hits2,"</font></b>"),
+               repl2=stringi::stri_sub_replace(vec,loc2,replacement=hilight2)) %>%
+        select(hits2,repl2)
+
+      if (input$grouphits) {
+        tbl2 <- tbl2 %>%
+          group_by(hits2) %>%
+          summarize(n=n(),repl2=repl2[1]) %>%
+          ungroup() %>% arrange(desc(n))
+      } else {
+        tbl2 <- tbl2 %>%
+          group_by(repl2,hits2) %>%
+          summarize(n=n()) %>%
+          ungroup() %>% arrange(desc(n))
+      }
+      tbl2 <- tbl2 %>% filter(row_number()<=500)
+      tbl2 %>% dt()
+    })
+  })
+  runGadget(app)
+}
+
+
+
+
 #' Calculate the `taxhorn` distance
 #'
 #' `r lifecycle::badge("deprecated")`
