@@ -3,6 +3,484 @@
 
 
 
+#' Locate, Extract, and Replace Multiple Substrings
+#'
+#' A set of modified functions for searching and replacing using regular expressions.
+#' `str_locate_all_df()` locates position of regex hits,
+#' `str_find_overlaps_df()` finds overlapping start/end times and deals with them.
+#' `str_sub_all_df()` extracts the hits,
+#' `str_sub_all_replace_df()` replaces new text.
+#' These use some functions used for conversion or manipulation:
+#' `str_locs2df()` converts location data (list of matrices, output of [stringr::str_locate_all()]) to data frame.
+#' `str_df2locs()` converts data frame to location data.
+#' `str_df2strlist()` converts a column in data frame to character list (output of [stringi::stri_sub_all()]).
+#' `str_df2irange()` converts data frame to `IRanges` list.
+#' `str_irange2df()` converts `IRanges` list to data frame.
+#' `str_find_gaps_df()` returns the data frame representing all gaps.
+#'
+#' The functions are meant to make manipulations easier, by storing results in a data frame rather than list of matrices, etc.
+#' `str_locate_all_df()` is equivalent to [stringr::str_locate_all()]
+#' `str_sub_all_df()` is equivalent to [stringi::stri_sub_all()]
+#' `str_sub_all_replace_df()` is equivalent to [stringi::stri_sub_all_replace()]
+#'
+#' @param string character vector to be searched/replaced
+#' @param ... regular expression patterns to be searched.
+#' Can alternatively supply locations... list of matrices, corresponding to output from [stringr::str_locate_all()].
+#' Can be named, which will keep in a column (callled `group`) in data frame output.
+#' @param df data frame containing location, plus/minus additional output.
+#' Should contain columns: `i`, `start`, `end`, `group`, and may contain `var` and `newvar`.
+#' @param var name of new column name to be added to `df` representing extracted substrings. Default is `"var"`.
+#' @param newvar name of existing column name in `df` to be used as replacement. Default is `"newvar"`.
+#' @param pad number of characters to pad each range by. Default is `0`
+#' @return
+#' @examples
+#' library(tidyverse)
+#' text <- stringr::sentences[1:6]
+#' re1 <- "birch|smooth|chicken"
+#' re2 <- "lemons|punch"
+#' re3 <- "the|mon|moo"
+#' df <- str_locate_all_df(text,g1=re1,g2=re2,g3=re3) %>%
+#'   str_find_overlaps_df(group_fun=~paste(.x,collapse="+")) %>%
+#'   str_sub_all_df(text) %>%
+#'   mutate(newvar=paste0("[##(",group,")",var,"##]"))
+#' newtext <- str_sub_all_replace_df(text,df)
+#' newtext
+#' @rdname str_locate_all_df
+str_locate_all_df <- function(string, ..., group_var="group",ignore_case=TRUE) {
+  args <- list(...)
+  n.args <- length(args)
+  defaultnames <- paste0("group",seq_along(args))
+  groupnames <- names(args) %||% defaultnames %>% na_if("") %>% coalesce(defaultnames)
+
+  if (anyDuplicated(groupnames)) {
+    cli::cli_abort("YTError: duplicate argument detected")
+  }
+  df <- map2(args,groupnames,function(x,name) {
+    # check if arg is pattern or locs (list of matrices)
+    if (is.character(x)) {
+      locs <- str_locate_all(string,regex(x,ignore_case=ignore_case))
+    } else if (is.list(x) && length(x)==length(string)) {
+      locs <- x
+    } else {
+      cli::cli_abort("YTError: argument should be pattern or list(matrix)")
+    }
+    str_locs2df(locs) %>% mutate(!!group_var:=name)
+  }) %>% list_rbind() %>% arrange(i,start)
+  return(df)
+}
+#' @rdname str_locate_all_df
+str_find_overlaps_df <- function(df,group_fun=NULL) {
+  grouped_df <- df %>% group_by_time(start,end,i) %>%
+    mutate(overlapping=n()>1 & n_distinct(group)>1)
+  # do less if there is no overlap
+  if (all(!grouped_df$overlapping)) {
+    if (is.null(group_fun)) {
+      df_final <- df %>% mutate(group=as.list(group))
+    } else {
+      df_final <- df
+    }
+    return(df_final)
+  }
+  df_single <- grouped_df %>% ungroup() %>%
+    filter(!overlapping) %>%
+    select(-index_,-overlapping)
+  df_overlap <- grouped_df %>% filter(overlapping) %>%
+    group_split() %>%
+    map(function(data) {
+      ir <- IRanges::IRanges(start=data$start,end=data$end)
+      dj <- IRanges::disjoin(ir, with.revmap=TRUE)
+      rm <- S4Vectors::mcols(dj)$revmap
+      tibble(start=IRanges::start(dj),
+             end=IRanges::end(dj),
+             group=map(rm,~data$group[.x])) %>%
+        mutate(i=data$i[1])
+    }) %>% list_rbind()
+
+  if (is.null(group_fun)) {
+    df_single <- df_single %>% mutate(group=as.list(group))
+  } else {
+    df_overlap <- df_overlap %>%
+      mutate(group=map_chr(group,group_fun))
+  }
+  df_final <- bind_rows(df_single,df_overlap) %>% arrange(i,start)
+  return(df_final)
+}
+#' @rdname str_locate_all_df
+str_sub_all_df <- function(df,string,var="var") {
+  locs <- str_df2locs(df,string)
+  hits <- stringi::stri_sub_all(string,locs)
+  ord <- order(df$i,df$start)
+  hits_vec <- list_c(hits)
+  df[[var]] <- NA_character_
+  df[[var]][ord] <- hits_vec
+  return(df)
+}
+#' @rdname str_locate_all_df
+str_sub_all_replace_df <- function(string,df,newvar="newvar") {
+  locs <- str_df2locs(df,string)
+  replace <- str_df2strlist(df,newvar,string)
+  new <- stringi::stri_sub_all_replace(string,locs,replacement=replace)
+  return(new)
+}
+#' @rdname str_locate_all_df
+str_locs2df <- function(locs) {
+  # this is faster than: locs %>% imap(~tibble(i=.y,start=.x[,1],end=.x[,2])) %>% list_rbind()
+  index <- imap(unname(locs),~{rep_len(.y,length.out=nrow(.x))}) %>% list_c()
+  stack <- do.call(rbind,locs)
+  cbind(i=index,stack) %>% as_tibble()
+}
+#' @rdname str_locate_all_df
+str_df2locs <- function(df,string) {
+  df <- df %>% arrange(i,start)
+  len <- length(string)
+  locs <- replicate(len,matrix(integer(0),ncol=2,dimnames = list(NULL, c("start", "end"))))
+  locs_from_df <- df %>% group_by(i) %>%
+    group_split() %>%
+    map(~{
+      cbind(start=.x$start,end=.x$end)
+    })
+  ii <- df$i %>% unique()
+  locs[ii] <- locs_from_df
+  return(locs)
+}
+#' @rdname str_locate_all_df
+str_df2strlist <- function(df,newvar="newvar",string) {
+  df <- df %>% arrange(i,start)
+  len <- length(string)
+
+  ii <- df$i %>% unique()
+  strfromdf <- split(df[[newvar]],df$i) %>% unname()
+  newstrlist <- replicate(len,character(0))
+  newstrlist[ii] <- strfromdf
+  return(newstrlist)
+}
+#' @rdname str_locate_all_df
+str_df2irange <- function(df,string) {
+  n <- length(string)
+  # tic("backbone")
+  nil <- replicate(n,integer(0))
+  ir_start <- df$start %>% split(df$i)
+  ir_end <- df$end %>% split(df$i)
+  ii <- df$i %>% unique()
+  ir_start_all <- nil
+  ir_end_all <- nil
+  ir_start_all[ii] <- ir_start
+  ir_end_all[ii] <- ir_end
+  IRanges::IRangesList(start=ir_start_all,end=ir_end_all)
+}
+#' @rdname str_locate_all_df
+str_irange2df <- function(irange) {
+  df_start <- IRanges::start(irange)
+  df_end <- IRanges::end(irange)
+  df_n <- df_start %>% map_int(length)
+  ii <- df_n %>% imap(~rep_len(.y,.x)) %>% list_c()
+  tibble(i=ii,start=unlist(df_start),end=unlist(df_end))
+}
+#' @rdname str_locate_all_df
+str_find_gaps_df <- function(df,string,pad=0) {
+  str_len <- str_length(string)
+  ir_hits <- df %>% str_df2irange(string)
+  ir_inverted <- IRanges::gaps(ir_hits+pad,start=1,end=str_len)
+  df_inverted <- str_irange2df(ir_inverted) %>%
+    mutate(max=str_len[i],
+           group=case_when(
+             start==1 & end==max ~ "gap_all",
+             start==1 & end!=max ~ "gap_start",
+             start!=1 & end==max ~ "gap_end",
+             start!=1 & end!=max ~ "gap_middle"
+           )) %>% select(-max)
+  return(df_inverted)
+}
+
+
+
+#' Highlight Text Using Regex
+#'
+#' Search a text vector and highlight the hits with HTML color.
+#'
+#' Note that overlapping regex hits will be colored by mixing the assigned colors together.
+#' @param text the character vector to be searched.
+#' @param ... regular expression patterns to be searched.
+#' Can also supply list(matrix) of locations (output from [stringr::str_locate_all()])
+#' Arguments can be named, in order to specify color.
+#' If unnamed, default colors are supplied.
+#' @param ignore_case Whether or not to ignore case. Default is `TRUE`
+#' @param color_fun Function (purrr-style) that modifies pattern hits. Takes text and color as arguments.
+#' Default is `~str_c("<b><font color=\"",.y,"\">",.x,"</font></b>")`.
+#' @param gap_nchars Optional integer, truncate text around regex hits, by specified number of characters.
+#' Default is `Inf` (no truncation).
+#' @param return_df Optional, if `TRUE`, will return the data frame, rather than the replaced text.
+#'
+#' @return
+#' Modified form of `text`, with all regex hits replaced.
+#'
+#' @examples
+#' highlight_grep(sentences[1:3],"red"="the","blue"="background|planks","green"="depth|back|sheet")
+highlight_grep.OLD <- function(text, ... ,
+                               ignore_case=TRUE,
+                               color_fun= ~str_c("<b><font color=\"",.y,"\">",.x,"</font></b>"),
+                               gap_nchars=Inf,
+                               return_df=FALSE) {
+  requireNamespace("IRanges",quietly=TRUE)
+  args <- list(...)
+  color_fun <- as_mapper(color_fun)
+  ellipsis <- "..."
+  ellipsis_nchar <- str_length(ellipsis)
+  ellipsis_fun <- function(text) {
+    return(ellipsis)
+  }
+  mixcolorvec <- function(colors) {
+    if (length(colors)==1) {return(colors)}
+    rgbcolors <- col2rgb(colors)
+    mix <- apply(rgbcolors,1,mean) / 255
+    rlang::inject(rgb(!!!mix))
+  }
+  name2hex <- function(color) {
+    rgb <- col2rgb(color)
+    rgb(t(rgb), maxColorValue = 255)
+  }
+  # determine color ids
+  n.patterns <- length(args)
+  default.colors <- gg.colors(n.patterns)
+  colors <- names(args) %||% default.colors %>% na_if("") %>% coalesce(default.colors) %>% map_chr(name2hex)
+  names(args) <- colors
+  # args <- args %>% map(~{regex(.x,ignore_case=ignore_case)})
+  df <- rlang::inject(str_locate_all_df(text,!!!args,ignore_case=ignore_case))
+  df_mixed <- df %>%
+    str_find_overlaps_df(group_fun=mixcolorvec) %>%
+    mutate(status="color")
+  if (is.finite(gap_nchars)) {
+    df_gaps <- str_find_gaps_df(df_mixed,text,pad=gap_nchars) %>%
+      filter(end-start+1 >= ellipsis_nchar,
+             # no gap_middle
+             group %in% c("gap_start",
+                          "gap_middle",
+                          "gap_end","gap_all")) %>%
+      mutate(status=group)
+    df_all <- bind_rows(df_mixed,df_gaps) %>% arrange(i,start)
+  } else {
+    df_all <- df_mixed
+  }
+  df_replace <- df_all %>%
+    str_sub_all_df(text) %>%
+    mutate(newvar=pmap_chr(list(group,status,var),function(clr,sts,txt) {
+      if (sts=="color") {
+        new <- color_fun(txt,clr)
+      } else {
+        new <- ellipsis_fun(txt)
+      }
+      return(new)
+    }))
+
+  if (return_df) {
+    return(df_replace)
+  }
+  newtext <- str_sub_all_replace_df(text,df_replace)
+  return(newtext)
+}
+
+
+
+
+#' Regular Expression Widget
+#'
+#' A shiny widget designed to explore and design regular expressions.
+#'
+#' @param vec Character vector to be searched.
+#' @param ... Optional arguments consisting of regex patterns to start with.
+#' @param n_fields Number of regex fields to use. Default is 3.
+#' @param ignore_case Whether or not to ignore case when searching. Default is `TRUE`.
+#' @param condense_linebreaks Whether or not to convert line breaks into `\U00B6` character. Default is `TRUE`
+#' @param fontsize Font size in px. Default is 14.
+#' @param table_height Height of each table, in inches. Default is `3`. Can specify other units as character (e.g. `"250px"`)
+#' @examples
+#' \dontrun{
+#' regex.widget(sentences[1:10],"the","background|planks","depth|back|sheet")
+#' }
+regex.widget.OLD <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebreaks=TRUE,fontsize=14,table_height=3) {
+  args <- quos(..., .named=TRUE) %>% map(rlang::eval_tidy)
+  # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
+  if (is.numeric(fontsize)) {
+    fontsize <- paste0(fontsize,"px")
+  }
+  if (is.numeric(table_height)) {
+    table_height <- paste0(table_height,"in")
+  }
+  total_fields <- pmax(n_fields,length(args)) # total number of regex fields
+  n_extra_fields <- total_fields - length(args)
+  field_letters <- LETTERS[1:total_fields] # A, B, C, D, ...
+  # field_letters <- paste0("<b><font color=\"red\">",field_letters,"</font></b>")
+  field_ids <- paste0("regex",field_letters) # regexA, regexB, regexC, regexD, ...
+  field_patterns <- c(unname(args),rep("",length.out=n_extra_fields)) %>% setNames(field_ids) # starting field values
+  field_colors <- gg.colors(total_fields) %>% setNames(field_ids)
+  field_lbls <- paste("Regex",field_letters) # Regex A, Regex B, Regex C, Regex D
+  field_letters_color <- paste0("<b><font color=\"",field_colors,"\">", field_letters, "</font></b>")
+  if (!is.atomic(vec)) {
+    stop("YTError: vec is not an atomic vector!")
+  }
+  vec <- vec[!is.na(vec)]
+  # static combinations of regexes (list of named boolean vectors)
+  # list(c(regexA=TRUE), c(regexA=TRUE,regexB=FALSE), c(regexD=TRUE,regexB=FALSE,regexC=FALSE), ...)
+  regex_combos <- 1:total_fields %>%
+    map(~c(TRUE,FALSE,NA)) %>%
+    setNames(field_ids) %>%
+    do.call(expand_grid,.) %>%
+    as.list() %>%
+    list_transpose() %>%
+    # map(~{.x[!is.na(.x)]}) %>% # remove NA
+    # map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
+    {.[map_lgl(.,~all(is.na(.x)) | sum(.x,na.rm=TRUE)>0)]} %>% # at least one TRUE OR all
+    {.[order(map_int(.,~sum(!is.na(.x))),-map_int(.,~(sum(.x,na.rm=TRUE))))]} # sort by nfields,
+  # static labels for combos
+  # A, B, C, D, A & B, A & C,
+  combolabels <- regex_combos %>%
+    map(~{.x[!is.na(.x)]}) %>% # remove NA
+    map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
+    map_chr(~{
+      if (length(.x)==0) {
+        return("All")
+      }
+      letters <- field_letters[match(names(.x),field_ids)]
+      # letters <- field_letters_color[match(names(.x),field_ids)]
+      sign <- ifelse(.x,"","!")
+      paste0(sign,letters,collapse=" & ")
+    })
+  # static ids all combos: combo1, combo2, ...
+  comboids <- paste0("combo",seq_along(regex_combos)) %>% setNames(combolabels)
+  names(regex_combos) <- comboids
+  # get default combo to start with
+  nonempty_fields <- field_patterns[field_patterns!=""] %>% names()
+  if (length(nonempty_fields)==0) {
+    initial_selected_combos <- comboids["all"]
+  } else {
+    initial_selected_combos <- nonempty_fields %>%
+      map_chr(function(field) {
+        usethisone <- map_lgl(regex_combos,function(combo) {
+          target <- field==names(combo)
+          combo[target] & all(is.na(combo[!target]))
+        }) %>% which()
+        names(regex_combos)[usethisone]
+      })
+  }
+  replace_linebreak_symbol <- function(text) {
+    str_replace_all(text,"\r?\n","\U00B6")
+  }
+  app <- shinyApp(ui=fluidPage(
+    #### UI controls ####
+    tagList(
+      fluidRow(
+        column(7,div(uiOutput("regexes"),style="font-size:80%")),
+        column(5,checkboxInput("grouphits","Trim text",FALSE),
+               numericInput("padding",label="Padding",value=1,min=0,max=10,step=1),
+               actionButton("go","Run"),
+               selectizeInput("select",label="Show combos:",choices=comboids,selected=initial_selected_combos,multiple=TRUE))
+      ),
+      div(uiOutput("outtables"),style="font-size:100%")
+    )
+  ),server=function(input, output, session) {
+    #### server function ####
+    # render regex text fields
+    output$regexes <- renderUI({
+      pmap(list(field_ids,field_patterns,field_lbls,field_colors),
+           function(id,pattern,lbl,color) {
+             div(textInput(inputId=id,label=lbl,value=pattern,width="100%"),
+                 style=paste0("color:",color))
+           })
+    })
+    # single detect: list of reactive str_detect-vector for a single regex (depends on input$regexA,...)
+    # named: regexA
+    # proceed only if pattern!=""
+    regex_detect_single <- field_ids %>%
+      map(~{
+        reactive({
+          req(input[[.x]]!="")
+          pat <- req(input[[.x]])
+          str_locate_all(vec,pat)
+        })
+      }) %>% setNames(field_ids)
+    # combo detect: for each combo: list of reactive str_detect-vectors for all regex combos (depends on regex_detect_single[]())
+    # these are triggered by changes in regex_detect_single components
+    combotables <- regex_combos %>%
+      map(~{.x[!is.na(.x)]}) %>% # remove NA
+      # map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
+      imap(function(combo,id) {
+        reactive({
+          # list of component regex locs
+          locs <- combo %>%
+            imap(function(bool,var) {
+              req(regex_detect_single[[var]]())
+            })
+          if (length(combo)==0) { # "all"
+            keep <- rep_along(vec,TRUE)
+          } else {
+            keep <- map2(locs,combo,
+                         function(loc,bool) {
+                           detect <- map_int(loc,nrow)>0
+                           if (bool) {detect}
+                           else {!detect}
+                         }) %>% pmap_lgl(all)
+          }
+          subtext <- vec[keep]
+          sublocs <- locs %>% map(~{.x[keep]})
+          names(sublocs) <- field_colors[names(sublocs)]
+
+          if (any(keep) && length(locs)>0) {
+            if (input$grouphits) {
+              newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs,gap_nchars = input$padding))
+            } else {
+              newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs))
+            }
+          } else {
+            newtext <- subtext
+          }
+          if (condense_linebreaks) {
+            newtext <- replace_linebreak_symbol(newtext)
+          }
+          combolabel <- names(comboids)[match(id,comboids)] %>% paste("Combo: ",.)
+          df <- tibble(text=newtext) %>%
+            count(text) %>%
+            arrange(desc(n)) %>%
+            rename(!!combolabel:=text)
+          return(df)
+        })
+      })
+    # create reactive datatable, for all combos (id=comboid)
+    for (id in comboids) {
+      # for some reason this doesn't work:    output[[id]] <- DT::renderDataTable(tables[[id]]())
+      combo_expr <- expr(
+        output[[!!id]] <- DT::renderDataTable({
+          df <- combotables[[!!id]]()
+          DT::datatable(df,
+                        escape=FALSE,
+                        class="compact cell-border stripe",
+                        selection = "none",
+                        options=list(paging=FALSE,
+                                     dom="t"),
+                        rownames=FALSE) %>%
+            DT::formatStyle(columns=names(df),fontSize=fontsize,whiteSpace="pre-wrap")
+        })
+      )
+      eval(combo_expr)
+    }
+    # render all reactive datatables
+    output$outtables <- renderUI({
+      selected_combos <- input$select
+      map(selected_combos,~{
+        # combolabel <- names(comboids)[match(.x,comboids)]
+        tagList(
+          # h5(paste("Combo:",combolabel)),
+          div(DT::dataTableOutput(.x,width="100%",height=table_height),style="font-size:100%")
+          # font-family: "Arial" , style = "color: blue;"
+        )
+      })
+    })
+
+  })
+  runGadget(app)
+}
+
+
+
 
 #' Regular Expression Widget (old)
 #'

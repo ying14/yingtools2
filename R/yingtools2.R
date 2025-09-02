@@ -1548,6 +1548,7 @@ highlight_html <- function(text,pattern,color="red",ignore_case=TRUE) {
 
 
 
+
 #' Highlight Text Using Regex
 #'
 #' Search a text vector and highlight the hits with HTML color.
@@ -1567,74 +1568,45 @@ highlight_html <- function(text,pattern,color="red",ignore_case=TRUE) {
 #'
 #' @return
 #' Modified form of `text`, with all regex hits replaced.
-#' @export
 #'
+#' @export
 #' @examples
 #' highlight_grep(sentences[1:3],"red"="the","blue"="background|planks","green"="depth|back|sheet")
 highlight_grep <- function(text, ... ,
                            ignore_case=TRUE,
                            color_fun= ~str_c("<b><font color=\"",.y,"\">",.x,"</font></b>"),
-                           gap_nchars=Inf,
-                           return_df=FALSE) {
+                           gap_nchars=Inf) {
   requireNamespace("IRanges",quietly=TRUE)
   args <- list(...)
   color_fun <- as_mapper(color_fun)
   ellipsis <- "..."
   ellipsis_nchar <- str_length(ellipsis)
-  ellipsis_fun <- function(text) {
-    return(ellipsis)
-  }
-  mixcolorvec <- function(colors) {
-    if (length(colors)==1) {return(colors)}
-    rgbcolors <- col2rgb(colors)
-    mix <- apply(rgbcolors,1,mean) / 255
-    rlang::inject(rgb(!!!mix))
-  }
-  name2hex <- function(color) {
-    rgb <- col2rgb(color)
-    rgb(t(rgb), maxColorValue = 255)
-  }
   # determine color ids
   n.patterns <- length(args)
   default.colors <- gg.colors(n.patterns)
-  colors <- names(args) %||% default.colors %>% na_if("") %>% coalesce(default.colors) %>% map_chr(name2hex)
+  colors <- names(args) %||% default.colors %>% na_if("") %>%
+    coalesce(default.colors) #%>% map_chr(color2hex)
   names(args) <- colors
-  # args <- args %>% map(~{regex(.x,ignore_case=ignore_case)})
-  df <- rlang::inject(str_locate_all_df(text,!!!args,ignore_case=ignore_case))
-  df_mixed <- df %>%
-    str_find_overlaps_df(group_fun=mixcolorvec) %>%
-    mutate(status="color")
-  if (is.finite(gap_nchars)) {
-    df_gaps <- str_find_gaps_df(df_mixed,text,pad=gap_nchars) %>%
-      filter(end-start+1 >= ellipsis_nchar,
-             # no gap_middle
-             group %in% c("gap_start",
-                          "gap_middle",
-                          "gap_end","gap_all")) %>%
-      mutate(status=group)
-    df_all <- bind_rows(df_mixed,df_gaps) %>% arrange(i,start)
-  } else {
-    df_all <- df_mixed
-  }
-  df_replace <- df_all %>%
-    str_sub_all_df(text) %>%
-    mutate(newvar=pmap_chr(list(group,status,var),function(clr,sts,txt) {
-      if (sts=="color") {
-        new <- color_fun(txt,clr)
-      } else {
-        new <- ellipsis_fun(txt)
-      }
-      return(new)
-    }))
 
-  if (return_df) {
-    return(df_replace)
+  irl_list <- args %>% imap(~str_locate_all_irl(text,.x,color=.y))
+  irl_color <- do.call(irl_pc,irl_list) %>%
+    irl_handle_overlaps(color=mix.colors(color),type="color")
+  if (is.infinite(gap_nchars)) {
+    irl_all <- irl_color
+  } else {
+    irl_gaps <- irl_find_gaps(irl_color,text,pad=gap_nchars) %>%
+      irl2df() %>%
+      filter(width>=ellipsis_nchar) %>%
+      mutate(type="gap") %>%
+      df2irl()
+    irl_all <- irl_pc(irl_color,irl_gaps,sort=TRUE)
   }
-  newtext <- str_sub_all_replace_df(text,df_replace)
+  newtext <- str_sub_all_replace_irl(irl_all,text,expr=case_when(
+    type=="color" ~ paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
+    type=="gap" ~ ellipsis
+  ))
   return(newtext)
 }
-
-
 
 
 #' Regular Expression Widget
@@ -1671,6 +1643,8 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
   field_colors <- gg.colors(total_fields) %>% setNames(field_ids)
   field_lbls <- paste("Regex",field_letters) # Regex A, Regex B, Regex C, Regex D
   field_letters_color <- paste0("<b><font color=\"",field_colors,"\">", field_letters, "</font></b>")
+  ellipsis <- "..."
+  ellipsis_nchar <- str_length(ellipsis)
   if (!is.atomic(vec)) {
     stop("YTError: vec is not an atomic vector!")
   }
@@ -1681,8 +1655,7 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
     map(~c(TRUE,FALSE,NA)) %>%
     setNames(field_ids) %>%
     do.call(expand_grid,.) %>%
-    as.list() %>%
-    list_transpose() %>%
+    as.list() %>% list_transpose() %>%
     # map(~{.x[!is.na(.x)]}) %>% # remove NA
     # map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
     {.[map_lgl(.,~all(is.na(.x)) | sum(.x,na.rm=TRUE)>0)]} %>% # at least one TRUE OR all
@@ -1693,11 +1666,8 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
     map(~{.x[!is.na(.x)]}) %>% # remove NA
     map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
     map_chr(~{
-      if (length(.x)==0) {
-        return("All")
-      }
+      if (length(.x)==0) {return("All")}
       letters <- field_letters[match(names(.x),field_ids)]
-      # letters <- field_letters_color[match(names(.x),field_ids)]
       sign <- ifelse(.x,"","!")
       paste0(sign,letters,collapse=" & ")
     })
@@ -1746,14 +1716,14 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
     # single detect: list of reactive str_detect-vector for a single regex (depends on input$regexA,...)
     # named: regexA
     # proceed only if pattern!=""
-    regex_detect_single <- field_ids %>%
-      map(~{
-        reactive({
-          req(input[[.x]]!="")
-          pat <- req(input[[.x]])
-          str_locate_all(vec,pat)
-        })
-      }) %>% setNames(field_ids)
+    regex_detect_single <- map2(field_ids,field_colors,~{
+      reactive({
+        req(input[[.x]]!="")
+        pat <- req(input[[.x]])
+        str_locate_all_irl(vec,pat,color=.y)
+        # str_locate_all(vec,pat)
+      })
+    }) %>% setNames(field_ids)
     # combo detect: for each combo: list of reactive str_detect-vectors for all regex combos (depends on regex_detect_single[]())
     # these are triggered by changes in regex_detect_single components
     combotables <- regex_combos %>%
@@ -1761,31 +1731,45 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
       # map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
       imap(function(combo,id) {
         reactive({
-          # list of component regex locs
-          locs <- combo %>%
+          # list of component regex irl hits
+          irls <- combo %>%
             imap(function(bool,var) {
               req(regex_detect_single[[var]]())
             })
           if (length(combo)==0) { # "all"
             keep <- rep_along(vec,TRUE)
           } else {
-            keep <- map2(locs,combo,
-                         function(loc,bool) {
-                           detect <- map_int(loc,nrow)>0
+            keep <- map2(irls,combo,
+                         function(irl,bool) {
+                           # detect <- map_int(loc,nrow)>0
+                           detect <- str_detect_irl(irl)
                            if (bool) {detect}
                            else {!detect}
-                         }) %>% pmap_lgl(all)
+                         }) %>% pmap_lgl(function(...) all(...))
           }
           subtext <- vec[keep]
-          sublocs <- locs %>% map(~{.x[keep]})
-          names(sublocs) <- field_colors[names(sublocs)]
-
-          if (any(keep) && length(locs)>0) {
+          subirls <- irls %>% map(~{.x[keep]})
+          # names(sublocs) <- field_colors[names(sublocs)]
+          if (any(keep) && length(irls)>0) {
+            ##### start making newtext #####
+            hits <- do.call(irl_pc,subirls) %>%
+              irl_handle_overlaps(color=mix.colors(color),type="color")
             if (input$grouphits) {
-              newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs,gap_nchars = input$padding))
+              # newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs,gap_nchars = input$padding))
+              gaps <- irl_find_gaps(hits,subtext,pad=input$padding) %>%
+                irl2df() %>%
+                filter(width>=ellipsis_nchar) %>%
+                mutate(type="gap") %>%
+                df2irl()
+              all <- irl_pc(hits,gaps,sort=TRUE)
             } else {
-              newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs))
+              # newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs))
+              all <- hits %>% irl_sort()
             }
+            newtext <- str_sub_all_replace_irl(all,subtext,expr=
+                                                 ifelse(type=="color",
+                                                        paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
+                                                        ellipsis))
           } else {
             newtext <- subtext
           }
@@ -1796,7 +1780,7 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
           df <- tibble(text=newtext) %>%
             count(text) %>%
             arrange(desc(n)) %>%
-            rename(!!combolabel:=text)
+            dplyr::rename(!!sym(combolabel):=text)
           return(df)
         })
       })
@@ -1834,8 +1818,6 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
   })
   runGadget(app)
 }
-
-
 
 
 
@@ -2311,209 +2293,257 @@ replace_grep_data <- function(data,var,recodes,newvar=NULL,hits=NULL,ignore.case
 
 
 
-#' Locate, Extract, and Replace Multiple Substrings
+
+#' Convert between Locations, IRangesList, and Ranged Data Frame
 #'
-#' A set of modified functions for searching and replacing using regular expressions.
-#' `str_locate_all_df()` locates position of regex hits,
-#' `str_find_overlaps_df()` finds overlapping start/end times and deals with them.
-#' `str_sub_all_df()` extracts the hits,
-#' `str_sub_all_replace_df()` replaces new text.
-#' These use some functions used for conversion or manipulation:
-#' `str_locs2df()` converts location data (list of matrices, output of [stringr::str_locate_all()]) to data frame.
-#' `str_df2locs()` converts data frame to location data.
-#' `str_df2strlist()` converts a column in data frame to character list (output of [stringi::stri_sub_all()]).
-#' `str_df2irange()` converts data frame to `IRanges` list.
-#' `str_irange2df()` converts `IRanges` list to data frame.
-#' `str_find_gaps_df()` returns the data frame representing all gaps.
+#' Inspect, or convert back and forth between:
 #'
-#' The functions are meant to make manipulations easier, by storing results in a data frame rather than list of matrices, etc.
-#' `str_locate_all_df()` is equivalent to [stringr::str_locate_all()]
-#' `str_sub_all_df()` is equivalent to [stringi::stri_sub_all()]
-#' `str_sub_all_replace_df()` is equivalent to [stringi::stri_sub_all_replace()]
+#' * `locs`: list of matrices, output of [stringr::str_locate_all()].
+#' * `irl`: [`IRangesList`][`IRanges::IRangesList-class`] object,
+#' * `df`: ranged data frame, modified data frame version of `irl`
 #'
-#' @param string character vector to be searched/replaced
-#' @param ... regular expression patterns to be searched.
-#' Can alternatively supply locations... list of matrices, corresponding to output from [stringr::str_locate_all()].
-#' Can be named, which will keep in a column (callled `group`) in data frame output.
-#' @param df data frame containing location, plus/minus additional output.
-#' Should contain columns: `i`, `start`, `end`, `group`, and may contain `var` and `newvar`.
-#' @param var name of new column name to be added to `df` representing extracted substrings. Default is `"var"`.
-#' @param newvar name of existing column name in `df` to be used as replacement. Default is `"newvar"`.
-#' @param pad number of characters to pad each range by. Default is `0`
+#' @param locs,irl,df object to be converted
+#' @param ... optional, add metadata to object
+#'
+#' @export
+#' @rdname locs2irl
+#'
+#' @examples
+locs2irl <- function(locs, ...) {
+  # create a splitting factor
+  locs_nrow <- S4Vectors::elementNROWS(locs)
+  lvls <- seq_along(locs_nrow)
+  f <- rep.int(lvls, locs_nrow) %>% factor(levels=lvls)
+  # f <- locs %>% imap(~rep_len(.y,nrow(.x))) %>% list_c() %>% factor(levels=seq_along(locs))
+  mat <- do.call(rbind,locs)
+  ir_all <- IRanges::IRanges(start=mat[,1],end=mat[,2], ...)
+  irl <- S4Vectors::split(ir_all,f) %>% unname()
+  return(irl)
+}
+#' @rdname locs2irl
+#' @export
+irl2locs <- function(irl) {
+  df <- irl %>% irl2df()
+  mat <- cbind(start=df$start,end=df$end)
+  ii <- split(seq_along(df$group),df$group) %>% unname()
+  locs <- lapply(ii,function(i) mat[i,,drop=FALSE])
+  return(locs)
+}
+#' @rdname locs2irl
+#' @export
+irl2df <- function(irl) {
+  # irl=irl1
+  glvls <- seq_along(irl)
+  df <- as.data.frame(irl) %>%
+    mutate(group=factor(group,levels=glvls))
+  return(df)
+}
+#' @rdname locs2irl
+#' @export
+df2irl <- function(df) {
+  keyvars <- c("group","group_name","start","end","width")
+  if (!all(keyvars %in% names(df))) {
+    cli::cli_abort("YTError: df should contain vars: {.pkg {keyvars}}")
+  }
+  ir <- IRanges::IRanges(start=df$start,end=df$end)
+  metacols <- setdiff(names(df),keyvars)
+  if (length(metacols)>0) {
+    meta <- df %>% select(-any_of(keyvars))
+    S4Vectors::mcols(ir) <- meta
+  }
+  if (any(!is.na(df$group_name))) {
+    names(ir) <- df$group_name
+  }
+  irl <- S4Vectors::split(ir,df$group) %>% unname()
+  return(irl)
+}
+#' @rdname locs2irl
+#' @export
+locs2df <- function(locs) {
+  df <- locs %>%
+    locs2irl() %>%
+    irl2df()
+  return(df)
+}
+#' @rdname locs2irl
+#' @export
+df2locs <- function(df) {
+  mat <- cbind(start=df$start,end=df$end)
+  ii <- split(seq_along(df$group),df$group) %>% unname()
+  locs <- lapply(ii,function(i) mat[i,,drop=FALSE])
+  return(locs)
+}
+#' @rdname locs2irl
+#' @export
+is.irl <- function(x) {
+  is(x,"IRangesList")
+}
+#' @rdname locs2irl
+#' @export
+is.locs <- function(x) {
+  is.list(x) && all(map_lgl(x,is.matrix))
+}
+#' @rdname locs2irl
+#' @export
+is.df <- function(x) {
+  reqvar <- c("group", "group_name", "start", "end", "width")
+  is.data.frame(x) && all(reqvar %in% names(x))
+}
+
+#' Check if object is a Regex pattern
+#'
+#' Checks if object is a single character vector, or is a `stringr`-style [`pattern`][`stringr::modifiers`]
+#' @param x Object to be inspected
+#'
 #' @return
 #' @export
+#'
 #' @examples
-#' library(tidyverse)
+#' re.letter <- "[a-z]+"
+#' re.number <- "[0-9]+"
+#' is.pattern(re.letter)
+#' is.pattern(re.number)
+#' is.pattern(regex(re.letter,ignore_case=TRUE))
+#' is.pattern(123)
+is.pattern <- function(x) {
+  (is.character(x) && length(x)==1) || is(x,"stringr_pattern")
+}
+
+
+
+#' Locate Substrings and Store as `IRangesList`
+#'
+#' Similar to [stringr::str_locate_all()], but outputs an [`IRangesList`][`IRanges::IRangesList-class`] object.
+#'
+#' @param irl [`IRangesList`][`IRanges::IRangesList-class`] object.
+#' @param string Character vector to be searched
+#' @param pattern Regular expression pattern
+#' @param ... Optional metadata to add to the [`IRangesList`][`IRanges::IRangesList-class`] object
+#' @param ignore_case Whether or not to ignore case differences. Default is `TRUE`.
+#'
+#' @return
+#' [`IRangesList`][`IRanges::IRangesList-class`] object containing locations of regex search.
+#' @export
+#' @rdname str_locate_all_irl
+#' @examples
 #' text <- stringr::sentences[1:6]
 #' re1 <- "birch|smooth|chicken"
 #' re2 <- "lemons|punch"
 #' re3 <- "the|mon|moo"
-#' df <- str_locate_all_df(text,g1=re1,g2=re2,g3=re3) %>%
-#'   str_find_overlaps_df(group_fun=~paste(.x,collapse="+")) %>%
-#'   str_sub_all_df(text) %>%
-#'   mutate(newvar=paste0("[##(",group,")",var,"##]"))
-#' newtext <- str_sub_all_replace_df(text,df)
-#' newtext
-#' @rdname str_locate_all_df
-str_locate_all_df <- function(string, ..., group_var="group",ignore_case=TRUE) {
-  args <- list(...)
-  n.args <- length(args)
-  defaultnames <- paste0("group",seq_along(args))
-  groupnames <- names(args) %||% defaultnames %>% na_if("") %>% coalesce(defaultnames)
-
-  if (anyDuplicated(groupnames)) {
-    cli::cli_abort("YTError: duplicate argument detected")
-  }
-  df <- map2(args,groupnames,function(x,name) {
-    # check if arg is pattern or locs (list of matrices)
-    if (is.character(x)) {
-      locs <- str_locate_all(string,regex(x,ignore_case=ignore_case))
-    } else if (is.list(x) && length(x)==length(string)) {
-      locs <- x
-    } else {
-      cli::cli_abort("YTError: argument should be pattern or list(matrix)")
+#' irl1 <- str_locate_all_irl(text,re1,grp="g1")
+#' irl2 <- str_locate_all_irl(text,re2,grp="g2")
+#' irl3 <- str_locate_all_irl(text,re3,grp="g3")
+#' hits <- irl_pc(irl1,irl2,irl3) %>%
+#'   irl_handle_overlaps(grp=paste(grp,collapse="+"), type="hit")
+#' gaps <- allhits %>% irl_find_gaps(text) %>%
+#'   irl2df() %>% mutate(type="gap") %>% df2irl()
+#' all <- irl_pc(hits,gaps,sort=TRUE)
+str_locate_all_irl <- function(string, pattern, ... , ignore_case=TRUE) {
+  if (is(pattern,"stringr_regex")) {
+    if (is(pattern,"stringr_regex")) {
+      regex_case <- attr(pattern,"options")[["case_insensitive"]]
+      if (regex_case!=ignore_case) {
+        cli::cli_warn("YTWarning: pattern is a regex() object, using its settings and ignoring ignore_case option")
+      }
     }
-    str_locs2df(locs) %>% mutate(!!group_var:=name)
-  }) %>% list_rbind() %>% arrange(i,start)
-  return(df)
-}
-#' @rdname str_locate_all_df
-#' @export
-str_find_overlaps_df <- function(df,group_fun=NULL) {
-  grouped_df <- df %>% group_by_time(start,end,i) %>%
-    mutate(overlapping=n()>1 & n_distinct(group)>1)
-  # do less if there is no overlap
-  if (all(!grouped_df$overlapping)) {
-    if (is.null(group_fun)) {
-      df_final <- df %>% mutate(group=as.list(group))
-    } else {
-      df_final <- df
-    }
-    return(df_final)
-  }
-  df_single <- grouped_df %>% ungroup() %>%
-    filter(!overlapping) %>%
-    select(-index_,-overlapping)
-  df_overlap <- grouped_df %>% filter(overlapping) %>%
-    group_split() %>%
-    map(function(data) {
-      ir <- IRanges::IRanges(start=data$start,end=data$end)
-      dj <- IRanges::disjoin(ir, with.revmap=TRUE)
-      rm <- S4Vectors::mcols(dj)$revmap
-      tibble(start=IRanges::start(dj),
-             end=IRanges::end(dj),
-             group=map(rm,~data$group[.x])) %>%
-        mutate(i=data$i[1])
-    }) %>% list_rbind()
-
-  if (is.null(group_fun)) {
-    df_single <- df_single %>% mutate(group=as.list(group))
   } else {
-    df_overlap <- df_overlap %>%
-      mutate(group=map_chr(group,group_fun))
+    pattern <- stringr::regex(pattern,ignore_case=ignore_case)
   }
-  df_final <- bind_rows(df_single,df_overlap) %>% arrange(i,start)
-  return(df_final)
+  locs <- stringr::str_locate_all(string,pattern)
+  irl <- locs2irl(locs, ...)
+  return(irl)
 }
-#' @rdname str_locate_all_df
-#' @export
-str_sub_all_df <- function(df,string,var="var") {
-  locs <- str_df2locs(df,string)
-  hits <- stringi::stri_sub_all(string,locs)
-  ord <- order(df$i,df$start)
-  hits_vec <- list_c(hits)
-  df[[var]] <- NA_character_
-  df[[var]][ord] <- hits_vec
-  return(df)
-}
-#' @rdname str_locate_all_df
-#' @export
-str_sub_all_replace_df <- function(string,df,newvar="newvar") {
-  locs <- str_df2locs(df,string)
-  replace <- str_df2strlist(df,newvar,string)
-  new <- stringi::stri_sub_all_replace(string,locs,replacement=replace)
-  return(new)
-}
-#' @rdname str_locate_all_df
-#' @export
-str_locs2df <- function(locs) {
-  # this is faster than: locs %>% imap(~tibble(i=.y,start=.x[,1],end=.x[,2])) %>% list_rbind()
-  index <- imap(unname(locs),~{rep_len(.y,length.out=nrow(.x))}) %>% list_c()
-  stack <- do.call(rbind,locs)
-  cbind(i=index,stack) %>% as_tibble()
-}
-#' @rdname str_locate_all_df
-#' @export
-str_df2locs <- function(df,string) {
-  df <- df %>% arrange(i,start)
-  len <- length(string)
-  locs <- replicate(len,matrix(integer(0),ncol=2,dimnames = list(NULL, c("start", "end"))))
-  locs_from_df <- df %>% group_by(i) %>%
-    group_split() %>%
-    map(~{
-      cbind(start=.x$start,end=.x$end)
-    })
-  ii <- df$i %>% unique()
-  locs[ii] <- locs_from_df
-  return(locs)
-}
-#' @rdname str_locate_all_df
-#' @export
-str_df2strlist <- function(df,newvar="newvar",string) {
-  df <- df %>% arrange(i,start)
-  len <- length(string)
 
-  ii <- df$i %>% unique()
-  strfromdf <- split(df[[newvar]],df$i) %>% unname()
-  newstrlist <- replicate(len,character(0))
-  newstrlist[ii] <- strfromdf
-  return(newstrlist)
-}
-#' @rdname str_locate_all_df
+#' Combine multiple `IRangesList` objects
+#'
+#' Combine multiple [`IRangesList`][`IRanges::IRangesList-class`] objects into a
+#' single [`IRangesList`][`IRanges::IRangesList-class`] object.
+#'
+#' @param ... multiple `IRangesList` objects
+#' @param sort whether or not to sort after combining
+#'
+#' @return Single [`IRangesList`][`IRanges::IRangesList-class`] object
 #' @export
-str_df2irange <- function(df,string) {
-  n <- length(string)
-  # tic("backbone")
-  nil <- replicate(n,integer(0))
-  ir_start <- df$start %>% split(df$i)
-  ir_end <- df$end %>% split(df$i)
-  ii <- df$i %>% unique()
-  ir_start_all <- nil
-  ir_end_all <- nil
-  ir_start_all[ii] <- ir_start
-  ir_end_all[ii] <- ir_end
-  IRanges::IRangesList(start=ir_start_all,end=ir_end_all)
+#' @rdname str_locate_all_irl
+#' @examples
+irl_pc <- function(..., sort=FALSE) {
+  combined <- S4Vectors::pc(...)
+  if (sort) {
+    combined <- combined %>% irl_sort()
+  }
+  return(combined)
 }
-#' @rdname str_locate_all_df
+
+#' Handle Overlaps within `IRangesList`
+#'
+#' @param ... expressions that summarize metadata. These are like expressions in a `summarize()` statement.
+#'
 #' @export
-str_irange2df <- function(irange) {
-  df_start <- IRanges::start(irange)
-  df_end <- IRanges::end(irange)
-  df_n <- df_start %>% sapply(length)
-  ii <- df_n %>% imap(~rep_len(.y,.x)) %>% list_c()
-  tibble(i=ii,start=unlist(df_start),end=unlist(df_end))
+#' @rdname str_locate_all_irl
+irl_handle_overlaps <- function(irl, ...) {
+  mcols_exprs <- quos(...)
+  dj <- IRanges::disjoin(irl,with.revmap=TRUE)
+  meta_irl <- irl %>% irl2df() %>%
+    group_by(group) %>%
+    mutate(revmap=row_number()) %>%
+    ungroup() %>%
+    select(-any_of(c("group_name","start","end","width")))
+  meta_dj <- dj %>% irl2df() %>%
+    group_by(group) %>%
+    mutate(.row=row_number()) %>%
+    ungroup()
+  mixed <- meta_dj %>% unnest(revmap) %>%
+    left_join(meta_irl,by=c("group","revmap")) %>%
+    group_by(group,group_name,start,end,width,.row) %>%
+    summarize(!!!mcols_exprs,
+              .groups="drop") %>%
+    select(-.row)
+  mixed_irl <- mixed %>% df2irl()
+  return(mixed_irl)
 }
-#' @rdname str_locate_all_df
+
+#' Find gaps around ranges in `IRangesList`
+#'
+#' @param pad number of characters to pad each `IRange` by. Default is `0`.
+#'
 #' @export
-str_find_gaps_df <- function(df,string,pad=0) {
+#' @rdname str_locate_all_irl
+irl_find_gaps <- function(irl,string,pad=0) {
   str_len <- str_length(string)
-  ir_hits <- df %>% str_df2irange(string)
-  ir_inverted <- IRanges::gaps(ir_hits+pad,start=1,end=str_len)
-  df_inverted <- str_irange2df(ir_inverted) %>%
-    mutate(max=str_len[i],
-           group=case_when(
-             start==1 & end==max ~ "gap_all",
-             start==1 & end!=max ~ "gap_start",
-             start!=1 & end==max ~ "gap_end",
-             start!=1 & end!=max ~ "gap_middle"
-           )) %>% select(-max)
-  return(df_inverted)
+  allgaps <- IRanges::gaps(irl+pad,start=1,end=str_len)
+  return(allgaps)
 }
 
+#' Sort `IRangesList` by `start`
+#' @export
+#' @rdname str_locate_all_irl
+irl_sort <- function(irl) {
+  irl %>% irl2df() %>%
+    arrange(group,start) %>%
+    df2irl()
+}
 
+#' Extract substrings and generate replacement
+#' @param expr expression which generates the replacment string, where `x` can be used to represent the original hit, or any metadata in `irl`
+#' @export
+#' @rdname str_locate_all_irl
+str_sub_all_replace_irl <- function(irl,string,expr) {
+  expr <- enquo(expr)
+  locs <- irl2locs(irl)
+  hits <- stringi::stri_sub_all(string,locs) %>% list_c()
+  df <- irl %>% irl2df() %>%
+    mutate(x=hits,
+           replace=!!expr)
+  repl <- split(df$replace,df$group)
+  newstring <- stringi::stri_sub_replace_all(string,locs,replacement=repl)
+  return(newstring)
+}
 
-
-
+#' @export
+#' @rdname str_locate_all_irl
+str_detect_irl <- function(irl) {
+  map_int(start(irl),length)>0
+}
 
 
 
@@ -4494,6 +4524,38 @@ gg.colors <- function(n=6, h=c(0,360)+15) {
   #emulates ggplot's default discrete color palette
   if ((diff(h)%%360) < 1) h[2] <- h[2] - 360/n
   hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
+}
+
+
+#' Mix colors together (hex format)
+#'
+#' @param colors a vector of colors
+#'
+#' @return A single color vector representing mixing of colors in the vector.
+#' @export
+#'
+#' @examples
+mix.colors <- function(colors) {
+  colors <- color2hex(colors)
+  if (length(colors)==1) {return(colors)}
+  rgbcolors <- col2rgb(colors)
+  mix <- apply(rgbcolors,1,mean) / 255
+  rlang::inject(rgb(!!!mix))
+}
+
+#' Convert color names to hex format
+#'
+#' @param color a vector of color names
+#'
+#' @return the color vector, all in hex format
+#' @export
+#'
+#' @examples
+#' colors <- c("red","blue","yellow","purple")
+#' color2hex(colors)
+color2hex <- function(color) {
+  rgb <- col2rgb(color)
+  rgb(t(rgb), maxColorValue = 255)
 }
 
 
