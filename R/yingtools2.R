@@ -1608,7 +1608,6 @@ highlight_grep <- function(text, ... ,
   return(newtext)
 }
 
-
 #' Regular Expression Widget
 #'
 #' A shiny widget designed to explore and design regular expressions.
@@ -1625,15 +1624,17 @@ highlight_grep <- function(text, ... ,
 #' \dontrun{
 #' regex.widget(sentences[1:10],"the","background|planks","depth|back|sheet")
 #' }
-regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebreaks=TRUE,fontsize=14,table_height=3) {
+regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,
+                         condense_linebreaks=TRUE,
+                         fontsize=14,table_height=300) {
   args <- quos(..., .named=TRUE) %>% map(rlang::eval_tidy)
   # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
   if (is.numeric(fontsize)) {
     fontsize <- paste0(fontsize,"px")
   }
-  if (is.numeric(table_height)) {
-    table_height <- paste0(table_height,"in")
-  }
+  # if (is.numeric(table_height)) {
+  #   table_height <- paste0(table_height,"in")
+  # }
   total_fields <- pmax(n_fields,length(args)) # total number of regex fields
   n_extra_fields <- total_fields - length(args)
   field_letters <- LETTERS[1:total_fields] # A, B, C, D, ...
@@ -1695,13 +1696,18 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
     #### UI controls ####
     tagList(
       fluidRow(
-        column(7,div(uiOutput("regexes"),style="font-size:80%")),
-        column(5,checkboxInput("grouphits","Trim text",FALSE),
+        column(7,
+               div(uiOutput("regexes"),style="font-size:100%")),
+        column(5,
+               checkboxInput("grouphits","Trim text",FALSE),
                numericInput("padding",label="Padding",value=1,min=0,max=10,step=1),
-               actionButton("go","Run"),
+               numericInput("table_height",label="Table height",value=table_height,min=25,max=1500,step=25),
+               # numericInput("font_size",label="Font size",value=table_height,min=25,max=1500,step=25),
+               # actionButton("go","Run"),
                selectizeInput("select",label="Show combos:",choices=comboids,selected=initial_selected_combos,multiple=TRUE))
       ),
-      div(uiOutput("outtables"),style="font-size:100%")
+      uiOutput("outtables")
+      # div(uiOutput("outtables"),style="font-size:100%")
     )
   ),server=function(input, output, session) {
     #### server function ####
@@ -1757,28 +1763,43 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
             if (input$grouphits) {
               # newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs,gap_nchars = input$padding))
               gaps <- irl_find_gaps(hits,subtext,pad=input$padding) %>%
-                irl2df() %>%
-                filter(width>=ellipsis_nchar) %>%
-                mutate(type="gap") %>%
-                df2irl()
+                irl2df() %>% filter(width>=ellipsis_nchar) %>%
+                mutate(type="gap") %>% df2irl()
               all <- irl_pc(hits,gaps,sort=TRUE)
             } else {
               # newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs))
               all <- hits %>% irl_sort()
             }
-            newtext <- str_sub_all_replace_irl(all,subtext,expr=
-                                                 ifelse(type=="color",
-                                                        paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
-                                                        ellipsis))
+            newtext <- str_sub_all_replace_irl(all,subtext,
+                                               expr=ifelse(type=="color",
+                                                           paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
+                                                           ellipsis))
+            df <- tibble(text=newtext)
+            if (sum(combo)>=2) { # add distance columns
+              combocols <- names(combo)[combo]
+              comboletters <- field_letters[match(combocols,field_ids)]
+              ipairs <- combn(seq_along(combocols),2,simplify=FALSE)
+              colnamepairs <- ipairs %>% map_chr(~{
+                paste(comboletters[.x],collapse="") %>% paste0("dist",.)
+              })
+              distpairs <- ipairs %>% map(~{
+                irl_dist(subirls[[.x[1]]],subirls[[.x[2]]])
+              }) %>% setNames(colnamepairs)
+              df <- bind_cols(df,as_tibble(distpairs))
+            }
           } else {
-            newtext <- subtext
+            # bypass if there are zero rows, or if there are no patterns.
+            df <- tibble(text=newtext)
           }
           if (condense_linebreaks) {
-            newtext <- replace_linebreak_symbol(newtext)
+            df$text <- replace_linebreak_symbol(df$text)
           }
-          combolabel <- names(comboids)[match(id,comboids)] %>% paste("Combo: ",.)
-          df <- tibble(text=newtext) %>%
-            count(text) %>%
+          combolabel <- names(comboids)[match(id,comboids)] %>%
+            paste0("Combo: ", . , " (",sum(keep), " records)")
+          df <- df %>%
+            # tibble(text=newtext) %>%
+            # count(text) %>%
+            count(!!!syms(names(.))) %>%
             arrange(desc(n)) %>%
             dplyr::rename(!!sym(combolabel):=text)
           return(df)
@@ -1809,7 +1830,8 @@ regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_linebre
         # combolabel <- names(comboids)[match(.x,comboids)]
         tagList(
           # h5(paste("Combo:",combolabel)),
-          div(DT::dataTableOutput(.x,width="100%",height=table_height),style="font-size:100%")
+          div(DT::dataTableOutput(.x,width="100%",height=input$table_height),style="font-size:80%")
+          # DT::dataTableOutput(.x,width="100%",height=input$table_height)
           # font-family: "Arial" , style = "color: blue;"
         )
       })
@@ -2314,7 +2336,6 @@ locs2irl <- function(locs, ...) {
   locs_nrow <- S4Vectors::elementNROWS(locs)
   lvls <- seq_along(locs_nrow)
   f <- rep.int(lvls, locs_nrow) %>% factor(levels=lvls)
-  # f <- locs %>% imap(~rep_len(.y,nrow(.x))) %>% list_c() %>% factor(levels=seq_along(locs))
   mat <- do.call(rbind,locs)
   ir_all <- IRanges::IRanges(start=mat[,1],end=mat[,2], ...)
   irl <- S4Vectors::split(ir_all,f) %>% unname()
@@ -2389,6 +2410,44 @@ is.df <- function(x) {
   reqvar <- c("group", "group_name", "start", "end", "width")
   is.data.frame(x) && all(reqvar %in% names(x))
 }
+
+
+
+
+#' Find Distance Between Two `IRanges`
+#'
+#' Calculate closest distance between two `IRanges` or `IRangesList` objects.
+#' @param ir1 First `IRanges` object
+#' @param ir2 Second `IRanges` object
+#' @param irl1 First `IRangesList` object
+#' @param irl2 Second `IRangesList` object
+#'
+#' @return
+#' An integer vector of distances.
+#' Positive distance means `ir1` came before `ir2`,
+#' Negative distance means `ir2` came before `ir1`,
+#' Zero distance means the ranges overlap.
+#' @rdname ir_dist
+#' @export
+#'
+#' @examples
+ir_dist <- function(ir1,ir2) {
+  distnear <- distanceToNearest(ir1,ir2)
+  dist <- mcols(distnear)$distance
+  if (length(dist)==0) {return(NA_integer_)}
+  imin <- which.min(dist)
+  subj <- to(distnear)[imin]
+  foll <- follow(ir1,ir2)[imin]
+  sign <- ifelse(!is.na(foll) & subj==foll, -1, 1)
+  dist[imin] * sign
+}
+
+#' @rdname ir_dist
+#' @export
+irl_dist <- function(irl1,irl2) {
+  map2_int(irl1,irl2,ir_dist)
+}
+
 
 #' Check if object is a Regex pattern
 #'
@@ -2482,6 +2541,9 @@ irl_pc <- function(..., sort=FALSE) {
 #' @rdname str_locate_all_irl
 irl_handle_overlaps <- function(irl, ...) {
   mcols_exprs <- quos(...)
+  if (all(elementNROWS(irl)==0)) {
+    return(irl)
+  }
   dj <- IRanges::disjoin(irl,with.revmap=TRUE)
   meta_irl <- irl %>% irl2df() %>%
     group_by(group) %>%
@@ -2492,6 +2554,8 @@ irl_handle_overlaps <- function(irl, ...) {
     group_by(group) %>%
     mutate(.row=row_number()) %>%
     ungroup()
+
+
   mixed <- meta_dj %>% unnest(revmap) %>%
     left_join(meta_irl,by=c("group","revmap")) %>%
     group_by(group,group_name,start,end,width,.row) %>%
@@ -2542,7 +2606,8 @@ str_sub_all_replace_irl <- function(irl,string,expr) {
 #' @export
 #' @rdname str_locate_all_irl
 str_detect_irl <- function(irl) {
-  map_int(start(irl),length)>0
+  # map_int(start(irl),length)>0
+  elementNROWS(irl)>0
 }
 
 
@@ -4536,8 +4601,10 @@ gg.colors <- function(n=6, h=c(0,360)+15) {
 #'
 #' @examples
 mix.colors <- function(colors) {
-  colors <- color2hex(colors)
   if (length(colors)==1) {return(colors)}
+
+  print(colors)
+  colors <- color2hex(colors)
   rgbcolors <- col2rgb(colors)
   mix <- apply(rgbcolors,1,mean) / 255
   rlang::inject(rgb(!!!mix))

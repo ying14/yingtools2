@@ -11,7 +11,7 @@ regex.widget(
   ignore_case = TRUE,
   condense_linebreaks = TRUE,
   fontsize = 14,
-  table_height = 3
+  table_height = 300
 )
 }
 \arguments{

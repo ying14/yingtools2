@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.192
+Version: 0.0.1.193
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
 Description: Useful R Functions by Ying
