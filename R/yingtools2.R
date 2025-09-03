@@ -1630,14 +1630,13 @@ regex.widget <- function(vec, ... ,
                          condense_linebreaks=TRUE,
                          fontsize=14,
                          table_height=300) {
-  args <- quos(..., .named=TRUE) %>% map(rlang::eval_tidy)
+  # args <- quos(..., .named=TRUE) %>% map(rlang::eval_tidy)
+  args <- list(...)
+  args <- args %>% map(str_protect_escape_characters)
   # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
   if (is.numeric(fontsize)) {
     fontsize <- paste0(fontsize,"px")
   }
-  # if (is.numeric(table_height)) {
-  #   table_height <- paste0(table_height,"in")
-  # }
   total_fields <- pmax(n_fields,length(args)) # total number of regex fields
   n_extra_fields <- total_fields - length(args)
   field_letters <- LETTERS[1:total_fields] # A, B, C, D, ...
@@ -2435,12 +2434,12 @@ is.df <- function(x) {
 #'
 #' @examples
 ir_dist <- function(ir1,ir2) {
-  distnear <- distanceToNearest(ir1,ir2)
-  dist <- mcols(distnear)$distance
+  distnear <- IRanges::distanceToNearest(ir1,ir2)
+  dist <- S4Vectors::mcols(distnear)$distance
   if (length(dist)==0) {return(NA_integer_)}
   imin <- which.min(dist)
-  subj <- to(distnear)[imin]
-  foll <- follow(ir1,ir2)[imin]
+  subj <- S4Vectors::to(distnear)[imin]
+  foll <- IRanges::follow(ir1,ir2)[imin]
   sign <- ifelse(!is.na(foll) & subj==foll, -1, 1)
   dist[imin] * sign
 }
@@ -2613,7 +2612,40 @@ str_detect_irl <- function(irl) {
   S4Vectors::elementNROWS(irl)>0
 }
 
-
+#' Protect escape characters in a regex text
+#'
+#' Fixes regex patterns prior to using them in a shiny context such as `regex.widget()`.
+#'
+#' Sometimes when showing/interacting with regex character values to Shiny,
+#' escape characters such as `\t`, `\r`, `\n`, or `\"` are stripped off,
+#' which can break the patterns. This can be confusing because the patterns work
+#' in R. Run this function to add backslashes, to guarantee that regex "sees" the backslashes.
+#' @param pattern the character pattern to be modified
+#'
+#' @return
+#' @export
+#' @examples
+#' library(dplyr)
+#' library(purrr)
+#' library(stringr)
+#' text <- c("abc", "'", "\t", "\n", "\r\n", "\"", "Ä", "\\", "[", "(", "+", "?", "^", "\b")
+#' re1 <- c("abc", "'", "\t", "\n", "\r\n", "\"", "\U00C4", "\\\\", "\\[", "\\(", "\\+", "\\?", "\\^", "\b")
+#' re2 <- c("abc", "'", "\\t", "\\n", "\\r\\n", "\\\"", "\U00C4", "\\\\", "\\[", "\\(", "\\+", "\\?", "\\^", "\b")
+#'
+#' tbl <- tibble(text,re1,re2) %>%
+#'   mutate(re3=str_protect_escape_characters(re1),
+#'          re12.diff=re1!=re2,
+#'          re1.match=map2_lgl(text,re1,str_detect),
+#'          re2.match=map2_lgl(text,re2,str_detect),
+#'          re3.match=map2_lgl(text,re3,str_detect))
+#' tbl
+str_protect_escape_characters <- function(pattern) {
+  pattern %>%
+    str_replace_all("\t","\\\\t") %>%
+    str_replace_all("\r","\\\\r") %>%
+    str_replace_all("\n","\\\\n")
+  # %>% str_replace_all("\"","\\\\\"")
+}
 
 # coding shortcut functions -----------------------------------------------------
 
@@ -4605,8 +4637,6 @@ gg.colors <- function(n=6, h=c(0,360)+15) {
 #' @examples
 mix.colors <- function(colors) {
   if (length(colors)==1) {return(colors)}
-
-  print(colors)
   colors <- color2hex(colors)
   rgbcolors <- col2rgb(colors)
   mix <- apply(rgbcolors,1,mean) / 255

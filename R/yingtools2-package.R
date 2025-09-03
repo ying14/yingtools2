@@ -23,6 +23,7 @@
 #' @import stringr
 #' @import phyloseq
 #' @import cli
+#' @import shiny
 #' @rawNamespace import(purrr, except=c(invoke,splice,as_function,`%@%`))
 #' @rawNamespace import(rlang, except=c(invoke,flatten,flatten_raw,flatten_dbl,flatten_chr,flatten_lgl,flatten_int,splice))
 #' @import grid
