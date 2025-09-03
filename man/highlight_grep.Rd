@@ -8,7 +8,7 @@ highlight_grep(
   text,
   ...,
   ignore_case = TRUE,
-  color_fun = ~str_c("<b><font color=\\"", .y, "\\">", .x, "</font></b>"),
+  replace_fun = ~str_c("<b><font color=\\"", .y, "\\">", .x, "</font></b>"),
   gap_nchars = Inf
 )
 }
@@ -22,11 +22,11 @@ If unnamed, default colors are supplied.}
 
 \item{ignore_case}{Whether or not to ignore case. Default is \code{TRUE}}
 
-\item{color_fun}{Function (purrr-style) that modifies pattern hits. Takes text and color as arguments.
-Default is \verb{~str_c("<b><font color=\\"",.y,"\\">",.x,"</font></b>")}.}
-
 \item{gap_nchars}{Optional integer, truncate text around regex hits, by specified number of characters.
 Default is \code{Inf} (no truncation).}
+
+\item{color_fun}{Function (purrr-style) that modifies pattern hits. Takes text and color as arguments.
+Default is \verb{~str_c("<b><font color=\\"",.y,"\\">",.x,"</font></b>")}.}
 
 \item{return_df}{Optional, if \code{TRUE}, will return the data frame, rather than the replaced text.}
 }

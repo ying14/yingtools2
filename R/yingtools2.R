@@ -600,12 +600,12 @@ cut2 <- function(x,lower,upper,n.quantiles,percentiles,n.splits,lvls,rename.lvls
     colnames(parts) <- c("all","l.bracket","lower","upper","u.bracket")
     parts <- as_tibble(parts,.name_repair = "check_unique") %>%
       mutate(l.bound=if_else(l.bracket=="[",cli::symbol$leq,"<"),
-                     u.bound=if_else(u.bracket=="]",cli::symbol$leq,"<"),
-                     lower.text=na_if(str_trim(lower),"-Inf"),
-                     upper.text=na_if(str_trim(upper),"Inf"),
-                     lower.text=str_c(lower.text,l.bound),
-                     upper.text=str_c(u.bound,upper.text),
-                     text=paste2(lower.text,"X",upper.text,sep=""))
+             u.bound=if_else(u.bracket=="]",cli::symbol$leq,"<"),
+             lower.text=na_if(str_trim(lower),"-Inf"),
+             upper.text=na_if(str_trim(upper),"Inf"),
+             lower.text=str_c(lower.text,l.bound),
+             upper.text=str_c(u.bound,upper.text),
+             text=paste2(lower.text,"X",upper.text,sep=""))
     levels(new.x) <- parts$text
 
   }
@@ -1574,11 +1574,11 @@ highlight_html <- function(text,pattern,color="red",ignore_case=TRUE) {
 #' highlight_grep(sentences[1:3],"red"="the","blue"="background|planks","green"="depth|back|sheet")
 highlight_grep <- function(text, ... ,
                            ignore_case=TRUE,
-                           color_fun= ~str_c("<b><font color=\"",.y,"\">",.x,"</font></b>"),
+                           replace_fun= ~str_c("<b><font color=\"",.y,"\">",.x,"</font></b>"),
                            gap_nchars=Inf) {
   requireNamespace("IRanges",quietly=TRUE)
   args <- list(...)
-  color_fun <- as_mapper(color_fun)
+  replace_fun <- as_mapper(replace_fun)
   ellipsis <- "..."
   ellipsis_nchar <- str_length(ellipsis)
   # determine color ids
@@ -1602,7 +1602,7 @@ highlight_grep <- function(text, ... ,
     irl_all <- irl_pc(irl_color,irl_gaps,sort=TRUE)
   }
   newtext <- str_sub_all_replace_irl(irl_all,text,expr=case_when(
-    type=="color" ~ paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
+    type=="color" ~ map2_chr(x,color,replace_fun),
     type=="gap" ~ ellipsis
   ))
   return(newtext)
@@ -1624,9 +1624,12 @@ highlight_grep <- function(text, ... ,
 #' \dontrun{
 #' regex.widget(sentences[1:10],"the","background|planks","depth|back|sheet")
 #' }
-regex.widget <- function(vec, ... , n_fields=3,ignore_case=TRUE,
+regex.widget <- function(vec, ... ,
+                         n_fields=3,
+                         ignore_case=TRUE,
                          condense_linebreaks=TRUE,
-                         fontsize=14,table_height=300) {
+                         fontsize=14,
+                         table_height=300) {
   args <- quos(..., .named=TRUE) %>% map(rlang::eval_tidy)
   # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
   if (is.numeric(fontsize)) {
@@ -2541,7 +2544,7 @@ irl_pc <- function(..., sort=FALSE) {
 #' @rdname str_locate_all_irl
 irl_handle_overlaps <- function(irl, ...) {
   mcols_exprs <- quos(...)
-  if (all(elementNROWS(irl)==0)) {
+  if (all(S4Vectors::elementNROWS(irl)==0)) {
     return(irl)
   }
   dj <- IRanges::disjoin(irl,with.revmap=TRUE)
@@ -2607,7 +2610,7 @@ str_sub_all_replace_irl <- function(irl,string,expr) {
 #' @rdname str_locate_all_irl
 str_detect_irl <- function(irl) {
   # map_int(start(irl),length)>0
-  elementNROWS(irl)>0
+  S4Vectors::elementNROWS(irl)>0
 }
 
 
@@ -4351,16 +4354,16 @@ inner_join_fuzzy <- function(x,y,by=NULL,suffix = c(".x", ".y"),
 #'                     "clostridium|fusobact|bacteroides"="anaerobe"),
 #'     values_fill="<none>")
 pivot_wider_recode <- function(data,
-                                id_cols = NULL,
-                                names_from = name,
-                                values_from = value,
-                                names_recodes,
-                                names_else.value = "other",
-                                names_sort = TRUE,
-                                values_fill = NULL,
-                                values_fn = ~paste2(.x,collapse="|"),
-                                other_fn = ~paste2(names(.x),.x,sep="::",collapse="|"),
-                                unused_fn = NULL) {
+                               id_cols = NULL,
+                               names_from = name,
+                               values_from = value,
+                               names_recodes,
+                               names_else.value = "other",
+                               names_sort = TRUE,
+                               values_fill = NULL,
+                               values_fn = ~paste2(.x,collapse="|"),
+                               other_fn = ~paste2(names(.x),.x,sep="::",collapse="|"),
+                               unused_fn = NULL) {
 
   id_cols <- enquo(id_cols)
   names_from <- enquo(names_from)
@@ -6912,10 +6915,10 @@ univariate.cox <- function(data, yvar, ..., starttime=NULL,multi=TRUE,multi.cuto
         mutate(xvar=ifelse(time.dependent,paste0(xvar,"(td)"),xvar),
                p.value=pvalue(p.value)) %>%
         mutate_at(vars(estimate,conf.low,conf.high),~formatC(.,format="f",digits=2)) %>%
-                    transmute(yvar,xvar,term,n,
-                              # haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
-                              haz.ratio=paste.ci(estimate,conf.low,conf.high),
-                              p.value)
+        transmute(yvar,xvar,term,n,
+                  # haz.ratio=paste0(estimate," (",conf.low," - ",conf.high,")"),
+                  haz.ratio=paste.ci(estimate,conf.low,conf.high),
+                  p.value)
     }
   }
   tbl
@@ -6968,7 +6971,7 @@ logit <- function(data, yvar, ... , return.model.obj=FALSE,firth=FALSE,formatted
   tbl <- tbl %>%
     mutate(xvar=terms.to.varnames(term,xvarnames,data),
            yvar=as_label(yvar)) %>%
-      select(yvar,xvar,term,everything())
+    select(yvar,xvar,term,everything())
 
   #create 'n' column for categorical variables (factor, character, logical, 0-1)
   tbl.extra <- lapply(xvars,function(x) {
