@@ -9,10 +9,10 @@ dt(
   fontsize = 14,
   pageLength = Inf,
   maxchars = 200,
+  nrows = NULL,
   rownames = FALSE,
   escape = FALSE,
-  whiteSpace = "pre-wrap",
-  shrink.to.fit = TRUE
+  whiteSpace = "pre-wrap"
 )
 }
 \arguments{
@@ -23,6 +23,10 @@ dt(
 \item{pageLength}{number of rows to display per page (Default \code{Inf}, show all rows)}
 
 \item{maxchars}{max number of characters before adding an ellipsis \code{...}. Default is 250.}
+
+\item{nrows}{max number of rows to display. Default is \code{NULL},
+which shrinks the data such that it falls under 1.5 Mb (the \code{\link[DT:datatable]{DT::datatable()}} limit).
+Specify \code{Inf} to make sure there is no filtering.}
 
 \item{rownames}{whether or not to show row names (passed directly to \code{\link[DT:datatable]{DT::datatable()}}). Default is \code{FALSE}.}
 

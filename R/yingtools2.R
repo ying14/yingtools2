@@ -1104,6 +1104,60 @@ search.data.columns <- function(data,pattern,ignore.case=TRUE) {
 
 
 
+
+
+
+#' Find subset of data, for `dt()` viewing
+#'
+#' @param df data frame to be resized
+#' @param max.size target object size in bytes. Default is `1500000`
+#'
+#' @return
+#' The row index corresponding to a total object size less than `max.size`.
+#' @export
+dt_subset_data_for_viewing <- function(df, max.size=1500000) {
+  upper_size <- as.numeric(object.size(df))
+  total_rows <- nrow(df)
+  if (upper_size<=max.size) {
+    return(total_rows)
+  }
+  upper_i <- total_rows
+  lower_i <- 1
+  lower_size <- 0
+  i <- -1
+  n <- 1
+  while (TRUE) {
+    if (n==100) {
+      cli::cli_abort("YTError: Failed to converge on target object size of {max.size}")
+    }
+    old_i <- i
+    i <- (((max.size-lower_size)*(upper_i-lower_i+1)) %/% (upper_size-lower_size)) + lower_i
+    size <- as.numeric(object.size(df[1:i,]))
+    if (size>max.size) {
+      if (i==old_i) {
+        final_i <- i-1
+        break
+      }
+      upper_i <- i
+      upper_size <- size
+      # cli::cli_alert("{n} high: lower/upper i={i} old_i={old_i} ({lower_i},{upper_i}) lower/upper size={size} ({lower_size},{upper_size})")
+    } else {
+      if (i==old_i) {
+        final_i <- i
+        break
+      }
+      lower_i <- i
+      lower_size <- size
+      # cli::cli_alert("{n} low : lower/upper i={i} old_i={old_i} ({lower_i},{upper_i}) lower/upper size={size} ({lower_size},{upper_size})")
+    }
+    n <- n + 1
+  }
+  # final_size <- as.numeric(object.size(df[1:final_i,]))
+  # cli::cli_alert("final i={final_i} final size={final_size}")
+  return(final_i)
+}
+
+
 #' Ying's DT view
 #'
 #' Use to peruse a data frame within RStudio. Utilizes `DT` package.
@@ -1114,6 +1168,9 @@ search.data.columns <- function(data,pattern,ignore.case=TRUE) {
 #' @param fontsize numeric controlling font size in the table, measured in px. Default is 11.
 #' @param maxchars max number of characters before adding an ellipsis `...`. Default is 250.
 #' @param pageLength number of rows to display per page (Default `Inf`, show all rows)
+#' @param nrows max number of rows to display. Default is `NULL`,
+#' which shrinks the data such that it falls under 1.5 Mb (the [DT::datatable()] limit).
+#' Specify `Inf` to make sure there is no filtering.
 #' @param rownames whether or not to show row names (passed directly to [DT::datatable()]). Default is `FALSE`.
 #' @param escape whether to escape HTML entities in the table (passed directly to [DT::datatable()]).
 #' @param whiteSpace CSS property sets how white space inside an element is handled.
@@ -1130,10 +1187,10 @@ dt <- function(data,
                fontsize=14,
                pageLength=Inf,
                maxchars=200,
+               nrows=NULL,
                rownames=FALSE,
                escape=FALSE,
-               whiteSpace="pre-wrap",
-               shrink.to.fit=TRUE) {
+               whiteSpace="pre-wrap") {
   requireNamespace(c("DT","forcats"),quietly=TRUE)
   if (is.atomic(data)) {
     data <- tibble(data=data)
@@ -1147,13 +1204,29 @@ dt <- function(data,
     mutate(index_=((index_-1) %% length(pal)) + 1) %>%
     select(!!!groups(.),-index_,everything()) %>% ungroup()
   fontsize <- paste0(fontsize,"px")
+
+  longtext_cols <- data %>% map_lgl(~{
+    is.character(.x) && (max(nchar(.x))>maxchars)
+  })
+  # longtext_cols <- names(data)[longtext_cols]
+
   # ellipsis plugin options
   ellipsis.escape <- ifelse(escape,"true","false")
   render <- DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," ,true, ",ellipsis.escape,")")
+  # subset rows
+  if (!is.infinite(nrows)) {
+    if (is.null(nrows)) {
+      nrows <- dt_subset_data_for_viewing(data)
+    }
+    total_rows <- nrow(data)
+    if (total_rows>nrows) {
+      data <- data %>% slice_head(n=nrows)
+      cli::cli_alert("Displaying {nrows} / {total_rows} rows ({scales::label_percent(0.1)(nrows/total_rows)}) for DataTable viewing.")
+    }
+  }
   output <- data %>%
     DT::datatable(
-      # plugins="ellipsis",
-      plugins=NULL,
+      plugins="ellipsis",
       class="compact cell-border stripe",
       escape=escape, # escape HTML entities (default FALSE, shows HTML)
       options=list(
@@ -1164,8 +1237,9 @@ dt <- function(data,
         columnDefs=list(
           list(targets = "index_", # make this invisible
                visible = FALSE),
-          list(targets = "_all", # ellipsis for all columns
-               render = render))
+          list(#targets = longtext_cols, # "_all", # ellipsis for all columns
+            targets = "_all", # ellipsis for all columns
+            render = render))
       ),
       rownames=rownames) %>%
     DT::formatStyle(0:length(data), # all cols
@@ -1180,6 +1254,7 @@ dt <- function(data,
   }
   return(output)
 }
+
 
 
 
