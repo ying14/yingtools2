@@ -1166,7 +1166,7 @@ dt_subset_data_for_viewing <- function(df, max.size=1500000) {
 #'
 #' @param data dataframe to be viewed.
 #' @param fontsize numeric controlling font size in the table, measured in px. Default is 11.
-#' @param maxchars max number of characters before adding an ellipsis `...`. Default is 250.
+#' @param maxchars max number of characters before adding an ellipsis `...`. Default is `200`.
 #' @param pageLength number of rows to display per page (Default `Inf`, show all rows)
 #' @param nrows max number of rows to display. Default is `NULL`,
 #' which shrinks the data such that it falls under 1.5 Mb (the [DT::datatable()] limit).
@@ -1204,20 +1204,17 @@ dt <- function(data,
     mutate(index_=((index_-1) %% length(pal)) + 1) %>%
     select(!!!groups(.),-index_,everything()) %>% ungroup()
   fontsize <- paste0(fontsize,"px")
-
-  longtext_cols <- data %>% map_lgl(~{
-    is.character(.x) && (max(nchar(.x))>maxchars)
-  })
-  # longtext_cols <- names(data)[longtext_cols]
-
   # ellipsis plugin options
+  # "$.fn.dataTable.render.ellipsis( 200, true, false)"
+  # true = make sure ellipsis doesn't occur mid-word
+  # false = whether to escape
   ellipsis.escape <- ifelse(escape,"true","false")
   render <- DT::JS("$.fn.dataTable.render.ellipsis( ",maxchars," ,true, ",ellipsis.escape,")")
   # subset rows
+  if (is.null(nrows)) {
+    nrows <- dt_subset_data_for_viewing(data)
+  }
   if (!is.infinite(nrows)) {
-    if (is.null(nrows)) {
-      nrows <- dt_subset_data_for_viewing(data)
-    }
     total_rows <- nrow(data)
     if (total_rows>nrows) {
       data <- data %>% slice_head(n=nrows)
@@ -1237,8 +1234,7 @@ dt <- function(data,
         columnDefs=list(
           list(targets = "index_", # make this invisible
                visible = FALSE),
-          list(#targets = longtext_cols, # "_all", # ellipsis for all columns
-            targets = "_all", # ellipsis for all columns
+          list(targets = "_all", # ellipsis for all columns
             render = render))
       ),
       rownames=rownames) %>%

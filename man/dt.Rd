@@ -22,7 +22,7 @@ dt(
 
 \item{pageLength}{number of rows to display per page (Default \code{Inf}, show all rows)}
 
-\item{maxchars}{max number of characters before adding an ellipsis \code{...}. Default is 250.}
+\item{maxchars}{max number of characters before adding an ellipsis \code{...}. Default is \code{200}.}
 
 \item{nrows}{max number of rows to display. Default is \code{NULL},
 which shrinks the data such that it falls under 1.5 Mb (the \code{\link[DT:datatable]{DT::datatable()}} limit).
