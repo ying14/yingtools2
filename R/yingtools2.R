@@ -1744,6 +1744,12 @@ regex.widget <- function(vec, ... ,
   args <- args %>%
     map(as.character) %>%
     map(str_protect_escape_characters)
+
+  # names(args)
+  # return(names(args))
+  arg_blanks <- rep_along(args,NA_character_)
+  arg_names <- names(args) %||% arg_blanks %>% na_if("")
+
   # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
   if (is.numeric(fontsize)) {
     fontsize <- paste0(fontsize,"px")
@@ -1755,8 +1761,15 @@ regex.widget <- function(vec, ... ,
   field_ids <- paste0("regex",field_letters) # regexA, regexB, regexC, regexD, ...
   field_patterns <- c(unname(args),rep("",length.out=n_extra_fields)) %>% setNames(field_ids) # starting field values
   field_colors <- gg.colors(total_fields) %>% setNames(field_ids)
+
   field_lbls <- paste("Regex",field_letters) # Regex A, Regex B, Regex C, Regex D
+  field_lbls <- ifelse(is.na(arg_names),paste0("Regex ",field_letters),paste0("Regex ",field_letters," (",arg_names,")"))
   field_letters_color <- paste0("<b><font color=\"",field_colors,"\">", field_letters, "</font></b>")
+  # dictionary for formula mask
+  var_name_dict <- c(setNames(field_letters,field_ids),
+                     setNames(arg_names,field_ids)) %>%
+    {.[!is.na(.)]} %>%
+    setNames(names(.),.)
   ellipsis <- "..."
   ellipsis_nchar <- str_length(ellipsis)
   if (!is.atomic(vec)) {
@@ -1866,12 +1879,12 @@ regex.widget <- function(vec, ... ,
         pat <- req(input[[.x]])
         if (substr(pat,1,1)=="~") {
           pat_call <- as.formula(pat) %>% f_rhs()
-          letters_used <- all.vars(pat_call) %>% intersect(field_letters)
-          ids_used <- field_ids[match(letters_used,field_letters)]
-          if (.x %in% ids_used) {
+          var_names_used <- var_name_dict[names(var_name_dict) %in% all.vars(pat_call)]
+          if (.x %in% var_names_used) {
             cli::cli_abort("YTError: formula can't refer to self")
           }
-          mask <- setNames(ids_used,letters_used) %>%
+
+          mask <- var_names_used %>%
             map(~regex_pattern_single[[.x]]()) %>%
             rlang::as_data_mask()
           pat <- eval_tidy(pat_call,mask)
@@ -2002,7 +2015,8 @@ regex.widget <- function(vec, ... ,
       })
     })
     observeEvent(input$clipboard, {
-      regexes <- field_ids %>% map(~input[[.x]]) %>% setNames(field_letters)
+      varnames <- coalesce(arg_names,field_letters)
+      regexes <- field_ids %>% map(~input[[.x]]) %>% setNames(varnames)
       # regexes <- regexes[regexes!=""]
       code <- regexes %>%
         imap_chr(~{
