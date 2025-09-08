@@ -1413,9 +1413,22 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
 #' @param y second vector
 #'
 #' @return
+#' @rdname compare_relationship
 #' @export
 #'
 #' @examples
+#' number <- c("a","b","c","d")
+#' things <- c("apple","banana","alligator","beaver")
+#' group <- c("fruit","fruit","animal","animal")
+#' first.letter <- c("a","b","a","b")
+#' compare_relationship(number,things)
+#' compare_relationship(things,group)
+#' compare_relationship(first.letter,things)
+#' compare_relationship(group,first.letter)
+#' is.one.to.one(number,things)
+#' is.one.to.one(things,group)
+#' is.one.to.one(first.letter,things)
+#' is.one.to.one(group,first.letter)
 compare_relationship <- function(x,y) {
   t <- tibble(x=x,y=y)
   tx <- t %>% group_by(x) %>%
@@ -1445,6 +1458,7 @@ compare_relationship <- function(x,y) {
 #' @param y second vector
 #'
 #' @return logical value as to whether or not the vectors are one-to-one.
+#' @rdname compare_relationship
 #' @export
 #'
 #' @examples
@@ -1474,54 +1488,70 @@ is.one.to.one <- function(x,y) {
 #' @param base regex pattern to modify
 #' @param pattern lookahead pattern to add
 #' @param nchar optional, you can allow wildcard characters between `base` and `pattern`. Default is `0`
-#' @param wildcard denotes the wildcard pattern. Used only if `nchar > 0`. Default is `".|[\r\n]"` (any character, including line terminators).
+#' @param wildcard denotes the wildcard pattern. Used only if `nchar > 0`. Default is `"[\\w\\W]"` (any character, including line terminators).
 #' @rdname lookahead
 #' @export
-pos_lookahead <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+#' @examples
+#' txt <- c(" b    a      ",
+#'          "  b   a      ",
+#'          "   b  a      ",
+#'          "    b a      ",
+#'          "     ba      ",
+#'          "      ab     ",
+#'          "      a b    ",
+#'          "      a  b   ",
+#'          "      a   b  ",
+#'          "      a    b ",
+#'          "      a     b")
+#' re.a <- "a"
+#' re.b <- "b"
+#' re.ab <- pos_lookaround(re.a,re.b,nchar=c(1,4))
+#' tibble(txt,ab=str_detect(txt,re.ab))
+pos_lookahead <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
   regex_look_assertion(base=base, pattern=pattern,
                        pos=TRUE, lookahead=TRUE,
                        nchar=nchar, wildcard=wildcard, assertion=assertion)
 }
 #' @rdname lookahead
 #' @export
-neg_lookahead <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+neg_lookahead <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
   regex_look_assertion(base=base,pattern=pattern,
                        pos = FALSE, lookahead=TRUE,
                        nchar=nchar, wildcard=wildcard, assertion=assertion)
 }
 #' @rdname lookahead
 #' @export
-pos_lookbehind <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+pos_lookbehind <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
   regex_look_assertion(base=base,pattern=pattern,
                        pos = TRUE, lookahead=FALSE,
                        nchar=nchar, wildcard=wildcard, assertion=assertion)
 }
 #' @rdname lookahead
 #' @export
-neg_lookbehind <- function(base, pattern, nchar=0, wildcard=".|[\r\n]", assertion=TRUE) {
+neg_lookbehind <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
   regex_look_assertion(base=base,pattern=pattern,
                        pos = FALSE, lookahead=FALSE,
                        nchar=nchar, wildcard=wildcard, assertion=assertion)
 }
 #' @rdname lookahead
 #' @export
-pos_lookaround <- function(base, pattern, nchar=c(0,0), wildcard=".|[\r\n]", assertion=TRUE) {
+pos_lookaround <- function(base, pattern, nchar=c(0,0), wildcard="[\\w\\W]", assertion=TRUE) {
   if (length(nchar)==1) {
     nchar <- rep(nchar,length.out=2)
   }
   behind <- pos_lookbehind(base=base,pattern=pattern,nchar=nchar[1],wildcard=wildcard,assertion=assertion)
   ahead <- pos_lookahead(base=base,pattern=pattern,nchar=nchar[2],wildcard=wildcard,assertion=assertion)
-  paste0("((",behind,") | (",ahead,"))")
+  paste0("((",behind,")|(",ahead,"))")
 }
 #' @rdname lookahead
 #' @export
-neg_lookaround <- function(base, pattern, nchar=0, wildcard=".", assertion=TRUE) {
+neg_lookaround <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
   if (length(nchar)==1) {
     nchar <- rep(nchar,length.out=2)
   }
   base %>%
-    neg_lookbehind(pattern=pattern,nchar=nchar,wildcard=wildcard,assertion=assertion) %>%
-    neg_lookahead(pattern=pattern,nchar=nchar,wildcard=wildcard,assertion=assertion)
+    neg_lookbehind(pattern=pattern,nchar=nchar[1],wildcard=wildcard,assertion=assertion) %>%
+    neg_lookahead(pattern=pattern,nchar=nchar[2],wildcard=wildcard,assertion=assertion)
 }
 
 
@@ -1530,12 +1560,14 @@ regex_look_assertion <- function(base,
                                  pos,
                                  lookahead,
                                  nchar=0,
-                                 wildcard=".|[\r\n]",
+                                 wildcard="[\\w\\W]",
                                  assertion=TRUE) {
-  if (nchar>0) {
+  if (nchar>=1) {
     wild_pattern <- paste0("(",wildcard,"){0,",nchar,"}")
-  } else {
+  } else if (nchar==0) {
     wild_pattern <- ""
+  } else {
+    cli::cli_abort("YTError: invalid nchar!")
   }
 
   if (lookahead) {
@@ -1686,7 +1718,7 @@ highlight_grep <- function(text, ... ,
 #' A shiny widget designed to explore and design regular expressions.
 #'
 #' @param vec Character vector to be searched.
-#' @param ... Optional arguments consisting of regex patterns to start with.
+#' @param ... Optional arguments consisting of regex patterns to start with. Can supply a formula for expressions.
 #' @param n_fields Number of regex fields to use. Default is 3.
 #' @param ignore_case Whether or not to ignore case when searching. Default is `TRUE`.
 #' @param condense_linebreaks Whether or not to convert line breaks into `\U00B6` character. Default is `TRUE`
@@ -1695,7 +1727,11 @@ highlight_grep <- function(text, ... ,
 #' @export
 #' @examples
 #' \dontrun{
-#' regex.widget(sentences[1:10],"the","background|planks","depth|back|sheet")
+#' regex.widget(sentences[1:10],
+#'              "the",
+#'              "background|planks",
+#'              "depth|back|sheet",
+#'              ~B %>% pos_lookbehind(A,20,assertion=FALSE))
 #' }
 regex.widget <- function(vec, ... ,
                          n_fields=3,
@@ -1705,7 +1741,9 @@ regex.widget <- function(vec, ... ,
                          table_height=300) {
   # args <- quos(..., .named=TRUE) %>% map(rlang::eval_tidy)
   args <- list(...)
-  args <- args %>% map(str_protect_escape_characters)
+  args <- args %>%
+    map(as.character) %>%
+    map(str_protect_escape_characters)
   # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
   if (is.numeric(fontsize)) {
     fontsize <- paste0(fontsize,"px")
@@ -1742,7 +1780,7 @@ regex.widget <- function(vec, ... ,
     map(~{.x[!is.na(.x)]}) %>% # remove NA
     map(~{.x[order(.x,decreasing=TRUE)]}) %>% # put TRUE first, then false
     map_chr(~{
-      if (length(.x)==0) {return("All")}
+      if (length(.x)==0) {return("all")}
       letters <- field_letters[match(names(.x),field_ids)]
       sign <- ifelse(.x,"","!")
       paste0(sign,letters,collapse=" & ")
@@ -1774,12 +1812,37 @@ regex.widget <- function(vec, ... ,
         column(7,
                div(uiOutput("regexes"),style="font-size:100%")),
         column(5,
-               checkboxInput("grouphits","Trim text",FALSE),
-               numericInput("padding",label="Padding",value=1,min=0,max=10,step=1),
-               numericInput("table_height",label="Table height",value=table_height,min=25,max=1500,step=25),
+               fluidRow(
+                 column(3,
+                        checkboxInput("grouphits","Truncate",FALSE)
+                 ),
+                 column(4,
+                        numericInput("padding",label="Padding",value=1,min=0,max=10,step=1)
+                 ),
+                 column(5,
+                        numericInput("table_height",label="Table height",
+                                     value=table_height,min=25,max=1500,step=25)
+                 )
+               ),
+               fluidRow(
+                 column(4,
+                        checkboxInput("showdist",label="Distances",FALSE)
+                 ),
+                 column(4,
+                        checkboxInput("showlength",label="Hit Lengths",FALSE)
+                 ),
+                 column(4,
+                        actionButton("clipboard",label="Clipboard")
+                 )
+               ),
+               selectizeInput("select",
+                              label="Show combos:",
+                              choices=comboids,
+                              selected=initial_selected_combos,
+                              multiple=TRUE,width="100%")
                # numericInput("font_size",label="Font size",value=table_height,min=25,max=1500,step=25),
                # actionButton("go","Run"),
-               selectizeInput("select",label="Show combos:",choices=comboids,selected=initial_selected_combos,multiple=TRUE))
+        )
       ),
       uiOutput("outtables")
       # div(uiOutput("outtables"),style="font-size:100%")
@@ -1797,12 +1860,30 @@ regex.widget <- function(vec, ... ,
     # single detect: list of reactive str_detect-vector for a single regex (depends on input$regexA,...)
     # named: regexA
     # proceed only if pattern!=""
-    regex_detect_single <- map2(field_ids,field_colors,~{
+    regex_pattern_single <- map2(field_ids,field_colors,~{
       reactive({
         req(input[[.x]]!="")
         pat <- req(input[[.x]])
+        if (substr(pat,1,1)=="~") {
+          pat_call <- as.formula(pat) %>% f_rhs()
+          letters_used <- all.vars(pat_call) %>% intersect(field_letters)
+          ids_used <- field_ids[match(letters_used,field_letters)]
+          if (.x %in% ids_used) {
+            cli::cli_abort("YTError: formula can't refer to self")
+          }
+          mask <- setNames(ids_used,letters_used) %>%
+            map(~regex_pattern_single[[.x]]()) %>%
+            rlang::as_data_mask()
+          pat <- eval_tidy(pat_call,mask)
+        }
+        return(pat)
+      })
+    }) %>% setNames(field_ids)
+
+    regex_detect_single <- map2(field_ids,field_colors,~{
+      reactive({
+        pat <- req(regex_pattern_single[[.x]]())
         str_locate_all_irl(vec,pat,color=.y)
-        # str_locate_all(vec,pat)
       })
     }) %>% setNames(field_ids)
     # combo detect: for each combo: list of reactive str_detect-vectors for all regex combos (depends on regex_detect_single[]())
@@ -1850,7 +1931,7 @@ regex.widget <- function(vec, ... ,
                                                            paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
                                                            ellipsis))
             df <- tibble(text=newtext)
-            if (sum(combo)>=2) { # add distance columns
+            if (sum(combo)>=2 && input$showdist) { #### add distance columns ####
               combocols <- names(combo)[combo]
               comboletters <- field_letters[match(combocols,field_ids)]
               ipairs <- combn(seq_along(combocols),2,simplify=FALSE)
@@ -1858,13 +1939,23 @@ regex.widget <- function(vec, ... ,
                 paste(comboletters[.x],collapse="") %>% paste0("dist",.)
               })
               distpairs <- ipairs %>% map(~{
-                irl_dist(subirls[[.x[1]]],subirls[[.x[2]]])
+                cc <- combocols[.x]
+                irl_dist(subirls[[cc[1]]],subirls[[cc[2]]])
               }) %>% setNames(colnamepairs)
               df <- bind_cols(df,as_tibble(distpairs))
             }
+            if (sum(combo)>=1 && input$showlength) { #### add length columns ####
+              lencols <- names(combo)[combo]
+              lenletters <- field_letters[match(lencols,field_ids)]
+              lennames <- lenletters %>% paste0("len",.)
+              lens <- lencols %>% map(~{
+                IRanges::width(subirls[[.x]]) %>% map_int(min)
+              }) %>% setNames(lennames)
+              df <- bind_cols(df,as_tibble(lens))
+            }
           } else {
             # bypass if there are zero rows, or if there are no patterns.
-            df <- tibble(text=newtext)
+            df <- tibble(text=subtext)
           }
           if (condense_linebreaks) {
             df$text <- replace_linebreak_symbol(df$text)
@@ -1872,11 +1963,10 @@ regex.widget <- function(vec, ... ,
           combolabel <- names(comboids)[match(id,comboids)] %>%
             paste0("Combo: ", . , " (",sum(keep), " records)")
           df <- df %>%
-            # tibble(text=newtext) %>%
-            # count(text) %>%
             count(!!!syms(names(.))) %>%
             arrange(desc(n)) %>%
             dplyr::rename(!!sym(combolabel):=text)
+          # cli::cli_alert("{id} updated: {combolabel}")
           return(df)
         })
       })
@@ -1911,7 +2001,21 @@ regex.widget <- function(vec, ... ,
         )
       })
     })
-
+    observeEvent(input$clipboard, {
+      regexes <- field_ids %>% map(~input[[.x]]) %>% setNames(field_letters)
+      # regexes <- regexes[regexes!=""]
+      code <- regexes %>%
+        imap_chr(~{
+          if (substr(.x,1,1)=="~") {
+            code <- str_sub(.x,2)
+          } else {
+            code <- deparse1(.x)
+          }
+          paste(.y,"<-",code)
+        }) %>%
+        paste(collapse="\n")
+      copy.to.clipboard(code)
+    })
   })
   runGadget(app)
 }
@@ -3819,14 +3923,14 @@ rstudio_server_running <- function() {
 #' @export
 copy.to.clipboard <- function(x) {
   if (rstudio_server_running()) {
-    cli_warn("YTWarning: you are running Rstudio Server")
+    cli::cli_warn("YTWarning: you are running Rstudio Server")
   }
   if (is(x,"gg")) {
     copy.to.clipboard.gg(x)
   } else {
     requireNamespace("clipr",quietly=TRUE)
     clipr::write_clip(x)
-    cli_alert_success("Copied {.cls {class(x)}} to clipboard")
+    cli::cli_alert_success("Copied {.cls {class(x)}} to clipboard")
     # message("Copied to clipboard")
   }
 }
@@ -7717,6 +7821,87 @@ run_r_callargs <- function(expr,envir=parent.frame()) {
 
 
 
+#' Modify Shiny Input Element to Inline Label
+#'
+#' Change a Shiny element such that label is printed horizontally, instead of vertically.
+#' @param element expression for shiny element to be modified.
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#' inline(textInput("text1","text input"),
+#'        numericInput("number1","number input",value=1))
+inline <- function(...,padding="5px") {
+  args <- quos(...)
+  new.args <- args %>% map(function(element) {
+    # modify if element is a call to a shiny function
+    if (!rlang::is_call_simple(element)) { # is a straightforward function call
+      return(element)
+    }
+    fun_name <- call_name(element)
+    exceptions <- c("actionButton","actionLink")
+    # is.shiny.fn <- exists(fun_name, where = "package:shiny", mode = "function") && !(fun_name %in% exceptions)
+    is.shiny.fn <- environmentName(findFunction(fun_name)[[1]])=="package:shiny" &&
+      !(fun_name %in% exceptions)
+    if (!is.shiny.fn) { # is not a shiny function
+      return(element)
+    }
+    # t <- tibble(fn=as.character(lsf.str("package:shiny"))) %>%
+    #   mutate(fmls=map(fn,function(fun_name) {
+    #     tryCatch({fun <- getFromNamespace(fun_name,"shiny")
+    #       fn_fmls_names(fun)},error=function(e) {NULL})}),
+    #   fmls2=map_chr(fmls,~paste(.x,collapse=", ")),label=map_lgl(fmls,~{"label" %in% .x}),width=map_lgl(fmls,~{"width" %in% .x}))
+    # shiny.input.funs <- t %>% filter(label,width) %>% pull(fn) %>%
+    #   c("selectizeInput","varSelectizeInput") %>% setdiff("actionButton")
+    # shiny.input.funs %>% copy.as.Rcode()
+    shiny.input.funs <- c("checkboxGroupInput", "checkboxInput", "dateInput", "dateRangeInput", "fileInput", "numericInput", "passwordInput", "radioButtons", "selectInput", "sliderInput", "textAreaInput", "textInput", "varSelectInput", "selectizeInput", "varSelectizeInput")
+    # proceed if call is shiny function that takes label and width as options.
+    if (!(fun_name %in% shiny.input.funs)) {
+      return(element)
+    }
+    fun <- get(fun_name)
+    element.env <- quo_get_env(element)
+    named.call <- rlang::call_match(rlang::quo_get_expr(element), fun, defaults = TRUE)
+    # %>% rlang::new_quosure(env=element.env)
+    named.args <- rlang::call_args(named.call)
+    if (!("label" %in% names(named.args) && "width" %in% names(named.args))) {
+      cli::cli_abort("YTError: could not find arguments 'label' and 'width' in definition for function {.pkg {fun_name}}.
+                    Consider explicitly naming these arguments.")
+    }
+    # label and width should usually be arguments.
+    # (except for selectizeinput and varselectizeinput)
+    modified.call <- named.call
+    # modify so that width=100%, if it was NULL.
+    if (is.null(named.args$width)) {
+      modified.call <- rlang::call_modify(named.call, width="100%")
+    }
+    # if label is not blank, change to a list with separate label and input.
+    if (!is.null(named.args$label)) {
+      label <- named.args$label
+      modified.call <- rlang::call_modify(modified.call, label=NULL)
+      new.label.call <- expr(tags$label(!!label))
+      new.elements <- list(new.label.call,modified.call)
+    } else {
+      new.elements <- modified.call
+    }
+    new.quos <- new.elements %>% map(~new_quosure(.x,env=element.env))
+    return(new.quos)
+  }) %>% list_flatten()
+  objs <- new.args %>% map(rlang::eval_tidy)
+  base.style <- "display: inline-block;"
+  pad.style <- paste(base.style,"margin-right:",padding)
+  # base.style <- ""
+  # pad.style <- str_glue("display: inline-block; margin-right: {padding}")
+  styles <- ifelse(seq_along(objs)!=length(objs),pad.style,base.style)
+  objs2 <- map2(objs,styles,function(obj,style) {
+    div(style = style, obj)
+  })
+  return(objs2)
+}
+
+
+
 #' Run a shiny gadget in background
 #'
 #' Similar to [shiny::runGadget()], you can use this to run shiny apps in the viewer pane of RStudio.
@@ -7778,8 +7963,6 @@ runGadget_bg <- function(app,args=list(),port=4567) {
   getOption("viewer")(url)
   return(ps)
 }
-
-
 
 
 #' Get possible R environment path locations.

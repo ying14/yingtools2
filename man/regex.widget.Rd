@@ -17,7 +17,7 @@ regex.widget(
 \arguments{
 \item{vec}{Character vector to be searched.}
 
-\item{...}{Optional arguments consisting of regex patterns to start with.}
+\item{...}{Optional arguments consisting of regex patterns to start with. Can supply a formula for expressions.}
 
 \item{n_fields}{Number of regex fields to use. Default is 3.}
 
@@ -34,6 +34,10 @@ A shiny widget designed to explore and design regular expressions.
 }
 \examples{
 \dontrun{
-regex.widget(sentences[1:10],"the","background|planks","depth|back|sheet")
+regex.widget(sentences[1:10],
+             "the",
+             "background|planks",
+             "depth|back|sheet",
+             ~B \%>\% pos_lookbehind(A,20,assertion=FALSE))
 }
 }

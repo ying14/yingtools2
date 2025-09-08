@@ -4,7 +4,9 @@
 # custom Rstudio addins.
 # these need to be declared in /inst/rstudio/addins.dcf.
 # run the following to edit....
-# rstudioapi::navigateToFile('inst/rstudio/addins.dcf')
+# rstudioapi::navigateToFile(here::here("inst/rstudio/addins.dcf"))
+
+
 
 
 
@@ -92,6 +94,8 @@ set_line_break_after_comma_if_4096_chars_style <- function() {
     style_guide_version = read.dcf(here::here("DESCRIPTION"))[, "Version"]
   )
 }
+
+
 #' Formats the highlighted selection such that no line exceeds 4096 characters.
 #'
 #' @return
@@ -104,16 +108,12 @@ style_selection_4096 <- function() {
   }
   out <- styler::style_text(text, style = set_line_break_after_comma_if_4096_chars_style)
   rstudioapi::modifyRange(context$selection[[1]]$range,
-    paste0(c(
-      out,
+    paste0(c(      out,
       if (context$selection[[1]]$range$end[2] == 1) ""
     ), collapse = "\n"),
     id = context$id
   )
 }
-
-
-
 
 remove_comments <- function(pd) {
   is_comment <- pd$token == "COMMENT"

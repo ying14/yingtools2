@@ -2,15 +2,37 @@
 % Please edit documentation in R/yingtools2.R
 \name{compare_relationship}
 \alias{compare_relationship}
+\alias{is.one.to.one}
 \title{Test the relationship between X and Y}
 \usage{
 compare_relationship(x, y)
+
+is.one.to.one(x, y)
 }
 \arguments{
 \item{x}{first vector}
 
 \item{y}{second vector}
 }
+\value{
+logical value as to whether or not the vectors are one-to-one.
+}
 \description{
 Test the relationship between X and Y
+
+Test if X and Y are one-to-one
+}
+\examples{
+number <- c("a","b","c","d")
+things <- c("apple","banana","alligator","beaver")
+group <- c("fruit","fruit","animal","animal")
+first.letter <- c("a","b","a","b")
+compare_relationship(number,things)
+compare_relationship(things,group)
+compare_relationship(first.letter,things)
+compare_relationship(group,first.letter)
+is.one.to.one(number,things)
+is.one.to.one(things,group)
+is.one.to.one(first.letter,things)
+is.one.to.one(group,first.letter)
 }
