@@ -9,62 +9,35 @@
 \alias{neg_lookaround}
 \title{Positive/Negative Lookahead/Lookbehind Assertion}
 \usage{
-pos_lookahead(
-  base,
-  pattern,
-  nchar = 0,
-  wildcard = "[\\\\w\\\\W]",
-  assertion = TRUE
-)
+pos_lookahead(base, pattern, nchar = 0, wild = "[\\\\w\\\\W]", assert = TRUE)
 
-neg_lookahead(
-  base,
-  pattern,
-  nchar = 0,
-  wildcard = "[\\\\w\\\\W]",
-  assertion = TRUE
-)
+neg_lookahead(base, pattern, nchar = 0, wild = "[\\\\w\\\\W]", assert = TRUE)
 
-pos_lookbehind(
-  base,
-  pattern,
-  nchar = 0,
-  wildcard = "[\\\\w\\\\W]",
-  assertion = TRUE
-)
+pos_lookbehind(base, pattern, nchar = 0, wild = "[\\\\w\\\\W]", assert = TRUE)
 
-neg_lookbehind(
-  base,
-  pattern,
-  nchar = 0,
-  wildcard = "[\\\\w\\\\W]",
-  assertion = TRUE
-)
+neg_lookbehind(base, pattern, nchar = 0, wild = "[\\\\w\\\\W]", assert = TRUE)
 
 pos_lookaround(
   base,
   pattern,
   nchar = c(0, 0),
-  wildcard = "[\\\\w\\\\W]",
-  assertion = TRUE
+  wild = "[\\\\w\\\\W]",
+  assert = TRUE
 )
 
-neg_lookaround(
-  base,
-  pattern,
-  nchar = 0,
-  wildcard = "[\\\\w\\\\W]",
-  assertion = TRUE
-)
+neg_lookaround(base, pattern, nchar = 0, wild = "[\\\\w\\\\W]", assert = TRUE)
 }
 \arguments{
 \item{base}{regex pattern to modify}
 
-\item{pattern}{lookahead pattern to add}
+\item{pattern}{lookahead/lookbehind pattern to add. For lookaround, can specify backwards/forwards patterns.}
 
-\item{nchar}{optional, you can allow wildcard characters between \code{base} and \code{pattern}. Default is \code{0}}
+\item{nchar}{optional, you can allow wildcard characters between \code{base} and \code{pattern}. Default is \code{0}.}
 
-\item{wildcard}{denotes the wildcard pattern. Used only if \code{nchar > 0}. Default is \code{"[\\\\w\\\\W]"} (any character, including line terminators).}
+\item{wild}{denotes the wildcard pattern. Used only if \code{nchar > 0}. Default is \code{"[\\\\w\\\\W]"} (any character, including line terminators).}
+
+\item{assert}{whether or not the lookahead/lookbehind is actual assertion (default \code{TRUE}).
+Otherwise \code{pattern} is just combined with \code{base}.}
 }
 \description{
 Convenience function for generating regular expression by adding lookahead/lookbehind assertions.

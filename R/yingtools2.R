@@ -1486,9 +1486,13 @@ is.one.to.one <- function(x,y) {
 #' * Negative lookbehind: `(?<!pattern)base`
 #'
 #' @param base regex pattern to modify
-#' @param pattern lookahead pattern to add
-#' @param nchar optional, you can allow wildcard characters between `base` and `pattern`. Default is `0`
-#' @param wildcard denotes the wildcard pattern. Used only if `nchar > 0`. Default is `"[\\w\\W]"` (any character, including line terminators).
+#' @param pattern lookahead/lookbehind pattern to add. For lookaround, can specify backwards/forwards patterns.
+#' @param nchar optional, you can allow wildcard characters between `base` and `pattern`. Default is `0`.
+#'
+#' @param assert whether or not the lookahead/lookbehind is actual assertion (default `TRUE`).
+#' Otherwise `pattern` is just combined with `base`.
+#' @param wild denotes the wildcard pattern. Used only if `nchar > 0`. Default is `"[\\w\\W]"` (any character, including line terminators).
+#'
 #' @rdname lookahead
 #' @export
 #' @examples
@@ -1507,51 +1511,57 @@ is.one.to.one <- function(x,y) {
 #' re.b <- "b"
 #' re.ab <- pos_lookaround(re.a,re.b,nchar=c(1,4))
 #' tibble(txt,ab=str_detect(txt,re.ab))
-pos_lookahead <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
+pos_lookahead <- function(base, pattern, nchar=0, wild="[\\w\\W]", assert=TRUE) {
   regex_look_assertion(base=base, pattern=pattern,
                        pos=TRUE, lookahead=TRUE,
-                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+                       nchar=nchar, wild=wild, assert=assert)
 }
 #' @rdname lookahead
 #' @export
-neg_lookahead <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
+neg_lookahead <- function(base, pattern, nchar=0, wild="[\\w\\W]", assert=TRUE) {
   regex_look_assertion(base=base,pattern=pattern,
                        pos = FALSE, lookahead=TRUE,
-                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+                       nchar=nchar, wild=wild, assert=assert)
 }
 #' @rdname lookahead
 #' @export
-pos_lookbehind <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
+pos_lookbehind <- function(base, pattern, nchar=0, wild="[\\w\\W]", assert=TRUE) {
   regex_look_assertion(base=base,pattern=pattern,
                        pos = TRUE, lookahead=FALSE,
-                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+                       nchar=nchar, wild=wild, assert=assert)
 }
 #' @rdname lookahead
 #' @export
-neg_lookbehind <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
+neg_lookbehind <- function(base, pattern, nchar=0, wild="[\\w\\W]", assert=TRUE) {
   regex_look_assertion(base=base,pattern=pattern,
                        pos = FALSE, lookahead=FALSE,
-                       nchar=nchar, wildcard=wildcard, assertion=assertion)
+                       nchar=nchar, wild=wild, assert=assert)
 }
 #' @rdname lookahead
 #' @export
-pos_lookaround <- function(base, pattern, nchar=c(0,0), wildcard="[\\w\\W]", assertion=TRUE) {
+pos_lookaround <- function(base, pattern, nchar=c(0,0), wild="[\\w\\W]", assert=TRUE) {
   if (length(nchar)==1) {
     nchar <- rep(nchar,length.out=2)
   }
-  behind <- pos_lookbehind(base=base,pattern=pattern,nchar=nchar[1],wildcard=wildcard,assertion=assertion)
-  ahead <- pos_lookahead(base=base,pattern=pattern,nchar=nchar[2],wildcard=wildcard,assertion=assertion)
+  if (length(pattern)==1) {
+    pattern <- rep(pattern,length.out=2)
+  }
+  behind <- pos_lookbehind(base=base,pattern=pattern[1],nchar=nchar[1],wild=wild,assert=assert)
+  ahead <- pos_lookahead(base=base,pattern=pattern[2],nchar=nchar[2],wild=wild,assert=assert)
   paste0("((",behind,")|(",ahead,"))")
 }
 #' @rdname lookahead
 #' @export
-neg_lookaround <- function(base, pattern, nchar=0, wildcard="[\\w\\W]", assertion=TRUE) {
+neg_lookaround <- function(base, pattern, nchar=0, wild="[\\w\\W]", assert=TRUE) {
   if (length(nchar)==1) {
     nchar <- rep(nchar,length.out=2)
   }
+  if (length(pattern)==1) {
+    pattern <- rep(pattern,length.out=2)
+  }
   base %>%
-    neg_lookbehind(pattern=pattern,nchar=nchar[1],wildcard=wildcard,assertion=assertion) %>%
-    neg_lookahead(pattern=pattern,nchar=nchar[2],wildcard=wildcard,assertion=assertion)
+    neg_lookbehind(pattern=pattern[1],nchar=nchar[1],wild=wild,assert=assert) %>%
+    neg_lookahead(pattern=pattern[2],nchar=nchar[2],wild=wild,assert=assert)
 }
 
 
@@ -1560,10 +1570,10 @@ regex_look_assertion <- function(base,
                                  pos,
                                  lookahead,
                                  nchar=0,
-                                 wildcard="[\\w\\W]",
-                                 assertion=TRUE) {
+                                 wild="[\\w\\W]",
+                                 assert=TRUE) {
   if (nchar>=1) {
-    wild_pattern <- paste0("(",wildcard,"){0,",nchar,"}")
+    wild_pattern <- paste0("(",wild,"){0,",nchar,"}")
   } else if (nchar==0) {
     wild_pattern <- ""
   } else {
@@ -1572,14 +1582,14 @@ regex_look_assertion <- function(base,
 
   if (lookahead) {
     if (pos) { # pos lookahead
-      if (assertion) {
+      if (assert) {
         syntax <- "?="
       } else {
         syntax <- ""
       }
     } else { # neg lookahead
-      if (!assertion) {
-        cli::cli_warn("YTWarning: ignoring assertion=FALSE argument; it is not meaningful in negative look contexts")
+      if (!assert) {
+        cli::cli_abort("YTError: assert=FALSE is not meaningful in negative look contexts")
       }
       syntax <- "?!"
     }
@@ -1588,14 +1598,14 @@ regex_look_assertion <- function(base,
   } else {
     if (pos) { # pos lookbehind
 
-      if (assertion) {
+      if (assert) {
         syntax <- "?<="
       } else {
         syntax <- ""
       }
     } else { # neg lookbehind
-      if (!assertion) {
-        cli::cli_warn("YTWarning: ignoring assertion=FALSE argument; it is not meaningful in negative look contexts")
+      if (!assert) {
+        cli::cli_warn("YTWarning: ignoring assert=FALSE argument; it is not meaningful in negative look contexts")
       }
       syntax <- "?<!"
     }
@@ -1775,7 +1785,9 @@ regex.widget <- function(vec, ... ,
   if (!is.atomic(vec)) {
     stop("YTError: vec is not an atomic vector!")
   }
-  vec <- vec[!is.na(vec)]
+  # vec <- vec[!is.na(vec)]
+  df0 <- tibble(text=vec) %>% mutate(i=row_number()) %>%
+    filter(!is.na(text)) %>% select(i,text)
   # static combinations of regexes (list of named boolean vectors)
   # list(c(regexA=TRUE), c(regexA=TRUE,regexB=FALSE), c(regexD=TRUE,regexB=FALSE,regexC=FALSE), ...)
   regex_combos <- 1:total_fields %>%
@@ -1839,7 +1851,9 @@ regex.widget <- function(vec, ... ,
                ),
                fluidRow(
                  column(4,
-                        checkboxInput("showdist",label="Distances",FALSE)
+                        checkboxInput("showdist",label="Distances",FALSE),
+                        checkboxInput("rowindex",label="Row",FALSE)
+
                  ),
                  column(4,
                         checkboxInput("showlength",label="Hit Lengths",FALSE)
@@ -1878,7 +1892,7 @@ regex.widget <- function(vec, ... ,
         req(input[[.x]]!="")
         pat <- req(input[[.x]])
         if (substr(pat,1,1)=="~") {
-          pat_call <- as.formula(pat) %>% f_rhs()
+          pat_call <- as.formula(pat) %>% rlang::f_rhs()
           var_names_used <- var_name_dict[names(var_name_dict) %in% all.vars(pat_call)]
           if (.x %in% var_names_used) {
             cli::cli_abort("YTError: formula can't refer to self")
@@ -1896,7 +1910,8 @@ regex.widget <- function(vec, ... ,
     regex_detect_single <- map2(field_ids,field_colors,~{
       reactive({
         pat <- req(regex_pattern_single[[.x]]())
-        str_locate_all_irl(vec,pat,color=.y)
+        # str_locate_all_irl(vec,pat,color=.y)
+        str_locate_all_irl(df0$text,pat,color=.y)
       })
     }) %>% setNames(field_ids)
     # combo detect: for each combo: list of reactive str_detect-vectors for all regex combos (depends on regex_detect_single[]())
@@ -1912,7 +1927,8 @@ regex.widget <- function(vec, ... ,
               req(regex_detect_single[[var]]())
             })
           if (length(combo)==0) { # "all"
-            keep <- rep_along(vec,TRUE)
+            # keep <- rep_along(vec,TRUE)
+            keep <- rep_along(df0$text,TRUE)
           } else {
             keep <- map2(irls,combo,
                          function(irl,bool) {
@@ -1922,7 +1938,9 @@ regex.widget <- function(vec, ... ,
                            else {!detect}
                          }) %>% pmap_lgl(function(...) all(...))
           }
-          subtext <- vec[keep]
+
+          # subtext <- vec[keep]
+          df <- df0[keep,,drop=FALSE]
           subirls <- irls %>% map(~{.x[keep]})
           # names(sublocs) <- field_colors[names(sublocs)]
           if (any(keep) && length(irls)>0) {
@@ -1931,7 +1949,8 @@ regex.widget <- function(vec, ... ,
               irl_handle_overlaps(color=mix.colors(color),type="color")
             if (input$grouphits) {
               # newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs,gap_nchars = input$padding))
-              gaps <- irl_find_gaps(hits,subtext,pad=input$padding) %>%
+              # gaps <- irl_find_gaps(hits,subtext,pad=input$padding) %>%
+              gaps <- irl_find_gaps(hits,df$text,pad=input$padding) %>%
                 irl2df() %>% filter(width>=ellipsis_nchar) %>%
                 mutate(type="gap") %>% df2irl()
               all <- irl_pc(hits,gaps,sort=TRUE)
@@ -1939,11 +1958,13 @@ regex.widget <- function(vec, ... ,
               # newtext <- rlang::inject(highlight_grep(subtext,!!!sublocs))
               all <- hits %>% irl_sort()
             }
-            newtext <- str_sub_all_replace_irl(all,subtext,
+            df$text <- str_sub_all_replace_irl(all,
+                                               # subtext,
+                                               df$text,
                                                expr=ifelse(type=="color",
                                                            paste0("<b><font color=\"",color,"\">",x,"</font></b>"),
                                                            ellipsis))
-            df <- tibble(text=newtext)
+            # df <- tibble(text=newtext)
             if (sum(combo)>=2 && input$showdist) { #### add distance columns ####
               combocols <- names(combo)[combo]
               comboletters <- field_letters[match(combocols,field_ids)]
@@ -1968,17 +1989,26 @@ regex.widget <- function(vec, ... ,
             }
           } else {
             # bypass if there are zero rows, or if there are no patterns.
-            df <- tibble(text=subtext)
+            # df <- tibble(text=subtext)
           }
           if (condense_linebreaks) {
             df$text <- replace_linebreak_symbol(df$text)
           }
+          if (nrow(df)>0) {
+            df <- df %>%
+              group_by(across(c(-i))) %>%
+              summarize(n=n(),
+                        i=min(i),
+                        .groups="drop") %>%
+              select(i,text,everything()) %>%
+              arrange(i)
+          }
+          if (!input$rowindex) {
+            df <- df %>% select(-i)
+          }
           combolabel <- names(comboids)[match(id,comboids)] %>%
             paste0("Combo: ", . , " (",sum(keep), " records)")
-          df <- df %>%
-            count(!!!syms(names(.))) %>%
-            arrange(desc(n)) %>%
-            dplyr::rename(!!sym(combolabel):=text)
+          df <- df %>% dplyr::rename(!!sym(combolabel):=text)
           # cli::cli_alert("{id} updated: {combolabel}")
           return(df)
         })
