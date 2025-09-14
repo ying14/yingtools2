@@ -7,8 +7,8 @@
 gg.stack2(
   ...,
   heights = NULL,
-  gap = unit(0, "pt"),
-  margin = theme_get()$plot.margin,
+  gap = unit(1, "pt"),
+  margin = NULL,
   adjust.themes = TRUE,
   return.gg.list = FALSE
 )

@@ -50,7 +50,7 @@ from a \code{formula} (e.g. \code{~ head(.x, 10)}).}
 
 \item{stat}{The statistical transformation to use on the data for this layer.
 When using a \verb{geom_*()} function to construct a layer, the \code{stat}
-argument can be used the override the default coupling between geoms and
+argument can be used to override the default coupling between geoms and
 stats. The \code{stat} argument accepts the following:
 \itemize{
 \item A \code{Stat} ggproto subclass, for example \code{StatCount}.
@@ -131,12 +131,14 @@ a warning. If \code{TRUE}, missing values are silently removed.}
 \code{NA}, the default, includes if any aesthetics are mapped.
 \code{FALSE} never includes, and \code{TRUE} always includes.
 It can also be a named logical vector to finely select the aesthetics to
-display.}
+display. To include legend keys for all levels, even
+when no data exists, use \code{TRUE}.  If \code{NA}, all levels are shown in legend,
+but unobserved levels are omitted.}
 
 \item{inherit.aes}{If \code{FALSE}, overrides the default aesthetics,
 rather than combining with them. This is most useful for helper functions
 that define both data and aesthetics and shouldn't inherit behaviour from
-the default plot specification, e.g. \code{\link[ggplot2:borders]{borders()}}.}
+the default plot specification, e.g. \code{\link[ggplot2:annotation_borders]{annotation_borders()}}.}
 }
 \description{
 Creates stacked taxonomy barplots.
@@ -156,29 +158,29 @@ Fill colors occupy the barspace proportionally.
 }
 \section{Aesthetics}{
 
-\code{geom_taxonomy()} understands the following aesthetics (required aesthetics are in bold):
-\itemize{
-\item \strong{\code{\link[=aes_position]{x}}}
-\item \strong{\code{\link[=aes_position]{y}}}
-\item \code{\link[=aes_colour_fill_alpha]{alpha}}
-\item \code{angle}
-\item \code{\link[=aes_colour_fill_alpha]{colour}}
-\item \code{family}
-\item \code{\link[=aes_colour_fill_alpha]{fill}}
-\item \code{fontalpha}
-\item \code{fontcolour}
-\item \code{fontface}
-\item \code{fontsize}
-\item \code{\link[=aes_group_order]{group}}
-\item \code{hjust}
-\item \code{label}
-\item \code{lineheight}
-\item \code{\link[=aes_linetype_size_shape]{linetype}}
-\item \code{\link[=aes_linetype_size_shape]{linewidth}}
-\item \code{sample.colour}
-\item \code{sample.linetype}
-\item \code{sample.linewidth}
-\item \code{vjust}
+\code{geom_taxonomy()} understands the following aesthetics. Required aesthetics are displayed in bold and defaults are displayed for optional aesthetics:
+\tabular{rll}{
+• \tab \strong{\code{\link[ggplot2:aes_position]{x}}} \tab   \cr
+• \tab \strong{\code{\link[ggplot2:aes_position]{y}}} \tab   \cr
+• \tab \code{\link[ggplot2:aes_colour_fill_alpha]{alpha}} \tab → \code{NA} \cr
+• \tab \code{angle} \tab → \code{-90} \cr
+• \tab \code{\link[ggplot2:aes_colour_fill_alpha]{colour}} \tab → \code{NA} \cr
+• \tab \code{family} \tab → \code{""} \cr
+• \tab \code{\link[ggplot2:aes_colour_fill_alpha]{fill}} \tab → \code{"grey35"} \cr
+• \tab \code{fontalpha} \tab → \code{NA} \cr
+• \tab \code{fontcolour} \tab → \code{"black"} \cr
+• \tab \code{fontface} \tab → \code{1} \cr
+• \tab \code{fontsize} \tab → \code{3.88} \cr
+• \tab \code{\link[ggplot2:aes_group_order]{group}} \tab → inferred \cr
+• \tab \code{hjust} \tab → \code{0.5} \cr
+• \tab \code{label} \tab → \code{NA} \cr
+• \tab \code{lineheight} \tab → \code{0.75} \cr
+• \tab \code{\link[ggplot2:aes_linetype_size_shape]{linetype}} \tab → \code{1} \cr
+• \tab \code{\link[ggplot2:aes_linetype_size_shape]{linewidth}} \tab → \code{0.5} \cr
+• \tab \code{sample.colour} \tab → \code{"black"} \cr
+• \tab \code{sample.linetype} \tab → \code{1} \cr
+• \tab \code{sample.linewidth} \tab → \code{0.5} \cr
+• \tab \code{vjust} \tab → \code{0.5} \cr
 }
 Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 }

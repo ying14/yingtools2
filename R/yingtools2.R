@@ -4920,7 +4920,9 @@ color2hex <- function(color) {
 #' gg.stack(g1~3,
 #'          g2~2,
 #'          g3~1,heights=c(1,2,3))
-gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = TRUE, gg.extras = NULL, gap = 0, margin = 5.5, units = "pt", newpage = TRUE, as.gtable = FALSE) {
+gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = TRUE,
+                      gg.extras = NULL, gap = 0, margin = 5.5, units = "pt", newpage = TRUE,
+                      as.gtable = FALSE) {
   requireNamespace(c("grid", "gridExtra", "gtable"), quietly = TRUE)
   grobs <- list(...)
 
@@ -4980,10 +4982,15 @@ gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = T
     }
     return(g)
   })
+
   grobs4 <- mapply(function(gr, ht) {
     ht.char <- as.character(gr$heights)
-    null.heights <- grep("null", ht.char)
-    relative.heights <- as.numeric(sub("null", "", ht.char[null.heights]))
+    ## changed this to work with ggplot2 v4.0, which has null heights in axes...
+    null.pattern <- "^([0-9.]+)null$"
+    null.heights <- grep(null.pattern, ht.char)
+    relative.heights <- str_replace(ht.char[null.heights],null.pattern,"\\1") %>% as.numeric()
+    # null.heights <- grep("null", ht.char)
+    # relative.heights <- as.numeric(sub("null", "", ht.char[null.heights]))
     total.null.height <- sum(relative.heights)
     gr$heights[null.heights] <- gr$heights[null.heights] * (1/total.null.height) * ht
     return(gr)
@@ -5033,11 +5040,20 @@ gg.stack <- function (..., heights = NULL, align.xlim = FALSE, adjust.themes = T
 #' gg.stack2(g1~3,
 #'          g2~2,
 #'          g3~1,heights=c(1,2,3))
-gg.stack2 <- function(..., heights = NULL, gap=unit(0,"pt"),
-                      margin = theme_get()$plot.margin, adjust.themes = TRUE,
+gg.stack2 <- function(..., heights = NULL, gap=unit(1,"pt"),
+                      margin = NULL, adjust.themes = TRUE,
                       return.gg.list=FALSE) {
   requireNamespace("grid", quietly = TRUE)
   grobs <- list(...)
+
+  if (is.null(margin)) {
+    # check package version
+    if (packageVersion("ggplot2")>=4.0) {
+      margin <- theme_get()$margins
+    } else {
+      margin <- theme_get()$plot.margin
+    }
+  }
 
   if (all(map_lgl(grobs, rlang::is_formula))) {
     default_env <- caller_env()
@@ -5054,6 +5070,7 @@ gg.stack2 <- function(..., heights = NULL, gap=unit(0,"pt"),
         g
       })
       g.bottom <- grobs[[length.grobs]]
+
       top.theme <- theme(plot.margin = grid::unit.c(margin[1], margin[2], gap, margin[4]),
                          axis.title.x = element_blank(),
                          axis.text.x = element_blank(),

@@ -2246,8 +2246,13 @@ taxonomy_scale <- function(aesthetic,
   values <- tax.colors$color
   breaks <- tax.colors$unit
   labels <- tax.colors$name
-  if (is.vector(values) && is.null(names(values)) && !ggplot2:::is.waive(breaks) &&
-      !is.null(breaks) && !is.function(breaks)) {
+  # should be TRUE
+  if (is.vector(values) &&
+      is.null(names(values)) &&
+      # !ggplot2:::is.waive(breaks) &&   ## for ggplot2 4.0 compatibility
+      !is.null(breaks) &&
+      !is.function(breaks)) {
+    # should be TRUE
     if (length(breaks) <= length(values)) {
       names(values) <- breaks
     }
