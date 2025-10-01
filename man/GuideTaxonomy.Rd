@@ -5,12 +5,17 @@
 \alias{GuideTaxonomy}
 \title{GuideTaxonomy}
 \format{
-An object of class \code{GuideTaxonomy} (inherits from \code{GuideLegend}, \code{Guide}, \code{ggproto}, \code{gg}) of length 6.
+An object of class \code{GuideTaxonomy} (inherits from \code{GuideLegend}, \code{Guide}, \code{ggproto}, \code{gg}) of length 5.
 }
 \usage{
 GuideTaxonomy
 }
 \description{
-ggproto method for tax legend.
+\code{ggproto} method for tax legend.
+Used by \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} and \code{\link[=scale_color_taxonomy]{scale_color_taxonomy()}} to make custom legend.
+}
+\details{
+This is modified from \code{ggplot::GuideLegend}, and modifies 3 functions:
+\code{train()}, \code{build_decor()} and \code{setup_elements()}.
 }
 \keyword{datasets}

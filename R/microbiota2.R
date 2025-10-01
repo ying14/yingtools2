@@ -1729,7 +1729,7 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
                           ...,
                           label.pct.cutoff=0.3,
                           label.split=FALSE,
-                          width = 0.95,
+                          # width = 0.95,
                           na.rm = FALSE,
                           parse = FALSE,
                           tax.palette = yt.palette3,
@@ -1757,8 +1757,7 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
         position = position, show.legend = show.legend,
         inherit.aes = inherit.aes,
         layer_class = LayerTaxonomy,
-        params = list(width = width,
-                      parse = parse,
+        params = list(parse = parse,
                       fit.text = fit.text,
                       reflow = reflow,
                       contrast = contrast,
@@ -1785,6 +1784,7 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                                           linewidth = 0.5,
                                           linetype = 1,
                                           alpha = NA,
+                                          width = 0.95,
                                           sample.colour = "black",
                                           sample.linewidth = 0.5,
                                           sample.linetype = 1,
@@ -1802,8 +1802,6 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                         draw_panel = function(data, panel_params, coord,
                                               lineend = "butt",
                                               linejoin = "mitre",
-                                              width = NULL,
-                                              flipped_aes = FALSE,
                                               parse = FALSE,
                                               na.rm = FALSE,
                                               fit.text = FALSE,
@@ -1863,13 +1861,19 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
                           data_col <- data %>%
                             transmute(x,y,colour=NA_character_,fill,linewidth,linetype,alpha,
                                       xmin,xmax,ymin,ymax)
-                          grob_col <- GeomCol$draw_panel(data = data_col, panel_params = panel_params, coord = coord, lineend = lineend,
-                                                         linejoin = linejoin, width = width, flipped_aes = flipped_aes)
+                          grob_col <- GeomCol$draw_panel(data = data_col,
+                                                         panel_params = panel_params,
+                                                         coord = coord, lineend = lineend,
+                                                         linejoin = linejoin)
                           data_col_edge <- data %>%
-                            transmute(x,y,colour,fill=NA_character_,linewidth,linetype,alpha,
+                            transmute(x,y,colour,fill=NA_character_,
+                                      linewidth,linetype,alpha,
                                       xmin,xmax,ymin,ymax)
-                          grob_col_edge <- GeomCol$draw_panel(data = data_col_edge, panel_params = panel_params, coord = coord, lineend = lineend,
-                                                              linejoin = linejoin, width = width, flipped_aes = flipped_aes)
+                          grob_col_edge <- GeomCol$draw_panel(data = data_col_edge,
+                                                              panel_params = panel_params,
+                                                              coord = coord,
+                                                              lineend = lineend,
+                                                              linejoin = linejoin)
                           # draw text
                           if (label.split) {
                             data <- data %>% mutate(label=str_split_equal_parts(label))
@@ -1917,9 +1921,12 @@ GeomTaxonomy <- ggproto("GeomTaxonomy", GeomCol,
 
 
                             if (nrow(data_text)>0) {
-                              grob_text <- GeomText$draw_panel(data = data_text, panel_params = panel_params,
-                                                               coord = coord, parse = parse,
-                                                               na.rm = na.rm, check_overlap = check_overlap)
+                              grob_text <- GeomText$draw_panel(data = data_text,
+                                                               panel_params = panel_params,
+                                                               coord = coord,
+                                                               parse = parse,
+                                                               na.rm = na.rm,
+                                                               check_overlap = check_overlap)
                             } else {
                               grob_text <- nullGrob()
                             }
@@ -2192,11 +2199,12 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #' g + scale_fill_taxonomy(data=otu,fill=otu,guide=guide_taxonomy(ncol=3)) +
 #'   theme(legend.position="top",
 #'         legend.key.size = unit(0.75,"lines"))
-scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
+scale_fill_taxonomy <- function(...,
+                                data,
+                                tax.palette = yt.palette3,
                                 fill = Species,
                                 aesthetics = "fill",
                                 guide = guide_taxonomy(),
-                                # guide = guide_taxonomy(keywidth = 3),
                                 drop = FALSE,
                                 na.value = "grey50") {
   fill <- ensym(fill)
@@ -2210,11 +2218,12 @@ scale_fill_taxonomy <- function(..., data, tax.palette = yt.palette3,
 
 #' @rdname scale_fill_taxonomy
 #' @export
-scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
+scale_color_taxonomy <- function(...,
+                                 data,
+                                 tax.palette = yt.palette3,
                                  color = Species,
                                  aesthetics = "colour",
                                  guide = guide_taxonomy(),
-                                 #  guide = guide_taxonomy(keywidth = 3),
                                  drop = FALSE,
                                  na.value = "grey50") {
   color <- ensym(color)
@@ -2230,7 +2239,6 @@ scale_color_taxonomy <- function(..., data, tax.palette = yt.palette3,
 taxonomy_scale <- function(aesthetic,
                            data, tax.palette, unitvar,
                            guide=guide_taxonomy(),
-                           # guide=guide_taxonomy(keywidth = 3),
                            drop = FALSE,
                            na.value="grey50",
                            na.translate=TRUE,
@@ -2297,11 +2305,14 @@ taxonomy_scale <- function(aesthetic,
 
 
 
-
-
 #' GuideTaxonomy
 #'
-#' ggproto method for tax legend.
+#' `ggproto` method for tax legend.
+#' Used by [scale_fill_taxonomy()] and [scale_color_taxonomy()] to make custom legend.
+#'
+#' This is modified from `ggplot::GuideLegend`, and modifies 3 functions:
+#' `train()`, `build_decor()` and `setup_elements()`.
+#'
 #' @export
 GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                          params = list(
@@ -2320,8 +2331,13 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                            override.tax.palette = NULL
                          ),
                          train = function(self, params = self$params, scale, aesthetic = NULL, ...) {
-                           newparams <- ggproto_parent(Guide, self)$train(params, scale, aesthetic, ...)
                            # train() prepares data for legend.
+                           # 1. runs parent: Guide$train().
+                           # 2. newparams$key will contain legend data, which contains legend data.
+                           #    (can read from tax.palette, if drop=FALSE)
+                           # 3. Group newparams$key by label and form list-cols for fill/color.
+                           newparams <- ggproto_parent(Guide, self)$train(params, scale, aesthetic, ...)
+
                            if (!is.null(newparams$override.tax.palette)) {
                              pal <- newparams$override.tax.palette
                            } else if (!scale$drop) {
@@ -2342,7 +2358,7 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                              }
                              newparams$key <- full.key
                            }
-                           ###### group values by label, and make lists of colors ######
+                           # group values by label, and make list-cols of colors
                            if (!is.null(newparams$key)) {
                              newkey <- newparams$key %>% distinct() %>%
                                group_by(.label) %>%
@@ -2352,51 +2368,110 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                                as.data.frame(stringsAsFactors=FALSE)
                              newparams$key <- newkey
                            }
-                           #############################################################
-                           newparams
+                           return(newparams)
                          },
                          build_decor = function(decor, grobs, elements, params) {
-                           key_size <- c(elements$width_cm, elements$height_cm) * 10
-                           draw <- function(i) {
-                             bg <- elements$key
-                             keys <- lapply(decor, function(g) {
-                               data <- vctrs::vec_slice(g$data, i)
-                               if (data$.draw %||% TRUE) {
-                                 ########################
-                                 dlist <- data %>%
-                                   unnest(any_of(c("fill","colour"))) %>%
-                                   rowwise() %>%
-                                   group_split()
-                                 grlist <- dlist %>% map(~{
-                                   key <- g$draw_key(.x, g$params, key_size)
-                                   ggplot2:::set_key_size(key, data$linewidth, data$size, key_size/10)
-                                 })
-                                 gr <- gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
-                                 gr
-                                 ########################
-                               }
-                               else {
-                                 ggplot2::zeroGrob()
-                               }
-                             })
-                             c(list(bg), keys)
+                           # descendant of GuideLegend$build_decor.
+                           # 1. Runs slightly differently for compatability with ggplot2 v3.5 vs. v4.0
+                           # 2. As it iterates through rows of decor$data, instead of running
+                           #    draw_key() on each row, unnest the fill/color listcols and
+                           #    draw a row of colors.
+                           if (packageVersion("ggplot2")<"4.0.0") {
+                             # useful for ggplot2 v3.5
+                             grobs <- GuideTaxonomy_build_decor_ggplot35(decor, grobs, elements, params)
+                             return(grobs)
                            }
-                           grlist <- unlist(lapply(seq_len(params$n_breaks), draw), FALSE)
-                           grlist
+                           # code for ggplot2 v.4.0.0
+                           # modified to unnest listcols and draw row of colors.
+                           key_size <- c(elements$width_cm, elements$height_cm)
+                           just <- elements$key_just
+                           idx <- seq_len(params$n_breaks)
+                           key_glyphs <- lapply(idx, function(i) {
+                             glyph <- lapply(decor, function(dec) {
+                               data <- vctrs::vec_slice(dec$data, i)
+                               if (!(data$.draw %||% TRUE)) {
+                                 return(zeroGrob())
+                               }
+                               ###########
+                               dlist <- data %>%
+                                 unnest(any_of(c("fill","colour"))) %>%
+                                 rowwise() %>% group_split()
+                               grlist <- dlist %>% map(~{
+                                 .x <- as.data.frame(.x) # this prevents warning about size=NULL
+                                 key <- dec$draw_key(.x, dec$params, key_size)
+                                 ggplot2:::set_key_size(key, .x$linewidth, .x$size, key_size/10)
+                               })
+                               gr <- gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
+                               gr
+                               ###########
+                               # key <- dec$draw_key(data, dec$params, key_size * 10)
+                               # ggplot2:::set_key_size(key, data$linewidth, data$size, key_size)
+                               ###########
+                             })
+                             width <- vapply(glyph, ggplot2:::get_attr, which = "width", default = 0, numeric(1))
+                             width <- max(width, 0, key_size[1], na.rm = TRUE)
+                             height <- vapply(glyph, ggplot2:::get_attr, which = "height", default = 0, numeric(1))
+                             height <- max(height, 0, key_size[2], na.rm = TRUE)
+                             vp <- NULL
+                             if (!is.null(just)) {
+                               vp <- viewport(x = just[1],
+                                              y = just[2],
+                                              just = just,
+                                              width = unit(width, "cm"),
+                                              height = unit(height, "cm"))
+                             }
+                             grob <- grid::gTree(children = inject(grid::gList(elements$key, !!!glyph)), vp = vp)
+                             attr(grob, "width") <- width
+                             attr(grob, "height") <- height
+                             grob
+                           })
+                           key_glyphs
+
                          },
                          setup_elements = function(params, elements, theme) {
+
+                           # setup_elements
+                           # 1. runs parent: GuideLegend$setup_elements().
+                           # 2. muliply key_width by 3, to fit the color row.
                            elems <- GuideLegend$setup_elements(params,elements,theme)
                            elems$key_width <- elems$key_width * 3
                            elems
-                         },
-                         assemble_drawing = function(self, grobs, layout, sizes, params, elements) {
-                           gb <- ggproto_parent(GuideLegend, self)$assemble_drawing(grobs, layout, sizes, params, elements)
-                           gb
                          }
 )
 
 
+# used within GuideTaxonomy$build_decor.
+# used only if ggplot2 version is v3.5.
+GuideTaxonomy_build_decor_ggplot35 <- function(decor, grobs, elements, params) {
+  cli::cli_alert("YTNote: GuideTaxonomy: switching to ggplot2 v3.5 code")
+  key_size <- c(elements$width_cm, elements$height_cm) * 10
+  draw <- function(i) {
+    bg <- elements$key
+    keys <- lapply(decor, function(g) {
+      data <- vctrs::vec_slice(g$data, i)
+      if (data$.draw %||% TRUE) {
 
+        dlist <- data %>%
+          unnest(any_of(c("fill","colour"))) %>%
+          rowwise() %>%
+          group_split()
+        grlist <- dlist %>% map(~{
+          .x <- as.data.frame(.x)
+          key <- g$draw_key(.x, g$params, key_size)
+          ggplot2:::set_key_size(key, .x$linewidth, .x$size, key_size/10)
+        })
+        gr <- gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
+        gr
+      }
+      else {
+        ggplot2::zeroGrob()
+      }
+    })
+    c(list(bg), keys)
+  }
+  grlist <- unlist(lapply(seq_len(params$n_breaks), draw), FALSE)
+  grlist
+}
 
 
 
@@ -2415,7 +2490,7 @@ guide_taxonomy <- function(title = waiver(),
   # modified from guide_legend
 
   if (packageVersion("ggplot2")<"3.5.0") {
-    return(guide_taxonomyOLD(override.tax.palette=override.tax.palette,...))
+    return(guide_taxonomy_ggplot34(override.tax.palette=override.tax.palette,...))
   }
 
   theme <- ggplot2:::deprecated_guide_args(theme, ...)
@@ -2433,9 +2508,10 @@ guide_taxonomy <- function(title = waiver(),
 
 
 
-#' Taxonomy Guide (OLD)
-#' @export
-guide_taxonomyOLD <- function(title = waiver(),
+
+
+# used only if ggplot2 version is v3.4.
+guide_taxonomy_ggplot34 <- function(title = waiver(),
                               override.tax.palette = NULL,
                               title.position = NULL, title.theme = NULL,
                               title.hjust = NULL, title.vjust = NULL, label = TRUE, label.position = NULL,
@@ -2444,6 +2520,7 @@ guide_taxonomyOLD <- function(title = waiver(),
                               keyheight = NULL, direction = NULL, default.unit = "line",
                               override.aes = list(), nrow = NULL, ncol = NULL, byrow = FALSE,
                               reverse = FALSE, order = 0, ...) {
+  cli::cli_alert("YTNote: guide_taxonomy: switching to ggplot2 v3.4 code")
   # modified from guide_legend
   if (!is.null(keywidth) && !is.unit(keywidth)) {
     keywidth <- unit(keywidth, default.unit)
@@ -2471,12 +2548,13 @@ guide_taxonomyOLD <- function(title = waiver(),
 
 
 
+
 #' guide_train.taxonomy (OLD)
 #'
 #' Adopted from `ggplot2:::guide_train.legend`, but converts items to list-col colors.
 #' Called by name, by [guide_taxonomy()].
-#' @export
 guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
+  cli::cli_alert("YTNote: guide_train.taxonomy: switching to ggplot2 v3.4 code")
   guide <- ggplot2:::guide_train.legend(guide, scale, aesthetic)
 
   if (!is.null(guide$override.tax.palette)) {
@@ -2517,9 +2595,11 @@ guide_train.taxonomy <- function(guide, scale, aesthetic = NULL) {
 #' Called by name, by [guide_taxonomy()].
 #' @export
 guide_geom.taxonomy <- function(...) {
-  if (packageVersion("ggplot2")<"3.5.0") {
-    ggplot2:::guide_geom.legend(...)
-  }
+  cli::cli_alert("YTNote: guide_geom.taxonomy: switching to ggplot2 v3.4 code")
+  ggplot2:::guide_geom.legend(...)
+  # if (packageVersion("ggplot2")<"3.5.0") {
+  #   ggplot2:::guide_geom.legend(...)
+  # }
 }
 
 
@@ -2528,8 +2608,8 @@ guide_geom.taxonomy <- function(...) {
 #' guide_gengrob.taxonomy (OLD)
 #'
 #' Called by name, by [guide_taxonomy()].
-#' @export
 guide_gengrob.taxonomy <- function(guide, theme) {
+  cli::cli_alert("YTNote: guide_gengrob.taxonomy: switching to ggplot2 v3.4 code")
   # ggplot2:::guide_gengrob.legend(guide,theme)
   label.position <- guide$label.position %||% "right"
   if (!label.position %in% c("top", "bottom", "left", "right")) {
@@ -2941,6 +3021,16 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
 #' @export
 #'
 #' @examples
+#' library(ape)
+#' library(tidyverse)
+#' phy.genus <- cid.phy %>% phy.collapse(taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus"))
+#' tr <- phy_tree(phy.genus)
+#' gt <- ggtree(tr) %<+% get.tax(phy.genus)
+#' gd <- gt$data %>% mutate(Phylum=fct_lump_n(Phylum,4))
+#' gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
+#' gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum)) +
+#'   hilight.clade(gt,Phylum,"Actinobacteria",ymin=101,ymax=155,fill.color="purple",alpha=0.1) +
+#'   hilight.clade(gd,Phylum,"Bacteroidetes",ymin=300,ymax=328,fill.color="light blue",alpha=0.3)
 hilight.clade <- function(gdata, var=NULL, value=NULL,
                           criteria=NULL,
                           ymin=-Inf,ymax=Inf,

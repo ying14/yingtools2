@@ -12,7 +12,6 @@ geom_taxonomy(
   ...,
   label.pct.cutoff = 0.3,
   label.split = FALSE,
-  width = 0.95,
   na.rm = FALSE,
   parse = FALSE,
   tax.palette = yt.palette3,
@@ -106,8 +105,6 @@ lists which parameters it can accept.
 
 \item{label.split}{whether to split label into two lines, using \code{\link[=str_split_equal_parts]{str_split_equal_parts()}}}
 
-\item{width}{Bar width. By default, set to 0.95.}
-
 \item{na.rm}{If \code{FALSE}, the default, missing values are removed with
 a warning. If \code{TRUE}, missing values are silently removed.}
 
@@ -139,6 +136,8 @@ but unobserved levels are omitted.}
 rather than combining with them. This is most useful for helper functions
 that define both data and aesthetics and shouldn't inherit behaviour from
 the default plot specification, e.g. \code{\link[ggplot2:annotation_borders]{annotation_borders()}}.}
+
+\item{width}{Bar width. By default, set to 0.95.}
 }
 \description{
 Creates stacked taxonomy barplots.
@@ -181,6 +180,7 @@ Fill colors occupy the barspace proportionally.
 • \tab \code{sample.linetype} \tab → \code{1} \cr
 • \tab \code{sample.linewidth} \tab → \code{0.5} \cr
 • \tab \code{vjust} \tab → \code{0.5} \cr
+• \tab \code{width} \tab → \code{0.95} \cr
 }
 Learn more about setting these aesthetics in \code{vignette("ggplot2-specs")}.
 }

@@ -1755,17 +1755,16 @@ regex.widget <- function(vec, ... ,
     map(as.character) %>%
     map(str_protect_escape_characters)
 
-  # names(args)
-  # return(names(args))
-  arg_blanks <- rep_along(args,NA_character_)
-  arg_names <- names(args) %||% arg_blanks %>% na_if("")
+  total_fields <- pmax(n_fields,length(args)) # total number of regex fields
+  n_extra_fields <- total_fields - length(args)
 
+  arg_blanks <- rep_len(NA_character_,total_fields)
+  # arg_blanks <- rep_along(args,NA_character_)
+  arg_names <- names(args) %||% arg_blanks %>% na_if("")
   # vec <- sentences[1:10];args=list("red"="the","blue"="background|planks","green"="depth|back|sheet"); table_height=3; fontsize=14;port=4567;n_fields=5;ignore_case=TRUE
   if (is.numeric(fontsize)) {
     fontsize <- paste0(fontsize,"px")
   }
-  total_fields <- pmax(n_fields,length(args)) # total number of regex fields
-  n_extra_fields <- total_fields - length(args)
   field_letters <- LETTERS[1:total_fields] # A, B, C, D, ...
   # field_letters <- paste0("<b><font color=\"red\">",field_letters,"</font></b>")
   field_ids <- paste0("regex",field_letters) # regexA, regexB, regexC, regexD, ...
@@ -7385,26 +7384,76 @@ read_all_excel <- function( ... ,col_names=TRUE,keep.nested=FALSE,bare.filename=
 
 #' Write multiple data frames to an Excel file
 #'
-#' @param ... objects to be written to the Excel file. Can be a data frames or lists of data frames.
+#' @param ... objects to be written to the Excel file. Can be a data frames, named or unnamed.
+#' @param open whether to open the Excel file
+#' @param wrap whether to turn word wrap on. Default is `FALSE`.
 #' @param file the Excel file to be written
+#'
 #' @export
-write_all_excel <- function(..., file) {
-  requireNamespace("xlsx",quietly=TRUE)
-  quolist <- enquos(..., .named=TRUE)
-  objlist <- quolist %>% map(eval_tidy)
-  wb <- xlsx::createWorkbook()
-  for (i in 1:length(objlist)) {
-    data <- objlist[[i]] %>% as.data.frame() # doesn't handle tibble well, so convert to plain data.frame
-    sheetname <- names(objlist)[i]
-    if (!is.data.frame(data)) {
-      # stop(st_glue("YTError: '{sheetname}' is not a dataframe."))
-      cli_abort("YTError: {.var {sheetname}} is not a dataframe.")
+write_all_excel <- function(..., file=NULL,open=FALSE,wrap=FALSE) {
+  requireNamespace("openxlsx2",quietly=TRUE)
+
+  args <- list(...)
+  argnames <- names(args) %||% rep_along(args,"") %>% na_if("")
+  wb <- openxlsx2::wb_workbook()
+  for (i in seq_along(args)) {
+    data <- args[[i]]
+    sheetname <- argnames[i]
+    if (!is.na(sheetname)) {
+      wb$add_worksheet(sheetname)
+    } else {
+      wb$add_worksheet()
     }
-    sheet  <- xlsx::createSheet(wb,sheetName=sheetname)
-    xlsx::addDataFrame(data,sheet,row.names=FALSE)
+    if (is_grouped_df(data)) { # sort by group vars
+      data <- data %>% arrange(group_indices(.)) %>%
+        select(group_vars(.),everything())
+    }
+    wb$add_data(x=data)
+    dims_header <- openxlsx2::wb_dims(x = data, select = "col_names")
+    dims_all <- openxlsx2::wb_dims(x = data)
+    # bold/underline header
+    wb$add_font(dims = dims_header, bold=TRUE, underline=TRUE)
+    # if grouped data, provide shading
+    if (is_grouped_df(data)) {
+      pal <- c("white","#FCE7E2","#D3E5E7")
+      index <- group_indices(data)
+      color_index <- (index %% length(pal)) + 1
+      row_assignments <- split(seq_along(color_index),color_index)
+      for (j in seq_along(pal)) {
+        row_assign <- row_assignments[[j]]
+        row_color <- pal[j]
+        row_dims <- openxlsx2::wb_dims(x=data, rows=row_assign)
+        wb$add_fill(dims=row_dims, color=openxlsx2::wb_color(row_color))
+      }
+      # add light border to filled cells
+      wb$add_border(dims=dims_all, bottom_border = "hair", left_border = "hair",
+                    right_border = "hair", top_border = "hair", inner_hgrid= "hair",inner_vgrid= "hair")
+    }
+
+    cols <- 1:length(data)
+    wb$set_col_widths(cols=cols, widths="auto")
+    if (wrap) {
+      wb$add_cell_style(dims=dims_all, wrap_text=TRUE)
+    }
+    # rows <- 1:nrow(data)
+    # wb$set_row_heights(rows=rows, heights="auto")
   }
-  xlsx::saveWorkbook(wb,file)
+  if (!is.null(file)) {
+    wb$save(file)
+  }
+  if (open) {
+    wb$open()
+  }
+  (wb)
 }
+
+
+
+
+
+
+
+
 
 
 #' Read Excel File 2

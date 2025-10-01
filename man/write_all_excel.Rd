@@ -4,12 +4,16 @@
 \alias{write_all_excel}
 \title{Write multiple data frames to an Excel file}
 \usage{
-write_all_excel(..., file)
+write_all_excel(..., file = NULL, open = FALSE, wrap = FALSE)
 }
 \arguments{
-\item{...}{objects to be written to the Excel file. Can be a data frames or lists of data frames.}
+\item{...}{objects to be written to the Excel file. Can be a data frames, named or unnamed.}
 
 \item{file}{the Excel file to be written}
+
+\item{open}{whether to open the Excel file}
+
+\item{wrap}{whether to turn word wrap on. Default is \code{FALSE}.}
 }
 \description{
 Write multiple data frames to an Excel file

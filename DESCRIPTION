@@ -1,7 +1,7 @@
 Package: yingtools2
 Type: Package
 Title: Ying's R Tools
-Version: 0.0.1.196
+Version: 0.0.1.197
 Author: Ying Taur
 Maintainer: Ying Taur <taury@mskcc.org>
 Description: Useful R Functions by Ying
@@ -22,7 +22,6 @@ Imports:
     data.table,
     DT,
     readxl,
-    xlsx,
     ape,
     phyloseq,
     gtable,
@@ -48,7 +47,8 @@ Imports:
     cmprsk,
     logistf,
     reshape2,
-    gitr
+    gitr,
+    openxlsx2
 Suggests:
     phytools,
     ggtree,

@@ -54,3 +54,15 @@ hilight.clade(
 \description{
 Highlight a clade in ggtree
 }
+\examples{
+library(ape)
+library(tidyverse)
+phy.genus <- cid.phy \%>\% phy.collapse(taxranks=c("Kingdom","Phylum","Class","Order","Family","Genus"))
+tr <- phy_tree(phy.genus)
+gt <- ggtree(tr) \%<+\% get.tax(phy.genus)
+gd <- gt$data \%>\% mutate(Phylum=fct_lump_n(Phylum,4))
+gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum))
+gt + geom_point2(data=gd,aes(subset=isTip,color=Phylum)) +
+  hilight.clade(gt,Phylum,"Actinobacteria",ymin=101,ymax=155,fill.color="purple",alpha=0.1) +
+  hilight.clade(gd,Phylum,"Bacteroidetes",ymin=300,ymax=328,fill.color="light blue",alpha=0.3)
+}
