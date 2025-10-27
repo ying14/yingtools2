@@ -421,12 +421,24 @@ add.abundance <- function(phy, ... , denom=NULL) {
 
 
 # internal, used for dplyr phyloseq commands
+# return TRUE if expression is for sample_data,
+#        FALSE if expression for tax_table
+# default is for sample_data
 eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
   # eval.phyloseq.expr <- function(expr) {
   expr_label <- as_label(expr)
   vars.used <- all.vars(expr)
-  samp.vars <- c(sample_variables(phy),"sample")
-  taxa.vars <- c(rank_names(phy),"otu")
+  if (is.null(sample_variables(phy,FALSE))) {
+    samp.vars <- "sample"
+  } else {
+    samp.vars <- c(sample_variables(phy),"sample")
+  }
+  if (is.null(tax_table(ph,FALSE))) {
+    taxa.vars <- "otu"
+  } else {
+    taxa.vars <- c(rank_names(phy),"otu")
+  }
+
   has.samp.vars <- any(vars.used %in% samp.vars)
   has.taxa.vars <- any(vars.used %in% taxa.vars)
   if (has.samp.vars && has.taxa.vars) {
@@ -2215,7 +2227,6 @@ scale_fill_taxonomy <- function(...,
 
 
 
-
 #' @rdname scale_fill_taxonomy
 #' @export
 scale_color_taxonomy <- function(...,
@@ -2232,9 +2243,11 @@ scale_color_taxonomy <- function(...,
                  ..., guide = guide, drop = drop, na.value = na.value)
 }
 
+
+
 #' Taxonomy scale constructor
 #'
-#' Similar to `ggplot2:::manual_scale()`
+#' Similar to `ggplot2:::discrete_scale()`
 #' @export
 taxonomy_scale <- function(aesthetic,
                            data, tax.palette, unitvar,
@@ -2484,8 +2497,13 @@ GuideTaxonomy_build_decor_ggplot35 <- function(decor, grobs, elements, params) {
 #' @export
 guide_taxonomy <- function(title = waiver(),
                            override.tax.palette = NULL,
-                           theme = NULL, position = NULL, direction = NULL,
-                           override.aes = list(), nrow = NULL, ncol = NULL, reverse = FALSE,
+                           theme = NULL,
+                           position = NULL,
+                           direction = NULL,
+                           override.aes = list(),
+                           nrow = NULL,
+                           ncol = NULL,
+                           reverse = FALSE,
                            order = 0, ...) {
   # modified from guide_legend
 
@@ -2601,7 +2619,6 @@ guide_geom.taxonomy <- function(...) {
   #   ggplot2:::guide_geom.legend(...)
   # }
 }
-
 
 
 

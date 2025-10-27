@@ -1221,6 +1221,17 @@ dt <- function(data,
       cli::cli_alert("Displaying {nrows} / {total_rows} rows ({scales::label_percent(0.1)(nrows/total_rows)}) for DataTable viewing.")
     }
   }
+
+  # find invalid UTF-8 characters
+  invalid.cols <- data %>% select(where(is.character)) %>%
+    map_int(~sum(!validUTF8(.x))) %>% {.[.>0]}
+  if (length(invalid.cols)>0) {
+    for (col in names(invalid.cols)) {
+      data[[col]] <- iconv(data[[col]], "UTF-8", "UTF-8",sub='')
+    }
+    cli::cli_warn("YTWarning: invalid UTF-8 characters removed: {paste0(cli::col_blue(names(invalid.cols)), ' (',invalid.cols,' values)')}")
+  }
+
   output <- data %>%
     DT::datatable(
       plugins="ellipsis",
