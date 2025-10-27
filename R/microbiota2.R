@@ -433,7 +433,7 @@ eval_phyloseq_expr <- function(expr,phy,error=TRUE) {
   } else {
     samp.vars <- c(sample_variables(phy),"sample")
   }
-  if (is.null(tax_table(ph,FALSE))) {
+  if (is.null(tax_table(phy,FALSE))) {
     taxa.vars <- "otu"
   } else {
     taxa.vars <- c(rank_names(phy),"otu")
