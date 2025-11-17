@@ -1345,10 +1345,10 @@ phy.unfold.taxranks <- function(phy,verbose=TRUE) {
   }
   phy.unfold <- phyloseq(set.otu(all.otu),set.tax(all.tax),sample_data(phy))
   n.taxa <- phy.levels %>% map_int(ntaxa) %>% rev()
-  n.taxa.text <- n.taxa %>% col_blue() %>% paste(collapse=" + ") %>% paste0(" = ",col_blue(nrow(all.tax))," taxa")
+  n.taxa.text <- n.taxa %>% cli::col_blue() %>% paste(collapse=" + ") %>% paste0(" = ",cli::col_blue(nrow(all.tax))," taxa")
   if (verbose) {
     # message(str_glue("Created new unfolded phyloseq:\n{n.taxa.text}"))
-    cli_alert_info("Created new unfolded phyloseq:\n{n.taxa.text}")
+    cli::cli_alert_info("Created new unfolded phyloseq:\n{n.taxa.text}")
   }
   return(phy.unfold)
 }
@@ -1410,7 +1410,7 @@ calc.mean.distance <- function(phy,method,weights=NULL,verbose=TRUE) {
   ranks <- rank_names(phy)
   # list of phyloseqs
   phy.levels <- ranks %>% seq_along() %>%
-    map(~ranks[1:.x]) %>% map(~phy.collapse(phy)) %>%
+    map(~ranks[1:.x]) %>% map(~phy.collapse(phy,taxranks=.x)) %>%
     setNames(ranks) %>% c(list("asv"=phy))
   all.levels <- names(phy.levels) # all ranks including 'asv'
 
@@ -1549,7 +1549,7 @@ calc.distance <- function(phy, method,
 
   if (mean) {
     # recursively calls calc.distance
-    dist <- calc.mean.distance(phy, method=~calc.distance(phy, method=method, rarefy=FALSE, pct=FALSE, taxtree=FALSE, unfold=FALSE, mean=FALSE, verbose=FALSE))
+    dist <- calc.mean.distance(phy, method=~calc.distance(.x, method=method, rarefy=FALSE, pct=FALSE, taxtree=FALSE, unfold=FALSE, mean=FALSE, verbose=FALSE))
   } else {
     # calc distance
     if (is.character(method)) {
