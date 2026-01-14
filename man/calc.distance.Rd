@@ -60,4 +60,26 @@ calc.distance(phy,"taxtree.pct.rarefy.unifrac")
 calc.distance(phy,~distance(.x,"bray"))
 calc.distance(phy,~distance(.x,"bray"),pct=TRUE)
 calc.distance(phy,~phyloseq::UniFrac(.x))
+
+## These are equivalent:
+
+# calculate relative abundances, and compute Bray-Curtis
+phy \%>\% calc.distance("pct.bray")
+phy \%>\% calc.distance("bray",pct=TRUE)
+phy \%>\% transform_sample_counts(function(x) x / sum(x)) \%>\%
+  calc.distance("bray")
+
+# rarefy data, and compute Unifrac
+set.seed(1)
+phy \%>\% calc.distance("unifrac",rarefy=TRUE)
+set.seed(1)
+phy \%>\% rarefy_even_depth() \%>\% calc.distance("unifrac")
+
+# weighted mean tax-horn
+phy \%>\% calc.distance("mean.horn")
+phy \%>\% calc.mean.distance("horn")
+
+# unfold ranks and calculate horn
+phy \%>\% calc.distance("unfold.horn")
+phy \%>\% phy.unfold.taxranks() \%>\% calc.distance("horn")
 }

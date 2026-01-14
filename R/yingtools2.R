@@ -5660,10 +5660,18 @@ GeomBracket <- ggproto("GeomBracket",Geom,
                                               linejoin = "round",
                                               parse = FALSE,
                                               check_overlap = FALSE) {
-                         # checks copied from GeomSegment$draw_panel
-                         data <- ggplot2:::check_linewidth(data, snake_class(self))
-                         data <- remove_missing(data, na.rm = na.rm, c("x", "y", "xend", "yend", "linetype", "linewidth", "shape"),
-                                                name = "geom_backet")
+                         # checks copied from ggplot2::GeomSegment$draw_panel
+                         if (packageVersion("ggplot2")>=4.0) {
+                           data <- ggplot2:::fix_linewidth(data, snake_class(self))
+                           data <- remove_missing(data, na.rm = na.rm,
+                                                  c("x", "y",
+                                                    "xend", "yend",
+                                                    "linetype", "linewidth"),
+                                                  name = "geom_bracket")
+                         } else { # v3.5 or lower
+                           data <- ggplot2:::check_linewidth(data, snake_class(self))
+                           data <- remove_missing(data, na.rm = na.rm, c("x", "y", "xend", "yend", "linetype", "linewidth", "shape"),name = "geom_bracket")
+                         }
                          if (ggplot2:::empty(data))
                            return(zeroGrob())
                          data <- data %>% mutate(x0=x,xend0=xend,y0=y,yend0=yend,
