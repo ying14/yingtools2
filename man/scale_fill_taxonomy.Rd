@@ -86,4 +86,15 @@ g + scale_fill_taxonomy(data=otu,fill=otu,
 g + scale_fill_taxonomy(data=otu,fill=otu,guide=guide_taxonomy(ncol=3)) +
   theme(legend.position="top",
         legend.key.size = unit(0.75,"lines"))
+g + scale_fill_taxonomy(data=otu,fill=otu,
+                        guide=guide_taxonomy(ncol=6,downwards=TRUE)) +
+  theme(legend.byrow=TRUE,
+        legend.title.position="right",
+        legend.title=element_text(angle=-90),
+        legend.text.position="bottom",
+        legend.text=element_text(angle=-90,hjust=0,vjust=0.5),
+        legend.key.spacing.x=unit(0,"lines"),
+        legend.key.spacing.y=unit(0.5,"lines"),
+        legend.key.size=unit(0.8,"lines")) +
+  labs(fill="Bacterial Taxa")
 }

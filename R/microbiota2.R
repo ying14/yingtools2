@@ -2233,6 +2233,17 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #' g + scale_fill_taxonomy(data=otu,fill=otu,guide=guide_taxonomy(ncol=3)) +
 #'   theme(legend.position="top",
 #'         legend.key.size = unit(0.75,"lines"))
+#' g + scale_fill_taxonomy(data=otu,fill=otu,
+#'                         guide=guide_taxonomy(ncol=6,downwards=TRUE)) +
+#'   theme(legend.byrow=TRUE,
+#'         legend.title.position="right",
+#'         legend.title=element_text(angle=-90),
+#'         legend.text.position="bottom",
+#'         legend.text=element_text(angle=-90,hjust=0,vjust=0.5),
+#'         legend.key.spacing.x=unit(0,"lines"),
+#'         legend.key.spacing.y=unit(0.5,"lines"),
+#'         legend.key.size=unit(0.8,"lines")) +
+#'   labs(fill="Bacterial Taxa")
 scale_fill_taxonomy <- function(...,
                                 data,
                                 tax.palette = yt.palette3,
@@ -2349,6 +2360,7 @@ taxonomy_scale <- function(aesthetic,
 #' `train()`, `build_decor()` and `setup_elements()`.
 #'
 #' @export
+
 GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                          params = list(
                            title = waiver(),
@@ -2363,7 +2375,8 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                            hash  = character(),
                            position = NULL,
                            direction = NULL,
-                           override.tax.palette = NULL
+                           override.tax.palette = NULL,
+                           downwards = FALSE
                          ),
                          train = function(self, params = self$params, scale, aesthetic = NULL, ...) {
                            # train() prepares data for legend.
@@ -2436,7 +2449,11 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                                  key <- dec$draw_key(.x, dec$params, key_size)
                                  ggplot2:::set_key_size(key, .x$linewidth, .x$size, key_size/10)
                                })
-                               gr <- gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
+                               if (params$downwards) {
+                                 gr <- gridExtra::arrangeGrob(grobs = grlist, ncol = 1, padding = unit(3, "line"))
+                               } else {
+                                 gr <- gridExtra::arrangeGrob(grobs = grlist, nrow = 1, padding = unit(3, "line"))
+                               }
                                gr
                                ###########
                                # key <- dec$draw_key(data, dec$params, key_size * 10)
@@ -2469,7 +2486,12 @@ GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                            # 1. runs parent: GuideLegend$setup_elements().
                            # 2. muliply key_width by 3, to fit the color row.
                            elems <- GuideLegend$setup_elements(params,elements,theme)
-                           elems$key_width <- elems$key_width * 3
+                           # elems$key_height <- elems$key_height * 3
+                           if (params$downwards) {
+                             elems$key_height <- elems$key_height * 3
+                           } else {
+                             elems$key_width <- elems$key_width * 3
+                           }
                            elems
                          }
 )
@@ -2516,9 +2538,11 @@ GuideTaxonomy_build_decor_ggplot35 <- function(decor, grobs, elements, params) {
 #' Adapted from [ggplot2::guide_legend()].
 #'
 #' @param override.tax.palette Use tax palette, overriding data
+#' @param downwards Arrange colors downwards instead of left to right. Default is `FALSE`.
 #' @export
 guide_taxonomy <- function(title = waiver(),
                            override.tax.palette = NULL,
+                           downwards=FALSE,
                            theme = NULL,
                            position = NULL,
                            direction = NULL,
@@ -2541,6 +2565,7 @@ guide_taxonomy <- function(title = waiver(),
             theme = theme, direction = direction,
             override.aes = ggplot2:::rename_aes(override.aes),
             override.tax.palette = override.tax.palette,
+            downwards=downwards,
             nrow = nrow,
             ncol = ncol, reverse = reverse, order = order, position = position,
             available_aes = "any", name = "taxonomy", super = GuideTaxonomy)

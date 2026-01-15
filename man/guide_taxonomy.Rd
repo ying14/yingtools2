@@ -7,6 +7,7 @@
 guide_taxonomy(
   title = waiver(),
   override.tax.palette = NULL,
+  downwards = FALSE,
   theme = NULL,
   position = NULL,
   direction = NULL,
@@ -20,6 +21,8 @@ guide_taxonomy(
 }
 \arguments{
 \item{override.tax.palette}{Use tax palette, overriding data}
+
+\item{downwards}{Arrange colors downwards instead of left to right. Default is \code{FALSE}.}
 }
 \description{
 Used by \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} to create a custom taxonomy legend.
