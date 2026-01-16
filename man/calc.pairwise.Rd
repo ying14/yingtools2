@@ -13,7 +13,8 @@ calc.pairwise(
   pct = FALSE,
   taxtree = FALSE,
   unfold = FALSE,
-  mean = FALSE
+  mean = FALSE,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -47,4 +48,30 @@ However, this is useful if only a handful of pairwise comparisons are needed, an
 would take too long. If that is the case, it will call \code{\link[=calc.distance]{calc.distance()}} for each individual comparison.
 My testing suggests that individual pairwise calculation is about 130x slower. So if is the number of pairwise comparisons
 is less than 1/130th of the size of the distance matrix, it will do individual calculation, otherwise it will calculate the whole matrix together.
+}
+\examples{
+library(tidyverse)
+# let's we only need the following pairwise comparisons:
+pairs <- tribble(
+  ~sample1, ~sample2,
+  "162B",   "157C",
+  "153B",   "175B",
+  "197C",   "1047",
+  "120C",   "188B",
+  "1081",   "112E",
+  "228C",   "172F",
+  "121D",   "226B",
+  "162E",   "220B",
+  "1013",   "172E",
+  "1048",   "155B"
+)
+# method 1
+pw1 <- calc.distance(cid.phy,method="pct.bray") \%>\%
+  get.pairwise() \%>\%
+  inner_join(pairs,by=c("sample1","sample2"))
+# method 2 (~65X faster)
+pw2 <- pairs \%>\%
+  mutate(dist=calc.pairwise(sample1,sample2,
+                            method="pct.bray",
+                            phy=cid.phy))
 }

@@ -111,7 +111,6 @@ dt.OLD <- function(data,fontsize=14,pageLength=Inf,maxchars=250,maxrows=500,rown
 #' @param var name of new column name to be added to `df` representing extracted substrings. Default is `"var"`.
 #' @param newvar name of existing column name in `df` to be used as replacement. Default is `"newvar"`.
 #' @param pad number of characters to pad each range by. Default is `0`
-#' @return
 #' @examples
 #' library(tidyverse)
 #' text <- stringr::sentences[1:6]
@@ -566,7 +565,6 @@ regex.widget.OLD <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_lin
 #' `r lifecycle::badge("deprecated")`
 #' A widget for exploring regular expressions on a vector
 #' @param vec a character vector where regex searches will be applied.
-#' @return
 #' @export
 #' @examples
 regex.widget0 <- function(vec,port=4567) {
@@ -1773,7 +1771,6 @@ get.yt.palette <- function(tax,use.cid.colors=TRUE) {
 #' @param tax either a data.frame, phyloseq, or tax_table
 #' @param use.cid.colors whether to use classic CID colors
 #' @return a color palette that can be used in \code{ggplot2}
-#' @examples
 #' @author Ying Taur
 #' @export
 get.yt.palette2 <- function (tax) {
@@ -2099,7 +2096,6 @@ read.uparse.data <- function(dirpath,
 #' @param data logical, if \code{TRUE}, returns a data frame of PCA axes instead of the plot. Default is \code{FALSE}.
 #' @param prefix character, an optional prefix text for PCA variable names. E.g. if \code{"unifrac"} is used, \code{"PCA1"} becomes \code{"unifrac.PCA1"}.
 #' @return Returns a \code{ggplot2} graph of PCA1 and PCA2.
-#' @examples
 #' @author Ying Taur
 #' @export
 pca.plot <- function(dist,data=FALSE,prefix=NA) {

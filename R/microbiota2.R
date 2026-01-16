@@ -673,8 +673,6 @@ select_sample_data <- function(phy, ..., verbose=FALSE) {
 #'
 #' @return logical indicating whether or not taxonomy levels are distinct.
 #' @export
-#'
-#' @examples
 taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")) {
   if (length(taxranks)<2) {
     stop("YTError: taxranks should be at least length 2")
@@ -697,7 +695,6 @@ taxonomy_is_distinct <- function(data,taxranks=c("Superkingdom", "Phylum", "Clas
 }
 
 
-
 #' @rdname make_taxonomy_distinct
 #' @export
 make_taxonomy_distinct <- function(x,...) UseMethod("make_taxonomy_distinct")
@@ -717,9 +714,9 @@ make_taxonomy_distinct <- function(x,...) UseMethod("make_taxonomy_distinct")
 #' @param phy [`phyloseq`][`phyloseq::phyloseq-class`] object
 #'
 #' @return modified data frame or [`phyloseq`][`phyloseq::phyloseq-class`] object with corrected names.
-#' @examples
 #' @rdname make_taxonomy_distinct
 #' @export
+#' @examples
 #' d.phy <- make_taxonomy_distinct(cid.phy)
 #' get.tax(d.phy)
 make_taxonomy_distinct.phyloseq <- function(phy,add.rank=FALSE) {
@@ -729,7 +726,6 @@ make_taxonomy_distinct.phyloseq <- function(phy,add.rank=FALSE) {
   tax_table(phy) <- tax %>% set.tax()
   return(phy)
 }
-
 
 #' @param data data to be modified
 #' @param taxranks vector of column names to be checked and modified.
@@ -1306,6 +1302,7 @@ view.distance.matrix <- function(dist,show.numbers=FALSE) {
 
 
 
+
 #' Perform taxonomic unfolding on phyloseq data
 #'
 #' Taxonomic unfolding refers to converting all taxonomic levels into separate taxa rows in the OTU table.
@@ -1317,7 +1314,6 @@ view.distance.matrix <- function(dist,show.numbers=FALSE) {
 #' Note that sample counts will be elevated and will no longer reflect the sequencing depth.
 #' @param phy phyloseq to be unfolded
 #' @param verbose whether or not to print progress
-#'
 #' @return a modified phyloseq object
 #' @export
 #'
@@ -1589,6 +1585,7 @@ calc.distance <- function(phy, method,
 
 
 
+
 #' Calculate pairwise distances
 #'
 #' For a given list of pairwise sample comparisons, calculate distance using [calc.distance()].
@@ -1611,12 +1608,37 @@ calc.distance <- function(phy, method,
 #' @export
 #'
 #' @examples
+#' library(tidyverse)
+#' # let's we only need the following pairwise comparisons:
+#' pairs <- tribble(
+#'   ~sample1, ~sample2,
+#'   "162B",   "157C",
+#'   "153B",   "175B",
+#'   "197C",   "1047",
+#'   "120C",   "188B",
+#'   "1081",   "112E",
+#'   "228C",   "172F",
+#'   "121D",   "226B",
+#'   "162E",   "220B",
+#'   "1013",   "172E",
+#'   "1048",   "155B"
+#' )
+#' # method 1
+#' pw1 <- calc.distance(cid.phy,method="pct.bray") %>%
+#'   get.pairwise() %>%
+#'   inner_join(pairs,by=c("sample1","sample2"))
+#' # method 2 (~65X faster)
+#' pw2 <- pairs %>%
+#'   mutate(dist=calc.pairwise(sample1,sample2,
+#'                             method="pct.bray",
+#'                             phy=cid.phy))
 calc.pairwise <- function(sample1, sample2, method, phy,
                           rarefy=FALSE,
                           pct=FALSE,
                           taxtree=FALSE,
                           unfold=FALSE,
-                          mean=FALSE) {
+                          mean=FALSE,
+                          verbose=FALSE) {
 
   samps <- c(sample1,sample2) %>% as.character() %>% unique()
   nsamps <- length(samps)
@@ -1624,13 +1646,19 @@ calc.pairwise <- function(sample1, sample2, method, phy,
   pct.all.combos <- choose(nsamps,2) / npairs
   # assuming distance calc is ~130x faster than pairwise, determine fastest method.
   if (pct.all.combos>=130) {
+    if (verbose) {
+      cli::cli_alert_info("npairs={npairs} from nsamps={nsamps}, calculating individually...")
+    }
     dist <- map2_dbl(sample1,sample2,~calc.pairwise(.x,.y,
                                                     method=method,phy=phy,
                                                     rarefy=rarefy,pct=pct,
                                                     taxtree=taxtree,unfold=unfold,
-                                                    mean=mean),.progress=TRUE)
+                                                    mean=mean,verbose=FALSE),.progress=TRUE)
     return(dist)
   } else {
+    if (verbose) {
+      cli::cli_alert_info("npairs={npairs} from nsamps={nsamps}, calculating together...")
+    }
     # message("calculating via entire distance matrix")
     # do distance calcs
     physub <- prune_samples(samps,phy) %>% prune_unused_taxa(verbose = FALSE)
@@ -1647,11 +1675,6 @@ calc.pairwise <- function(sample1, sample2, method, phy,
   }
 
 }
-
-
-
-
-
 
 
 # stacked taxplot functions -----------------------------------------------
@@ -3062,8 +3085,6 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
 # tree drawing/manipulation functions --------------------------------------------------
 
 
-
-
 #' Highlight a clade in ggtree
 #'
 #' @param gdata a data frame from a ggtree object.
@@ -3072,7 +3093,7 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
 #' @param criteria an expression that evaluates to logical, can use as an alternative (or in addition to) var/value,
 #' @param ymin the min value of y in the clade.
 #' @param ymax the max value of y in the clade.
-#' @param label A `glue` expression for the clade label. Default is `"{value`\n({var})"}
+#' @param label A `glue` expression for the clade label. Default is `"{value\n({var})"}`
 #' @param fill.color the clade fill color (default is `NA`, no fill)
 #' @param line.color the color of the outline around the clade (default `"dark gray"`)
 #' @param alpha the alpha value of the fill color (default 1)

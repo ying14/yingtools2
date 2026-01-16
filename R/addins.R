@@ -7,10 +7,6 @@
 # rstudioapi::navigateToFile(here::here("inst/rstudio/addins.dcf"))
 
 
-
-
-
-
 convert_winpath <- function() {
   context <- rstudioapi::getActiveDocumentContext()
   text <- context$selection[[1]]$text
@@ -97,8 +93,6 @@ set_line_break_after_comma_if_4096_chars_style <- function() {
 
 
 #' Formats the highlighted selection such that no line exceeds 4096 characters.
-#'
-#' @return
 #' @export
 style_selection_4096 <- function() {
   context <- rstudioapi::getActiveDocumentContext()
@@ -158,8 +152,6 @@ oneline_style <- function() {
 
 
 #' Formats the highlighted selection into one line
-#'
-#' @return
 #' @export
 style_selection_oneline <- function() {
   context <- rstudioapi::getActiveDocumentContext()

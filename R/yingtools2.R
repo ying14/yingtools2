@@ -1462,7 +1462,6 @@ compare_relationship <- function(x,y) {
   invisible(relationship)
 }
 
-
 #' Test if X and Y are one-to-one
 #'
 #' @param x first vector
@@ -1471,8 +1470,6 @@ compare_relationship <- function(x,y) {
 #' @return logical value as to whether or not the vectors are one-to-one.
 #' @rdname compare_relationship
 #' @export
-#'
-#' @examples
 is.one.to.one <- function(x,y) {
   rel <- compare_relationship(x,y)
   return(rel=="one-to-one")
@@ -5281,25 +5278,24 @@ barwidth_spacing_trans <- function(days,xlim,div) {
 #' seamless compared with the hassle of doing manually.
 #' @eval ggplot2:::rd_aesthetics("geom", "timeline")
 #' @inheritParams get.row
+# @param row.overlap
 #' @inheritParams ggplot2::geom_rect
+# @param mapping
+# @param data
+# @param stat
+# @param position
+# @param na.rm
+# @param show.legend
+# @param linejoin
+# @param inherit.aes
+# @param ...
 #' @inheritParams ggplot2::geom_text
-#' @param mapping
-#' @param data
-#' @param stat
-#' @param position
-#' @param ...
+# @param check_overlap
+# @param parse
 #' @param merge whether or not to merge adjacent/overlapping bars into 1 row before plotting (using [group_by_time()]). Default is `TRUE`.
 #' Note that merging only occurs if the bars are overlapping, and have the same label and fill.
 #' @param merge.gap if `merge=TRUE`, the maximum distance between two bars that are merged. Default is `1`.
 #' @param min.gap The allowable gap before two distinct rows are fitted on the same row, expressed as a proportion of the X-axis length. Note that this different than direct use of [get.row()]
-#' @param row.overlap
-#' @param check_overlap
-#' @param linejoin
-#' @param na.rm
-#' @param show.legend
-#' @param parse
-#' @param inherit.aes
-#' @return
 #' @export
 #' @examples
 #' library(tidyverse)

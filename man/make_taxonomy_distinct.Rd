@@ -41,3 +41,7 @@ either have Family=\code{"Erysipelotrichaceae" }or Family=\code{"Clostridiales F
 
 This will handle by adding \verb{"#1", "#2", ...} to the name in the event of #1, and adds rank for #2.
 }
+\examples{
+d.phy <- make_taxonomy_distinct(cid.phy)
+get.tax(d.phy)
+}
