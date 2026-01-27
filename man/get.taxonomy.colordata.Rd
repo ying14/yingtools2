@@ -2,9 +2,25 @@
 % Please edit documentation in R/microbiota2.R
 \name{get.taxonomy.colordata}
 \alias{get.taxonomy.colordata}
-\title{Calculate taxonomy colors}
+\title{#' @export
+scale_sample.linetype_discrete <- function(..., aesthetics="sample.linetype") {
+discrete_scale(aesthetics=aesthetics, ...)
+}
+#' @export
+scale_sample.linewidth_discrete <- function(..., aesthetics="sample.linewidth") {
+discrete_scale(aesthetics=aesthetics, ...)
+}
+#' @export
+scale_sample.colour_manual <- function(..., aesthetics="sample.colour") {
+scale_colour_manual(aesthetics=aesthetics, ...)
+}
+Calculate taxonomy colors}
 \usage{
-get.taxonomy.colordata(data, unitvar = Species, tax.palette = yt.palette3)
+get.taxonomy.colordata(
+  data,
+  unitvar = Species,
+  tax.palette = bacterial.palette
+)
 }
 \arguments{
 \item{data}{taxonomic data, can be \code{\link[phyloseq:phyloseq-class]{phyloseq}}, \code{\link[=get.otu.melt]{get.otu.melt()}} data frame, or \code{\link[=get.tax]{get.tax()}} data frame.}

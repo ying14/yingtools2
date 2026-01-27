@@ -1780,6 +1780,20 @@ draw_key_polygon_close <- function(data, params, size) {
 #'                     color=Genus=="Blautia")) +
 #'   geom_taxonomy(width=2,linewidth=2) +
 #'   scale_colour_manual(values=c("TRUE"="red","FALSE"="transparent"))
+#' # sample-level formatting
+#' ggplot(data=otu) +
+#'   geom_taxonomy(aes(x=sample,y=pctseqs,fill=otu,label=Genus,
+#'                     sample.linetype=Consistency,
+#'                     sample.linewidth=Consistency,
+#'                     sample.colour=Consistency)) +
+#'   scale_colour_manual(aesthetics="sample.colour",
+#'                       values=c("formed stool"="red",
+#'                                "semi-formed"="blue")) +
+#'   scale_linetype_manual(aesthetics="sample.linetype",
+#'                         values=c("formed stool"="longdash",
+#'                                  "semi-formed"="dotted")) +
+#'   scale_linewidth_manual(aesthetics="sample.linewidth",
+#'                          values=c("formed stool"=1.5,"semi-formed"=3))
 geom_taxonomy <- function(mapping = NULL, data = NULL,
                           stat = StatTaxonomy,
                           position = "stack",
@@ -1789,7 +1803,7 @@ geom_taxonomy <- function(mapping = NULL, data = NULL,
                           # width = 0.95,
                           na.rm = FALSE,
                           parse = FALSE,
-                          tax.palette = yt.palette3,
+                          tax.palette = bacterial.palette,
                           drop = FALSE,
                           fit.text = TRUE,
                           reflow = FALSE,
@@ -2269,7 +2283,7 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #'   labs(fill="Bacterial Taxa")
 scale_fill_taxonomy <- function(...,
                                 data,
-                                tax.palette = yt.palette3,
+                                tax.palette = bacterial.palette,
                                 fill = Species,
                                 aesthetics = "fill",
                                 guide = guide_taxonomy(),
@@ -2287,7 +2301,7 @@ scale_fill_taxonomy <- function(...,
 #' @export
 scale_color_taxonomy <- function(...,
                                  data,
-                                 tax.palette = yt.palette3,
+                                 tax.palette = bacterial.palette,
                                  color = Species,
                                  aesthetics = "colour",
                                  guide = guide_taxonomy(),
@@ -2898,13 +2912,22 @@ guide_gengrob.taxonomy <- function(guide, theme) {
 #' If `sample.colour` is specified as an aesthetic, the layer will search for a default scale by name
 #' (`ggplot2:::Layer$compute_aesthetics` > `ggplot2:::scales_add_defaults` > `ggplot2:::find_scale`).
 #' @export
-scale_sample.colour_discrete <- function (..., h = c(0, 360) + 15, c = 100, l = 65, h.start = 0,
-                                          direction = 1, na.value = "grey50",
-                                          aesthetics = "sample.colour") {
-  discrete_scale(aesthetics, "hue",
-                 hue_pal(h, c, l, h.start,
-                         direction), na.value = na.value, ...)
+scale_sample.colour_discrete <- function(..., aesthetics="sample.colour") {
+  scale_colour_hue(aesthetics=aesthetics, ...)
 }
+#' #' @export
+#' scale_sample.linetype_discrete <- function(..., aesthetics="sample.linetype") {
+#'   discrete_scale(aesthetics=aesthetics, ...)
+#' }
+#' #' @export
+#' scale_sample.linewidth_discrete <- function(..., aesthetics="sample.linewidth") {
+#'   discrete_scale(aesthetics=aesthetics, ...)
+#' }
+#' #' @export
+#' scale_sample.colour_manual <- function(..., aesthetics="sample.colour") {
+#'   scale_colour_manual(aesthetics=aesthetics, ...)
+#' }
+
 
 
 
@@ -2921,7 +2944,7 @@ scale_sample.colour_discrete <- function (..., h = c(0, 360) + 15, c = 100, l = 
 #' `name`=taxonomic label, `color`=assigned color. If a color was not used, it is included as a row in which `unit = NA`.
 #' @export
 get.taxonomy.colordata <- function(data, unitvar = Species,
-                                   tax.palette = yt.palette3) {
+                                   tax.palette = bacterial.palette) {
   # data=phy1;unitvar="Species";tax.palette=yt.palette2
   requireNamespace("phyloseq", quietly = TRUE)
   unitvar <- ensym(unitvar)
@@ -3027,9 +3050,10 @@ yt.palette2 <- exprs(
 #'
 #' ```{r}
 #' #| echo: false
-#' taxlegend3 <- get.tax.legend(tax.palette = yt.palette3, fontsize = 5)
-#' grid::grid.newpage()
-#' grid::grid.draw(taxlegend3)
+#' show.tax.legend(yt.palette3)
+#' #taxlegend3 <- get.tax.legend(tax.palette = yt.palette3, fontsize = 5)
+#' #grid::grid.newpage()
+#' #grid::grid.draw(taxlegend3)
 #' ```
 #' @export
 yt.palette3 <- exprs(
@@ -3043,6 +3067,31 @@ yt.palette3 <- exprs(
   "Staphylococcus (genus)"  = Genus=="Staphylococcus" ~ shades("#f1eb25", variation = 0.15),
   "Lactobacillus (genus)" = Genus=="Lactobacillus" ~ shades("#3b51a3", variation = 0.15),
   "Proteobacteria (phylum)" = Phylum %in% c("Proteobacteria","Pseudomonadota") ~ shades("red", variation = 0.4),
+  "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
+)
+
+
+
+#' Bacterial Palette
+#'
+#' The customary palette for Fungi. This is the one used by Thierry Rolling.
+#'
+#' ```{r}
+#' #| echo: false
+#' show.tax.legend(bacterial.palette)
+#' ```
+#' @export
+bacterial.palette <- exprs(
+  "Bacteroidota (phylum)" = Phylum %in% c("Bacteroidetes","Bacteroidota") ~ shades("#51AB9B", variation = 0.25),
+  "Lachnospiraceae (family)" = Family=="Lachnospiraceae" ~ shades("#EC9B96", variation = 0.25),
+  "Oscillospiraceae (family)"  = Family %in% c("Ruminococcaceae","Oscillospiraceae") ~ shades("#9AAE73", variation = 0.25),
+  "Eubacteriales (order)" = Order %in% c("Clostridiales","Eubacteriales") ~ shades("#9C854E", variation = 0.25),
+  "Actinomycetota (phylum)" = Phylum %in% c("Actinobacteria","Actinomycetota") ~ shades("#A77097", variation = 0.25),
+  "Enterococcus (genus)" = Genus=="Enterococcus" ~ shades("#129246", variation = 0.15),
+  "Streptococcus (genus)" = Genus=="Streptococcus" ~ shades("#9FB846", variation = 0.15),
+  "Staphylococcus (genus)"  = Genus=="Staphylococcus" ~ shades("#f1eb25", variation = 0.15),
+  "Lactobacillus (genus)" = Genus=="Lactobacillus" ~ shades("#3b51a3", variation = 0.15),
+  "Pseudomonadota (phylum)" = Phylum %in% c("Proteobacteria","Pseudomonadota") ~ shades("red", variation = 0.4),
   "Other Bacteria" = TRUE ~ shades("gray", variation=0.25)
 )
 
@@ -3080,6 +3129,42 @@ cid.colors <- c("Enterococcus"="#129246","Streptococcus"="#a89e6a","Blautia"="#f
                 "Spracetigenium"="#72b443","Veillonella"="#653f99","Lactococcus"="#51a546",
                 "Granulicatella"="#a5a7aa","Proteobacteria"="#ed2024","Other Bacteroidetes"="#963695",
                 "Other Firmicutes"="#929497","Other Bacteria"="#6d6e70")
+
+#' Show Tax Legend
+#'
+#' Use this to preview the tax palette.
+#' @param palette palette (list of expressions) to be viewed
+#' @export
+#' @examples
+#' show.tax.legend(bacterial.palette)
+#' show.tax.legend(fungal.palette)
+show.tax.legend <- function(palette) {
+
+  vars.needed <- palette %>%
+    map(~{
+      rlang::f_lhs(.x) %>% all.vars()
+    }) %>%
+    simplify() %>%
+    c("otu") %>%
+    unique() %>%
+    as.character()
+  df <- rep(list("xxx"),length.out=length(vars.needed)) %>%
+    setNames(vars.needed) %>% as_tibble() %>%
+    bind_cols(tibble(sample="xxx",pctseqs=1))
+  g <- ggplot(df,aes(x=sample,y=pctseqs,fill=otu)) +
+    geom_taxonomy(tax.palette = palette)
+
+  gt <- gtable::as.gtable(g)
+  is.guide <- grepl("guide-box",gt$layout$name)
+  is.empty <- map_lgl(gt$grobs,~inherits(.,"zeroGrob"))
+  is.legend <- which(is.guide & !is.empty)
+  if (length(is.legend)!=1) {
+    cli::cli_abort("YTError: unable to find legend")
+  }
+  legend.grob <- gt$grobs[[is.legend]]
+  grid.newpage()
+  grid.draw(legend.grob)
+}
 
 
 # tree drawing/manipulation functions --------------------------------------------------

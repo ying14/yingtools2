@@ -14,7 +14,7 @@ geom_taxonomy(
   label.split = FALSE,
   na.rm = FALSE,
   parse = FALSE,
-  tax.palette = yt.palette3,
+  tax.palette = bacterial.palette,
   drop = FALSE,
   fit.text = TRUE,
   reflow = FALSE,
@@ -223,4 +223,18 @@ ggplot(data=otu,aes(x=day,y=pctseqs,fill=otu,label=Genus,
                     color=Genus=="Blautia")) +
   geom_taxonomy(width=2,linewidth=2) +
   scale_colour_manual(values=c("TRUE"="red","FALSE"="transparent"))
+# sample-level formatting
+ggplot(data=otu) +
+  geom_taxonomy(aes(x=sample,y=pctseqs,fill=otu,label=Genus,
+                    sample.linetype=Consistency,
+                    sample.linewidth=Consistency,
+                    sample.colour=Consistency)) +
+  scale_colour_manual(aesthetics="sample.colour",
+                      values=c("formed stool"="red",
+                               "semi-formed"="blue")) +
+  scale_linetype_manual(aesthetics="sample.linetype",
+                        values=c("formed stool"="longdash",
+                                 "semi-formed"="dotted")) +
+  scale_linewidth_manual(aesthetics="sample.linewidth",
+                         values=c("formed stool"=1.5,"semi-formed"=3))
 }

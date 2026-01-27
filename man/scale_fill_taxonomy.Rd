@@ -8,7 +8,7 @@
 scale_fill_taxonomy(
   ...,
   data,
-  tax.palette = yt.palette3,
+  tax.palette = bacterial.palette,
   fill = Species,
   aesthetics = "fill",
   guide = guide_taxonomy(),
@@ -19,7 +19,7 @@ scale_fill_taxonomy(
 scale_color_taxonomy(
   ...,
   data,
-  tax.palette = yt.palette3,
+  tax.palette = bacterial.palette,
   color = Species,
   aesthetics = "colour",
   guide = guide_taxonomy(),
