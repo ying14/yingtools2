@@ -19,6 +19,9 @@ Logical indicating whether or not columns are distinct.
 \description{
 Determine if specified columns within data are distinct for individual rows.
 }
+\details{
+This function currently converts data to a \code{data.table} for its determination, for the sake of speed.
+}
 \examples{
 cid.patients \%>\% is.distinct(Patient_ID)
 cid.cdiff \%>\% is.distinct(Patient_ID)

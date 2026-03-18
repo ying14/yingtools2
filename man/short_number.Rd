@@ -11,7 +11,7 @@ short_number(x, abbrev = c(K = 3, M = 6, B = 9), sig.digits = 3)
 
 \item{abbrev}{named vector specifying the log base 10 cutoff values and their assigned label. Default is \code{c(K=3,M=6,B=9)}.}
 
-\item{sig.digits}{number of signficant digits to use.}
+\item{sig.digits}{number of signficant digits to use. Default is \code{3}.}
 }
 \value{
 character vector of formatted numbers

@@ -49,7 +49,7 @@ Default is \code{Species} (passed as \code{unitvar} to \code{\link[=get.taxonomy
 Discrete scales for taxonomy.
 }
 \details{
-This is modified from \code{\link[ggplot:scale_fill_manual]{ggplot::scale_fill_manual()}}. It runs \code{\link[=get.taxonomy.colordata]{get.taxonomy.colordata()}} to obtain colors.
+This is modified from \code{\link[ggplot2:scale_manual]{ggplot2::scale_fill_manual()}}. It runs \code{\link[=get.taxonomy.colordata]{get.taxonomy.colordata()}} to obtain colors.
 If you want zero gap between shades in the legend, \verb{use key_glyph=}\code{\link[=draw_key_polygon_close]{draw_key_polygon_close()}} in the \code{geom} statement,
 which is what \code{\link[=geom_taxonomy]{geom_taxonomy()}} does.
 }

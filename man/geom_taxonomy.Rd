@@ -143,14 +143,14 @@ the default plot specification, e.g. \code{\link[ggplot2:annotation_borders]{ann
 Creates stacked taxonomy barplots.
 }
 \details{
-This geom is similar to \code{\link[ggplot:geom_col]{ggplot::geom_col()}}, where you can draw stacked barplots.
+This geom is similar to \code{\link[ggplot2:geom_bar]{ggplot2::geom_col()}}, where you can draw stacked barplots.
 However there are a few additional capabilities:
 \enumerate{
 \item You can specify the aesthetic \code{label} to write text labels inside the bars.
 The text labels can be further tweaked using aesthetics (\code{fontsize}, \code{fontcolour}, \code{fontface}, \code{fontalpha}),
 or other parameters (\code{fit.text}, \code{reflow}, \code{contrast}, \code{label.split}, \code{parse}, \code{check_overlap})
 \item If Y-axis is transformed, the total Y bar height will be correct.
-In \code{\link[ggplot:geom_col]{ggplot::geom_col()}}, stacking of individual transformed Y values often leads to strange results.
+In \code{\link[ggplot2:geom_bar]{ggplot2::geom_col()}}, stacking of individual transformed Y values often leads to strange results.
 Here, the transformed Y totals for each bar is calculated and plotted.
 Fill colors occupy the barspace proportionally.
 }

@@ -23,7 +23,9 @@
 #' @examples
 #' get.samp(cid.phy)
 #' @export
-get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon")) {
+get.samp <- function(phy,
+                     stats=FALSE,
+                     measures=c("Observed","InvSimpson","Shannon")) {
   requireNamespace("phyloseq",quietly=TRUE)
   if (is.null(sample_data(phy,FALSE)) | is(phy,"otu_table")) {
     #if no sample_data, return single data frame with sample column
@@ -33,21 +35,21 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
     sdata <- phyloseq::sample_data(phy) %>% data.frame(stringsAsFactors=FALSE) %>% rownames_to_column("sample") %>% as_tibble()
   }
 
-  sdata.newcols <- tibble(nseqs=unname(phyloseq::sample_sums(phy)))
   if (stats) {
+    sdata.newcols <- tibble(nseqs=unname(phyloseq::sample_sums(phy)))
     stat.data <- phyloseq::estimate_richness(phy,measures=measures) %>% as_tibble()
     sdata.newcols <- cbind(sdata.newcols,stat.data)
+    names.exist <- intersect(names(sdata.newcols),names(sdata))
+    values.all.equal <- map_lgl(names.exist,~{
+      all(sdata.newcols[[.x]]==sdata[[.x]],na.rm=TRUE)
+    })
+    names.exist.and.different <- names.exist[!values.all.equal]
+    if (length(names.exist.and.different)>0) {
+      # warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
+      cli_warn("YTWarning: sample data contains columns which will be overwritten with values that look different: {.var {col_blue(names.exist.and.different)}}")
+    }
+    sdata <- sdata %>% select(-all_of(names.exist)) %>% cbind(sdata.newcols) %>% as_tibble()
   }
-  names.exist <- intersect(names(sdata.newcols),names(sdata))
-  values.all.equal <- map_lgl(names.exist,~{
-    all(sdata.newcols[[.x]]==sdata[[.x]],na.rm=TRUE)
-  })
-  names.exist.and.different <- names.exist[!values.all.equal]
-  if (length(names.exist.and.different)>0) {
-    # warning("YTWarning: sample data contains columns which will be overwritten with values that look different: ",paste(names.exist.and.different,collapse=", "))
-    cli_warn("YTWarning: sample data contains columns which will be overwritten with values that look different: {.var {col_blue(names.exist.and.different)}}")
-  }
-  sdata <- sdata %>% select(-all_of(names.exist)) %>% cbind(sdata.newcols) %>% as_tibble()
   return(sdata)
 }
 
@@ -60,6 +62,12 @@ get.samp <- function(phy,stats=FALSE,measures=c("Observed","InvSimpson","Shannon
 #' @export
 set.samp <- function(sdata) {
   requireNamespace(c("phyloseq"),quietly=TRUE)
+  if (!("sample" %in% names(sdata))) {
+    cli::cli_abort("YTError: {.pkg sample} not found in data!")
+  }
+  if (ncol(sdata)==1) {
+    return(NULL)
+  }
   ss <- sdata %>% column_to_rownames("sample") %>%
     data.frame(stringsAsFactors=FALSE) %>% phyloseq::sample_data()
   return(ss)
@@ -92,6 +100,12 @@ get.tax <- function(phy) {
 #' @export
 set.tax <- function(tdata) {
   requireNamespace(c("phyloseq"),quietly=TRUE)
+  if (!("otu" %in% names(tdata))) {
+    cli::cli_abort("YTError: {.pkg otu} not found in data!")
+  }
+  if (ncol(tdata)==1) {
+    return(NULL)
+  }
   tt <- tdata %>% column_to_rownames("otu") %>%
     as.matrix() %>% phyloseq::tax_table()
   return(tt)
@@ -1204,6 +1218,149 @@ prune_unused_taxa <- function(phy,verbose=FALSE) {
 
 
 
+
+#' Combine phyloseq objects into one
+#'
+#' Similar to [phyloseq::merge_phyloseq()], but with different behavior and verbosity.
+#'
+#' `phy.combine()` and [phyloseq::merge_phyloseq()] have many similarities:
+#' 1. Both functions combine phyloseq objects, with the ability to have shared taxa and shared samples across phyloseqs,
+#' using `taxa_names()` and `sample_names()` as scaffold.
+#' 2. If there is a mismatch in terms of columns in `tax_table()` or `sample_data()`, both functions
+#' try to keep the data by inserting `NA` values.
+#'
+#' However, there are a few important differences:
+#' 1. When merging `otu_table()`, if both phyloseqs have overlapping sample-taxon fields,
+#' [phyloseq::merge_phyloseq()] will add abundances together;
+#' whereas `phy.combine()` will make sure every duplicated field is identifical in value, and then use that value.
+#' 2. When merging `sample_data()` or `tax_table()`, if the phyloseqs do not match in terms of a particular value,
+#' [phyloseq::merge_phyloseq()] will just use the value from the first phyloseq, whereas
+#' `phy.combine()` will throw an error.
+#' 3. If `sample_data()`, `tax_table()`, or `refseq()` only appears in one phyloseq and not the other,
+#' [phyloseq::merge_phyloseq()] will remove any taxa or sample that is not represented fully.
+#' `phy.combine()` will warn and then insert `NA` blanks for `sample_data()` and `tax_table()`, and
+#' remove for `refseq()`.
+#' 4. If there is a `phy_tree()` present in either phyloseq object, [phyloseq::merge_phyloseq()] will fail completely;
+#' `phy.combine()` will remove and issue warning.
+#' 5. `phy.combine()` will issues warnings if the two phyloseq objects do not have any shared taxa.
+#'
+#' @param x first phyloseq object
+#' @param y second phyloseq object
+#'
+#' @return Merged phyloseq
+#' @export
+#'
+#' @examples
+#' # distinct samples with some taxa overlap (most straightforward)
+#' # warns if there is phylo tree
+#' phy1 <- cid.phy %>% filter(sample %in% sample[1:4])
+#' phy2 <- cid.phy %>% filter(sample %in% sample[5:8])
+#' phy.combine(phy1,phy2)
+#'
+#' # overlapping samples (combines and checks overlap, issues warning)
+#' phy1 <- cid.phy %>% filter(sample %in% sample[1:6])
+#' phy2 <- cid.phy %>% filter(sample %in% sample[4:9])
+#' phy.combine(phy1,phy2)
+#'
+#' # incomplete columns in x or y (issues warning)
+#' phy1 <- cid.phy %>% filter(sample %in% sample[1:4]) %>%
+#'   select_tax_table(-Kingdom)
+#' phy2 <- cid.phy %>% filter(sample %in% sample[5:8]) %>%
+#'   select_sample_data(-Consistency)
+#' phy.combine(phy1,phy2)
+#'
+#' # completely missing sample_data, tax_table, refseq (issues warning)
+#' phy1 <- cid.phy %>% filter(sample %in% sample[1:4]) %>%
+#'   phyloseq(otu_table(.),phy_tree(.))
+#' phy2 <- cid.phy %>% filter(sample %in% sample[5:8])
+#' phy.combine(phy1,phy2)
+phy.combine <- function(x,y) {
+  # otu_table
+  otu.x <- get.otu(x,as.matrix=FALSE)
+  otu.y <- get.otu(y,as.matrix=FALSE)
+  otu.xy <- full_join_replace(otu.x,otu.y,by="otu",conflict="error")
+  otu.xy[is.na(otu.xy)] <- 0
+  # tax_table
+  tax.x <- get.tax(x)
+  tax.y <- get.tax(y)
+  tax.xy <- full_join_replace(tax.x,tax.y,by="otu",conflict="error")
+  # sample_data
+  samp.x <- get.samp(x)
+  samp.y <- get.samp(y)
+  samp.xy <- full_join_replace(samp.x,samp.y,by="sample",conflict="error")
+  # tree
+  has.tree.x <- !is.null(phy_tree(x,errorIfNULL=FALSE))
+  has.tree.y <- !is.null(phy_tree(y,errorIfNULL=FALSE))
+  # refseq
+  refseq.x <- refseq(x,errorIfNULL=FALSE)
+  refseq.y <- refseq(y,errorIfNULL=FALSE)
+  has.refseq.x <- !is.null(refseq.x)
+  has.refseq.y <- !is.null(refseq.y)
+  if (has.refseq.x && has.refseq.y) {
+    refseq.df.x <- tibble(otu=taxa_names(x),refseq=unname(as.character(refseq.x)))
+    refseq.df.y <- tibble(otu=taxa_names(y),refseq=unname(as.character(refseq.y)))
+    refseq.df.xy <- full_join_replace(refseq.df.x,refseq.df.y,by="otu",conflict="error")
+    refseq.xy <- refseq.df.xy$refseq %>% setNames(refseq.df.xy$otu) %>% as("DNAStringSet")
+  } else {
+    refseq.xy <- NULL
+  }
+  xy <- phyloseq(set.otu(otu.xy),set.tax(tax.xy),set.samp(samp.xy),refseq.xy)
+
+  # info section
+  otu.xy.overlap <- intersect(taxa_names(x),taxa_names(y))
+  has.otu.xy.overlap <- !is_empty(otu.xy.overlap)
+  samp.xy.overlap <- intersect(sample_names(x),sample_names(y))
+  has.samp.xy.overlap <- !is_empty(samp.xy.overlap)
+  rank.x <- rank_names(x,errorIfNULL=FALSE)
+  rank.y <- rank_names(y,errorIfNULL=FALSE)
+  rank.x.only <- setdiff(rank.x,rank.y)
+  rank.y.only <- setdiff(rank.y,rank.x)
+  sampvar.x.only <- setdiff(sample_variables(x,errorIfNULL=FALSE),sample_variables(y,errorIfNULL=FALSE))
+  sampvar.y.only <- setdiff(sample_variables(y,errorIfNULL=FALSE),sample_variables(x,errorIfNULL=FALSE))
+
+
+  cli::cli_alert_info("{.pkg {ntaxa(xy)} taxa}: x={ntaxa(x)}; y={ntaxa(y)}; {length(otu.xy.overlap)} overlap")
+  cli::cli_alert_info("{.pkg {nsamples(xy)} samples}: x={nsamples(x)}; y={nsamples(y)}; {length(samp.xy.overlap)} overlap")
+  cli::cli_alert_info("{.pkg {length(rank_names(xy,errorIfNULL=FALSE))} tax ranks}: x={length(rank.x)}; y={length(rank.y)}")
+  cli::cli_alert_info("{.pkg {length(sample_variables(xy,errorIfNULL=FALSE))} sample vars}: x={length(sample_variables(x,errorIfNULL=FALSE))}; y={length(sample_variables(y,errorIfNULL=FALSE))}")
+  cli::cli_alert_info("{.pkg phylo}: x={has.tree.x}; y={has.tree.y}")
+  cli::cli_alert_info("{.pkg refseq}: x={has.refseq.x}; y={has.refseq.y}")
+
+  if (!has.otu.xy.overlap) {
+    cli::cli_warn("No overlapping {.pkg taxa} between x and y. Consider making taxa more combinable, if necessary.")
+  }
+  if (has.samp.xy.overlap) {
+    if (has.otu.xy.overlap) {
+      # samples overlap, otu overlap
+      cli::cli_warn("Overlapping {.pkg samples} between x and y. Taxa from each will be combined; overlapping taxa were checked for consistency.")
+    } else {
+      # samples overlap, no otu overlap
+      cli::cli_warn("Overlapping {.pkg samples} between x and y. Taxa from each will be combined.")
+    }
+  }
+  if (!is_empty(rank.x.only)) {
+    cli::cli_warn("YTWarning: in tax_table(), {.pkg {cli::ansi_collapse(rank.x.only,trunc=5)}} {?appears/appear} in x and not y. Missing values will be filled in with NA.")
+  }
+  if (!is_empty(rank.y.only)) {
+    cli::cli_warn("YTWarning: in tax_table(), {.pkg {cli::ansi_collapse(rank.y.only,trunc=5)}} {?appears/appear} in y and not x. Missing values will be filled in with NA.")
+  }
+  if (!is_empty(sampvar.x.only)) {
+    cli::cli_warn("YTWarning: in sample_data(), {.pkg {cli::ansi_collapse(sampvar.x.only,trunc=5)}} {?appears/appear} in x and not y. Missing values will be filled in with NA.")
+  }
+  if (!is_empty(sampvar.y.only)) {
+    cli::cli_warn("YTWarning: in sample_data(), {.pkg {cli::ansi_collapse(sampvar.y.only,trunc=5)}} {?appears/appear} in y and not x. Missing values will be filled in with NA.")
+  }
+  if (has.tree.x || has.tree.y) {
+    cli::cli_warn("YTWarning: phylogenetic trees will not be included; these should be re-created manually if necessary.")
+  }
+  if (has.refseq.x!=has.refseq.y) {
+    cli::cli_warn("YTWarning: cannot include refseq data if it only appears in one phy object.")
+  }
+  return(xy)
+}
+
+
+
 # distance metric methods -------------------------------------------------
 
 
@@ -1710,13 +1867,13 @@ draw_key_polygon_close <- function(data, params, size) {
 #'
 #' Creates stacked taxonomy barplots.
 #'
-#' This geom is similar to [ggplot::geom_col()], where you can draw stacked barplots.
+#' This geom is similar to [ggplot2::geom_col()], where you can draw stacked barplots.
 #' However there are a few additional capabilities:
 #' 1. You can specify the aesthetic `label` to write text labels inside the bars.
 #' The text labels can be further tweaked using aesthetics (`fontsize`, `fontcolour`, `fontface`, `fontalpha`),
 #' or other parameters (`fit.text`, `reflow`, `contrast`, `label.split`, `parse`, `check_overlap`)
 #' 2. If Y-axis is transformed, the total Y bar height will be correct.
-#' In [ggplot::geom_col()], stacking of individual transformed Y values often leads to strange results.
+#' In [ggplot2::geom_col()], stacking of individual transformed Y values often leads to strange results.
 #' Here, the transformed Y totals for each bar is calculated and plotted.
 #' Fill colors occupy the barspace proportionally.
 #' @eval ggplot2:::rd_aesthetics("geom", "taxonomy")
@@ -2221,7 +2378,7 @@ LayerTaxonomy <- ggproto("LayerTaxonomy",ggplot2:::Layer,
 #'
 #' Discrete scales for taxonomy.
 #'
-#' This is modified from [ggplot::scale_fill_manual()]. It runs [get.taxonomy.colordata()] to obtain colors.
+#' This is modified from [ggplot2::scale_fill_manual()]. It runs [get.taxonomy.colordata()] to obtain colors.
 #' If you want zero gap between shades in the legend, `use key_glyph=`[draw_key_polygon_close()] in the `geom` statement,
 #' which is what [geom_taxonomy()] does.
 #' @inheritParams get.taxonomy.colordata
@@ -2393,11 +2550,10 @@ taxonomy_scale <- function(aesthetic,
 #' `ggproto` method for tax legend.
 #' Used by [scale_fill_taxonomy()] and [scale_color_taxonomy()] to make custom legend.
 #'
-#' This is modified from `ggplot::GuideLegend`, and modifies 3 functions:
+#' This is modified from `ggplot2::GuideLegend`, and modifies 3 functions:
 #' `train()`, `build_decor()` and `setup_elements()`.
 #'
 #' @export
-
 GuideTaxonomy <- ggproto("GuideTaxonomy",GuideLegend,
                          params = list(
                            title = waiver(),

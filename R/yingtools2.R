@@ -304,6 +304,7 @@ all.same.data.frame <- function(x,y) {
 #' cli_table(data)
 cli_table <- function(data,flexcols=NULL,sep=" ") {
   distribute <- function(x,n) {
+    # given x width, divide up into n widths.... distribute(14,3) >>> c(5,5,4)
     div <- x %/% n
     mod <- x %% n
     rep(div,length=n) + ifelse((1:n)<=mod,1,0)
@@ -311,7 +312,7 @@ cli_table <- function(data,flexcols=NULL,sep=" ") {
   width <- cli::console_width()
   mat <- data %>%
     mutate(across(.cols=everything(),.fns=~{
-      .x %>% as.character() %>% pillar::align()
+      .x %>% as.character() #%>% pillar::align()
     })) %>% as.matrix()
   allcols <- 1:ncol(mat)
   # nchar of all cols
@@ -337,11 +338,16 @@ cli_table <- function(data,flexcols=NULL,sep=" ") {
     flexlength <- flexlengths[i]
     mat[,flexcol] <- ansi_strtrim(mat[,flexcol], width = flexlength, ellipsis = symbol$ellipsis)
   }
+
+  # rbind just in case it's one row
+  mat <- apply(mat,2,pillar::align) %>% rbind()
+
   text <- mat %>% apply(1,function(x) {
     paste(x,collapse=sep)
   })
   cli::cat_line(text)
 }
+
 
 
 # simple vector operations ------------------------------------------------
@@ -724,313 +730,9 @@ cummax.Date <- function(x) {
 # data inspection tools --------------------------------------------------------
 
 
-#' Compare objects
-#'
-#' Compare two objects (vector or data frame), and displays a summary of similarities and differences.
-#'
-#' @param x object (vector or data frame) to be compared
-#' @param y object (vector or data frame) to be compared
-#' @param by variable(s) to join by and compare (for data frames only)
-#' @return displays a report of the comparison, and invisibly returns a table of comparison details.
-#' @examples
-#' library(tidyverse)
-#' vec <- stringr::sentences[1:100]
-#' compare(vec,vec)
-#' compare(vec,rev(vec))
-#' compare(vec,rep(vec,2))
-#' compare(rep(vec,2),vec)
-#' compare(vec,rep(vec[1:10],2))
-#' compare(vec,sample(vec,size=200,replace=TRUE))
-#' compare(vec[1:50],vec[51:100])
-#'
-#' m <- mtcars %>% rownames_to_column("car")
-#' m2 <- bind_rows(m,m)
-#' m3 <- bind_rows(m,m,m)
-#' m.sort <- m %>% arrange(mpg)
-#' m.single <- m; m.single[4,4] <- 200
-#' m.col <- m; m.col$disp <- 101
-#' m.top <- m %>% slice(1:25)
-#' m.bottom <- m %>% slice(10:n())
-#' m.extracol <- m %>% mutate(mpg2=mpg+1,hp2=hp*100)
-#' compare(m,m)
-#' compare(m,m,by="car")
-#' compare(m,m2,by="car")
-#' compare(m2,m3,by="car")
-#' compare(m,m,by="cyl")
-#' compare(m,m.sort,by="car")
-#' compare(m,m.single,by="car")
-#' compare(m,m.single)
-#' compare(m,m.col,by="car")
-#' compare(m,m.top,by="car")
-#' compare(m.top,m.bottom,by="car")
-#' @export
-compare <- function(x,...) {
-  UseMethod("compare",x)
-}
-
-
-#' @rdname compare
-#' @export
-compare.default <- function(x,y) {
-  if (is.atomic(x) && is.atomic(y)) {
-    compare.character(as.character(x),as.character(y))
-  } else {
-    stop("YTError: not sure how to compare these.")
-  }
-}
 
 
 
-
-#' @rdname compare
-#' @export
-compare.character <- function(x,y) {
-  #using deparse1(substitute) because as_label doesn't seem to work in UseMethod situations, for some reason.
-  x.name <- deparse1(substitute(x))
-  y.name <- deparse1(substitute(y))
-  x.type <- format(pillar::new_pillar_type(x))
-  y.type <- format(pillar::new_pillar_type(y))
-
-  # are.equal <- function(v1,v2) {
-  #   same <- (v1 == v2) | (is.na(v1) & is.na(v2))
-  #   same[is.na(same)] <- FALSE
-  #   return(same)
-  # }
-  x.length <- length(x)
-  y.length <- length(y)
-  x.ndistinct <- n_distinct(x)
-  y.ndistinct <- n_distinct(y)
-  x.is.distinct <- x.length==x.ndistinct
-  y.is.distinct <- y.length==y.ndistinct
-  xy.samelength <- x.length==y.length
-  xy.identical <- xy.samelength && all.same(x,y)
-  xy.identical.difforder <- xy.samelength && all.same(sort(x),sort(y))
-  x.not.y <- setdiff(x,y)
-  y.not.x <- setdiff(y,x)
-  x.and.y <- intersect(x,y)
-  setequal.xy <- length(x.not.y)==0 && length(y.not.x)==0
-  x.subsetof.y <-length(x.not.y)==0 && length(y.not.x)>0
-  y.subsetof.x <-length(y.not.x)==0 && length(x.not.y)>0
-  xy.nooverlap <- length(x.and.y)==0
-
-  cli_text("X ",
-           col_cyan("<{x.name}>"),
-           x.type,
-           " vs. ",
-           "Y ",
-           col_cyan("<{y.name}>"),
-           y.type)
-
-  if (x.is.distinct) {
-    cli_text("X is distinct ",style_italic(col_grey("(N={x.length})")))
-  } else {
-    cli_text("X is non-distinct ",style_italic(col_grey("(N={x.length}, {x.ndistinct} distinct)")))
-  }
-  if (y.is.distinct) {
-    cli_text("Y is distinct ",style_italic(col_grey("(N={y.length})")))
-  } else {
-    cli_text("Y is non-distinct ",style_italic(col_grey("(N={y.length}, {y.ndistinct} distinct)")))
-  }
-
-  report.sets <- FALSE
-
-  if (xy.identical) {
-    cli_text("X and Y are identical")
-  } else if (xy.identical.difforder) {
-    cli_text("X and Y are identical, but in different order")
-  } else if (setequal.xy) {
-    if (!x.is.distinct && y.is.distinct) {
-      cli_text("X and Y are equal sets, where X has duplicates")
-    } else if (x.is.distinct && !y.is.distinct) {
-      cli_text("X and Y are equal sets, where Y has duplicates")
-    } else if (!x.is.distinct && !y.is.distinct) {
-      cli_text("X and Y are equal sets, but with different freqs")
-    } else {
-      cli_text("?????")
-    }
-  } else if (x.subsetof.y) {
-    # cli_text("X is a subset of Y ",style_italic(col_grey("({x.ndistinct} out of {y.ndistinct})")))
-    cli_text("X is a subset of Y")
-    report.sets <- TRUE
-  } else if (y.subsetof.x) {
-    # cli_text("Y is a subset of X ",style_italic(col_grey("({y.ndistinct} out of {x.ndistinct})")))
-    cli_text("Y is a subset of X")
-    report.sets <- TRUE
-  } else if (xy.nooverlap) {
-    cli_text("X and Y do not overlap")
-    report.sets <- TRUE
-  } else {
-    # cli_text(str_glue("X and Y partially overlap: {length(x.not.y)} values both X and Y, {length(y.not.x)} values in Y only, {length(x.and.y)} values in X only"))
-    cli_text("X and Y partially overlap")
-    report.sets <- TRUE
-  }
-  if (report.sets) {
-    header <- c("X and Y",
-                "X only",
-                "Y only") %>% pillar::align()
-    items <- list(x.and.y,x.not.y,y.not.x)
-    show <- items %>% map_lgl(~length(.x)>0)
-    counts <- items %>% map_int(length) %>% str_c("[",.,"]") %>%
-      col_grey() %>% pillar::align()
-    body <- items %>% map_chr(pillar:::format_glimpse_1)
-    report <- str_c(header,counts,body,sep=" ") %>% ansi_strtrim()
-    cat_line(report[show])
-  }
-
-  tbl <- list(x.and.y=x.and.y,
-              x.only=x.not.y,
-              y.only=y.not.x)
-
-  invisible(tbl)
-}
-
-
-
-
-#' @rdname compare
-#' @export
-compare.data.frame <- function(x,y,by=NULL) {
-  x.name <- deparse1(substitute(x))
-  y.name <- deparse1(substitute(y))
-  x.type <- format(pillar::new_pillar_type(x))
-  y.type <- format(pillar::new_pillar_type(y))
-  cli_text("X ",
-           col_cyan("<{x.name}>"),
-           x.type,
-           " vs. ",
-           "Y ",
-           col_cyan("<{y.name}>"),
-           y.type)
-  # message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
-
-  xy.cols <- intersect(names(x),names(y))
-  x.cols <- setdiff(names(x),names(y))
-  y.cols <- setdiff(names(y),names(x))
-  if (is.null(by)) {
-    by <- xy.cols
-  }
-  by.x <- (names(by) %||% by) %>% if_else(.=="",by,.) %>% unname()  # similar to coalesce; if names(by) is NULL, then =by.
-  by.y <- unname(by)
-  # are by vars distinct?
-  x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
-  y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
-
-
-  if (setequal(by.x,names(x))) {
-    by.x.label <- str_glue("all {length(by.x)} vars")
-  } else {
-    by.x.label <- paste(by.x,collapse=",")
-  }
-  if (setequal(by.y,names(y))) {
-    by.y.label <- str_glue("all {length(by.y)} vars")
-  } else {
-    by.y.label <- paste(by.y,collapse=",")
-  }
-  cli_text("-X: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,'distinct','not distinct')} across {by.x.label})")
-  cli_text("-Y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,'distinct','not distinct')} across {by.y.label})")
-  # cols
-  column.report <- "Columns: "
-  if (length(x.cols)==0 && length(y.cols)==0) {
-    column.report <- c(column.report, str_glue("-X and Y have same {length(xy.cols)} columns"))
-  } else {
-    if (length(x.cols)>0) {
-      column.report <- c(column.report, str_glue("-X has {length(x.cols)} cols not in Y: {paste(x.cols,collapse=', ')}"))
-    }
-    if (length(y.cols)>0) {
-      column.report <- c(column.report, str_glue("-Y has {length(y.cols)} cols not in X: {paste(y.cols,collapse=', ')}"))
-    }
-  }
-  # message(paste(column.report,collapse="\n"))
-  cat_line(column.report)
-
-
-  if (length(by)==0) {
-    cli_text("-No cols to compare.")
-    return(invisible(NULL))
-  }
-  #compare x and y
-  different.by <- by.x!=by.y
-  if (any(different.by)) {
-    #rename vars such that by.x==by.y
-    old.x <- by.x[different.by]
-    old.y <- by.y[different.by]
-    new.xy <- paste(old.x,old.y,sep="___")
-    x <- x %>% rename(!!!(set_names(syms(old.x),new.xy)))
-    y <- y %>% rename(!!!(set_names(syms(old.y),new.xy)))
-    by.x <- ifelse(different.by,new.xy,by.x)
-    by.y <- ifelse(different.by,new.xy,by.y)
-    if (!all(by.x==by.y)) {
-      stop("YTError: by.x and by.y are different!")
-    }
-  }
-  x.byvals <- x %>% transmute(x.vals=paste(!!!syms(by.x),sep="__")) %>% pull(x.vals)
-  y.byvals <- y %>% transmute(y.vals=paste(!!!syms(by.y),sep="__")) %>% pull(y.vals)
-  byvals.setequal <- setequal(x.byvals,y.byvals)
-  byvals.xnoty <- setdiff(x.byvals,y.byvals)
-  byvals.ynotx <- setdiff(y.byvals,x.byvals)
-  byvals.y.subsetof.x <- length(byvals.xnoty)>0 && length(byvals.ynotx)==0
-  byvals.x.subsetof.y <- length(byvals.ynotx)>0 && length(byvals.xnoty)==0
-  byvals.samelength <- length(x.byvals)==length(y.byvals)
-  byvals.identical.diff.order <- byvals.samelength && byvals.setequal && all(sort(x.byvals)==sort(y.byvals))
-  byvals.identical <- byvals.samelength && byvals.setequal && all(x.byvals==y.byvals)
-  byvals.relationship <- str_glue("{if_else(x.is.distinct,'1','many')}-to-{if_else(y.is.distinct,'1','many')}")
-
-  cli_text("Joining:")
-  if (byvals.setequal) {
-    cli_text("-X and Y join completely, {byvals.relationship}")
-  } else if (byvals.y.subsetof.x) {
-    cli_text("-Y is a subset of X, {byvals.relationship}")
-  } else if (byvals.x.subsetof.y) {
-    cli_text("-X is a subset of Y, {byvals.relationship}")
-  } else {
-    cli_text("-X and Y partially overlap, {byvals.relationship}")
-  }
-  # recalculate in case of weirdness with col names
-  compare.vars <- intersect(names(x),names(y))
-  # add _x and _y to ends
-  names(x) <- paste0(names(x),"_x")
-  names(y) <- paste0(names(y),"_y")
-  by.x <- paste0(by.x,"_x")
-  by.y <- paste0(by.y,"_y")
-  compare.x <- paste0(compare.vars,"_x")
-  compare.y <- paste0(compare.vars,"_y")
-  by <- set_names(by.y,by.x)
-  if (length(intersect(names(x),names(y)))>0) {
-    #should never happen
-    stop("YTError: there's still name overlap after renaming!")
-  }
-  all <- full_join(x,y,by=by,keep=TRUE) %>%
-    mutate(.status=case_when(
-      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "both X and Y rows",
-      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ "X only rows",
-      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "Y only rows"
-    ))
-  diff <- map2(compare.x,compare.y,~{
-    xx <- all[[.x]]
-    yy <- all[[.y]]
-    !is.same(xx,yy)
-  }) %>% setNames(compare.vars) %>% as_tibble()
-  alldiff <- all %>% select(.status) %>% cbind(diff)
-  alldiff.summary <- alldiff %>%
-    group_by(.status) %>%
-    summarize(n.rows=n(),
-              across(all_of(compare.vars),.fns = ~{
-                diffcount <- sum(.x,na.rm=TRUE)
-                ifelse(diffcount>0,diffcount,NA_integer_)
-                # pct <- diffcount/n.rows
-                # ifelse(pct>0,pct,NA_integer_)
-              }),.groups="drop") %>%
-    mutate(n.diffs=coalesce_values(!!!syms(compare.vars),omit.na=TRUE))
-
-  alldiffs <- alldiff.summary %>% filter(.status=="both X and Y rows") %>% pull(n.diffs)
-  n.compared.rows <- alldiff.summary %>% filter(.status=="both X and Y rows") %>% pull(n.rows)
-  if (is.na(alldiffs)) {
-    cli_text("-no mismatches")
-  } else {
-    cli_text("-mismatched values in col(s): {alldiffs}")
-  }
-  invisible(all)
-}
 
 
 #' Tabulate
@@ -1103,7 +805,18 @@ search.data.columns <- function(data,pattern,ignore.case=TRUE) {
 }
 
 
-
+#' Rounding of Numbers
+#'
+#' Performs rounding function on data frame.
+#' @param x data frame to be rounded
+#' @param digits number of decimals to round
+#' @return the data frame, with numeric values rounded.
+#' @export
+#' @examples
+#' round(mtcars)
+round.data.frame <- function(x, digits = 0) {
+  x %>% mutate(across(.cols=where(is.numeric),.fns=~round(.x,digits=digits)))
+}
 
 
 
@@ -1396,6 +1109,9 @@ find.all.distinct.vars <- function(data, ...) {
 #' Is Distinct
 #'
 #' Determine if specified columns within data are distinct for individual rows.
+#'
+#' This function currently converts data to a `data.table` for its determination, for the sake of speed.
+#'
 #' @param data data frame to be analyzed
 #' @param ... grouping variables that define data units.
 #' @param add.group.vars if `TRUE`, add any grouping variables.
@@ -1408,15 +1124,11 @@ is.distinct <- function(data, ..., add.group.vars=TRUE) {
   gvars <- data %>%
     group_by(..., .add=add.group.vars) %>%
     groups()
-  anydup <- data %>% select(!!!gvars) %>% anyDuplicated()
+  # anydup <- data %>% select(!!!gvars) %>% anyDuplicated()
+  anydup <- data %>% select(!!!gvars) %>%
+    data.table::as.data.table() %>% anyDuplicated()
   return(anydup==0)
 }
-
-
-
-
-
-
 
 #' Test the relationship between X and Y
 #'
@@ -1458,8 +1170,7 @@ compare_relationship <- function(x,y) {
   } else {
     relationship <- "many-to-many"
   }
-  message(relationship)
-  invisible(relationship)
+  return(relationship)
 }
 
 #' Test if X and Y are one-to-one
@@ -4109,7 +3820,7 @@ pretty_scientific <- function(l,parse=TRUE) {
 #'
 #' @param x numeric vector to be formatted
 #' @param abbrev named vector specifying the log base 10 cutoff values and their assigned label. Default is `c(K=3,M=6,B=9)`.
-#' @param sig.digits number of signficant digits to use.
+#' @param sig.digits number of signficant digits to use. Default is `3`.
 #'
 #' @return character vector of formatted numbers
 #' @examples
@@ -4123,17 +3834,14 @@ short_number <- function(x,abbrev=c("K"=3,"M"=6,"B"=9),sig.digits=3) {
       abrv <- names(abbrev)[.y]
       pwr <- abbrev[.y]
       div <- .x / 10^pwr
-      root <- signif(div,sig.digits) %>% format(scientific=FALSE)
+      root <- signif(div,digits=sig.digits) %>% format(scientific=FALSE)
       text <- str_c(root,abrv)
     } else {
-      text <- signif(.x,sig.digits) %>% format(scientific=FALSE)
+      text <- signif(.x,digits=sig.digits) %>% format(scientific=FALSE)
     }
     return(text)
   })
 }
-
-
-
 
 
 # data reshaping functions -----------------------------------------------------
@@ -4427,7 +4135,6 @@ join_replace <- function(x,y,
   if (!keep.yonly) {
     y.only.rows <- function(data) NULL
   }
-
   check.distinct <- function(data,by) {
     any.dup <- data %>% select(all_of(by)) %>% anyDuplicated()
     is.distinct <- any.dup==0
@@ -4482,6 +4189,7 @@ inner_join_replace <- function(x,y,
                                status=FALSE) {
 
   join_replace(x,y,by=by,
+               conflict=conflict,
                keep=keep,
                status=status,
                keep.xonly=FALSE,
@@ -4500,6 +4208,7 @@ left_join_replace <- function(x,y,
   join_replace(x,y,by=by,
                keep=keep,
                status=status,
+               conflict=conflict,
                keep.xonly=TRUE,
                keep.yonly=FALSE)
 }
@@ -4514,6 +4223,7 @@ right_join_replace <- function(x,y,
   join_replace(x,y,by=by,
                keep=keep,
                status=status,
+               conflict=conflict,
                keep.xonly=FALSE,
                keep.yonly=TRUE)
 }
@@ -4529,6 +4239,7 @@ full_join_replace <- function(x,y,
   join_replace(x,y,by=by,
                keep=keep,
                status=status,
+               conflict=conflict,
                keep.xonly=TRUE,
                keep.yonly=TRUE)
 }

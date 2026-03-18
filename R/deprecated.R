@@ -1,6 +1,480 @@
 
 
+#' Compare objects
+#'
+#' Compare two objects (vector or data frame), and displays a summary of similarities and differences.
+#'
+#' @param x object (vector or data frame) to be compared
+#' @param y object (vector or data frame) to be compared
+#' @param by variable(s) to join by and compare (for data frames only)
+#' @return displays a report of the comparison, and invisibly returns a table of comparison details.
+#' @examples
+#' library(tidyverse)
+#' vec <- stringr::sentences[1:100]
+#' compare(vec,vec)
+#' compare(vec,rev(vec))
+#' compare(vec,rep(vec,2))
+#' compare(rep(vec,2),vec)
+#' compare(vec,rep(vec[1:10],2))
+#' compare(vec,sample(vec,size=200,replace=TRUE))
+#' compare(vec[1:50],vec[51:100])
+#'
+#' m <- mtcars %>% rownames_to_column("car")
+#' m2 <- bind_rows(m,m)
+#' m3 <- bind_rows(m,m,m)
+#' m.sort <- m %>% arrange(mpg)
+#' m.single <- m; m.single[4,4] <- 200
+#' m.col <- m; m.col$disp <- 101
+#' m.top <- m %>% slice(1:25)
+#' m.bottom <- m %>% slice(10:n())
+#' m.extracol <- m %>% mutate(mpg2=mpg+1,hp2=hp*100)
+#' compare(m,m)
+#' compare(m,m,by="car")
+#' compare(m,m2,by="car")
+#' compare(m2,m3,by="car")
+#' compare(m,m,by="cyl")
+#' compare(m,m.sort,by="car")
+#' compare(m,m.single,by="car")
+#' compare(m,m.single)
+#' compare(m,m.col,by="car")
+#' compare(m,m.top,by="car")
+#' compare(m.top,m.bottom,by="car")
+#' @export
+compareOLD <- function(x,...) {
+  UseMethod("compareOLD",x)
+}
 
+
+#' @rdname compare
+#' @export
+compareOLD.default <- function(x,y) {
+  if (is.atomic(x) && is.atomic(y)) {
+    compareOLD.character(as.character(x),as.character(y))
+  } else {
+    stop("YTError: not sure how to compare these.")
+  }
+}
+
+
+
+
+#' @rdname compare
+#' @export
+compareOLD.character <- function(x,y) {
+  #using deparse1(substitute) because as_label doesn't seem to work in UseMethod situations, for some reason.
+  x.name <- deparse1(substitute(x))
+  y.name <- deparse1(substitute(y))
+  x.type <- format(pillar::new_pillar_type(x))
+  y.type <- format(pillar::new_pillar_type(y))
+
+  i <- compareOLD.info.character(x,y)
+  cli_text("X ",
+           col_cyan("<{x.name}>"),
+           x.type,
+           " vs. ",
+           "Y ",
+           col_cyan("<{y.name}>"),
+           y.type)
+
+  if (i$x.is_distinct) {
+    cli_text("X is distinct ",style_italic(col_grey("(N={i$x.len})")))
+  } else {
+    cli_text("X is non-distinct ",style_italic(col_grey("(N={i$x.len}, {i$x.n_distinct} distinct)")))
+  }
+  if (i$y.is_distinct) {
+    cli_text("Y is distinct ",style_italic(col_grey("(N={i$y.len})")))
+  } else {
+    cli_text("Y is non-distinct ",style_italic(col_grey("(N={i$y.len}, {i$y.n_distinct} distinct)")))
+  }
+  report.sets <- FALSE
+
+
+  if (i$xy.is_identical) {
+    cli_text("X and Y are identical")
+  } else if (i$xy.is_identical_but_difforder) {
+    cli_text("X and Y are identical, but in different order")
+  } else if (i$xy.is_setequal) {
+    if (!i$x.is_distinct && i$y.is_distinct) {
+      cli_text("X and Y are equal sets, where X has duplicates")
+    } else if (i$x.is_distinct && !i$y.is_distinct) {
+      cli_text("X and Y are equal sets, where Y has duplicates")
+    } else if (!i$x.is_distinct && !i$y.is_distinct) {
+      cli_text("X and Y are equal sets, but with different freqs")
+    } else {
+      cli_text("?????")
+    }
+  } else if (i$x.is_subset_of.y) {
+    # cli_text("X is a subset of Y ",style_italic(col_grey("({x.ndistinct} out of {y.ndistinct})")))
+    cli_text("X is a subset of Y")
+    report.sets <- TRUE
+  } else if (i$y.is_subset_of.x) {
+    # cli_text("Y is a subset of X ",style_italic(col_grey("({y.ndistinct} out of {x.ndistinct})")))
+    cli_text("Y is a subset of X")
+    report.sets <- TRUE
+  } else if (i$xy.has_nooverlap) {
+    cli_text("X and Y do not overlap")
+    report.sets <- TRUE
+  } else {
+    cli_text("X and Y partially overlap")
+    report.sets <- TRUE
+  }
+  if (report.sets) {
+    header <- c("X and Y",
+                "X only",
+                "Y only") %>% pillar::align()
+    items <- list(x.and.y,x.not.y,y.not.x)
+    show <- items %>% map_lgl(~length(.x)>0)
+    counts <- items %>% map_int(length) %>% str_c("[",.,"]") %>%
+      col_grey() %>% pillar::align()
+    body <- items %>% map_chr(pillar:::format_glimpse_1)
+    report <- str_c(header,counts,body,sep=" ") %>% ansi_strtrim()
+    cat_line(report[show])
+  }
+
+  invisible(info)
+}
+
+
+
+#' @rdname compareOLD
+#' @export
+compareOLD.data.frame <- function(x,y,by=NULL) {
+  x.name <- deparse1(substitute(x))
+  y.name <- deparse1(substitute(y))
+  x.type <- format(pillar::new_pillar_type(x))
+  y.type <- format(pillar::new_pillar_type(y))
+  cli_text("X ",
+           col_cyan("<{x.name}>"),
+           x.type,
+           " vs. ",
+           "Y ",
+           col_cyan("<{y.name}>"),
+           y.type)
+  # message(str_glue("X <{x.name}> vs. Y <{y.name}>"))
+
+  xy.cols <- intersect(names(x),names(y))
+  x.cols <- setdiff(names(x),names(y))
+  y.cols <- setdiff(names(y),names(x))
+  if (is.null(by)) {
+    by <- xy.cols
+  }
+  by.x <- (names(by) %||% by) %>% if_else(.=="",by,.) %>% unname()  # similar to coalesce; if names(by) is NULL, then =by.
+  by.y <- unname(by)
+  # are by vars distinct?
+  x.is.distinct <- x %>% is.distinct(!!!syms(by.x))
+  y.is.distinct <- y %>% is.distinct(!!!syms(by.y))
+
+  if (setequal(by.x,names(x))) {
+    by.x.label <- str_glue("all {length(by.x)} vars")
+  } else {
+    by.x.label <- paste(by.x,collapse=",")
+  }
+  if (setequal(by.y,names(y))) {
+    by.y.label <- str_glue("all {length(by.y)} vars")
+  } else {
+    by.y.label <- paste(by.y,collapse=",")
+  }
+  cli_text("-X: {pretty_number(nrow(x))} rows ({ifelse(x.is.distinct,'distinct','not distinct')} across {by.x.label})")
+  cli_text("-Y: {pretty_number(nrow(y))} rows ({ifelse(y.is.distinct,'distinct','not distinct')} across {by.y.label})")
+  # cols
+  column.report <- "Columns: "
+  if (length(x.cols)==0 && length(y.cols)==0) {
+    column.report <- c(column.report, str_glue("-X and Y have same {length(xy.cols)} columns"))
+  } else {
+    if (length(x.cols)>0) {
+      column.report <- c(column.report, str_glue("-X has {length(x.cols)} cols not in Y: {paste(x.cols,collapse=', ')}"))
+    }
+    if (length(y.cols)>0) {
+      column.report <- c(column.report, str_glue("-Y has {length(y.cols)} cols not in X: {paste(y.cols,collapse=', ')}"))
+    }
+  }
+  # message(paste(column.report,collapse="\n"))
+  cat_line(column.report)
+
+
+  if (length(by)==0) {
+    cli_text("-No cols to compare.")
+    return(invisible(NULL))
+  }
+  #compare x and y
+  different.by <- by.x!=by.y
+  if (any(different.by)) {
+    #rename vars such that by.x==by.y
+    old.x <- by.x[different.by]
+    old.y <- by.y[different.by]
+    new.xy <- paste(old.x,old.y,sep="___")
+    x <- x %>% rename(!!!(set_names(syms(old.x),new.xy)))
+    y <- y %>% rename(!!!(set_names(syms(old.y),new.xy)))
+    by.x <- ifelse(different.by,new.xy,by.x)
+    by.y <- ifelse(different.by,new.xy,by.y)
+    if (!all(by.x==by.y)) {
+      stop("YTError: by.x and by.y are different!")
+    }
+  }
+  x.byvals <- x %>% transmute(x.vals=paste(!!!syms(by.x),sep="__")) %>% pull(x.vals)
+  y.byvals <- y %>% transmute(y.vals=paste(!!!syms(by.y),sep="__")) %>% pull(y.vals)
+  byvals.setequal <- setequal(x.byvals,y.byvals)
+  byvals.xnoty <- setdiff(x.byvals,y.byvals)
+  byvals.ynotx <- setdiff(y.byvals,x.byvals)
+  byvals.y.subsetof.x <- length(byvals.xnoty)>0 && length(byvals.ynotx)==0
+  byvals.x.subsetof.y <- length(byvals.ynotx)>0 && length(byvals.xnoty)==0
+  byvals.samelength <- length(x.byvals)==length(y.byvals)
+  byvals.identical.diff.order <- byvals.samelength && byvals.setequal && all(sort(x.byvals)==sort(y.byvals))
+  byvals.identical <- byvals.samelength && byvals.setequal && all(x.byvals==y.byvals)
+  byvals.relationship <- str_glue("{if_else(x.is.distinct,'1','many')}-to-{if_else(y.is.distinct,'1','many')}")
+
+  cli_text("Joining:")
+  if (byvals.setequal) {
+    cli_text("-X and Y join completely, {byvals.relationship}")
+  } else if (byvals.y.subsetof.x) {
+    cli_text("-Y is a subset of X, {byvals.relationship}")
+  } else if (byvals.x.subsetof.y) {
+    cli_text("-X is a subset of Y, {byvals.relationship}")
+  } else {
+    cli_text("-X and Y partially overlap, {byvals.relationship}")
+  }
+  # recalculate in case of weirdness with col names
+  compare.vars <- intersect(names(x),names(y))
+  # add _x and _y to ends
+  names(x) <- paste0(names(x),"_x")
+  names(y) <- paste0(names(y),"_y")
+  by.x <- paste0(by.x,"_x")
+  by.y <- paste0(by.y,"_y")
+  compare.x <- paste0(compare.vars,"_x")
+  compare.y <- paste0(compare.vars,"_y")
+  by <- set_names(by.y,by.x)
+  if (length(intersect(names(x),names(y)))>0) {
+    #should never happen
+    stop("YTError: there's still name overlap after renaming!")
+  }
+  all <- full_join(x,y,by=by,keep=TRUE) %>%
+    mutate(.status=case_when(
+      !is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "both X and Y rows",
+      !is.na(!!sym(by.x[1])) & is.na(!!sym(by.y[1])) ~ "X only rows",
+      is.na(!!sym(by.x[1])) & !is.na(!!sym(by.y[1])) ~ "Y only rows"
+    ))
+  diff <- map2(compare.x,compare.y,~{
+    xx <- all[[.x]]
+    yy <- all[[.y]]
+    !is.same(xx,yy)
+  }) %>% setNames(compare.vars) %>% as_tibble()
+  alldiff <- all %>% select(.status) %>% cbind(diff)
+  alldiff.summary <- alldiff %>%
+    group_by(.status) %>%
+    summarize(n.rows=n(),
+              across(all_of(compare.vars),.fns = ~{
+                diffcount <- sum(.x,na.rm=TRUE)
+                ifelse(diffcount>0,diffcount,NA_integer_)
+                # pct <- diffcount/n.rows
+                # ifelse(pct>0,pct,NA_integer_)
+              }),.groups="drop") %>%
+    mutate(n.diffs=coalesce_values(!!!syms(compare.vars),omit.na=TRUE))
+
+  alldiffs <- alldiff.summary %>% filter(.status=="both X and Y rows") %>% pull(n.diffs)
+  n.compared.rows <- alldiff.summary %>% filter(.status=="both X and Y rows") %>% pull(n.rows)
+  if (is.na(alldiffs)) {
+    cli_text("-no mismatches")
+  } else {
+    cli_text("-mismatched values in col(s): {alldiffs}")
+  }
+  invisible(all)
+}
+
+
+#' Compare info
+#'
+#' Internal function for `compare()`.
+#' @param x first object
+#' @param y second object
+#' @return list of values
+#' @export
+compareOLD.info <- function(x,...) {
+  UseMethod("compare.info",x)
+}
+
+
+#' @rdname compare.info
+#' @export
+compareOLD.info.default <- function(x,y) {
+  if (is.atomic(x) && is.atomic(y)) {
+    compare.info.character(as.character(x),as.character(y))
+  } else {
+    stop("YTError: not sure how to compare these.")
+  }
+}
+
+
+
+
+
+
+
+
+
+#' @rdname compare.info
+#' @export
+compareOLD.info.character <- function(x,y) {
+  i.vec <- compare_vector_info(x,y)
+  i.set <- compare_set_info(x,y)
+  i <- c(i.vec,i.set)
+  return(i)
+}
+
+
+# set comparisons
+compareOLD_set_info <- function(x,y) {
+  xy.setdiff <- setdiff(x,y)
+  xy.setdiff_len <- length(xy.setdiff)
+  yx.setdiff <- setdiff(y,x)
+  yx.setdiff_len <- length(yx.setdiff)
+  xy.intersect <- intersect(x,y)
+  xy.intersect_len <- length(xy.intersect)
+  xy.is_setequal <- setequal(x,y)  #length(xy.setdiff)==0 && length(yx.setdiff)==0
+  x.is_subset_of.y <- xy.setdiff_len==0 && yx.setdiff_len>0
+  y.is_subset_of.x <- yx.setdiff_len==0 && xy.setdiff_len>0
+  xy.has_nooverlap <- xy.intersect_len==0
+  i <- list(
+    xy.setdiff = xy.setdiff,
+    xy.setdiff_len = xy.setdiff_len,
+    yx.setdiff = yx.setdiff,
+    yx.setdiff_len = yx.setdiff_len,
+    xy.intersect = xy.intersect,
+    xy.intersect_len = xy.intersect_len,
+    xy.is_setequal = xy.is_setequal,
+    x.is_subset_of.y = x.is_subset_of.y,
+    y.is_subset_of.x = y.is_subset_of.x,
+    xy.has_nooverlap = xy.has_nooverlap
+  )
+  return(i)
+}
+
+# regular vector compares
+compareOLD_vector_info <- function(x,y) {
+  x.len <- length(x)
+  y.len <- length(y)
+  x.n_distinct <- n_distinct(x)
+  y.n_distinct <- n_distinct(y)
+  x.is_distinct <- x.len==x.n_distinct
+  y.is_distinct <- y.len==y.n_distinct
+  xy.is_samelength <- x.len==y.len
+  xy.is_identical <- xy.is_samelength && all.same(x,y)
+  xy.is_identical_but_difforder <- xy.is_samelength && all.same(sort(x),sort(y))
+  i <- list(
+    x.len = x.len,
+    y.len = y.len,
+    x.n_distinct = x.n_distinct,
+    y.n_distinct = y.n_distinct,
+    x.is_distinct = x.is_distinct,
+    y.is_distinct = y.is_distinct,
+    xy.is_samelength = xy.is_samelength,
+    xy.is_identical = xy.is_identical,
+    xy.is_identical_but_difforder = xy.is_identical_but_difforder
+  )
+  return(i)
+}
+
+
+
+OLD.compare.character.OLD <- function(x,y) {
+  #using deparse1(substitute) because as_label doesn't seem to work in UseMethod situations, for some reason.
+  x.name <- deparse1(substitute(x))
+  y.name <- deparse1(substitute(y))
+  x.type <- format(pillar::new_pillar_type(x))
+  y.type <- format(pillar::new_pillar_type(y))
+
+  # are.equal <- function(v1,v2) {
+  #   same <- (v1 == v2) | (is.na(v1) & is.na(v2))
+  #   same[is.na(same)] <- FALSE
+  #   return(same)
+  # }
+
+  x.length <- length(x)
+  y.length <- length(y)
+  x.ndistinct <- n_distinct(x)
+  y.ndistinct <- n_distinct(y)
+  x.is.distinct <- x.length==x.ndistinct
+  y.is.distinct <- y.length==y.ndistinct
+  xy.samelength <- x.length==y.length
+  xy.identical <- xy.samelength && all.same(x,y)
+  xy.identical.difforder <- xy.samelength && all.same(sort(x),sort(y))
+  x.not.y <- setdiff(x,y)
+  y.not.x <- setdiff(y,x)
+  x.and.y <- intersect(x,y)
+  setequal.xy <- length(x.not.y)==0 && length(y.not.x)==0
+  x.subsetof.y <-length(x.not.y)==0 && length(y.not.x)>0
+  y.subsetof.x <-length(y.not.x)==0 && length(x.not.y)>0
+  xy.nooverlap <- length(x.and.y)==0
+
+  cli_text("X ",
+           col_cyan("<{x.name}>"),
+           x.type,
+           " vs. ",
+           "Y ",
+           col_cyan("<{y.name}>"),
+           y.type)
+
+  if (x.is.distinct) {
+    cli_text("X is distinct ",style_italic(col_grey("(N={x.length})")))
+  } else {
+    cli_text("X is non-distinct ",style_italic(col_grey("(N={x.length}, {x.ndistinct} distinct)")))
+  }
+  if (y.is.distinct) {
+    cli_text("Y is distinct ",style_italic(col_grey("(N={y.length})")))
+  } else {
+    cli_text("Y is non-distinct ",style_italic(col_grey("(N={y.length}, {y.ndistinct} distinct)")))
+  }
+
+  report.sets <- FALSE
+
+  if (xy.identical) {
+    cli_text("X and Y are identical")
+  } else if (xy.identical.difforder) {
+    cli_text("X and Y are identical, but in different order")
+  } else if (setequal.xy) {
+    if (!x.is.distinct && y.is.distinct) {
+      cli_text("X and Y are equal sets, where X has duplicates")
+    } else if (x.is.distinct && !y.is.distinct) {
+      cli_text("X and Y are equal sets, where Y has duplicates")
+    } else if (!x.is.distinct && !y.is.distinct) {
+      cli_text("X and Y are equal sets, but with different freqs")
+    } else {
+      cli_text("?????")
+    }
+  } else if (x.subsetof.y) {
+    # cli_text("X is a subset of Y ",style_italic(col_grey("({x.ndistinct} out of {y.ndistinct})")))
+    cli_text("X is a subset of Y")
+    report.sets <- TRUE
+  } else if (y.subsetof.x) {
+    # cli_text("Y is a subset of X ",style_italic(col_grey("({y.ndistinct} out of {x.ndistinct})")))
+    cli_text("Y is a subset of X")
+    report.sets <- TRUE
+  } else if (xy.nooverlap) {
+    cli_text("X and Y do not overlap")
+    report.sets <- TRUE
+  } else {
+    # cli_text(str_glue("X and Y partially overlap: {length(x.not.y)} values both X and Y, {length(y.not.x)} values in Y only, {length(x.and.y)} values in X only"))
+    cli_text("X and Y partially overlap")
+    report.sets <- TRUE
+  }
+  if (report.sets) {
+    header <- c("X and Y",
+                "X only",
+                "Y only") %>% pillar::align()
+    items <- list(x.and.y,x.not.y,y.not.x)
+    show <- items %>% map_lgl(~length(.x)>0)
+    counts <- items %>% map_int(length) %>% str_c("[",.,"]") %>%
+      col_grey() %>% pillar::align()
+    body <- items %>% map_chr(pillar:::format_glimpse_1)
+    report <- str_c(header,counts,body,sep=" ") %>% ansi_strtrim()
+    cat_line(report[show])
+  }
+
+  tbl <- list(x.and.y=x.and.y,
+              x.only=x.not.y,
+              y.only=y.not.x)
+
+  invisible(tbl)
+}
 
 
 #' Ying's DT view

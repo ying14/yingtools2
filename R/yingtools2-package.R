@@ -2,8 +2,6 @@
 "_PACKAGE"
 
 
-
-
 #' Useful R Functions by Ying
 #'
 #' Ying's assorted collection of R functions. Primarily useful for manipulation, analysis, and plotting of data, particularly microbiome data.

@@ -15,7 +15,7 @@ GuideTaxonomy
 Used by \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} and \code{\link[=scale_color_taxonomy]{scale_color_taxonomy()}} to make custom legend.
 }
 \details{
-This is modified from \code{ggplot::GuideLegend}, and modifies 3 functions:
+This is modified from \code{ggplot2::GuideLegend}, and modifies 3 functions:
 \code{train()}, \code{build_decor()} and \code{setup_elements()}.
 }
 \keyword{datasets}
