@@ -441,31 +441,17 @@ cli_short_list <- function(x,n=3) {
 }
 
 
-# if (l$is_identical) {
-#   cli_text("X and Y are identical")
-# } else if (l$is_identical_but_difforder) {
-#   cli_text("X and Y are identical, but different order")
-# } else if (l$is_identical_but_difftype) {
-#   cli_text("X and Y are identical, but different type")
-# } else if (l$is_setequal) {
-#   if (!l$x$is_distinct && l$y$is_distinct) {
-#     cli_text("X and Y are equal sets, where X has duplicates")
-#   } else if (l$x$is_distinct && !l$y$is_distinct) {
-#     cli_text("X and Y are equal sets, where Y has duplicates")
-#   } else if (!l$x$is_distinct && !l$y$is_distinct) {
-#     cli_text("X and Y are equal sets, but with different freqs")
-#   } else {
-#     cli_text("???????")
-#   }
-# } else if (l$x.subsetof.y) {
-#   cli_text("X is a subset of Y")
-# } else if (l$y.subsetof.x) {
-#   cli_text("Y is a subset of X")
-# } else if (l$has_nooverlap) {
-#   cli_text("X and Y do not overlap")
-# } else {
-#   cli_text("X and Y partially overlap")
-# }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -4471,6 +4471,140 @@ pivot_wider_partial <- function(data,
 
 
 
+
+
+
+# benchmarking ------------------------------------------------------------
+
+
+
+
+
+#' Time It Benchmarking
+#'
+#' Times each step of code.
+#' @param expr expression to be benchmarked
+#'
+#' @export
+#' @examples
+#' timeit(1+2)
+#' timeit({
+#'   mt <- mtcars %>%
+#'     select(-disp) %>%
+#'     mutate(mpg1=mpg+1,
+#'            cyl1=cyl+2) %>%
+#'     slice(1:9)
+#' })
+timeit <- function(expr) {
+  quo <- enquo(expr)
+  env <- quo_get_env(quo)
+  code <- expr_text(quo_get_expr(quo))
+  pd <- getParseData(parse(text=code),includeText=TRUE)
+  invisible(runit(pd,env))
+}
+
+runit <- function(pd,env,id=NULL,n=0) {
+  indent <- strrep("..",n)
+  if (is.null(id)) {
+    id <- pd$id[pd$parent==0]
+  }
+  iself <- which(pd$id==id)
+  ichild <- which(pd$parent==id)
+  pdi <- pd[iself,,drop=FALSE]
+  pdc <- pd[ichild,,drop=FALSE]
+
+  if (all(pdc$terminal)) { # terminal
+    code <- pdi$text
+    expr <- rlang::parse_expr(code)
+    tstart <- Sys.time()
+    obj <- eval(expr,envir=env)
+    tstop <- Sys.time()
+    time <- difftime(tstop,tstart,units="secs") %>% as.numeric()
+    cli_text("{indent}{col_blue(code)} ({pretty_number(time)} sec)")
+    return(obj)
+  } else if (pdc$token[1]=="'{'") { # bracket
+    for (i in 1:nrow(pdc)) {
+      pdline <- pdc[i,,drop=FALSE]
+      if (pdline$token %in% c("'{'","'}'")) {
+        cli_text("{indent}{col_blue(pdline$text)}") # print bracket only
+      } else {
+        obj <- runit(pd,env,id=pdline$id,n=n+1)
+      }
+    }
+    return(obj)
+  } else if (pdc$token[2] %in% c("'+'","'-'","'*'","'/'","'^'")) { # operation
+    lhs_id <- pdc$id[1]
+    rhs_id <- pdc$id[3]
+    op <- pdc$text[2]
+    env$.lhs <- runit(pd,env,id=lhs_id,n=n+1)
+    env$.rhs <- runit(pd,env,id=rhs_id,n=n+1)
+    code <- paste(".lhs",op,".rhs")
+    expr <- rlang::parse_expr(code)
+    cli_code <- pdi$text
+    tstart <- Sys.time()
+    # obj <- eval_tidy(expr,env=env)
+    obj <- eval(expr,envir=env)
+    tstop <- Sys.time()
+    time <- difftime(tstop,tstart,units="secs") %>% as.numeric()
+    cli_text("{indent}{col_blue(cli_code)} ({pretty_number(time)} sec)")
+    return(obj)
+  } else if (pdc$token[2] %in% c("SPECIAL")) { # pipe
+    lhs_id <- pdc$id[1]
+    rhs_id <- pdc$id[3]
+    op <- pdc$text[2]
+    env$.lhs <- runit(pd,env,id=lhs_id,n=n)
+    rhs_code <- pdc$text[3]
+    code <- paste(".lhs",op,rhs_code)
+    cli_code <- paste("",op,rhs_code)
+    expr <- parse_expr(code)
+    tstart <- Sys.time()
+    obj <- eval(expr,envir=env)
+    tstop <- Sys.time()
+    time <- difftime(tstop,tstart,units="secs") %>% as.numeric()
+    cli_text("{indent}{col_blue(code)} ({pretty_number(time)} sec)")
+    return(obj)
+  } else if (pdc$token[2]=="LEFT_ASSIGN") { # assign
+    lhs_code <- pdc$text[1]
+    rhs_id <- pdc$id[3]
+    rhs_code <- pdc$text[3]
+    op <- pdc$text[2]
+    env$.rhs <- runit(pd,env,id=rhs_id,n=n+1)
+    code <- paste(lhs_code,op,".rhs")
+    # cli_code <- paste(lhs_code,op,"...")
+    cli_code <- paste(lhs_code,op,rhs_code)
+    expr <- rlang::parse_expr(code)
+    tstart <- Sys.time()
+    obj <- eval(expr,envir=env)
+    tstop <- Sys.time()
+    time <- difftime(tstop,tstart,units="secs") %>% as.numeric()
+    cli_text("{indent}{col_blue(cli_code)} ({pretty_number(time)} sec)")
+    return(obj)
+  } else if (pdc$token[2]=="'('") { # function
+    code <- pdi$text
+    expr <- rlang::parse_expr(code)
+    tstart <- Sys.time()
+    obj <- eval(expr,envir=env)
+    tstop <- Sys.time()
+    time <- difftime(tstop,tstart,units="secs") %>% as.numeric()
+    cli_text("{indent}{col_blue(code)} ({pretty_number(time)} sec)")
+    return(obj)
+  } else {
+    # browser()
+    cli_alert(col_red("look at this: {pdi$text}"))
+    print(pdc)
+    code <- pdi$text
+    expr <- rlang::parse_expr(code)
+    tstart <- Sys.time()
+    obj <- eval(expr,envir=env)
+    tstop <- Sys.time()
+    time <- difftime(tstop,tstart,units="secs") %>% as.numeric()
+    cli_text("{indent}{col_blue(code)} ({pretty_number(time)} sec)")
+    # obj <- eval_tidy(expr,env=env)
+    obj <- eval(expr,envir=env)
+    return(obj)
+  }
+}
+
 # ggplot helpers ----------------------------------------------------------
 
 
@@ -5313,6 +5447,9 @@ geom_bracket <- function(mapping = NULL,
                          linejoin = "round",
                          parse = FALSE,
                          check_overlap = FALSE,
+
+
+
                          ####################
                          show.legend = NA,
                          inherit.aes = TRUE) {
