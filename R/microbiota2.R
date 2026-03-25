@@ -160,6 +160,39 @@ set.otu <- function(odata,taxa_are_rows=TRUE) {
 
 
 
+#' Check if phyloseq has refseq
+#'
+#' @param phy phyloseq object to be checked
+#' @return Returns `TRUE` if phyloseq object has a refseq component
+#' @export
+#' @examples
+#' phy.has.refseq(cid.phy)
+phy.has.refseq <- function(phy) {
+  ref <- refseq(phy,errorIfNULL=FALSE)
+  !is.null(ref)
+}
+
+#' Use refseq as taxa names for a phyloseq
+#'
+#' Sets `taxa_names(phy)` to be `refseq(phy)`, if it exists.
+#' @param phy phyloseq object to be modified
+#'
+#' @return modified phyloseq, with `refseq()` as `taxa_names()`.
+#' @export
+#' @examples
+#' new.phy <- phy.use.refseq.as.taxanames(cid.phy)
+#' head(taxa_names(cid.phy),3)
+#' head(taxa_names(new.phy),3)
+phy.use.refseq.as.taxanames <- function(phy) {
+  if (!phy.has.refseq(phy)) {
+    cli::cli_abort("YTError: phyloseq object does not contain refseq() data")
+  }
+  ref <- refseq(phy) %>% as.character() %>% unname()
+  taxa_names(phy) <- ref
+  return(phy)
+}
+
+
 #' Convert Phyloseq to Melted OTU x Sample Data
 #'
 #' Creates OTU+Sample-level data, using phyloseq object (ID=otu+sample)
@@ -1328,6 +1361,11 @@ phy.combine <- function(x,y) {
 
   if (!has.otu.xy.overlap) {
     cli::cli_warn("No overlapping {.pkg taxa} between x and y. Consider making taxa more combinable, if necessary.")
+    refseq.xy.overlap <- intersect(refseq.df.x$refseq,refseq.df.y$refseq)
+    if (length(refseq.xy.overlap)>0) {
+      cli::cli_warn("Refseq values do overlap; could consider using refseq as taxa names:
+                    phy.combine(phy.use.refseq.as.taxanames(x),phy.use.refseq.as.taxanames(y))")
+    }
   }
   if (has.samp.xy.overlap) {
     if (has.otu.xy.overlap) {
@@ -1737,6 +1775,293 @@ calc.distance <- function(phy, method,
   return(dist)
 }
 
+
+#' Ordination on Phyloseq
+#'
+#' Calculates ordination data. This is sort of a modified version of [phyloseq::ordinate()], with some additional
+#' methods such as `tsne` and `umap`, and other tweaks.
+#'
+#' @details
+#' Ordination methods that use a distance matrix:
+#' * `NMDS`: (passed to [vegan::metaMDS()] through [phyloseq::ordinate()])
+#' * `PCoA/MDS`: (passed to [ape::pcoa()] through [phyloseq::ordinate()])
+#' * `CAP`: requires `formula` parameter, and only uses distance from [vegan::vegdist()] (passed to [vegan::capscale()] through [phyloseq::ordinate()]).
+#' * `tsne`: try tuning the `perplexity` parameter, typically `5-50` (passed to [Rtsne::Rtsne()])
+#'
+#' Ordination methods with no distance matrix:
+#' * `RDA`:(passed to [vegan::rda()] through [phyloseq::ordinate()])
+#' * `CCA`: (passed to [vegan::cca()] through [phyloseq::ordinate()])
+#' * `DCA`: (passed to [phyloseq::decorana()] through [phyloseq::ordinate()])
+#' * `DPCoA`: (passed to [phyloseq::DPCoA()] through [phyloseq::ordinate()])
+#' * `umap`: (passed to [umap::umap()])
+#'
+#' @param phy Phyloseq data to be calculated
+#' @param method Ordination method, passed to [phyloseq::ordinate()]. But can also be `umap` or `tsne`.
+#' @param distance Character string passed to [calc.distance()], or distance object. Note that not all ordination methods need distance.
+#' @param ... Additional arguments passed to ordination methods.
+#'
+#' @return a list containing data and ordination object
+#' @export
+#'
+#' @examples
+#' library(tidyverse)
+#' library(patchwork)
+#' library(rlang)
+#' phy <- cid.phy %>%
+#'   filter(otu %in% otu[1:20],prune_unused_samples = TRUE)
+#' ord.list <- list(
+#'   RDA=phy.ordinate(phy,method="RDA"),
+#'   CCA=phy.ordinate(phy,method="CCA"),
+#'   DCA=phy.ordinate(phy,method="DCA"),
+#'   DPCoA=phy.ordinate(phy,method="DPCoA"),
+#'   umap=phy.ordinate(phy,method="umap"),
+#'   NMDS=phy.ordinate(phy,method="NMDS",distance="unfold.horn"),
+#'   PCoA=phy.ordinate(phy,method="PCoA",distance="unfold.horn"),
+#'   tsne=phy.ordinate(phy,method="tsne",distance="unfold.horn"),
+#'   CAP=phy.ordinate(phy,method="CAP",distance="bray",formula=~Consistency)
+#' )
+#' glist <- ord.list %>% imap(~{
+#'   ggplot(.x$data,aes(x=axis1,y=axis2,color=Consistency)) +
+#'     geom_point() + theme(aspect.ratio=1) + ggtitle(.y)
+#' })
+#' inject(wrap_plots(!!!glist))
+phy.ordinate <- function(phy,method,distance=NULL,...) {
+
+  no.dist.methods <- c("RDA","CCA","DCA","DPCoA","umap")
+  dist.methods <- c("NMDS","PCoA","MDS","tsne")
+  special.cap.method <- "CAP"
+
+  if (method %in% dist.methods) {
+    # c("NMDS","PCoA","MDS","tsne")
+    ############## needs dist ################
+    if (is(distance,"dist")) {
+      dist <- distance
+    } else if (is.character(distance)) {
+      dist <- calc.distance(phy,method=distance)
+    } else if (is.null(distance)) {
+      cli::cli_abort("YTError: method {.pkg {method}} requires a distance")
+    } else {
+      cli::cli_abort("YTError: method {.pkg {method}} requires a distance but it is unrecognized.")
+    }
+
+    if (method=="NMDS") {
+      ord <- ordinate(physeq=phy,method=method,distance=dist, ...)
+      cli::cli_alert_info("YTNote: method='NMDS' uses Monte Carlo, so consider using set.seed()")
+      orddata <- ord$points %>%
+        as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"MDS","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method %in% c("MDS","PCoA")) {
+      ord <- ordinate(physeq=phy,method=method,distance=dist, ...)
+      orddata <- ord$vectors %>%
+        as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"Axis\\.","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method=="tsne") {
+      tsne <- Rtsne::Rtsne(dist, is_distance = TRUE, ...)
+      tsnedata <- data.frame(tsne$Y) %>%
+        rename_with(.fn=~str_replace(.x,"X","axis")) %>%
+        bind_cols(get.samp(phy))
+      ordlist <- list(data=tsnedata,obj=tsne)
+    } else {
+      cli::cli_abort("YTError: this should never happen!")
+    }
+  } else if (method %in% no.dist.methods) {
+    # c("RDA","CCA","DCA","DPCoA","umap")
+    ############## does not need dist ################
+    if (!is.null(distance)) {
+      cli::cli_alert_warning("YTWarning: ignoring distance; it is not used for method {cli::col_blue(method)}")
+    }
+    if (method=="DCA") {
+      ord <- ordinate(physeq=phy,method=method,distance=dist, ...)
+      orddata <- ord$rproj %>% as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"DCA","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method=="CCA") {
+      ord <- ordinate(physeq=phy,method=method,distance=dist, ...)
+      orddata <- ord$CA$u %>% as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"CA","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method=="RDA") {
+      ord <- ordinate(physeq=phy,method=method,distance=dist, ...)
+      orddata <- ord$CA$u %>% as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"PC","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method=="CAP") {
+      # needs formula
+      # similar to RDA but with any distance
+      ord <- ordinate(physeq=phy,method=method,distance=dist,...)
+      orddata <- ord$CA$u %>% as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"PC","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method=="DPCoA") {
+      # need phytree, distance doesn't matter???
+      if (is.null(phy_tree(phy,errorIfNULL=FALSE))) {
+        cli::cli_abort("YTError: the ordination method {method} needs a phy_tree() component")
+      }
+      ord <- ordinate(physeq=phy,method=method,distance=dist, ...)
+      orddata <- ord$li %>% as.data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"Axis","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=orddata,obj=ord)
+      return(ordlist)
+    } else if (method=="umap") {
+      otu <- get.otu(phy, as.matrix = TRUE) %>% t()
+      umap <- umap::umap(otu, ...)
+      umapdata <- umap$layout %>%
+        data.frame() %>%
+        rownames_to_column("sample") %>%
+        rename_with(.fn=~str_replace(.x,"X","axis")) %>%
+        left_join(get.samp(phy),by="sample")
+      ordlist <- list(data=umapdata,obj=umap)
+      return(ordlist)
+    } else {
+      cli::cli_abort("YTError: this should never happen!")
+    }
+  } else if (method %in% special.cap.method) {
+    opts <- list(...)
+    has.formula <- any(map_lgl(opts,is_formula))
+    dist.is.good <- is.character(distance) && (distance %in% phyloseq::distanceMethodList$vegdist)
+    if (!has.formula) {
+      cli::cli_abort("YTError: method {.pkg {method}} needs a formula specified")
+    }
+    if (!dist.is.good) {
+      cli::cli_abort("YTError: method {.pkg {method}} uses distance (character form) to be passed to vegan.
+                     Acceptable values include: {phyloseq::distanceMethodList$vegdist}")
+    }
+    ord <- ordinate(physeq=phy,method=method,distance=distance, ...)
+    orddata <- ord$CA$u %>% as.data.frame() %>%
+      rownames_to_column("sample") %>%
+      rename_with(.fn=~str_replace(.x,"MDS","axis")) %>%
+      left_join(get.samp(phy),by="sample")
+    ordlist <- list(data=orddata,obj=ord)
+    return(ordlist)
+  } else {
+    cli::cli_abort("YTError: unrecognized method. Should be one of: {cli::col_blue(all.methods)}")
+  }
+}
+
+
+
+
+#' Prepare data for ggtree plot
+#'
+#' Prepares for ggtree plot by calculating things and making them available.
+#' @param phy phyloseq as source of the data
+#' @param ggtree ggtree object to be used. If not specified, one is created from phyloseq using options `layout` and `...` parameters.
+#' @param layout layout of ggtree, passed to [ggtree::ggtree()]
+#' @param ... other options, passed to [ggtree::ggtree()]
+#' @param sortby sort data by a column in `sample_data()`. This affects order of concentric circles, if plotting heatmap.
+#' @param xmin.tip how far out will the lowest tip be, relative to the furthest tip? Default is `0.6`.
+#' @param xring.range relative to the furthest tip, across what range will the sample data appear? Default is `c(1.05,1.4)`.
+#' @return A list of objects for ggtree plotting. Includes `otu`, `tax`, `samp`, `gd`, `ggtree`, `xdict`, `ydict`,
+#' which contain plotting information.
+#' @export
+#'
+#' @examples
+#' library(dplyr)
+#' library(phyloseq)
+#' library(ggtree)
+#' phy <- cid.phy %>%
+#'   filter(Patient_ID==172) %>%
+#'   mutate_sample_data(daylabel=str_glue("day {day}"))
+#' gg <- phy.prepare.ggtree(phy,sortby=day)
+#' gg$ggtree +
+#'   geom_tile(data=gg$otu,aes(x=x,y=y,fill=otu,alpha=pctseqs),color="gray") +
+#'   geom_point(data=gg$tax,aes(x=x,y=y)) +
+#'   geom_segment(data=gg$tax,aes(x=x,xend=x.ring.min,y=y,yend=y),color="gray",linetype="dotted") +
+#'   geom_text(data=gg$samp,aes(x=x,y=0,label=daylabel),angle=-90) +
+#'   geom_text(data=gg$tax,aes(x=x.ring.max,y=y,label=Genus,hjust=hjust,angle=angle),color="dark gray") +
+#'   scale_alpha_continuous(trans=log_epsilon_trans()) +
+#'   scale_fill_taxonomy(data=gg$otu,fill=otu)
+phy.prepare.ggtree <- function(phy,
+                               layout="circular",
+                               ... ,
+                               ggtree=NULL,
+                               sortby=NULL,
+                               xmin.tip=0.6,
+                               xring.range=c(1.05,1.4)) {
+  sortby <- enquo(sortby)
+  if (xmin.tip<0 || xmin.tip>1) {
+    cli::cli_abort("YTError: xmin.tip is supposed to be between 0 and 1.")
+  }
+  if (quo_is_null(sortby)) {
+    sortby <- expr(sample)
+  }
+  if (is.null(ggtree)) {
+    tr <- phy_tree(phy)
+    gt <- ggtree(tr, layout=layout, ...) %<+% get.tax(phy)
+  } else {
+    taxa <- ggtree$data %>% filter(isTip) %>% pull(label)
+    if (!setequal(taxa,taxa_names(phy))) {
+      cli::cli_abort("YTError: ggtree and phy do not match!")
+    }
+    if (!(any(rank_names(phy) %in% names(ggtree$data)))) {
+      gt <- ggtree %<+% get.tax(phy)
+    } else {
+      gt <- ggtree
+    }
+  }
+  gd <- gt$data %>%
+    mutate(otu=label,
+           hjust=ifelse(is.between(angle,90,270),1,0),
+           angle=ifelse(is.between(angle,90,270),angle+180,angle))
+  tax <- gd %>% filter(isTip)
+  xx.tips.target <- c(xmin.tip,1)
+  x.tips.range <- range(tax$x)
+  x.zero <- scales::rescale(0,from=xx.tips.target,to=x.tips.range) # pass this to expand_limits()
+  xx.ring.target <- xring.range # desired rings
+  x.ring.range <- scales::rescale(xx.ring.target,from=xx.tips.target,to=x.tips.range)
+  i.from <- c(0.5,nsamples(phy)+0.5)
+  samp <- get.samp(phy) %>%
+    arrange(!!sortby) %>%
+    mutate(iring=row_number(),
+           x=scales::rescale(iring,from=i.from,to=x.ring.range),
+           xmin=scales::rescale(iring-0.5,from=i.from,to=x.ring.range),
+           xmax=scales::rescale(iring+0.5,from=i.from,to=x.ring.range))
+  tax <- tax %>%
+    mutate(x.tips.min=x.tips.range[1],
+           x.tips.max=x.tips.range[2],
+           x.ring.min=x.ring.range[1],
+           x.ring.max=x.ring.range[2])
+  ggtree <- gt + expand_limits(x=x.zero)
+  xdict <- samp %>% select(sample,x,xmin,xmax)
+  ydict <- tax %>% select(otu,y,
+                          x.tips.min,x.tips.max,
+                          x.ring.min,x.ring.max)
+  otu <- phy %>%
+    get.otu.melt(filter.zero=FALSE) %>%
+    left_join(xdict,by="sample") %>%
+    left_join(ydict,by="otu")
+  list(
+    otu=otu,
+    gd=gd,
+    samp=samp,
+    tax=tax,
+    xdict=xdict,
+    ydict=ydict,
+    ggtree=ggtree
+  )
+}
 
 
 
