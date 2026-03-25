@@ -27,7 +27,7 @@ Ordination methods that use a distance matrix:
 \itemize{
 \item \code{NMDS}: (passed to \code{\link[vegan:metaMDS]{vegan::metaMDS()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{PCoA/MDS}: (passed to \code{\link[ape:pcoa]{ape::pcoa()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
-\item \code{CAP}: requires \code{formula} parameter, and only uses distance from \code{\link[vegan:vegdist]{vegan::vegdist()}} (passed to \code{\link[vegan:capscale]{vegan::capscale()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}}).
+\item \code{CAP}: requires \code{formula} parameter, and only uses distance from \code{\link[vegan:vegdist]{vegan::vegdist()}} (passed to \code{\link[vegan:dbrda]{vegan::capscale()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}}).
 \item \code{tsne}: try tuning the \code{perplexity} parameter, typically \code{5-50} (passed to \code{\link[Rtsne:Rtsne]{Rtsne::Rtsne()}})
 }
 

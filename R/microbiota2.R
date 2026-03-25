@@ -2000,6 +2000,8 @@ phy.prepare.ggtree <- function(phy,
                                sortby=NULL,
                                xmin.tip=0.6,
                                xring.range=c(1.05,1.4)) {
+  requireNamespace("ggtree", quietly = TRUE)
+
   sortby <- enquo(sortby)
   if (xmin.tip<0 || xmin.tip>1) {
     cli::cli_abort("YTError: xmin.tip is supposed to be between 0 and 1.")
@@ -2009,7 +2011,7 @@ phy.prepare.ggtree <- function(phy,
   }
   if (is.null(ggtree)) {
     tr <- phy_tree(phy)
-    gt <- ggtree(tr, layout=layout, ...) %<+% get.tax(phy)
+    gt <- ggtree::ggtree(tr, layout=layout, ...) %<+% get.tax(phy)
   } else {
     taxa <- ggtree$data %>% filter(isTip) %>% pull(label)
     if (!setequal(taxa,taxa_names(phy))) {
@@ -2021,10 +2023,38 @@ phy.prepare.ggtree <- function(phy,
       gt <- ggtree
     }
   }
+
+  layout <- gt@plot_env$layout
+  open.angle <- gt@plot_env$open.angle
+  range.y <- range(gt@data$y)
+  angle <- function(y) {
+    if (layout %in% c("rectangular","dendrogram","ellipse","roundrect"))   {
+      angle <- rep_along(y,0)
+    } else if (layout=="slanted") {
+      # ggtree:::add_angle_slanted() for slanted
+      cli::cli_abort("YTError: don't know layout=slanted")
+    } else { # circular, inward_circular, fan
+      # ggtree:::calculate_angle() for all else
+      arc <- 360 - open.angle
+      angle <- arc/(diff(range.y) + 1) * y
+    }
+    return(angle)
+  }
+  text_angle <- function(y) {
+    angle <- angle(y)
+    ifelse(is.between(angle,90,270),angle+180,angle)
+  }
+  text_hjust <- function(y) {
+    angle <- angle(y)
+    ifelse(is.between(angle,90,270),1,0)
+  }
+
   gd <- gt$data %>%
     mutate(otu=label,
-           hjust=ifelse(is.between(angle,90,270),1,0),
-           angle=ifelse(is.between(angle,90,270),angle+180,angle))
+           # hjust=ifelse(is.between(angle,90,270),1,0),
+           # angle=ifelse(is.between(angle,90,270),angle+180,angle)
+           angle=text_angle(y),
+           hjust=text_hjust(y))
   tax <- gd %>% filter(isTip)
   xx.tips.target <- c(xmin.tip,1)
   x.tips.range <- range(tax$x)
@@ -2059,7 +2089,9 @@ phy.prepare.ggtree <- function(phy,
     tax=tax,
     xdict=xdict,
     ydict=ydict,
-    ggtree=ggtree
+    ggtree=ggtree,
+    text_angle=text_angle,
+    text_hjust=text_hjust
   )
 }
 
