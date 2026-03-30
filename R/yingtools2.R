@@ -820,6 +820,7 @@ round.data.frame <- function(x, digits = 0) {
 
 
 
+
 #' Find subset of data, for `dt()` viewing
 #'
 #' @param df data frame to be resized
@@ -6056,6 +6057,36 @@ list.gg.items <- function(ggobj,prefix=NULL,depth=1) {
 fct_reordern <- function(.f, ...) {
   f <- forcats:::check_factor(.f)
   fct_reorder(f,order(order(...)),.fun=first)
+}
+
+
+
+
+#' Add Count/Prop to Factor
+#'
+#' Adds count or proportion to the levels of the factor.
+#' @param f factor to be modified
+#' @param prop whether to include proportion (default is `FALSE`)
+#'
+#' @return Factor with modified levels
+#' @export
+#' @examples
+#' fct_add_freq(iris$Species)
+fct_add_freq <- function(f,prop=FALSE) {
+  if (!is.factor(f)) {
+    f <- as.factor(f)
+  }
+  tbl <- table(f)
+  lvl <- names(tbl)
+  n <- as.numeric(tbl)
+  freq <- str_glue("N={n}")
+  if (prop) {
+    pct <- n / sum(n)
+    freq <- str_glue("{freq}, pct={label_percent()(pct)}")
+  }
+  newlvl <- str_glue("{lvl} ({freq})")
+  levels(f) <- newlvl
+  return(f)
 }
 
 

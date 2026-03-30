@@ -9,9 +9,9 @@ phy.prepare.ggtree(
   layout = "circular",
   ...,
   ggtree = NULL,
-  sortby = NULL,
+  sortby = sample,
   xmin.tip = 0.6,
-  xring.range = c(1.05, 1.4)
+  radius.range = c(1.05, 1.4)
 )
 }
 \arguments{

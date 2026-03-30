@@ -1997,26 +1997,45 @@ phy.prepare.ggtree <- function(phy,
                                layout="circular",
                                ... ,
                                ggtree=NULL,
-                               sortby=NULL,
+                               sortby=sample,
                                xmin.tip=0.6,
-                               xring.range=c(1.05,1.4)) {
-  requireNamespace("ggtree", quietly = TRUE)
+                               radius.range=c(1.05,1.4)) {
+  ## definitions:
+  # y: from ggtree$data, y-axis or angle in polar. Ranges from 1 to ntaxa(phy)
+  # angle - 0 to 360 degrees (meaningful version of y, useful in polar circular/fan layouts)
 
+  # x: from ggtree$data, x-axis or radius in polar. Corresponds to phylo tree distance
+  # radius - scaled version of x, radius=0 is center, radius=1 is furthest tip
+  # sample: from sample_names(phy)
+  # iring: index from 1:nsamples(phy).
+  # x.ring: the x location of each sample/iring.
+
+  requireNamespace("ggtree", quietly = TRUE)
   sortby <- enquo(sortby)
-  if (xmin.tip<0 || xmin.tip>1) {
+
+  if (xmin.tip<0 || xmin.tip>1) { # error check
     cli::cli_abort("YTError: xmin.tip is supposed to be between 0 and 1.")
   }
   if (quo_is_null(sortby)) {
     sortby <- expr(sample)
   }
+
   if (is.null(ggtree)) {
+    # if no ggtree specified, make it with layout and ...
     tr <- phy_tree(phy)
     gt <- ggtree::ggtree(tr, layout=layout, ...) %<+% get.tax(phy)
   } else {
-    taxa <- ggtree$data %>% filter(isTip) %>% pull(label)
-    if (!setequal(taxa,taxa_names(phy))) {
+    # if ggtree specified, make sure it matches
+    ggtree.taxa <- ggtree$data %>% filter(isTip) %>% pull(label)
+    if (!setequal(ggtree.taxa,taxa_names(phy))) {
       cli::cli_abort("YTError: ggtree and phy do not match!")
     }
+    # warn if args were used, if ggtree already specified
+    args <- list(...)
+    if (!missing(layout) || length(args)>0) {
+      cli::cli_warn("YTWarning: ggtree was specified, ignoring {.pkg layout} and {.pkg ...} parameters")
+    }
+    # if rank names not included, add them.
     if (!(any(rank_names(phy) %in% names(ggtree$data)))) {
       gt <- ggtree %<+% get.tax(phy)
     } else {
@@ -2024,74 +2043,128 @@ phy.prepare.ggtree <- function(phy,
     }
   }
 
-  layout <- gt@plot_env$layout
-  open.angle <- gt@plot_env$open.angle
-  range.y <- range(gt@data$y)
-  angle <- function(y) {
-    if (layout %in% c("rectangular","dendrogram","ellipse","roundrect"))   {
+  # extract values from ggtree object
+  layout <- gt$plot_env$layout
+  open.angle <- gt$plot_env$open.angle # usually 0, unless layout="fan"
+  range.y <- range(gt$data$y)
+  x.tips.range <- gt$data %>% filter(isTip) %>% pull(x) %>% range()
+  # fixed values
+  arc <- 360 - open.angle
+  y.angle.ratio <- arc/(diff(range.y) + 1)
+  xx.tips.target <- c(xmin.tip,1)
+  layouts.no.angle <- c("rectangular","dendrogram","ellipse","roundrect")
+  layouts.angle <- c("circular","inward_circular","fan")
+
+  ## helper functions
+  y_to_angle <- function(y) {
+    if (layout %in% layouts.angle) {
+      # in ggtree, this is handled by ggtree:::calculate_angle() and ggtree:::add_angle_slanted()
+      angle <- y * y.angle.ratio
+    } else if (layout %in% layouts.no.angle) {
       angle <- rep_along(y,0)
-    } else if (layout=="slanted") {
-      # ggtree:::add_angle_slanted() for slanted
-      cli::cli_abort("YTError: don't know layout=slanted")
-    } else { # circular, inward_circular, fan
-      # ggtree:::calculate_angle() for all else
-      arc <- 360 - open.angle
-      angle <- arc/(diff(range.y) + 1) * y
+    } else { # e.g. slanted
+      cli::cli_abort("YTError: don't know layout={layout}")
     }
     return(angle)
   }
+  angle_to_y <- function(angle) {
+    if (!(layout %in% layouts.angle)) {
+      cli::cli_warn("YTWarning: using angle_to_y, but angle is only relevant in layouts circular, inward_circular, and fan.")
+    }
+    y <- angle / y.angle.ratio
+    return(y)
+  }
   text_angle <- function(y) {
-    angle <- angle(y)
+    angle <- y_to_angle(y)
     ifelse(is.between(angle,90,270),angle+180,angle)
   }
   text_hjust <- function(y) {
-    angle <- angle(y)
+    angle <- y_to_angle(y)
     ifelse(is.between(angle,90,270),1,0)
   }
-
+  radius_to_x <- function(radius) {
+    scales::rescale(radius,from=xx.tips.target,to=x.tips.range)
+  }
+  x_to_radius <- function(x) {
+    scales::rescale(x,from=x.tips.range,to=xx.tips.target)
+  }
+  otu_to_y <- function(otu) {
+    if (!all(otu %in% tax$otu)) {
+      cli::cli_abort("YTError: not all otus are part of phy")
+    }
+    return(tax$y[match(otu,tax$otu)])
+  }
+  # adjust ggtree
+  x.zero <- radius_to_x(0) # pass this to expand_limits()
+  ggtree <- gt + expand_limits(x=x.zero)
   gd <- gt$data %>%
     mutate(otu=label,
-           # hjust=ifelse(is.between(angle,90,270),1,0),
-           # angle=ifelse(is.between(angle,90,270),angle+180,angle)
            angle=text_angle(y),
            hjust=text_hjust(y))
-  tax <- gd %>% filter(isTip)
-  xx.tips.target <- c(xmin.tip,1)
-  x.tips.range <- range(tax$x)
-  x.zero <- scales::rescale(0,from=xx.tips.target,to=x.tips.range) # pass this to expand_limits()
-  xx.ring.target <- xring.range # desired rings
-  x.ring.range <- scales::rescale(xx.ring.target,from=xx.tips.target,to=x.tips.range)
-  i.from <- c(0.5,nsamples(phy)+0.5)
-  samp <- get.samp(phy) %>%
-    arrange(!!sortby) %>%
-    mutate(iring=row_number(),
-           x=scales::rescale(iring,from=i.from,to=x.ring.range),
-           xmin=scales::rescale(iring-0.5,from=i.from,to=x.ring.range),
-           xmax=scales::rescale(iring+0.5,from=i.from,to=x.ring.range))
-  tax <- tax %>%
-    mutate(x.tips.min=x.tips.range[1],
-           x.tips.max=x.tips.range[2],
-           x.ring.min=x.ring.range[1],
-           x.ring.max=x.ring.range[2])
-  ggtree <- gt + expand_limits(x=x.zero)
+  tax <- gd %>% filter(isTip) %>%
+    mutate(ymin=y-0.5,
+           ymax=y+0.5)
+
+  add_xtile <- function(data,tile.range=radius.range,sortby=sample) {
+
+    sortby <- enquo(sortby)
+
+    x.range <- radius_to_x(tile.range)
+    sample.lvls <- data %>% arrange(!!sortby) %>% pull(sample) %>% unique()
+    i.lvls <- seq_along(sample.lvls)
+    i.lim <- c(0.5,length(sample.lvls)+0.5)
+    x <- scales::rescale(i.lvls,from=i.lim,to=x.range)
+    xmin <- scales::rescale(i.lvls-0.5,from=i.lim,to=x.range)
+    xmax <- scales::rescale(i.lvls+0.5,from=i.lim,to=x.range)
+    newdata <- data %>%
+      mutate(x=x[match(data$sample,sample.lvls)],
+             xmin=xmin[match(data$sample,sample.lvls)],
+             xmax=xmax[match(data$sample,sample.lvls)])
+  }
+  samp <- get.samp(phy) %>% add_xtile()
+  x.ring.min <- min(samp$xmin)
+  x.ring.max <- max(samp$xmax)
+  y.min <- min(tax$ymin)
+  y.max <- max(tax$ymax)
   xdict <- samp %>% select(sample,x,xmin,xmax)
-  ydict <- tax %>% select(otu,y,
-                          x.tips.min,x.tips.max,
-                          x.ring.min,x.ring.max)
+  ydict <- tax %>% select(otu,y,ymin,ymax)
+  add_xbar <- function(data,xbar=pctseqs) {
+    xbar <- enquo(xbar)
+    tr <- log_epsilon_trans(0.001)
+    bar.range <- c(0,1)
+    from <- tr$transform(bar.range)
+    newdata <- data %>%
+      group_by(xmin,xmax) %>%
+      mutate(xx=tr$transform(!!xbar),
+             xbar=scales::rescale(xx,from=from,to=c(xmin[1],xmax[1]))) %>%
+      ungroup()
+    return(newdata)
+  }
   otu <- phy %>%
     get.otu.melt(filter.zero=FALSE) %>%
+    select(-any_of(c("x","xmin","xmax","y","ymin","ymax"))) %>%
     left_join(xdict,by="sample") %>%
-    left_join(ydict,by="otu")
+    left_join(ydict,by="otu") %>%
+    add_xbar()
+
   list(
-    otu=otu,
+    ggtree=ggtree,
     gd=gd,
-    samp=samp,
     tax=tax,
+    samp=samp,
+    otu=otu,
     xdict=xdict,
     ydict=ydict,
-    ggtree=ggtree,
+    x.ring.min=x.ring.min,
+    x.ring.max=x.ring.max,
+    y.min=y.min,
+    y.max=y.max,
     text_angle=text_angle,
-    text_hjust=text_hjust
+    text_hjust=text_hjust,
+    y_to_angle=y_to_angle,
+    angle_to_y=angle_to_y,
+    radius_to_x=radius_to_x,
+    x_to_radius=x_to_radius
   )
 }
 
