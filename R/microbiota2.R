@@ -2121,7 +2121,7 @@ phy.prepare.ggtree <- function(phy,
              xmin=xmin[match(data$sample,sample.lvls)],
              xmax=xmax[match(data$sample,sample.lvls)])
   }
-  samp <- get.samp(phy) %>% add_xtile()
+  samp <- get.samp(phy) %>% add_xtile(sortby=!!sortby)
   x.ring.min <- min(samp$xmin)
   x.ring.max <- max(samp$xmax)
   y.min <- min(tax$ymin)
