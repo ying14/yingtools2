@@ -713,6 +713,67 @@ select_sample_data <- function(phy, ..., verbose=FALSE) {
 
 
 
+
+#' Add a Summary Column to `tax_table()` or `sample_data()`
+#'
+#' Modifies phyloseq object to contain a summary column to
+#' one of the tables.
+#' `summarize_tax_table()` adds a column to `tax_table()`,
+#' `summarize_sample_data()` adds a column to `sample_data()`
+#'
+#' This is convenience function which is essentially running
+#' `get.otu.melt() %>% group_by() %>% summarize(...)`,
+#' and then adding results to the table.
+#' @param phy phyloseq to be modified
+#' @param ... name-value statements that would go into `dplyr::summarize()`
+#' @return modified phyloseq
+#' @rdname summarize_tax_table
+#' @export
+#' @examples
+#' phy.calcs <- cid.phy %>%
+#'   summarize_tax_table(
+#'     ever.dominated=any(pctseqs>0.3),
+#'     n.samples.detectable=sum(numseqs>0)
+#'   ) %>%
+#'   summarize_sample_data(
+#'     enterodom30=sum(pctseqs[Genus=="Enterococcus"])>0.3,
+#'     predominant.taxa=taxon[which.max(numseqs)]
+#'   )
+summarize_tax_table <- function(phy, ...) {
+  otu <- phy %>% get.otu.melt(filter.zero = FALSE)
+  taxdata <- otu %>%
+    group_by(otu) %>%
+    summarize(..., .groups="drop")
+  oldtax <- phy %>% get.tax()
+  newtax <- oldtax %>% inner_join(taxdata,by="otu")
+  newvars <- setdiff(names(newtax),names(oldtax))
+  cli::cli_alert("Created new tax vars: {.pkg {newvars}}")
+  non.char.vars <- names(taxdata)[!map_lgl(taxdata,is.character)]
+  if (length(non.char.vars)>0) {
+    cli::cli_alert("Note that non-character vars will be converted.")
+  }
+  phyloseq::tax_table(phy) <- newtax %>% set.tax()
+  return(phy)
+}
+
+
+#' @rdname summarize_tax_table
+#' @export
+summarize_sample_data <- function(phy, ...) {
+  otu <- phy %>% get.otu.melt(filter.zero = FALSE)
+  sampdata <- otu %>%
+    group_by(sample) %>%
+    summarize(..., .groups="drop")
+  oldsamp <- phy %>% get.samp()
+  newsamp <- oldsamp %>% inner_join(sampdata,by="sample")
+  newvars <- setdiff(names(newsamp),names(oldsamp))
+  cli::cli_alert("Created new sample vars: {.pkg {newvars}}")
+  phyloseq::sample_data(phy) <- newsamp %>% set.samp()
+  return(phy)
+}
+
+
+
 #' Check if taxonomy levels are distinct.
 #'
 #' @param data tax data to be tested. Can be a [`phyloseq`][`phyloseq::phyloseq-class`], tax table (from [get.tax()]), or otu-melt table (from [get.otu.melt()]).

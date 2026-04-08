@@ -27,7 +27,6 @@ Imports:
     gtable,
     patchwork,
     ggiraph,
-    gtable,
     grid,
     gridExtra,
     ggfun,
