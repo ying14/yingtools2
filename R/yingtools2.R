@@ -7442,17 +7442,25 @@ shell.exec <- function(file) {
 }
 
 
+
+
+
 #' Traverse a list (or other iterable object)
 #'
 #' Everyone knows I like recursion. This function recursively iterates through nested lists and runs a specified expression.
 #' @param .obj object list to be traversed
 #' @param expr expression to run on each object in the list. Reserved words can be used, as follows:
 #' * `.obj`: the current object
-#' * `.name`: a name for the object
-#' * `.class`: the class of the object
+#' * `.class`: the class of the object. May also be `NULL`
+#' * `.name`: a name for the object, if it was named by its parent
+#' * `.code`: code snippet that will reference this part of the list.
+#' * `.pluck`: a list of indices that can be used to reference the element using [purrr::pluck()]
 #' * `.level`: an integer specifying the number of levels of recursion.
 #' * `.parents`: a list of parent objects (first element is most direct parent)
 #' * `.circular`: whether the object points to a parent
+#' * `.iterate.children`: whether children of the object will be iterated. This basically
+#' depends on whether the object is a non-empty, non-circular list/environment.
+#' @param .pluck used for passing information to other instances. Leave these be.
 #' @param .name used for passing information to other instances. Leave these be.
 #' @param .level used for passing information to other instances. Leave these be.
 #' @param .parents used for passing information to other instances. Leave these be.
@@ -7465,54 +7473,65 @@ shell.exec <- function(file) {
 #' g.info <- traverse(g,expr=tibble(name=.name,class=.class,level=.level)) %>%
 #'   bind_rows()
 #' g.info
-traverse <- function(.obj, expr=NULL, .name=NULL,.level=1,.parents=list(caller_env=rlang:::caller_env())) {
+traverse <- function(.obj,
+                     expr=NULL,
+                     .pluck=NULL,
+                     .name=NA_character_,
+                     .level=1,
+                     .parents=list(caller_env=rlang:::caller_env())) {
   expr <- enquo(expr)
-  if (is.null(.name))  {
-    .name <-  deparse1(substitute(.obj))
-  }
+  # indexname uses either '$name' or '[[index]]' (if no name or non-unique)
+  .code <- .pluck %>% map_chr(~{
+    if (is.numeric(.x)) {
+      paste0("[[",.x,"]]")
+    } else {
+      syntactically.valid <- make.names(.x)==.x
+      if_else(syntactically.valid,paste0("$",.x),paste0("$`",.x,"`"))
+    }
+  }) %>% paste(collapse="")
   .class <- paste(class(.obj),collapse="|")
   circular.check <- map_lgl(.parents,~identical(.x,.obj))
   .circular <- any(circular.check)
+  .iterate.children <- (is.list(.obj) || is.environment(.obj)) && length(.obj)>0 && !.circular
+
   env <- rlang::quo_get_env(expr)
   env$.class <- .class
   env$.name <- .name
+  env$.pluck <- .pluck
+  env$.code <- .code
   env$.parents <- .parents
   env$.circular <- .circular
   env$.level <- .level
   env$.obj <- .obj
+  env$.iterate.children <- .iterate.children
   data <- rlang::eval_tidy(expr,env=env)
-
   ldata <- list(data)
-  if ((is.list(.obj) || is.environment(.obj)) && length(.obj)>0 && !.circular) {
-    len <- length(.obj)
-    index1 <-  names(.obj)
-    index2 <- 1:len
 
-    if (is.null(index1)) {
-      index <- index2 %>% as.list()
-    } else {
-      index <- map2(index1,index2,~{
-        if (.x!="") {
-          return(.x)
-        } else {
-          return(.y)
-        }
-      })
-    }
-    .objname <- index %>% map(~{
-      if (is.numeric(.x)) {
-        paste0("[[",.x,"]]")
+  # if ((is.list(.obj) || is.environment(.obj)) && length(.obj)>0 && !.circular) {
+  if (.iterate.children) {
+    # determine either name or index for reference list items.
+    len <- length(.obj)
+    child_name <-  names(.obj) %||% rep(NA_character_,len) %>% na_if("")
+    child_index <- 1:len
+    dupnames <- child_name[duplicated(child_name)]
+    use_index <- is.na(child_name) | (child_name %in% dupnames)
+    child_pluck <- pmap(list(use_index,child_name,child_index),function(useindex,name,index) {
+      if (useindex) {
+        index
       } else {
-        paste0("$",.x)
+        name
       }
     })
     lineage <- c(.parents,setNames(list(.obj),.name))
 
-    children <- map2(index,.objname,~{
-      # message(.name,.y)
-      child <- .obj[[.x]]
-      full.name <- paste0(.name,.y)
-      traverse(.obj=child, expr=!!expr, .name=full.name, .level=.level+1,.parents=lineage)
+    children <- pmap(list(child_index,child_name,child_pluck),function(i,name,pluck) {
+      child <- .obj[[i]]
+      child.pluck <- c(.pluck,list(pluck))
+      traverse(.obj=child,
+               expr=!!expr,
+               .name=name,
+               .pluck = child.pluck,
+               .level=.level+1,.parents=lineage)
     }) %>% do.call(c,.)
     ldata <- c(ldata,children)
   }

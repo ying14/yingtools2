@@ -7,7 +7,8 @@
 traverse(
   .obj,
   expr = NULL,
-  .name = NULL,
+  .pluck = NULL,
+  .name = NA_character_,
   .level = 1,
   .parents = list(caller_env = rlang:::caller_env())
 )
@@ -18,12 +19,18 @@ traverse(
 \item{expr}{expression to run on each object in the list. Reserved words can be used, as follows:
 \itemize{
 \item \code{.obj}: the current object
-\item \code{.name}: a name for the object
-\item \code{.class}: the class of the object
+\item \code{.class}: the class of the object. May also be \code{NULL}
+\item \code{.name}: a name for the object, if it was named by its parent
+\item \code{.code}: code snippet that will reference this part of the list.
+\item \code{.pluck}: a list of indices that can be used to reference the element using \code{\link[purrr:pluck]{purrr::pluck()}}
 \item \code{.level}: an integer specifying the number of levels of recursion.
 \item \code{.parents}: a list of parent objects (first element is most direct parent)
 \item \code{.circular}: whether the object points to a parent
+\item \code{.iterate.children}: whether children of the object will be iterated. This basically
+depends on whether the object is a non-empty, non-circular list/environment.
 }}
+
+\item{.pluck}{used for passing information to other instances. Leave these be.}
 
 \item{.name}{used for passing information to other instances. Leave these be.}
 
