@@ -575,7 +575,9 @@ mutate_sample_data <- function(phy, ..., verbose = FALSE) {
     cli_text("Note, sample_names() were altered")
     sample_names(phy) <- samp$sample
   }
-  sample_data(phy) <- samp %>% set.samp()
+  if (ncol(samp)>1) {
+    sample_data(phy) <- samp %>% set.samp()
+  }
   return(phy)
 }
 #' @rdname mutate.phyloseq
@@ -590,7 +592,9 @@ mutate_tax_table <- function(phy, ..., verbose = FALSE) {
     cli_text("Note, taxa_names() were altered")
     taxa_names(phy) <- tax$otu
   }
-  tax_table(phy) <- tax %>% set.tax()
+  if (ncol(tax)>1) {
+    tax_table(phy) <- tax %>% set.tax()
+  }
   return(phy)
 }
 
@@ -654,8 +658,8 @@ filter_tax_table <- function(phy, ..., prune_unused_samples=FALSE, verbose=FALSE
 select.phyloseq <- function(phy, ..., verbose=FALSE) {
   # commands <- exprs(Sample_ID,day,taxon,starts_with("C"))
   commands <- quos(...)
-  samp.vars <- c(sample_variables(phy),"sample")
-  taxa.vars <- c(rank_names(phy),"otu")
+  samp.vars <- c(sample_variables(phy,errorIfNULL = FALSE),"sample")
+  taxa.vars <- c(rank_names(phy,errorIfNULL = FALSE),"otu")
   uses.sample.vars <- map_lgl(commands,~eval_phyloseq_expr(.x,phy,error=FALSE))
   if (length(uses.sample.vars)==0) {
     #zero selects
@@ -1837,6 +1841,7 @@ calc.distance <- function(phy, method,
 }
 
 
+
 #' Ordination on Phyloseq
 #'
 #' Calculates ordination data. This is sort of a modified version of [phyloseq::ordinate()], with some additional
@@ -1850,11 +1855,20 @@ calc.distance <- function(phy, method,
 #' * `tsne`: try tuning the `perplexity` parameter, typically `5-50` (passed to [Rtsne::Rtsne()])
 #'
 #' Ordination methods with no distance matrix:
-#' * `RDA`:(passed to [vegan::rda()] through [phyloseq::ordinate()])
+#' * `RDA`: (passed to [vegan::rda()] through [phyloseq::ordinate()])
 #' * `CCA`: (passed to [vegan::cca()] through [phyloseq::ordinate()])
 #' * `DCA`: (passed to [phyloseq::decorana()] through [phyloseq::ordinate()])
 #' * `DPCoA`: (passed to [phyloseq::DPCoA()] through [phyloseq::ordinate()])
 #' * `umap`: (passed to [umap::umap()])
+#'
+#'
+#' A few notes on these methods:
+#' * `PCoA/MDS` generally works with any distance measure.
+#' * `NMDS` uses rank order and has fewer assumptions about distributions.
+#' * `RDA` is equivalent to `PCA`, if there are no explanatory variables.
+#' It uses Euclidean distances and assumes linear distances, so probably
+#' not appropriate for community level data.
+#' * `CCA` and `DCA` have assumptions that usually do not apply to community level data.
 #'
 #' @param phy Phyloseq data to be calculated
 #' @param method Ordination method, passed to [phyloseq::ordinate()]. But can also be `umap` or `tsne`.

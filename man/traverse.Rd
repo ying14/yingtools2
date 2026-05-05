@@ -7,8 +7,10 @@
 traverse(
   .obj,
   expr = NULL,
-  .pluck = NULL,
+  .index = NA_integer_,
   .name = NA_character_,
+  .pluck = NULL,
+  .code = NULL,
   .level = 1,
   .parents = list(caller_env = rlang:::caller_env())
 )
@@ -20,19 +22,19 @@ traverse(
 \itemize{
 \item \code{.obj}: the current object
 \item \code{.class}: the class of the object. May also be \code{NULL}
+\item \code{.index}: the index number of the object, from its parent
 \item \code{.name}: a name for the object, if it was named by its parent
 \item \code{.code}: code snippet that will reference this part of the list.
 \item \code{.pluck}: a list of indices that can be used to reference the element using \code{\link[purrr:pluck]{purrr::pluck()}}
 \item \code{.level}: an integer specifying the number of levels of recursion.
 \item \code{.parents}: a list of parent objects (first element is most direct parent)
 \item \code{.circular}: whether the object points to a parent
-\item \code{.iterate.children}: whether children of the object will be iterated. This basically
 depends on whether the object is a non-empty, non-circular list/environment.
 }}
 
 \item{.pluck}{used for passing information to other instances. Leave these be.}
 
-\item{.name}{used for passing information to other instances. Leave these be.}
+\item{.code}{used for passing information to other instances. Leave these be.}
 
 \item{.level}{used for passing information to other instances. Leave these be.}
 
@@ -45,8 +47,32 @@ a list of objects generated from \code{expr}
 Everyone knows I like recursion. This function recursively iterates through nested lists and runs a specified expression.
 }
 \examples{
-g <- ggplot(mtcars,aes(x=mpg,y=hp)) + geom_point()
-g.info <- traverse(g,expr=tibble(name=.name,class=.class,level=.level)) \%>\%
-  bind_rows()
-g.info
+test_list <- list(
+  a = c("a","b","c"),
+  b = 1:3,
+  c = 8:22,
+  c = c("x","y","z"),
+  "qqq",
+  c(10,20),
+  f = list(
+    f1 = "f1",
+    f2 = "f2a",
+    f2 = "f2b",
+    f3 = list(
+      ff1="ff1",
+      ff2="ff2"
+    )
+  )
+)
+traverse(test_list,expr={
+  tibble(.level,.name,.pluck=list(.pluck),.code,val=deparse1(.obj))
+}) \%>\% list_rbind()
+
+# can modify the loop in the expression.
+traverse(test_list,expr={
+  if ("f" \%in\% .name) {
+    .iterate.children <- FALSE
+  }
+  tibble(.level,.name,.pluck=list(.pluck),.code,val=deparse1(.obj))
+}) \%>\% list_rbind()
 }

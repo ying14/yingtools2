@@ -2,31 +2,49 @@
 % Please edit documentation in R/yingtools2.R
 \name{log_epsilon_trans}
 \alias{log_epsilon_trans}
+\alias{log_epsilon_trans_breaks}
 \title{Log Epsilon Tranformation}
 \usage{
 log_epsilon_trans(epsilon = 0.001)
+
+log_epsilon_trans_breaks(epsilon)
 }
 \arguments{
-\item{epsilon}{This parameter controls scaling. Think of this as the value of the first axis tick after zero. Default is 0.001.}
+\item{epsilon}{scaling parameter used in \code{\link[=log_epsilon_trans]{log_epsilon_trans()}}}
 }
 \value{
 Tranformation function to be plugged into ggplot.
+
+break function returning break values.
 }
 \description{
-Use this transformation for plotting log data including 0. You can't use regular log transformation because it can't take zero.
+Use this transformation for plotting log data including 0.
+You can't use regular log transformation because \code{log(0)=-Inf}.
+
+This is used by scant_trans as default method for breaks. Will fill in logs of 10.
 }
 \details{
-The transformation used is \eqn{\log{(|x|+\frac{epsilon}{8})} - \log(\frac{epsilon}{8})}, where epsilon is the parameter controlling the scale. The 1/8 portion is to make distances between ticks equal, so it's visually pleasing.
+We want a log-transformation that can accept zero values, and we want to choose \code{epsilon} as a way to
+control the shape. We want \code{epsilon} to more or less represent be the "first tick" of x,
+where values above \code{epsilon} are looking log-transformed, and values below are ramping up from zero.
+
+The transformation used is \eqn{\log{(x+\frac{epsilon}{8})} - \log(\frac{epsilon}{8})},
+(to accept negative numbers, use absolute value when performing log transform).
+Why this?
+We are performing transformation \eqn{f(x)=\log{(x+a)}+b},
+where \eqn{f(0)=0} (i.e. can take zero),
+and epsilon such that \eqn{f(10*epsilon)-f(epsilon)=f(epsilon)-0}
+(first tick and second ticks are equidistant).
+The solution turns out to be \eqn{a=\frac{epsilon}{8}}, and \eqn{b=-\log(a)}.
 }
 \examples{
 values <- c(0,10^(-10:0))
-d <- data.frame(x=1:length(values),y=values)
-g <- ggplot(d,aes(x=x,y=y,label=y)) + geom_point() + geom_line() + geom_text()
-g1 <- g + scale_y_continuous(breaks=values) + ggtitle("untransformed")
-g2 <- g + scale_y_continuous(trans=log_epsilon_trans(0.0001)) + ggtitle("scale_trans, epsilon=0.0001")
-g3 <- g + scale_y_continuous(trans=log_epsilon_trans(10^-6.)) + ggtitle("scale_trans, epsilon=0.0000001")
-g4 <- g + scale_y_continuous(trans=log_epsilon_trans(10^-10)) + ggtitle("scale_trans, epsilon=0.0000000001")
-gridExtra::grid.arrange(g1,g2,g3,g4,nrow=2)
+d <- tibble(x=letters[seq_along(values)],y=values)
+g <- ggplot(d,aes(x=x,y=y,label=y)) + geom_col() + geom_text()
+g
+g + scale_y_continuous(trans=log_epsilon_trans(0.1))
+g + scale_y_continuous(trans=log_epsilon_trans(0.00001))
+g + scale_y_continuous(trans=log_epsilon_trans(0.00001),labels=pretty_power10)
 }
 \author{
 Ying Taur

@@ -1040,7 +1040,6 @@ regex.widget.OLD <- function(vec, ... , n_fields=3,ignore_case=TRUE,condense_lin
 #' A widget for exploring regular expressions on a vector
 #' @param vec a character vector where regex searches will be applied.
 #' @export
-#' @examples
 regex.widget0 <- function(vec,port=4567) {
   library(shiny);library(stringi)
   if (!is.atomic(vec)) {
@@ -1132,8 +1131,6 @@ regex.widget0 <- function(vec,port=4567) {
 #'
 #' @return distance metric of `taxhorn` distances
 #' @export
-#'
-#' @examples
 calc.taxhorn.distance <- function(phy) {
   message("YTNote: calc.taxhorn.distance is deprecated. Consider using distance2(phy, 'mean.horn')")
 
@@ -1419,7 +1416,6 @@ get.tax.palette <- function(data,unitvar=Species,tax.palette=yt.palette3) {
 #' @return a ggplot object showing the legend.
 #' @describeIn get.tax.palette
 #' @export
-#' @examples
 get.tax.legend <- function(tax.palette=yt.palette3,fontsize=5) {
   warning("YTWarning: Please note that this function is deprecated, consider using geom_taxonomy / scale_fill_taxonomy")
   glist <- imap(tax.palette,function(exp,label) {
@@ -1475,7 +1471,6 @@ get.tax.legend2 <- function(tax.palette=yt.palette3,fontsize=5,ncol=NULL,nrow=NU
 #' @param label.pct.cutoff cutoff by which to label abundances, stored in tax.label
 #'
 #' @return either ggplot2 object, or data frame.
-#' @examples
 #' @author Ying Taur
 #' @export
 tax.plot <- function(t,xvar=sample,pctseqs=pctseqs,unitvar=Species,

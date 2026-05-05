@@ -697,6 +697,7 @@ str_split_equal_parts <- function(char,nparts=2,sep=" ",collapse="\n")  {
 #' is.wholenumber(b)
 #' is.wholenumber(c)
 #' @author Ying Taur
+#' @rdname is.wholenumber
 #' @export
 is.wholenumber <- function(x, tol = .Machine$double.eps^0.5) {
   is.integer(x) || (is.numeric(x) && all(abs(x-round(x))<tol,na.rm=TRUE))
@@ -3802,17 +3803,45 @@ pretty_number.difftime <- function(x,...) {
 #' @examples
 #' pretty_scientific(c(111e-12,230000022.11111,0.1234567))
 #' ggplot(mtcars,aes(mpg*1e-6)) + geom_bar() + scale_x_continuous(label=pretty_scientific)
+#' @rdname pretty_scientific
 #' @export
 pretty_scientific <- function(l,parse=TRUE) {
   l <- format(l,scientific=TRUE)
   l <- gsub("^(.*)e","'\\1'e",l)
   l <- gsub("e","%*%10^",l)
   if (parse) {
-    return(parse(text=l))
+    # return(parse(text=l))
+    parsed <- sapply(l,function(x) parse(text=x))
+    return(parsed)
   } else {
     return(l)
   }
 }
+
+
+#' @rdname pretty_scientific
+#' @export
+pretty_power10 <- function(l,parse=TRUE) {
+  sapply(l,function(x) {
+    if (x==0 || is.na(x)) {
+      return(x)
+    }
+    sign <- ifelse(x<0,"-","")
+    x <- abs(x)
+    logx <- log10(x)
+    if (is.wholenumber(logx)) {
+      # prevents floating point error stuff
+      logx <- as.integer(logx)
+    }
+    sci <- paste0(sign,"10^",logx)
+    if (parse) {
+      return(parse(text=sci))
+    } else {
+      return(sci)
+    }
+  })
+}
+
 
 
 #' Short number formatting
@@ -5588,6 +5617,10 @@ StatBracket <- ggproto("StatBracket",Stat,
                                      y=min(y),
                                      yend=max(yend),
                                      .groups="drop")
+
+                         ## note, should consider adding padding before and after, if
+                         # axis is discrete.
+
                          return(newdata)
                        })
 
@@ -5685,7 +5718,11 @@ makeContent.bracket <- function(x) {
   x.right.vector <- y.vector
   y.right.vector <- -x.vector
 
-  text.angle.calc <- atan((y1 - y0)/(x1 - x0)) * 180/pi
+  if (any(xdiff==0 & ydiff==0)) {
+    cli::cli_abort("YTError: in makeContent.bracket(), xdiff and ydiff cannot both be zero")
+  }
+  text.angle.calc <- atan((ydiff)/(xdiff)) * 180/pi
+  # text.angle.calc <- atan((y1 - y0)/(x1 - x0)) * 180/pi
   text.angle <- coalesce(x$angle, text.angle.calc)
   vjust <- coalesce(x$vjust, 0.5)
   hjust <- coalesce(x$hjust, 0.5)
@@ -6399,23 +6436,36 @@ cleanup.data <- function(data,remove.na.cols=FALSE,remove.na.rows=TRUE,make.name
 
 
 
+
 #' Log Epsilon Tranformation
 #'
-#' Use this transformation for plotting log data including 0. You can't use regular log transformation because it can't take zero.
+#' Use this transformation for plotting log data including 0.
+#' You can't use regular log transformation because `log(0)=-Inf`.
 #'
-#' The transformation used is \eqn{\log{(|x|+\frac{epsilon}{8})} - \log(\frac{epsilon}{8})}, where epsilon is the parameter controlling the scale. The 1/8 portion is to make distances between ticks equal, so it's visually pleasing.
+#' We want a log-transformation that can accept zero values, and we want to choose `epsilon` as a way to
+#' control the shape. We want `epsilon` to more or less represent be the "first tick" of x,
+#' where values above `epsilon` are looking log-transformed, and values below are ramping up from zero.
+#'
+#' The transformation used is \eqn{\log{(x+\frac{epsilon}{8})} - \log(\frac{epsilon}{8})},
+#' (to accept negative numbers, use absolute value when performing log transform).
+#' Why this?
+#' We are performing transformation \eqn{f(x)=\log{(x+a)}+b},
+#' where \eqn{f(0)=0} (i.e. can take zero),
+#' and epsilon such that \eqn{f(10*epsilon)-f(epsilon)=f(epsilon)-0}
+#' (first tick and second ticks are equidistant).
+#' The solution turns out to be \eqn{a=\frac{epsilon}{8}}, and \eqn{b=-\log(a)}.
 #' @param epsilon This parameter controls scaling. Think of this as the value of the first axis tick after zero. Default is 0.001.
 #' @return Tranformation function to be plugged into ggplot.
 #' @examples
 #' values <- c(0,10^(-10:0))
-#' d <- data.frame(x=1:length(values),y=values)
-#' g <- ggplot(d,aes(x=x,y=y,label=y)) + geom_point() + geom_line() + geom_text()
-#' g1 <- g + scale_y_continuous(breaks=values) + ggtitle("untransformed")
-#' g2 <- g + scale_y_continuous(trans=log_epsilon_trans(0.0001)) + ggtitle("scale_trans, epsilon=0.0001")
-#' g3 <- g + scale_y_continuous(trans=log_epsilon_trans(10^-6.)) + ggtitle("scale_trans, epsilon=0.0000001")
-#' g4 <- g + scale_y_continuous(trans=log_epsilon_trans(10^-10)) + ggtitle("scale_trans, epsilon=0.0000000001")
-#' gridExtra::grid.arrange(g1,g2,g3,g4,nrow=2)
+#' d <- tibble(x=letters[seq_along(values)],y=values)
+#' g <- ggplot(d,aes(x=x,y=y,label=y)) + geom_col() + geom_text()
+#' g
+#' g + scale_y_continuous(trans=log_epsilon_trans(0.1))
+#' g + scale_y_continuous(trans=log_epsilon_trans(0.00001))
+#' g + scale_y_continuous(trans=log_epsilon_trans(0.00001),labels=pretty_power10)
 #' @author Ying Taur
+#' @rdname log_epsilon_trans
 #' @export
 log_epsilon_trans <- function(epsilon=0.001) {
   requireNamespace("scales",quietly=TRUE)
@@ -6423,11 +6473,9 @@ log_epsilon_trans <- function(epsilon=0.001) {
     return(scales::identity_trans())
   }
   trans <- function(x) {
-    # if (is.null(epsilon)) {return(x)}
     sign(x)*(log(abs(x)+epsilon/8)-log(epsilon/8))
   }
   inv <- function(y) {
-    # if (is.null(epsilon)) {return(y)}
     sign(y)*epsilon/8*(exp(abs(y))-1)
   }
   scales::trans_new(paste0("log_epsilon-",format(epsilon)),
@@ -6444,18 +6492,32 @@ log_epsilon_trans <- function(epsilon=0.001) {
 #' This is used by scant_trans as default method for breaks. Will fill in logs of 10.
 #' @param epsilon scaling parameter used in [log_epsilon_trans()]
 #' @return break function returning break values.
+#' @rdname log_epsilon_trans
 #' @export
 log_epsilon_trans_breaks <- function(epsilon) {
-  # if (is.null(epsilon)) {return(scales::extended_breaks())}
   function(x) {
-    firsttick <- round(log(epsilon,10))
-    lasttick <- floor(log(x[2],10))
-    x <- c(0,10^(firsttick:lasttick))
-    by <- ceiling(length(x) / 5)
-    x[seq(1,length(x),by=by)]
+    xlo <- x[1]
+    xhi <- x[2]
+    xabove <- c()
+    xbelow <- c()
+    log.eps <- log(epsilon,10)
+    if (xhi>epsilon) {
+      log.xhi <- ceiling(log(xhi,10))
+      xabove <- 10^(log.eps:log.xhi)
+    }
+    if (xlo<(-epsilon)) {
+      log.xlo <- ceiling(log(-xlo,10))
+      xbelow <- -(10^(log.xlo:log.eps))
+    }
+    xmid <- c(-epsilon,0,epsilon)
+    x.breaks <- unique(c(xbelow,xmid,xabove))
+    x.breaks.final <- x.breaks[is.between(x.breaks,xlo,xhi)]
+    if (length(x.breaks.final)<3) {
+      x.breaks.final <- scales::extended_breaks(5)(x)
+    }
+    return(x.breaks.final)
   }
 }
-
 
 
 #' Get a reasonable epsilon value for log_epsilon_trans()
@@ -7452,16 +7514,16 @@ shell.exec <- function(file) {
 #' @param expr expression to run on each object in the list. Reserved words can be used, as follows:
 #' * `.obj`: the current object
 #' * `.class`: the class of the object. May also be `NULL`
+#' * `.index`: the index number of the object, from its parent
 #' * `.name`: a name for the object, if it was named by its parent
 #' * `.code`: code snippet that will reference this part of the list.
 #' * `.pluck`: a list of indices that can be used to reference the element using [purrr::pluck()]
 #' * `.level`: an integer specifying the number of levels of recursion.
 #' * `.parents`: a list of parent objects (first element is most direct parent)
 #' * `.circular`: whether the object points to a parent
-#' * `.iterate.children`: whether children of the object will be iterated. This basically
 #' depends on whether the object is a non-empty, non-circular list/environment.
 #' @param .pluck used for passing information to other instances. Leave these be.
-#' @param .name used for passing information to other instances. Leave these be.
+#' @param .code used for passing information to other instances. Leave these be.
 #' @param .level used for passing information to other instances. Leave these be.
 #' @param .parents used for passing information to other instances. Leave these be.
 #'
@@ -7469,49 +7531,68 @@ shell.exec <- function(file) {
 #' @export
 #'
 #' @examples
-#' g <- ggplot(mtcars,aes(x=mpg,y=hp)) + geom_point()
-#' g.info <- traverse(g,expr=tibble(name=.name,class=.class,level=.level)) %>%
-#'   bind_rows()
-#' g.info
+#' test_list <- list(
+#'   a = c("a","b","c"),
+#'   b = 1:3,
+#'   c = 8:22,
+#'   c = c("x","y","z"),
+#'   "qqq",
+#'   c(10,20),
+#'   f = list(
+#'     f1 = "f1",
+#'     f2 = "f2a",
+#'     f2 = "f2b",
+#'     f3 = list(
+#'       ff1="ff1",
+#'       ff2="ff2"
+#'     )
+#'   )
+#' )
+#' traverse(test_list,expr={
+#'   tibble(.level,.name,.pluck=list(.pluck),.code,val=deparse1(.obj))
+#' }) %>% list_rbind()
+#'
+#' # can modify the loop in the expression.
+#' traverse(test_list,expr={
+#'   if ("f" %in% .name) {
+#'     .iterate.children <- FALSE
+#'   }
+#'   tibble(.level,.name,.pluck=list(.pluck),.code,val=deparse1(.obj))
+#' }) %>% list_rbind()
 traverse <- function(.obj,
                      expr=NULL,
-                     .pluck=NULL,
+                     .index=NA_integer_,
                      .name=NA_character_,
+                     .pluck=NULL,
+                     .code=NULL,
                      .level=1,
                      .parents=list(caller_env=rlang:::caller_env())) {
   expr <- enquo(expr)
-  # indexname uses either '$name' or '[[index]]' (if no name or non-unique)
-  .code <- .pluck %>% map_chr(~{
-    if (is.numeric(.x)) {
-      paste0("[[",.x,"]]")
-    } else {
-      syntactically.valid <- make.names(.x)==.x
-      if_else(syntactically.valid,paste0("$",.x),paste0("$`",.x,"`"))
-    }
-  }) %>% paste(collapse="")
-  .class <- paste(class(.obj),collapse="|")
-  circular.check <- map_lgl(.parents,~identical(.x,.obj))
-  .circular <- any(circular.check)
-  .iterate.children <- (is.list(.obj) || is.environment(.obj)) && length(.obj)>0 && !.circular
-
   env <- rlang::quo_get_env(expr)
-  env$.class <- .class
+  expr <- rlang::quo_get_expr(expr)
+
+  env$.class <- paste(class(.obj),collapse="|")
+  circular.check <- map_lgl(.parents,~identical(.x,.obj))
+  # .circular <- any(circular.check)
   env$.name <- .name
+  env$.index <- .index
   env$.pluck <- .pluck
   env$.code <- .code
   env$.parents <- .parents
-  env$.circular <- .circular
+  env$.circular <- any(circular.check)
   env$.level <- .level
   env$.obj <- .obj
-  env$.iterate.children <- .iterate.children
-  data <- rlang::eval_tidy(expr,env=env)
+
+  # env$.iterate.children <- .iterate.children
+  # data <- rlang::eval_tidy(expr,env=env)
+  data <- eval(expr,envir=env)
   ldata <- list(data)
 
-  # if ((is.list(.obj) || is.environment(.obj)) && length(.obj)>0 && !.circular) {
+  .iterate.children <- (is.list(env$.obj) || is.environment(env$.obj)) && length(env$.obj)>0 && !env$.circular
   if (.iterate.children) {
     # determine either name or index for reference list items.
-    len <- length(.obj)
-    child_name <-  names(.obj) %||% rep(NA_character_,len) %>% na_if("")
+    len <- length(env$.obj)
+    child_name <-  names(env$.obj) %||% rep(NA_character_,len) %>% na_if("")
     child_index <- 1:len
     dupnames <- child_name[duplicated(child_name)]
     use_index <- is.na(child_name) | (child_name %in% dupnames)
@@ -7522,15 +7603,37 @@ traverse <- function(.obj,
         name
       }
     })
-    lineage <- c(.parents,setNames(list(.obj),.name))
-
-    children <- pmap(list(child_index,child_name,child_pluck),function(i,name,pluck) {
-      child <- .obj[[i]]
+    child_code <- pmap(list(use_index,child_name,child_index),function(useindex,name,index) {
+      if (useindex) {
+        index
+      } else {
+        name
+      }
+    })
+    lineage <- c(.parents,setNames(list(env$.obj),env$.code))
+    children <- pmap(list(child_index,child_name,child_pluck),function(index,name,pluck) {
+      child <- env$.obj[[index]]
       child.pluck <- c(.pluck,list(pluck))
+      if (is.numeric(pluck)) {
+        if (is.na(name)) {
+          new.code <- str_glue("[[{pluck}]]")
+        } else {
+          new.code <- str_glue("[[{{'{name}';{pluck}}}]]")
+
+        }
+      } else {
+        if (make.names(pluck)!=pluck) {
+          pluck <- paste0("`",pluck,"`")
+        }
+        new.code <- str_glue("${pluck}")
+      }
+      child.code <- paste0(.code,new.code)
       traverse(.obj=child,
                expr=!!expr,
-               .name=name,
+               .index = index,
+               .name = name,
                .pluck = child.pluck,
+               .code = child.code,
                .level=.level+1,.parents=lineage)
     }) %>% do.call(c,.)
     ldata <- c(ldata,children)
@@ -7538,6 +7641,106 @@ traverse <- function(.obj,
   return(ldata)
 }
 
+
+
+
+
+#' Object Names
+#'
+#' Similar to [base::names()], but always same length as the object, and will be `NA` if no name.
+#' @param x R object
+#' @return A character vector
+#' @export
+name_along <- function(x) {
+  if (length(x)==0) {
+    return(character())
+  }
+  if_else(rlang::have_name(x),names(x),NA_character_)
+}
+
+
+
+pluck2_raw <- function(.x,dots,.simplify=TRUE) {
+  index <- dots[[1]]
+  leftover.dots <- dots[-1]
+  last.one <- length(leftover.dots)==0
+  xnames <- name_along(.x)
+  inames <- seq_along(.x) %>% as.character()
+  is.duplicated <- xnames %in% xnames[duplicated(xnames)]
+  new.xnames <- case_when(
+    is.na(xnames) ~ inames,
+    is.duplicated ~ str_glue("{xnames}({inames})"),
+    TRUE ~ xnames
+  )
+  if (is.character(index)) {
+    pick <- xnames %in% index
+  } else if (is.integer(index)) {
+    pick <- seq_along(.x) %in% index
+  } else if (is.logical(index)) {
+    pick <- rep_along(.x, index)
+  } else if (rlang::is_formula(index) || is.function(index)) {
+    pick <- imap_lgl(.x,index)
+  }
+  names(.x) <- new.xnames
+  subx <- .x[pick]
+  if (last.one) {
+    return(subx)
+  } else {
+    results <- subx %>% map(function(xx) {
+      pluck2_raw(xx,leftover.dots,.simplify=FALSE)
+    }) %>% list_flatten(name_spec="{outer}..{inner}")
+    if (.simplify) {
+      results <- results %>% list_simplify()
+    }
+    return(results)
+  }
+}
+
+#' Pluck/Hoist 2
+#'
+#' Similar to [purrr::pluck()] and [purrr::hoist()], but with additional accessor methods.
+#'
+#' Comparison with [purrr::pluck()] and [purrr::hoist()] accessors:
+#' * Like: Can use a character or numeric index
+#' * Unlike: Can use purrr-style formula or function that evaluates to logical.
+#' * Unlike: Can supply use logical or vector of integer indexes.
+#' * Unlike: Each accessor can retrieve multiple hits. Like anything with the same name.
+#'
+#' @param .x list object to be accessed.
+#' @param ... list of accessors, similar to [purrr::pluck()].
+#' @param .simplify Whether to simplify output. Default is `TRUE`.
+#' @return Retireved list items.
+#' @rdname pluck2
+#' @export
+#' @examples
+pluck2 <- function(.x,...,.simplify=TRUE) {
+  dots <- list(...)
+  pluck2_raw(.x,dots=dots,.simplify=.simplify)
+}
+
+#' @rdname pluck2
+#' @export
+hoist2 <- function(.data, .col, ... ,
+                   # .remove = TRUE,
+                   # .ptype = NULL,
+                   # .transform = NULL,
+                   .simplify = TRUE) {
+  .col <- enquo(.col)
+  dots <- list(...)
+  for (i in seq_along(dots)) {
+    index <- dots[[i]]
+    varname <- sym(names(dots)[i])
+    .data <- .data %>%
+      mutate(!!varname := map(!!.col,function(l) {
+        pluck2_raw(l,dots=index)
+      }))
+    if (.simplify) {
+
+      .data <- .data %>% mutate(!!varname:=list_simplify(!!varname,strict=FALSE))
+    }
+  }
+  return(.data)
+}
 
 
 #' Display sizes of objects in memory

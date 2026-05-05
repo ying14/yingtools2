@@ -33,11 +33,21 @@ Ordination methods that use a distance matrix:
 
 Ordination methods with no distance matrix:
 \itemize{
-\item \code{RDA}:(passed to \code{\link[vegan:cca]{vegan::rda()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
+\item \code{RDA}: (passed to \code{\link[vegan:cca]{vegan::rda()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{CCA}: (passed to \code{\link[vegan:cca]{vegan::cca()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{DCA}: (passed to \code{\link[phyloseq:decorana]{phyloseq::decorana()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{DPCoA}: (passed to \code{\link[phyloseq:DPCoA]{phyloseq::DPCoA()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{umap}: (passed to \code{\link[umap:umap]{umap::umap()}})
+}
+
+A few notes on these methods:
+\itemize{
+\item \code{PCoA/MDS} generally works with any distance measure.
+\item \code{NMDS} uses rank order and has fewer assumptions about distributions.
+\item \code{RDA} is equivalent to \code{PCA}, if there are no explanatory variables.
+It uses Euclidean distances and assumes linear distances, so probably
+not appropriate for community level data.
+\item \code{CCA} and \code{DCA} have assumptions that usually do not apply to community level data.
 }
 }
 \examples{

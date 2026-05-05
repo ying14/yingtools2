@@ -2,9 +2,12 @@
 % Please edit documentation in R/yingtools2.R
 \name{pretty_scientific}
 \alias{pretty_scientific}
+\alias{pretty_power10}
 \title{Fancy Scientific Notation}
 \usage{
 pretty_scientific(l, parse = TRUE)
+
+pretty_power10(l, parse = TRUE)
 }
 \arguments{
 \item{l}{number vector to be formatted.}
