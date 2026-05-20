@@ -54,5 +54,17 @@ a table containing features tested and results.
 Given a \code{\link[phyloseq:phyloseq-class]{phyloseq}} object and class variable, perform LDA Effect Size analysis.
 }
 \examples{
-lda <- lda.effect(cid.phy,class="Consistency")
+phy <- cid.phy \%>\%
+  mutate(time2=ifelse(day>1,"late","early"),
+         time3=cut2(day,lower=c(0,10),lvls=c("early","mid","late"))) \%>\%
+  phy.collapse(c("Kingdom", "Phylum", "Class", "Order"))
+
+
+lda1 <- lda.effect(phy,class="time2")
+lda.plot(lda1)
+lda.clado(lda1)
+
+lda2 <- lda.effect(phy,class="time3")
+lda.plot(lda2)
+lda.clado(lda2)
 }

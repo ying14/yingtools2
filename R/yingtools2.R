@@ -5603,7 +5603,6 @@ GeomBracket <- ggproto("GeomBracket",Geom,
 )
 
 
-
 #' @export
 StatBracket <- ggproto("StatBracket",Stat,
                        required_aes = c("x","y"),
@@ -6515,9 +6514,19 @@ log_epsilon_trans_breaks <- function(epsilon) {
     if (length(x.breaks.final)<3) {
       x.breaks.final <- scales::extended_breaks(5)(x)
     }
+
+    if (length(x.breaks.final)>=9) {
+      izero <- coalesce(which(x.breaks.final==0)[1],1)
+      ii <- seq_along(x.breaks.final)-izero
+      mod <- length(ii) %/% 6
+      iii <- ii %% mod == 0
+      x.breaks.final <- x[iii]
+    }
     return(x.breaks.final)
   }
 }
+
+
 
 
 #' Get a reasonable epsilon value for log_epsilon_trans()

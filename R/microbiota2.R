@@ -4165,7 +4165,6 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
 # lefse functions ---------------------------------------------------------
 
 
-
 #' LDA Effect Size
 #'
 #' Given a [`phyloseq`][`phyloseq::phyloseq-class`] object and class variable, perform LDA Effect Size analysis.
@@ -4185,7 +4184,19 @@ as.phylo.formula2 <- function (x, data = parent.frame(), collapse.singles=FALSE,
 #' 1 correction for independent comparisons, 2 correction for dependent comparison
 #' @return a table containing features tested and results.
 #' @examples
-#' lda <- lda.effect(cid.phy,class="Consistency")
+#' phy <- cid.phy %>%
+#'   mutate(time2=ifelse(day>1,"late","early"),
+#'          time3=cut2(day,lower=c(0,10),lvls=c("early","mid","late"))) %>%
+#'   phy.collapse(c("Kingdom", "Phylum", "Class", "Order"))
+#'
+#'
+#' lda1 <- lda.effect(phy,class="time2")
+#' lda.plot(lda1)
+#' lda.clado(lda1)
+#'
+#' lda2 <- lda.effect(phy,class="time3")
+#' lda.plot(lda2)
+#' lda.clado(lda2)
 #' @export
 lda.effect <- function(phy,class,subclass=NULL,
                        subject=NULL,
@@ -4207,7 +4218,7 @@ lda.effect <- function(phy,class,subclass=NULL,
     subclass <- paste0(class,"_subclass")
     phyloseq::sample_data(phy)[[subclass]] <- phyloseq::sample_data(phy)[[class]]
   }
-  s <- suppressWarnings(get.samp(phy)) %>%
+  s <- get.samp(phy) %>%
     mutate(across(any_of(c(class,subclass)),as.character))
   phyloseq::sample_data(phy) <- s %>% set.samp()
 
@@ -4442,24 +4453,25 @@ lda.effect <- function(phy,class,subclass=NULL,
 #' @export
 #' @examples
 lda.plot <- function(lda,tax.label="taxon") {
-  if (n_distinct(lda$direction)==2) {
-    ldaplot <- lda %>% filter(pass) %>%
-      mutate(lda=if_else(as.numeric(factor(direction))==2,-lda,lda),
-             hjust=if_else(as.numeric(factor(direction))==2,0,1)) %>%
-      arrange(lda) %>%
-      mutate(tax.label=fct_inorder(!!sym(tax.label)))
-    limits <- max(lda$lda,na.rm=TRUE) * c(-1,1)
-  } else {
-    ldaplot <- lda %>% filter(pass) %>%
-      arrange(direction,lda) %>%
-      mutate(tax.label=fct_inorder(!!sym(tax.label)),
-             hjust=1)
-    limits <- c(0,max(lda$lda,na.rm=TRUE))
-  }
-  ggplot(ldaplot,aes(x=tax.label,y=lda,fill=direction)) +
-    geom_col() + geom_text(aes(y=0,label=tax.label,hjust=hjust)) + coord_flip() +
-    scale_fill_discrete("Group") +
-    scale_y_continuous("LDA score (log10)",limits=limits) +
+  two.direction <- n_distinct(lda$direction)==2
+  ldaplot <- lda %>%
+    filter(pass) %>%
+    mutate(direction=as.factor(direction),
+           negative=two.direction & as.numeric(direction)==2,
+           sign=ifelse(negative,-1,1),
+           hjust=ifelse(negative,0,1),
+           lda=sign*lda,
+           tax.label=!!sym(tax.label),
+           tax.label=fct_reordern(tax.label,desc(negative),direction,lda))
+  max.lda <- max(abs(ldaplot$lda))
+  ggplot(ldaplot) +
+    geom_col(aes(x=tax.label,y=lda,fill=direction)) +
+    geom_text(aes(x=tax.label,y=0,label=tax.label,hjust=hjust)) +
+    expand_limits(y=c(-max.lda,max.lda)) +
+    coord_flip() +
+    ggplot2::labs(x=NULL,
+                  y="LDA score (log10)",
+                  fill="Group") +
     theme(axis.text.y=element_blank(),
           axis.ticks.y=element_blank(),
           axis.title.y=element_blank(),
