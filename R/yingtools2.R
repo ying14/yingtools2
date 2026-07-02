@@ -5535,7 +5535,7 @@ GeomBracket <- ggproto("GeomBracket",Geom,
                                               parse = FALSE,
                                               check_overlap = FALSE) {
                          # checks copied from ggplot2::GeomSegment$draw_panel
-                         if (packageVersion("ggplot2")>=4.0) {
+                         if (packageVersion("ggplot2")>="4.0") {
                            data <- ggplot2:::fix_linewidth(data, snake_class(self))
                            data <- remove_missing(data, na.rm = na.rm,
                                                   c("x", "y",
@@ -7661,9 +7661,15 @@ traverse <- function(.obj,
 #' @return A character vector
 #' @export
 name_along <- function(x) {
+
   if (length(x)==0) {
     return(character())
   }
+
+  if (is.null(names(x))) {
+    return(rlang::rep_along(x,NA_character_))
+  }
+
   if_else(rlang::have_name(x),names(x),NA_character_)
 }
 

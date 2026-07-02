@@ -730,6 +730,7 @@ select_sample_data <- function(phy, ..., verbose=FALSE) {
 #' and then adding results to the table.
 #' @param phy phyloseq to be modified
 #' @param ... name-value statements that would go into `dplyr::summarize()`
+#' @param filter.zero whether or not to remove zero abundances (passed to [get.otu.melt()]).
 #' @return modified phyloseq
 #' @rdname summarize_tax_table
 #' @export
@@ -743,8 +744,8 @@ select_sample_data <- function(phy, ..., verbose=FALSE) {
 #'     enterodom30=sum(pctseqs[Genus=="Enterococcus"])>0.3,
 #'     predominant.taxa=taxon[which.max(numseqs)]
 #'   )
-summarize_tax_table <- function(phy, ...) {
-  otu <- phy %>% get.otu.melt(filter.zero = FALSE)
+summarize_tax_table <- function(phy, ... , filter.zero=FALSE) {
+  otu <- phy %>% get.otu.melt(filter.zero = filter.zero)
   taxdata <- otu %>%
     group_by(otu) %>%
     summarize(..., .groups="drop")
@@ -763,8 +764,8 @@ summarize_tax_table <- function(phy, ...) {
 
 #' @rdname summarize_tax_table
 #' @export
-summarize_sample_data <- function(phy, ...) {
-  otu <- phy %>% get.otu.melt(filter.zero = FALSE)
+summarize_sample_data <- function(phy, ... , filter.zero=FALSE) {
+  otu <- phy %>% get.otu.melt(filter.zero = filter.zero)
   sampdata <- otu %>%
     group_by(sample) %>%
     summarize(..., .groups="drop")
@@ -872,6 +873,67 @@ make_taxonomy_distinct.data.frame <- function(data,taxranks=c("Superkingdom","Ph
 
 
 
+
+
+#' Get Information on Taxonomy Lineage
+#'
+#' For each taxonomy level, calculate statistics across samples. Also provides grouping
+#' variable, for levels that are essentially equivalent.
+#' @param phy
+#' @param pct.cutoff
+#'
+#' @return
+#' @export
+#'
+#' @examples
+get_taxonomy_info <- function(phy,pct.cutoff=0.99) {
+  # phy <- phy1.lefse
+  ranks <- rank_names(phy)
+  otuall <- seq_along(ranks) %>% map(~{
+    lvls <- ranks[1:.x]
+    otu <- phy.collapse(phy,taxranks=lvls) %>%
+      get.otu.melt(filter.zero=FALSE,sample_data=FALSE) %>%
+      mutate(level=.x,
+             taxonomy=paste(!!!syms(lvls),sep="|"),
+             parent.taxonomy=NA_character_)
+    if (.x>1) {
+      parent.lvls <- lvls[-length(lvls)]
+      otu <- otu %>% mutate(parent.taxonomy=paste(!!!syms(parent.lvls),sep="|"))
+    }
+    return(otu)
+  }) %>% bind_rows()
+  parent <- otuall %>% select(sample,parent.taxonomy=taxonomy,parent.numseqs=numseqs)
+  otuall2 <- otuall %>%
+    left_join(parent,by=c("sample","parent.taxonomy")) %>%
+    mutate(matches.parent=numseqs==parent.numseqs,
+           pct.of.parent=numseqs/parent.numseqs) %>%
+    group_by(level,taxonomy,parent.taxonomy) %>%
+    summarize(#pct.matches.parent=mean(matches.parent),
+      mean.pct.of.parent=mean(pct.of.parent[!is.nan(pct.of.parent)]),
+      min.pct.of.parent=min(pct.of.parent[!is.nan(pct.of.parent)]),
+      max.pct.of.parent=max(pct.of.parent[!is.nan(pct.of.parent)]),
+      n.detect=sum(numseqs>0),
+      pct.detect=mean(numseqs>0),
+      mean.pct=mean(pctseqs),
+      min.pct=min(pctseqs),
+      max.pct=max(pctseqs),
+      min.nseqs=min(numseqs),
+      max.nseqs=max(numseqs),
+      .groups="drop")
+  otuall3 <- otuall2 %>%
+    mutate(grouper=row_number())
+
+  for (lvl in length(ranks):1) {
+    pairs <- otuall3 %>%
+      filter(level==lvl,
+             mean.pct.of.parent>=pct.cutoff) %>%
+      select(parent.taxonomy,grouper)
+    otuall3$grouper[match(pairs$parent.taxonomy,otuall3$taxonomy)] <- pairs$grouper
+
+  }
+  final <- otuall3 %>% select(-parent.taxonomy,)
+  return(final)
+}
 
 
 #' Collapse Phyloseq Into Taxonomy
@@ -1905,7 +1967,7 @@ phy.ordinate <- function(phy,method,distance=NULL,...) {
   no.dist.methods <- c("RDA","CCA","DCA","DPCoA","umap")
   dist.methods <- c("NMDS","PCoA","MDS","tsne")
   special.cap.method <- "CAP"
-
+  all.methods <- c(no.dist.methods, dist.methods, special.cap.method)
   if (method %in% dist.methods) {
     # c("NMDS","PCoA","MDS","tsne")
     ############## needs dist ################

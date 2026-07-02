@@ -5,14 +5,16 @@
 \alias{summarize_sample_data}
 \title{Add a Summary Column to \code{tax_table()} or \code{sample_data()}}
 \usage{
-summarize_tax_table(phy, ...)
+summarize_tax_table(phy, ..., filter.zero = FALSE)
 
-summarize_sample_data(phy, ...)
+summarize_sample_data(phy, ..., filter.zero = FALSE)
 }
 \arguments{
 \item{phy}{phyloseq to be modified}
 
 \item{...}{name-value statements that would go into \code{dplyr::summarize()}}
+
+\item{filter.zero}{whether or not to remove zero abundances (passed to \code{\link[=get.otu.melt]{get.otu.melt()}}).}
 }
 \value{
 modified phyloseq
