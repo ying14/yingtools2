@@ -4930,7 +4930,7 @@ gg.stack2 <- function(..., heights = NULL, gap=unit(1,"pt"),
 
   if (is.null(margin)) {
     # check package version
-    if (packageVersion("ggplot2")>=4.0) {
+    if (packageVersion("ggplot2")>="4.0") {
       margin <- theme_get()$margins
     } else {
       margin <- theme_get()$plot.margin
