@@ -6515,7 +6515,7 @@ log_epsilon_trans_breaks <- function(epsilon) {
       x.breaks.final <- scales::extended_breaks(5)(x)
     }
 
-    if (length(x.breaks.final)>=9) {
+    if (length(x.breaks.final)>=15) {
       izero <- coalesce(which(x.breaks.final==0)[1],1)
       ii <- seq_along(x.breaks.final)-izero
       mod <- length(ii) %/% 6
