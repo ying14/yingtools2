@@ -16,7 +16,7 @@ gg.stack2(
 \arguments{
 \item{...}{ggplot objects to be stacked. Can also supply a formula where left hand side is ggplot, right hand side is height.}
 
-\item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{\link[gridExtra:arrangeGrob]{gridExtra::grid.arrange()}}.}
+\item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{\link[gridExtra:grid.arrange]{gridExtra::grid.arrange()}}.}
 
 \item{gap}{size of gap between stacked plots. Default is \code{unit(0,"pt")}.}
 
@@ -33,7 +33,7 @@ plot of stacked ggplots
 Use this to arrange ggplot objects, where the axes, plot, and legend are lined up correctly.
 }
 \details{
-Makes use of \code{\link[=patchwork-package]{patchwork}} package to align. The previous version (\code{\link[=gg.stack]{gg.stack()}})
+Makes use of \code{\link[patchwork:patchwork-package]{patchwork}} package to align. The previous version (\code{\link[=gg.stack]{gg.stack()}})
 manually adjusted widths to perform the aligment.
 }
 \examples{

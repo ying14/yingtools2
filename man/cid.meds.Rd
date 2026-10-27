@@ -8,7 +8,7 @@
 data.frame
 }
 \usage{
-cid.meds
+data(cid.meds)
 }
 \description{
 Medications

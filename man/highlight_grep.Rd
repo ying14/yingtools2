@@ -16,7 +16,7 @@ highlight_grep(
 \item{text}{the character vector to be searched.}
 
 \item{...}{regular expression patterns to be searched.
-Can also supply list(matrix) of locations (output from \code{\link[stringr:str_locate]{stringr::str_locate_all()}})
+Can also supply list(matrix) of locations (output from \code{\link[stringr:str_locate_all]{stringr::str_locate_all()}})
 Arguments can be named, in order to specify color.
 If unnamed, default colors are supplied.}
 

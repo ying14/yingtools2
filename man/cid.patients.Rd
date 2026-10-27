@@ -8,7 +8,7 @@
 data.frame
 }
 \usage{
-cid.patients
+data(cid.patients)
 }
 \description{
 Patients

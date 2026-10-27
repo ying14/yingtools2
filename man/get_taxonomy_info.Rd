@@ -6,9 +6,6 @@
 \usage{
 get_taxonomy_info(phy, pct.cutoff = 0.99)
 }
-\arguments{
-\item{pct.cutoff}{}
-}
 \description{
 For each taxonomy level, calculate statistics across samples. Also provides grouping
 variable, for levels that are essentially equivalent.

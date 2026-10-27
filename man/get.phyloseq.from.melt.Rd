@@ -26,7 +26,7 @@ Can be \code{TRUE} (include sample vars, and try to determine which ones),
 
 \item{sample_id}{sample ID variable. Default \code{"sample"}.}
 
-\item{abundance_var}{abundance variable, used to fill \code{\link[phyloseq:otu_table-methods]{phyloseq::otu_table()}}. Default \code{"numseqs"}.}
+\item{abundance_var}{abundance variable, used to fill \code{\link[phyloseq:otu_table]{phyloseq::otu_table()}}. Default \code{"numseqs"}.}
 
 \item{taxa_id}{taxa/OTU ID variable. Default \code{"otu"}.}
 }

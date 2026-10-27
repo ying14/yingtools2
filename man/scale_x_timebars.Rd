@@ -16,7 +16,7 @@ barwidth_spacing_trans(days, xlim, div)
 
 \item{div}{size of the bars, specified as reciprocal fraction of plot width. Default is 30 (1 bar is 1/30th of plot width).}
 
-\item{...}{arguments passed to \code{\link[ggplot2:scale_continuous]{ggplot2::scale_x_continuous()}}}
+\item{...}{arguments passed to \code{\link[ggplot2:scale_x_continuous]{ggplot2::scale_x_continuous()}}}
 }
 \description{
 This geom and scale are used to transform the x-scale such that the scale moves slowly at certain points (\code{day}).

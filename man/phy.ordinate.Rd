@@ -33,7 +33,7 @@ Ordination methods that use a distance matrix:
 
 Ordination methods with no distance matrix:
 \itemize{
-\item \code{RDA}: (passed to \code{\link[vegan:cca]{vegan::rda()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
+\item \code{RDA}: (passed to \code{\link[vegan:rda]{vegan::rda()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{CCA}: (passed to \code{\link[vegan:cca]{vegan::cca()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{DCA}: (passed to \code{\link[phyloseq:decorana]{phyloseq::decorana()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})
 \item \code{DPCoA}: (passed to \code{\link[phyloseq:DPCoA]{phyloseq::DPCoA()}} through \code{\link[phyloseq:ordinate]{phyloseq::ordinate()}})

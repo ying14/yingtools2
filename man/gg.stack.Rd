@@ -20,7 +20,7 @@ gg.stack(
 \arguments{
 \item{...}{ggplot objects to be stacked. Can also supply a formula where left hand side is ggplot, right hand side is height.}
 
-\item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{\link[gridExtra:arrangeGrob]{gridExtra::grid.arrange()}}.}
+\item{heights}{a numeric vector representing the relative height of each plot. Passed directly to \code{\link[gridExtra:grid.arrange]{gridExtra::grid.arrange()}}.}
 
 \item{align.xlim}{logical, whether or not to alter the x-limits in each plot to match. Default is \code{FALSE}. (Note this is experimental and can potentially fail in strange situations)}
 

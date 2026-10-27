@@ -8,7 +8,7 @@
 data.frame
 }
 \usage{
-cid.cdiff
+data(cid.cdiff)
 }
 \description{
 C. diff results

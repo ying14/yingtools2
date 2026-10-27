@@ -20,7 +20,7 @@ Data frame containing \link[phyloseq:sample_data-class]{sample_data} data.
 Returns \link[phyloseq:sample_data-class]{sample_data} component from phyloseq object, as a data frame.
 }
 \details{
-This basically is similar to the function \code{\link[phyloseq:sample_data-methods]{phyloseq::sample_data()}}, but does a few extra things.
+This basically is similar to the function \code{\link[phyloseq:sample_data]{phyloseq::sample_data()}}, but does a few extra things.
 \enumerate{
 \item Converts to a data frame
 \item The sample name is stored in a column called \code{sample}. (\code{\link[phyloseq:phyloseq-class]{phyloseq}} normally stores as a row name)

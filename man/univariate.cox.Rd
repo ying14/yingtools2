@@ -28,7 +28,7 @@ univariate.cox(
 
 \item{multi.cutoff}{P-value threshold for inclusion into the multivariate model (default is \code{0.25})}
 
-\item{formatted}{returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{\link[broom:reexports]{broom::tidy()}}, plus a few additional columns)}
+\item{formatted}{returns a formatted regression table (default \code{TRUE}). Otherwise, return the raw, unformatted regression table (essentially, the output of \code{\link[broom:tidy]{broom::tidy()}}, plus a few additional columns)}
 }
 \value{
 by default, returns a formatted regression table

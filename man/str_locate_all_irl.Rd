@@ -47,7 +47,7 @@ str_detect_irl(irl)
 Single \code{\link[IRanges:IRangesList-class]{IRangesList}} object
 }
 \description{
-Similar to \code{\link[stringr:str_locate]{stringr::str_locate_all()}}, but outputs an \code{\link[IRanges:IRangesList-class]{IRangesList}} object.
+Similar to \code{\link[stringr:str_locate_all]{stringr::str_locate_all()}}, but outputs an \code{\link[IRanges:IRangesList-class]{IRangesList}} object.
 
 Combine multiple \code{\link[IRanges:IRangesList-class]{IRangesList}} objects into a
 single \code{\link[IRanges:IRangesList-class]{IRangesList}} object.

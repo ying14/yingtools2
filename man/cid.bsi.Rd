@@ -8,7 +8,7 @@
 data.frame
 }
 \usage{
-cid.bsi
+data(cid.bsi)
 }
 \description{
 Bloodstream Infections

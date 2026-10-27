@@ -7,7 +7,7 @@
 scale_sample.colour_discrete(..., aesthetics = "sample.colour")
 }
 \description{
-In \code{\link[=geom_taxonomy]{geom_taxonomy()}}, used as default scale for aesthetic \code{sample.colour}. Same as \code{\link[ggplot2:scale_hue]{ggplot2::scale_colour_hue()}}.
+In \code{\link[=geom_taxonomy]{geom_taxonomy()}}, used as default scale for aesthetic \code{sample.colour}. Same as \code{\link[ggplot2:scale_colour_hue]{ggplot2::scale_colour_hue()}}.
 }
 \details{
 If \code{sample.colour} is specified as an aesthetic, the layer will search for a default scale by name

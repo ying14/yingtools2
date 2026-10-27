@@ -8,7 +8,7 @@
 data.frame
 }
 \usage{
-cid.hosp
+data(cid.hosp)
 }
 \description{
 Hospitalizations

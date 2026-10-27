@@ -40,7 +40,7 @@ Inspect, or convert back and forth between:
 }
 \details{
 \itemize{
-\item \code{locs}: list of matrices, output of \code{\link[stringr:str_locate]{stringr::str_locate_all()}}.
+\item \code{locs}: list of matrices, output of \code{\link[stringr:str_locate_all]{stringr::str_locate_all()}}.
 \item \code{irl}: \code{\link[IRanges:IRangesList-class]{IRangesList}} object,
 \item \code{df}: ranged data frame, modified data frame version of \code{irl}
 }

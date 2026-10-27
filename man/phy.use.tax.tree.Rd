@@ -7,9 +7,9 @@
 phy.use.tax.tree(phy, collapse.singles = TRUE)
 }
 \arguments{
-\item{phy}{phyloseq object to be modified (should contain \code{\link[phyloseq:tax_table-methods]{phyloseq::tax_table()}} element)}
+\item{phy}{phyloseq object to be modified (should contain \code{\link[phyloseq:tax_table]{phyloseq::tax_table()}} element)}
 
-\item{collapse.singles}{argument passed on to \code{\link[=as.phylo.formula]{as.phylo.formula()}}. Default is \code{TRUE}. Note that this is necessary for
+\item{collapse.singles}{argument passed on to \code{\link[ape:as.phylo.formula]{as.phylo.formula()}}. Default is \code{TRUE}. Note that this is necessary for
 making sure number of nodes in the tree does not exceed number of tips; turns out to be a problem if you are using
 this to calculate Unifrac distances in \code{\link[=calc.distance]{calc.distance()}}}
 }
@@ -17,8 +17,8 @@ this to calculate Unifrac distances in \code{\link[=calc.distance]{calc.distance
 a modified phyloseq object
 }
 \description{
-Creates a tree from taxonomy (using \code{\link[=as.phylo.formula]{as.phylo.formula()}}), and uses that as the phyloseq object's
-\code{\link[phyloseq:phy_tree-methods]{phyloseq::phy_tree()}} element.
+Creates a tree from taxonomy (using \code{\link[ape:as.phylo.formula]{as.phylo.formula()}}), and uses that as the phyloseq object's
+\code{\link[phyloseq:phy_tree]{phyloseq::phy_tree()}} element.
 }
 \examples{
 phy.use.tax.tree(cid.phy)

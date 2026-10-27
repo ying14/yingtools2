@@ -25,10 +25,10 @@ this is designed to be the arguments that can be plugged into \code{\link[callr:
 }
 \description{
 Use these to run code in a separate instance of R, separate from your current console.
-This is essentially doing what the \code{\link{callr}} package does, but just adds a few modifications to make it easier to use.
+This is essentially doing what the \code{\link[callr:callr]{callr}} package does, but just adds a few modifications to make it easier to use.
 }
 \details{
-In some cases it is useful to run code in a separate R session... this is where functions from the \code{\link{callr}} package
+In some cases it is useful to run code in a separate R session... this is where functions from the \code{\link[callr:callr]{callr}} package
 come in handy, such as \code{\link[callr:r]{callr::r()}} or \code{\link[callr:r_bg]{callr::r_bg()}}. However, in order to use these, you have to be sure to:
 \enumerate{
 \item place the code inside an anonymous function,

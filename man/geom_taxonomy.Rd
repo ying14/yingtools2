@@ -108,7 +108,7 @@ lists which parameters it can accept.
 \item{na.rm}{If \code{FALSE}, the default, missing values are removed with
 a warning. If \code{TRUE}, missing values are silently removed.}
 
-\item{parse}{The same argument used in \code{\link[=geom_text]{geom_text()}}. Only applies if \code{fit.text=FALSE}.}
+\item{parse}{The same argument used in \code{\link[ggplot2:geom_text]{geom_text()}}. Only applies if \code{fit.text=FALSE}.}
 
 \item{tax.palette}{a list of formulas used to assign colors. Each element should take the form: \verb{"<label>" = <true/false expression> ~ <color vector>}. See \code{\link[=scale_fill_taxonomy]{scale_fill_taxonomy()}} for examples and details.}
 
@@ -118,7 +118,7 @@ a warning. If \code{TRUE}, missing values are silently removed.}
 
 \item{contrast}{Whether or not to vary font color based on background fill. Default is \code{FALSE}. Only applies if \code{fit.text=TRUE}.}
 
-\item{check_overlap}{The same argument used in \code{\link[=geom_text]{geom_text()}}. This is only applicable if if \code{fit.text=FALSE}.}
+\item{check_overlap}{The same argument used in \code{\link[ggplot2:geom_text]{geom_text()}}. This is only applicable if if \code{fit.text=FALSE}.}
 
 \item{show.ribbon}{whether or not to display transition lines in the background. Default is \code{FALSE}.}
 
@@ -143,14 +143,14 @@ the default plot specification, e.g. \code{\link[ggplot2:annotation_borders]{ann
 Creates stacked taxonomy barplots.
 }
 \details{
-This geom is similar to \code{\link[ggplot2:geom_bar]{ggplot2::geom_col()}}, where you can draw stacked barplots.
+This geom is similar to \code{\link[ggplot2:geom_col]{ggplot2::geom_col()}}, where you can draw stacked barplots.
 However there are a few additional capabilities:
 \enumerate{
 \item You can specify the aesthetic \code{label} to write text labels inside the bars.
 The text labels can be further tweaked using aesthetics (\code{fontsize}, \code{fontcolour}, \code{fontface}, \code{fontalpha}),
 or other parameters (\code{fit.text}, \code{reflow}, \code{contrast}, \code{label.split}, \code{parse}, \code{check_overlap})
 \item If Y-axis is transformed, the total Y bar height will be correct.
-In \code{\link[ggplot2:geom_bar]{ggplot2::geom_col()}}, stacking of individual transformed Y values often leads to strange results.
+In \code{\link[ggplot2:geom_col]{ggplot2::geom_col()}}, stacking of individual transformed Y values often leads to strange results.
 Here, the transformed Y totals for each bar is calculated and plotted.
 Fill colors occupy the barspace proportionally.
 }

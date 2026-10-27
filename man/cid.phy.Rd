@@ -8,7 +8,7 @@
 phyloseq
 }
 \usage{
-cid.phy
+data(cid.phy)
 }
 \description{
 16S sequence data

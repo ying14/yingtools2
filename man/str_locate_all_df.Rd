@@ -37,7 +37,7 @@ str_find_gaps_df(df, string, pad = 0)
 \item{string}{character vector to be searched/replaced}
 
 \item{...}{regular expression patterns to be searched.
-Can alternatively supply locations... list of matrices, corresponding to output from \code{\link[stringr:str_locate]{stringr::str_locate_all()}}.
+Can alternatively supply locations... list of matrices, corresponding to output from \code{\link[stringr:str_locate_all]{stringr::str_locate_all()}}.
 Can be named, which will keep in a column (callled \code{group}) in data frame output.}
 
 \item{df}{data frame containing location, plus/minus additional output.
@@ -56,7 +56,7 @@ A set of modified functions for searching and replacing using regular expression
 \code{str_sub_all_df()} extracts the hits,
 \code{str_sub_all_replace_df()} replaces new text.
 These use some functions used for conversion or manipulation:
-\code{str_locs2df()} converts location data (list of matrices, output of \code{\link[stringr:str_locate]{stringr::str_locate_all()}}) to data frame.
+\code{str_locs2df()} converts location data (list of matrices, output of \code{\link[stringr:str_locate_all]{stringr::str_locate_all()}}) to data frame.
 \code{str_df2locs()} converts data frame to location data.
 \code{str_df2strlist()} converts a column in data frame to character list (output of \code{\link[stringi:stri_sub_all]{stringi::stri_sub_all()}}).
 \code{str_df2irange()} converts data frame to \code{IRanges} list.
@@ -65,9 +65,9 @@ These use some functions used for conversion or manipulation:
 }
 \details{
 The functions are meant to make manipulations easier, by storing results in a data frame rather than list of matrices, etc.
-\code{str_locate_all_df()} is equivalent to \code{\link[stringr:str_locate]{stringr::str_locate_all()}}
+\code{str_locate_all_df()} is equivalent to \code{\link[stringr:str_locate_all]{stringr::str_locate_all()}}
 \code{str_sub_all_df()} is equivalent to \code{\link[stringi:stri_sub_all]{stringi::stri_sub_all()}}
-\code{str_sub_all_replace_df()} is equivalent to \code{\link[stringi:stri_sub_all]{stringi::stri_sub_all_replace()}}
+\code{str_sub_all_replace_df()} is equivalent to \code{\link[stringi:stri_sub_all_replace]{stringi::stri_sub_all_replace()}}
 }
 \examples{
 library(tidyverse)

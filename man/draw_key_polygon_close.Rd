@@ -7,6 +7,6 @@
 draw_key_polygon_close(data, params, size)
 }
 \description{
-Same as \code{\link[ggplot2:draw_key]{ggplot2::draw_key_polygon()}}, but with zero gap width.
+Same as \code{\link[ggplot2:draw_key_polygon]{ggplot2::draw_key_polygon()}}, but with zero gap width.
 Used in \code{\link[=guide_gengrob.taxonomy]{guide_gengrob.taxonomy()}}.
 }

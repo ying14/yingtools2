@@ -1184,6 +1184,11 @@ compare_relationship <- function(x,y) {
 #' @rdname compare_relationship
 #' @export
 is.one.to.one <- function(x,y) {
+
+  # consider this way:
+  # n_pairs <- n_distinct(x, y)
+  # n_pairs == n_distinct(x) && n_pairs == n_distinct(y)
+
   rel <- compare_relationship(x,y)
   return(rel=="one-to-one")
 }
@@ -7457,6 +7462,188 @@ read_excel2 <- function(path, sheet = 1, col_names = TRUE, col_types = NULL, na 
 
 # miscellaneous system operation functions --------------------------------
 
+
+
+#' Check Pushover credentials
+#'
+#' Check that the environment variables required to authenticate with the
+#' Pushover API are defined and non-empty.
+#'
+#' @return Invisibly returns `TRUE` if both credentials are available.
+#' @keywords internal
+#'
+#' @examples
+#' \dontrun{
+#' check_pushover_credentials()
+#' }
+check_pushover_credentials <- function() {
+  credentials <- c(
+    PUSHOVER_APP_TOKEN = Sys.getenv("PUSHOVER_APP_TOKEN"),
+    PUSHOVER_USER_KEY = Sys.getenv("PUSHOVER_USER_KEY")
+  )
+
+  missing_credentials <- names(credentials)[
+    !nzchar(credentials)
+  ]
+
+  if (length(missing_credentials) > 0L) {
+    cli::cli_abort(
+      c(
+        "Pushover credentials are missing or empty.",
+        "x" = "Set the following environment variable{?s}:",
+        "i" = "{missing_credentials}"
+      ),
+      class = "pushover_credentials_error"
+    )
+  }
+
+  invisible(TRUE)
+}
+
+
+#' Send a Pushover notification
+#'
+#' Send a notification through the Pushover Messages API. Supports normal,
+#' high-priority, and emergency notifications, along with optional message
+#' formatting, sounds, URLs, and emergency acknowledgment callbacks.
+#'
+#' @param message Character string containing the notification message.
+#'   Required. The message may contain up to 1024 characters.
+#' @param title Optional character string specifying the notification title.
+#'   Defaults to the application's registered name.
+#' @param priority Integer specifying the notification priority:
+#'   \describe{
+#'     \item{-2}{Lowest priority.}
+#'     \item{-1}{Low priority.}
+#'     \item{0}{Normal priority (default).}
+#'     \item{1}{High priority.}
+#'     \item{2}{Emergency priority.}
+#'   }
+#' @param sound Optional character string specifying the notification sound.
+#'   Defaults to the user's configured sound. Available sounds are listed at
+#'   <https://pushover.net/api#sounds>.
+#' @param device Optional character string specifying the target device.
+#'   Defaults to all registered devices.
+#' @param url Optional character string containing a supplementary URL.
+#' @param url_title Optional character string specifying the URL's display
+#'   title. Defaults to the URL itself.
+#' @param timestamp Optional Unix timestamp specifying the message creation
+#'   time. Defaults to the time the API receives the message.
+#' @param ttl Optional integer specifying the message's time to live in
+#'   seconds. Defaults to no explicit expiration time.
+#' @param html Integer indicating whether supported HTML formatting is enabled.
+#'   Use `1` to enable HTML and `0` (default) to disable it.
+#' @param monospace Integer indicating whether the message is displayed in
+#'   a monospace font. Use `1` to enable it and `0` (default) to disable it.
+#' @param retry Integer specifying the interval, in seconds, between repeated
+#'   emergency notifications. Required when `priority = 2`. Must be at least
+#'   30 seconds.
+#' @param expire Integer specifying the maximum duration, in seconds, for
+#'   repeated emergency notifications. Required when `priority = 2`.
+#'   Cannot exceed 10800 seconds (3 hours).
+#' @param callback Optional character string containing a publicly accessible
+#'   URL that Pushover calls when an emergency notification is acknowledged.
+#' @param tags Optional character string containing comma-separated tags
+#'   associated with an emergency notification.
+#'
+#' @details
+#' The application API token and user key are obtained from the environment
+#' variables `PUSHOVER_APP_TOKEN` and `PUSHOVER_USER_KEY`, respectively.
+#'
+#' Emergency notifications (`priority = 2`) require both `retry` and `expire`.
+#' Pushover repeats the notification until it is acknowledged or the
+#' expiration period is reached.
+#'
+#' @return A list containing the parsed JSON response from the Pushover
+#'   Messages API. For a successful request, the response includes `status`
+#'   and `request` fields. Emergency notifications may also return a
+#'   `receipt` field.
+#'
+#' @seealso
+#'   <https://pushover.net/api>
+#'
+#' @examples
+#' \dontrun{
+#' pushover_send(
+#'   message = "Analysis complete",
+#'   title = "Research Workflow"
+#' )
+#'
+#' pushover_send(
+#'   message = "Please acknowledge this alert",
+#'   title = "Urgent",
+#'   priority = 2,
+#'   retry = 120,
+#'   expire = 1800
+#' )
+#' }
+#'
+#' @export
+pushover_send <- function(
+    message,
+    title = NULL,
+    sound = NULL,
+    priority = 0,
+    retry = NULL,
+    expire = NULL,
+    device = NULL,
+    url = NULL,
+    url_title = NULL,
+    timestamp = NULL,
+    ttl = NULL,
+    html = 0,
+    monospace = 0,
+    callback = NULL,
+    tags = NULL
+) {
+
+  check_pushover_credentials()
+
+  app_token <- Sys.getenv("PUSHOVER_APP_TOKEN")
+  user_key <- Sys.getenv("PUSHOVER_USER_KEY")
+
+  request_body <- list(
+    token = app_token,
+    user = user_key,
+    message = message,
+    priority = priority,
+    html = html,
+    monospace = monospace
+  )
+
+  optional_fields <- list(
+    title = title,
+    sound = sound,
+    device = device,
+    url = url,
+    url_title = url_title,
+    timestamp = timestamp,
+    ttl = ttl,
+    retry = retry,
+    expire = expire,
+    callback = callback,
+    tags = tags
+  )
+
+  # Add optional fields only when supplied
+  optional_fields <- optional_fields[
+    !purrr::map_lgl(optional_fields, is.null)
+  ]
+
+  request_body <- c(request_body, optional_fields)
+
+  response <- httr2::request("https://api.pushover.net/1/messages.json") |>
+    httr2::req_method("POST") |>
+    httr2::req_body_form(!!!request_body) |>
+    httr2::req_perform()
+
+  result <- httr2::resp_body_json(response)
+
+  if (result$status != 1) {
+    stop("Pushover notification failed.")
+  }
+  invisible(result)
+}
 
 
 
